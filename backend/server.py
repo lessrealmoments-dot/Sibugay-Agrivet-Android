@@ -108,6 +108,39 @@ async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_nu
         "user_id": user_id, "user_name": user_name, "created_at": now_iso()
     })
 
+async def log_sale_items(branch_id, date, items, invoice_number, customer_name, payment_method, cashier_name):
+    """Record each sold item to sequential sales log"""
+    last = await db.sales_log.find_one({"branch_id": branch_id, "date": date}, {"_id": 0}, sort=[("sequence", -1)])
+    seq = last["sequence"] if last else 0
+    running = last["running_total"] if last else 0
+    for item in items:
+        seq += 1
+        lt = float(item.get("total", item.get("quantity", 0) * item.get("rate", item.get("price", 0))))
+        running = round(running + lt, 2)
+        entry = {
+            "id": new_id(), "branch_id": branch_id, "date": date, "sequence": seq,
+            "time": datetime.now(timezone.utc).strftime("%H:%M:%S"), "timestamp": now_iso(),
+            "product_name": item.get("product_name", ""), "product_id": item.get("product_id", ""),
+            "quantity": float(item.get("quantity", 0)),
+            "unit_price": float(item.get("rate", item.get("price", 0))),
+            "discount": float(item.get("discount_amount", 0)),
+            "line_total": lt, "running_total": running,
+            "category": item.get("category", ""),
+            "invoice_number": invoice_number, "customer_name": customer_name,
+            "payment_method": payment_method, "cashier_name": cashier_name,
+        }
+        await db.sales_log.insert_one(entry)
+
+async def get_active_date(branch_id):
+    """Return today's date unless closed, then return next day"""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    closed = await db.daily_closings.find_one({"branch_id": branch_id, "date": today, "status": "closed"}, {"_id": 0})
+    if closed:
+        from datetime import timedelta
+        next_day = (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d")
+        return next_day
+    return today
+
 # ==================== AUTH ROUTES ====================
 @api_router.post("/auth/login")
 async def login(data: dict):

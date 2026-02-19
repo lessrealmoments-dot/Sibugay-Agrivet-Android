@@ -445,6 +445,60 @@ class AgriPOSAPITester:
         
         return True
 
+    def test_pos_todays_report_and_close_day(self):
+        """Test POS page Today's Report and Close Day functionality"""
+        print("\n📊 Testing POS Today's Report and Close Day APIs...")
+        
+        branch_id = "test_branch_001"
+        date = datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. Test /api/daily-report (Same as Daily Operations but accessed from POS)
+        success, data, error = self.make_request('GET', 'daily-report', {'date': date, 'branch_id': branch_id})
+        has_report_fields = False
+        if success and data:
+            expected_fields = ['total_revenue', 'total_cogs', 'gross_profit', 'total_expenses', 'net_profit', 'sales_by_category']
+            has_report_fields = all(field in data for field in expected_fields)
+        self.log_test("POS Today's Report - GET /api/daily-report", success and has_report_fields, 
+                     {"revenue": data.get('total_revenue') if data else None, 
+                      "expenses": data.get('total_expenses') if data else None,
+                      "net_profit": data.get('net_profit') if data else None}, error)
+        
+        # 2. Test /api/daily-close/{date} (GET) - Check if day is already closed
+        success, data, error = self.make_request('GET', f'daily-close/{date}', {'branch_id': branch_id})
+        is_open = success and data and data.get('status') != 'closed'
+        self.log_test("POS Close Day - Check if day is open", success, 
+                     {"status": data.get('status') if data else None}, error)
+        
+        # 3. Only test closing if day is not already closed
+        if is_open and success:
+            close_data = {
+                "actual_cash": 8000.0,
+                "bank_checks": 500.0,
+                "other_payment_forms": 200.0,
+                "cash_to_drawer": 2000.0,
+                "cash_to_safe": 6000.0,
+                "date": date,
+                "branch_id": branch_id
+            }
+            success, data, error = self.make_request('POST', 'daily-close', close_data)
+            close_successful = success and data and 'extra_cash' in data
+            self.log_test("POS Close Day - POST /api/daily-close", close_successful, 
+                         {"extra_cash": data.get('extra_cash') if data else None,
+                          "status": data.get('status') if data else None,
+                          "safe_balance": data.get('safe_balance') if data else None}, error)
+            
+            # 4. Verify closing by checking status again
+            if close_successful:
+                success, data, error = self.make_request('GET', f'daily-close/{date}', {'branch_id': branch_id})
+                is_closed = success and data and data.get('status') == 'closed'
+                self.log_test("POS Close Day - Verify day closed", is_closed, 
+                             {"status": data.get('status') if data else None,
+                              "closed_by": data.get('closed_by_name') if data else None}, error)
+        else:
+            self.log_test("POS Close Day - POST /api/daily-close", False, None, "Day already closed or status check failed")
+        
+        return True
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting AgriPOS Backend API Tests...")

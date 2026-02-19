@@ -287,9 +287,13 @@ export default function PurchaseOrderPage() {
                       <TableCell className="font-medium">{po.vendor}</TableCell>
                       <TableCell>{po.items?.length || 0}</TableCell>
                       <TableCell className="text-right font-semibold">{formatPHP(po.subtotal)}</TableCell>
-                      <TableCell className="text-xs text-slate-500">{po.expected_date || '—'}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{po.purchase_date || po.expected_date || '—'}</TableCell>
+                      <TableCell>
+                        <Badge className={`text-[10px] ${po.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : po.payment_status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                          {po.payment_method === 'credit' ? 'Credit' : 'Cash'} · {po.payment_status || (po.payment_method === 'cash' ? 'paid' : 'unpaid')}
+                        </Badge>
+                      </TableCell>
                       <TableCell><Badge className={`text-[10px] ${statusColor(po.status)}`}>{po.status}</Badge></TableCell>
-                      <TableCell className="text-xs text-slate-500">{new Date(po.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           {po.status === 'ordered' && (

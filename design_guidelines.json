@@ -1,0 +1,142 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "AgriPOS",
+      "tone": "Professional, Efficient, Trustworthy, Organic, Robust",
+      "archetype": "Organic & Earthy (Professionalized)",
+      "target_audience": "Agricultural business owners, branch managers, cashiers"
+    },
+    "typography": {
+      "headings": {
+        "family": "Manrope, sans-serif",
+        "weights": ["600", "700"],
+        "usage": "Use for all page titles, section headers, and modal titles. Tracking tight."
+      },
+      "body": {
+        "family": "IBM Plex Sans, sans-serif",
+        "weights": ["400", "500", "600"],
+        "usage": "Use for all data tables, inputs, labels, and long-form text. Excellent for numbers."
+      },
+      "scale": {
+        "h1": "text-4xl font-bold tracking-tight",
+        "h2": "text-3xl font-semibold tracking-tight",
+        "h3": "text-2xl font-semibold",
+        "p": "text-base leading-relaxed",
+        "small": "text-sm text-muted-foreground",
+        "mono": "font-mono text-sm"
+      }
+    },
+    "colors": {
+      "primary": {
+        "name": "Deep Forest Green",
+        "hex": "#1A4D2E",
+        "description": "Used for primary actions, active states, and brand identity. Represents growth and stability."
+      },
+      "secondary": {
+        "name": "Earthy Beige",
+        "hex": "#F5F5F0",
+        "description": "Used for page backgrounds (outside of cards) to reduce eye strain and add warmth."
+      },
+      "accent": {
+        "name": "Harvest Gold",
+        "hex": "#D97706",
+        "description": "Used sparingly for warnings, highlights, or 'Special' price schemes."
+      },
+      "neutral": {
+        "white": "#FFFFFF",
+        "surface": "#FFFFFF",
+        "border": "#E2E8F0",
+        "text_primary": "#0F172A",
+        "text_secondary": "#64748B"
+      },
+      "sidebar": {
+        "bg": "#0F172A",
+        "text": "#F8FAFC",
+        "active_bg": "#1A4D2E",
+        "active_text": "#FFFFFF"
+      },
+      "forbidden": ["#7351B7", "#1B93A4"]
+    },
+    "layout": {
+      "grid_system": "Bento Grid (Mode B - High Density)",
+      "spacing": "Generous (p-6, p-8) for containers, Tight (gap-4) for data grids.",
+      "container_style": "Flat cards with 1px border (border-slate-200) and subtle rounded corners (rounded-lg). No heavy shadows.",
+      "sidebar_style": "Fixed dark sidebar, collapsible on mobile.",
+      "responsive_rules": "Mobile-first. Tables must have horizontal scroll on mobile. POS interface must be touch-friendly (large tap targets)."
+    },
+    "components": {
+      "buttons": {
+        "style": "Solid rectangular with slight rounding (rounded-md).",
+        "primary": "bg-[#1A4D2E] hover:bg-[#14532d] text-white",
+        "secondary": "bg-white border border-slate-200 hover:bg-slate-50 text-slate-900",
+        "destructive": "bg-red-600 hover:bg-red-700 text-white"
+      },
+      "cards": {
+        "style": "bg-white border border-slate-200 rounded-lg p-6",
+        "hover": "hover:border-[#1A4D2E]/30 transition-colors duration-200"
+      },
+      "inputs": {
+        "style": "bg-white border-slate-200 focus:ring-[#1A4D2E] focus:border-[#1A4D2E] rounded-md h-10"
+      },
+      "tables": {
+        "style": "w-full text-sm text-left",
+        "header": "bg-slate-50 text-slate-500 font-medium uppercase tracking-wider",
+        "row": "border-b border-slate-100 hover:bg-slate-50/50",
+        "cell": "py-3 px-4"
+      },
+      "toasts": {
+        "library": "sonner",
+        "position": "bottom-right"
+      }
+    },
+    "visual_enhancers": {
+      "textures": "Subtle noise on the sidebar background to give it a 'premium tool' feel.",
+      "icons": "Lucide React (Default). Use stroke-width={1.5} for a clean, technical look.",
+      "motion": "Micro-interactions only. Hover states on rows/cards. Smooth transitions for modal open/close."
+    },
+    "accessibility": {
+      "contrast": "Ensure text-to-background ratio is at least 4.5:1.",
+      "focus_states": "Visible focus ring with high contrast color (#1A4D2E).",
+      "reduced_motion": "Respect user preferences."
+    },
+    "image_assets": {
+      "login_bg": {
+        "url": "https://images.pexels.com/photos/7019226/pexels-photo-7019226.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "alt": "Agricultural warehouse professional"
+      },
+      "product_fertilizer": {
+        "url": "https://images.pexels.com/photos/21773935/pexels-photo-21773935.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "alt": "Fertilizer bag"
+      },
+      "product_seeds": {
+        "url": "https://images.pexels.com/photos/26493134/pexels-photo-26493134.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "alt": "Wildflower seeds packet"
+      },
+      "product_tools": {
+        "url": "https://images.pexels.com/photos/7299975/pexels-photo-7299975.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "alt": "Farming tools category"
+      },
+      "user_avatar": {
+        "url": "https://images.unsplash.com/photo-1755960749300-c4b95ebdf25d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1NzZ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBzdG9yZSUyMGNhc2hpZXIlMjBzbWlsaW5nJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzcxNDY4ODUwfDA&ixlib=rb-4.1.0&q=85",
+        "alt": "Senior cashier profile"
+      }
+    },
+    "instructions_to_main_agent": [
+      "Follow the Bento Grid 'Mode B' for the dashboard layout: high density, data-first.",
+      "The Sidebar MUST be dark (#0F172A). The main content area MUST be light (#F5F5F0 background, White cards).",
+      "Use 'Manrope' for all Headings (h1-h6) and 'IBM Plex Sans' for body text. Add these fonts via Google Fonts.",
+      "The POS interface should be 'Full Screen' capable and have large touch targets for the 'Add to Cart' actions.",
+      "For the 'Parent/Repack' system visual: Use a visual hierarchy where Repacks are indented or connected via a line to the Parent product in the list.",
+      "Tables must support pagination and filtering. Use Shadcn Table component.",
+      "Do NOT use purple or violet gradients. Stick to the Green/Beige/White palette.",
+      "Add 'data-testid' to all interactive elements (buttons, inputs, row actions)."
+    ],
+    "universal_guidelines": [
+      "Avoid 'AI Slop': No generic centered layouts. Use asymmetry and grid tension.",
+      "Micro-animations: Add hover states, active states, and focus transitions.",
+      "Spacing: Use generous padding inside cards (p-6, p-8) but tight spacing between data points.",
+      "Glassmorphism: Use subtle glass effects on sticky headers or modal overlays (backdrop-blur-md).",
+      "No 'Robot' Emojis: Use professional Lucide icons instead."
+    ]
+  }
+}

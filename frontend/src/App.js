@@ -41,6 +41,7 @@ function AppRoutes() {
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
       <Route path="/products/:id" element={<ProtectedRoute><ProductDetailPage /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+      <Route path="/sales-new" element={<ProtectedRoute><UnifiedSalesPage /></ProtectedRoute>} />
       <Route path="/pos" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
       <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
       <Route path="/price-schemes" element={<ProtectedRoute><PriceSchemesPage /></ProtectedRoute>} />

@@ -3401,13 +3401,6 @@ async def update_user(user_id: str, data: dict, user=Depends(get_current_user)):
     updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     return updated
 
-@api_router.put("/users/{user_id}/permissions")
-async def update_user_permissions(user_id: str, data: dict, user=Depends(get_current_user)):
-    check_perm(user, "settings", "manage_users")
-    await db.users.update_one({"id": user_id}, {"$set": {"permissions": data["permissions"], "updated_at": now_iso()}})
-    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
-    return updated
-
 @api_router.put("/users/{user_id}/reset-password")
 async def reset_user_password(user_id: str, data: dict, user=Depends(get_current_user)):
     check_perm(user, "settings", "manage_users")

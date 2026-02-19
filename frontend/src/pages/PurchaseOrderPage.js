@@ -23,7 +23,6 @@ export default function PurchaseOrderPage() {
   const [orders, setOrders] = useState([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [prefixes, setPrefixes] = useState({});
-  const [wallets, setWallets] = useState([]);
   const [header, setHeader] = useState({
     vendor: '', branch_id: '', purchase_date: new Date().toISOString().slice(0, 10), notes: '', status: 'ordered', payment_method: 'cash',
   });

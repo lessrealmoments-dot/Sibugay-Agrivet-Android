@@ -133,3 +133,8 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Employee Management**: Add employees with name/position. Track monthly cash advance totals.
 - **Farm Expense System**: When recording farm expense, selects customer/farm + purpose tag. Auto-creates receivable invoice ("Farm Cash Out - Tilling") added to customer's balance.
 - **Day Lock**: Once closed, new sales auto-go to next day. Prevents edits on closed dates.
+
+### Bug Fix: Badge Overlay (Feb 19, 2026)
+- **Issue**: "Made with Emergent" badge at bottom-right (z-index: 9999) was obstructing UI buttons (Checkout, Close Day, etc.)
+- **Fix**: Added CSS override in `index.css` to hide `#emergent-badge` with `display: none !important` + multiple fallbacks
+- **Status**: VERIFIED - Badge hidden, all UI elements accessible

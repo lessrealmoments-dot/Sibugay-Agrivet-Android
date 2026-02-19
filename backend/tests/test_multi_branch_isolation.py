@@ -368,6 +368,22 @@ class TestBranchIsolationMissing:
         })
         return session
     
+    @pytest.fixture(scope="class")
+    def cashier_session(self):
+        """Login as cashier1 who is assigned to Main Branch"""
+        session = requests.Session()
+        response = session.post(f"{BASE_URL}/api/auth/login", json={
+            "username": "cashier1",
+            "password": "password123"
+        })
+        data = response.json()
+        session.headers.update({
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {data.get('token')}"
+        })
+        session.user = data.get("user")
+        return session
+    
     def test_branch_summary_not_mounted(self, admin_session):
         """Verify that branch-summary endpoint from routes/dashboard.py is NOT available"""
         response = admin_session.get(f"{BASE_URL}/api/dashboard/branch-summary")
@@ -398,6 +414,81 @@ class TestBranchIsolationMissing:
         if not non_admin_with_branch:
             print("⚠ WARNING: No non-admin users have branch assignments")
             print("  Branch isolation cannot be tested without assigned branches")
+    
+    def test_cashier_can_see_all_branches_invoices_BUG(self, cashier_session):
+        """
+        CRITICAL BUG: Cashier should only see invoices from their branch
+        but can currently see ALL branches.
+        """
+        user_branch = cashier_session.user.get("branch_id")
+        print(f"Cashier's branch_id: {user_branch}")
+        
+        response = cashier_session.get(f"{BASE_URL}/api/invoices?limit=100")
+        assert response.status_code == 200
+        
+        data = response.json()
+        invoices = data.get("invoices", [])
+        
+        # Count invoices by branch
+        branch_counts = {}
+        for inv in invoices:
+            b = inv.get("branch_id", "no-branch")
+            branch_counts[b] = branch_counts.get(b, 0) + 1
+        
+        print(f"⚠ BUG: Cashier can see {len(invoices)} invoices from {len(branch_counts)} branches:")
+        for bid, count in branch_counts.items():
+            prefix = "✓" if bid == user_branch else "✗ SHOULD NOT SEE"
+            print(f"  {prefix} {bid}: {count} invoices")
+        
+        # This SHOULD fail but documents the bug
+        other_branches_count = sum(c for b, c in branch_counts.items() if b != user_branch)
+        if other_branches_count > 0:
+            print(f"⚠ SECURITY BUG: Cashier can see {other_branches_count} invoices from other branches!")
+    
+    def test_cashier_can_see_all_branches_pos_BUG(self, cashier_session):
+        """
+        CRITICAL BUG: Cashier should only see POs from their branch
+        but can currently see ALL branches.
+        """
+        user_branch = cashier_session.user.get("branch_id")
+        
+        response = cashier_session.get(f"{BASE_URL}/api/purchase-orders")
+        assert response.status_code == 200
+        
+        data = response.json()
+        pos = data.get("purchase_orders", [])
+        
+        branch_counts = {}
+        for po in pos:
+            b = po.get("branch_id", "no-branch")
+            branch_counts[b] = branch_counts.get(b, 0) + 1
+        
+        print(f"⚠ BUG: Cashier can see {len(pos)} POs from {len(branch_counts)} branches:")
+        for bid, count in branch_counts.items():
+            prefix = "✓" if bid == user_branch else "✗ SHOULD NOT SEE"
+            print(f"  {prefix} {bid}: {count} POs")
+        
+        other_branches_count = sum(c for b, c in branch_counts.items() if b != user_branch)
+        if other_branches_count > 0:
+            print(f"⚠ SECURITY BUG: Cashier can see {other_branches_count} POs from other branches!")
+    
+    def test_cashier_sees_global_dashboard_stats_BUG(self, cashier_session):
+        """
+        CRITICAL BUG: Cashier should only see stats for their branch
+        but currently sees global stats from ALL branches.
+        """
+        response = cashier_session.get(f"{BASE_URL}/api/dashboard/stats")
+        assert response.status_code == 200
+        
+        data = response.json()
+        
+        print(f"⚠ BUG: Cashier sees global dashboard stats:")
+        print(f"  - Today revenue: {data.get('today_revenue')} (should be branch-filtered)")
+        print(f"  - Total receivables: {data.get('total_receivables')} (should be branch-filtered)")
+        print(f"  - Branches visible: {len(data.get('branches', []))} (should be 1)")
+        
+        if len(data.get('branches', [])) > 1:
+            print(f"  ⚠ SECURITY: Cashier can see {len(data.get('branches', []))} branches instead of 1")
 
 
 if __name__ == "__main__":

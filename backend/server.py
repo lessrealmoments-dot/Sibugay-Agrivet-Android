@@ -961,6 +961,32 @@ async def cancel_purchase_order(po_id: str, user=Depends(get_current_user)):
     await db.purchase_orders.update_one({"id": po_id}, {"$set": {"status": "cancelled"}})
     return {"message": "PO cancelled"}
 
+@api_router.post("/purchase-orders/{po_id}/pay")
+async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po: raise HTTPException(status_code=404, detail="PO not found")
+    if po.get("payment_status") == "paid": raise HTTPException(status_code=400, detail="PO already paid")
+    amount = float(data.get("amount", po.get("balance", po["subtotal"])))
+    branch_id = po.get("branch_id", "")
+    # Deduct from cashier drawer
+    await update_cashier_wallet(branch_id, -amount, f"PO Payment {po['po_number']} - {po['vendor']}")
+    # Update PO payment status
+    new_paid = po.get("amount_paid", 0) + amount
+    new_balance = max(0, round(po["subtotal"] - new_paid, 2))
+    new_status = "paid" if new_balance <= 0 else "partial"
+    await db.purchase_orders.update_one({"id": po_id}, {"$set": {
+        "amount_paid": new_paid, "balance": new_balance, "payment_status": new_status
+    }})
+    # Update linked payable
+    payable = await db.payables.find_one({"po_id": po_id}, {"_id": 0})
+    if payable:
+        pay_new_paid = payable["paid"] + amount
+        pay_new_balance = max(0, round(payable["amount"] - pay_new_paid, 2))
+        pay_status = "paid" if pay_new_balance <= 0 else "partial"
+        await db.payables.update_one({"po_id": po_id}, {"$set": {"paid": pay_new_paid, "balance": pay_new_balance, "status": pay_status}})
+    return {"message": "Payment recorded", "new_balance": new_balance, "payment_status": new_status}
+
 # ==================== INVENTORY ROUTES ====================
 @api_router.get("/inventory")
 async def list_inventory(

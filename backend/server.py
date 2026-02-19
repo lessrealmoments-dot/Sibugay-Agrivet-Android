@@ -1227,6 +1227,18 @@ async def create_sale(data: dict, user=Depends(get_current_user)):
 
     await db.sales.insert_one(sale)
     del sale["_id"]
+    # Update cashier wallet for cash sales (not credit)
+    if data.get("payment_method") != "Credit" and sale["sale_type"] != "delivery":
+        await update_cashier_wallet(branch_id, sale["total"], f"POS Sale {sale['sale_number']}")
+    # Log to sequential sales log
+    active_date = await get_active_date(branch_id)
+    for si in sale_items:
+        prod = await db.products.find_one({"id": si["product_id"]}, {"_id": 0, "category": 1})
+        si["category"] = prod.get("category", "General") if prod else "General"
+    await log_sale_items(branch_id, active_date, sale_items, sale["sale_number"],
+                         data.get("customer_name", "Walk-in"),
+                         data.get("payment_method", "Cash"),
+                         user.get("full_name", user["username"]))
     return sale
 
 @api_router.get("/sales")

@@ -70,7 +70,9 @@ export default function InventoryPage() {
             </TableHeader>
             <TableBody>
               {items.map(item => {
-                const branchQty = currentBranch ? (item.branch_stock?.[currentBranch.id] || 0) : item.total_stock;
+                const branchQty = currentBranch 
+                  ? (item.derived_from_parent ? item.total_stock : (item.branch_stock?.[currentBranch.id] || 0)) 
+                  : item.total_stock;
                 const isLow = branchQty <= (item.reorder_point || 10) && branchQty > 0;
                 const isOut = branchQty <= 0;
                 return (
@@ -78,14 +80,23 @@ export default function InventoryPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {item.is_repack && <span className="w-4 border-l-2 border-b-2 border-slate-300 h-3" />}
-                        <span className="font-medium">{item.name}</span>
+                        <div>
+                          <span className="font-medium">{item.name}</span>
+                          {item.derived_from_parent && item.parent_name && (
+                            <div className="text-[10px] text-slate-400">
+                              From: {item.parent_name} ({item.parent_stock?.toFixed(2)} {item.parent_unit})
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                     <TableCell className="text-sm text-slate-500">{item.category}</TableCell>
                     <TableCell>
                       {item.is_repack ? (
-                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">Repack</Badge>
+                        <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
+                          Repack {item.units_per_parent && `(×${item.units_per_parent})`}
+                        </Badge>
                       ) : item.product_type === 'service' ? (
                         <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700 bg-blue-50">Service</Badge>
                       ) : (
@@ -96,6 +107,9 @@ export default function InventoryPage() {
                       <span className={`font-semibold ${isOut ? 'text-red-600' : isLow ? 'text-amber-600' : ''}`}>
                         {branchQty.toFixed(2)} {item.unit}
                       </span>
+                      {item.derived_from_parent && (
+                        <div className="text-[10px] text-slate-400 italic">derived</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right text-slate-500">{item.total_stock?.toFixed(2)}</TableCell>
                     <TableCell>

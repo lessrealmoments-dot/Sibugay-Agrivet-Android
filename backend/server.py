@@ -618,6 +618,26 @@ async def get_customer_invoices(customer_id: str, user=Depends(get_current_user)
     ).sort("created_at", -1).to_list(200)
     return invoices
 
+@api_router.get("/customers/{customer_id}/payment-history")
+async def get_customer_payment_history(customer_id: str, user=Depends(get_current_user)):
+    """Get all payment transactions for a customer across all invoices."""
+    pipeline = [
+        {"$match": {"customer_id": customer_id, "payments": {"$ne": []}}},
+        {"$unwind": "$payments"},
+        {"$project": {
+            "_id": 0, "invoice_number": 1, "customer_name": 1,
+            "grand_total": 1, "sale_type": 1,
+            "date": "$payments.date", "amount": "$payments.amount",
+            "method": "$payments.method", "reference": "$payments.reference",
+            "applied_to_interest": "$payments.applied_to_interest",
+            "applied_to_principal": "$payments.applied_to_principal",
+            "recorded_by": "$payments.recorded_by", "recorded_at": "$payments.recorded_at",
+        }},
+        {"$sort": {"date": -1, "recorded_at": -1}},
+    ]
+    payments = await db.invoices.aggregate(pipeline).to_list(500)
+    return payments
+
 @api_router.post("/customers/{customer_id}/generate-interest")
 async def generate_account_interest(customer_id: str, data: dict = {}, user=Depends(get_current_user)):
     """Compute interest on all overdue invoices as of a given date and create a single Interest Charge invoice."""

@@ -33,20 +33,81 @@ export default function POSPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const searchRef = useRef(null);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const params = { limit: 100 };
-      if (search) params.search = search;
-      const res = await api.get('/products', { params });
-      setProducts(res.data.products);
-    } catch { }
-  }, [search]);
-
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  // Online/Offline detection
   useEffect(() => {
-    api.get('/customers', { params: { limit: 200 } }).then(r => setCustomers(r.data.customers)).catch(() => {});
-    api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
+    const goOnline = async () => {
+      setIsOnline(true);
+      toast.success('Back online! Syncing pending sales...');
+      const result = await syncPendingSales();
+      if (result?.synced > 0) {
+        toast.success(`${result.synced} offline sale(s) synced!`);
+      }
+      const count = await getPendingSaleCount();
+      setPendingCount(count);
+      // Refresh data from server
+      await loadPOSData(true);
+    };
+    const goOffline = () => {
+      setIsOnline(false);
+      toast('Offline Mode - Sales will be saved locally', { duration: 4000 });
+    };
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    startAutoSync();
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+      stopAutoSync();
+    };
   }, []);
+
+  // Load POS data (API when online, IndexedDB when offline)
+  const loadPOSData = async (forceOnline = false) => {
+    const online = forceOnline || navigator.onLine;
+    if (online) {
+      try {
+        const res = await api.get('/sync/pos-data');
+        setAllProducts(res.data.products);
+        setCustomers(res.data.customers);
+        setSchemes(res.data.price_schemes);
+        // Cache to IndexedDB for offline use
+        await Promise.all([
+          cacheProducts(res.data.products),
+          cacheCustomers(res.data.customers),
+          cachePriceSchemes(res.data.price_schemes),
+        ]);
+        setDataLoaded(true);
+        return;
+      } catch (e) {
+        console.warn('API failed, falling back to offline cache');
+      }
+    }
+    // Offline fallback: read from IndexedDB
+    const [prods, custs, schs] = await Promise.all([
+      getProducts(), getCustomers(), getPriceSchemes()
+    ]);
+    setAllProducts(prods);
+    setCustomers(custs);
+    setSchemes(schs);
+    setDataLoaded(true);
+  };
+
+  useEffect(() => {
+    loadPOSData();
+    getPendingSaleCount().then(setPendingCount);
+  }, []);
+
+  // Client-side product search/filter
+  useEffect(() => {
+    if (!search) {
+      setFilteredProducts(allProducts);
+    } else {
+      const q = search.toLowerCase();
+      setFilteredProducts(allProducts.filter(p =>
+        p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(q))
+      ));
+    }
+  }, [search, allProducts]);
 
   const getPriceForCustomer = (product) => {
     const scheme = selectedCustomer?.price_scheme || 'retail';

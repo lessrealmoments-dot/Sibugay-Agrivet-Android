@@ -357,6 +357,94 @@ class AgriPOSAPITester:
         
         return success
 
+    def test_daily_operations_apis(self):
+        """Test all Daily Operations APIs - Sales Log, Daily Report, Daily Close, Employees, Expenses"""
+        print("\n🏢 Testing Daily Operations APIs...")
+        
+        branch_id = "test_branch_001"
+        date = datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. Test /api/daily-log (GET)
+        success, data, error = self.make_request('GET', 'daily-log', {'date': date, 'branch_id': branch_id})
+        has_entries = isinstance(data, dict) and 'entries' in data
+        self.log_test("GET /api/daily-log (sales log entries)", success and has_entries, 
+                     {"entries_count": len(data.get('entries', [])) if data else 0}, error)
+        
+        # 2. Test /api/daily-report (GET) 
+        success, data, error = self.make_request('GET', 'daily-report', {'date': date, 'branch_id': branch_id})
+        has_report_fields = False
+        if success and data:
+            expected_fields = ['total_revenue', 'total_cogs', 'gross_profit', 'total_expenses', 'net_profit', 'sales_by_category']
+            has_report_fields = all(field in data for field in expected_fields)
+        self.log_test("GET /api/daily-report (profit report)", success and has_report_fields, 
+                     {"revenue": data.get('total_revenue') if data else None, 
+                      "expenses": data.get('total_expenses') if data else None}, error)
+        
+        # 3. Test /api/daily-close/{date} (GET)
+        success, data, error = self.make_request('GET', f'daily-close/{date}', {'branch_id': branch_id})
+        self.log_test("GET /api/daily-close/{date} (check closing status)", success, 
+                     {"status": data.get('status') if data else None}, error)
+        
+        # 4. Test /api/employees (GET)
+        success, data, error = self.make_request('GET', 'employees', {'branch_id': branch_id})
+        self.log_test("GET /api/employees (employee list)", success, 
+                     {"employees_count": len(data) if isinstance(data, list) else 0}, error)
+        
+        # 5. Test /api/employees (POST) - Create employee
+        employee_data = {
+            "name": "Test Employee",
+            "position": "Farm Worker", 
+            "phone": "09123456789",
+            "branch_id": branch_id
+        }
+        success, data, error = self.make_request('POST', 'employees', employee_data)
+        employee_id = data.get('id') if data else None
+        self.log_test("POST /api/employees (create employee)", success, 
+                     {"employee_id": employee_id, "name": data.get('name') if data else None}, error)
+        
+        # 6. Test /api/expenses/farm (POST) - Farm expense creates receivable
+        farm_expense_data = {
+            "customer_id": "test_customer_001",
+            "amount": 500.0,
+            "tag": "Land Preparation", 
+            "description": "Tilling and fertilizing",
+            "branch_id": branch_id,
+            "date": date
+        }
+        success, data, error = self.make_request('POST', 'expenses/farm', farm_expense_data)
+        self.log_test("POST /api/expenses/farm (creates expense AND receivable)", success, data, error)
+        
+        # 7. Test /api/expenses/employee-advance (POST) - Employee advance
+        if employee_id:
+            advance_data = {
+                "employee_id": employee_id,
+                "employee_name": "Test Employee",
+                "amount": 1000.0,
+                "description": "Monthly advance",
+                "branch_id": branch_id,
+                "date": date
+            }
+            success, data, error = self.make_request('POST', 'expenses/employee-advance', advance_data)
+            self.log_test("POST /api/expenses/employee-advance (record advance)", success, data, error)
+        
+        # 8. Test /api/daily-close (POST) - Close accounts (if not already closed)
+        close_data = {
+            "actual_cash": 5000.0,
+            "bank_checks": 0.0,
+            "other_payment_forms": 0.0,
+            "cash_to_drawer": 1000.0,
+            "cash_to_safe": 4000.0,
+            "date": date,
+            "branch_id": branch_id
+        }
+        success, data, error = self.make_request('POST', 'daily-close', close_data)
+        close_successful = success and data and 'extra_cash' in data
+        self.log_test("POST /api/daily-close (close accounts)", close_successful, 
+                     {"extra_cash": data.get('extra_cash') if data else None,
+                      "status": data.get('status') if data else None}, error)
+        
+        return True
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting AgriPOS Backend API Tests...")

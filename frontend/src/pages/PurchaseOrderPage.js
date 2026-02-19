@@ -31,7 +31,7 @@ export default function PurchaseOrderPage() {
   const [saving, setSaving] = useState(false);
   const [payDialog, setPayDialog] = useState(false);
   const [selectedPO, setSelectedPO] = useState(null);
-  const [payForm, setPayForm] = useState({ wallet_id: '', amount: 0, reference: '', description: '' });
+  const [payForm, setPayForm] = useState({ amount: 0, reference: '' });
   const [detailDialog, setDetailDialog] = useState(false);
   const [detailPO, setDetailPO] = useState(null);
   const [createProductDialog, setCreateProductDialog] = useState(false);

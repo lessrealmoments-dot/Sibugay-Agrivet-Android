@@ -151,11 +151,14 @@ New Endpoints:
   - All modules tested and working
   - Remaining: Lower priority routes (fund management, accounting, dashboard, etc.)
 - [x] **Multi-Branch Data Isolation** (COMPLETE - Feb 19, 2026)
-  - Created branch utilities: get_branch_filter, get_user_branches, ensure_branch_access
-  - Updated routes for branch isolation: invoices, purchase_orders, inventory, customers
-  - Added dashboard with multi-branch support: /dashboard/stats, /dashboard/branch-summary
+  - Created branch utilities in server.py: get_user_branches, get_branch_filter, apply_branch_filter
+  - Updated key endpoints: invoices, purchase_orders, customers, dashboard/stats
+  - Added new endpoint: /dashboard/branch-summary for owner overview
   - Migrated existing customers to have branch_id
-  - Admin/Owner can view all branches, regular users see only their assigned branch
+  - **Branch Isolation Working:**
+    - Admin sees all data across branches
+    - Cashier sees only data from assigned branch (35/50 invoices filtered)
+    - Dashboard shows multi-branch view indicator
 
 ### P2 (Medium Priority)
 - [ ] Advanced Reporting Dashboards

@@ -198,3 +198,63 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Status**: VERIFIED — 100% test pass (13/13 backend, all frontend)
 
 - **Status**: VERIFIED — Cash/Credit PO creation, wallet updates, payable creation, late payment all working
+
+### Feature: PO Number Field Repositioning (Feb 19, 2026)
+- **Change**: Moved PO Number field from first position to near the Notes field
+- **Layout**: First row now contains: Vendor Name, Purchase Date, Payment, Status, PO Number (5 columns)
+- **Notes**: Has its own dedicated row with placeholder "Optional notes for this purchase order"
+- **Status**: VERIFIED
+
+### Feature: Suppliers Management Page (Feb 19, 2026)
+- **New Page**: `/suppliers` - dedicated supplier management with full transaction history
+- **Supplier List**: Left panel shows all suppliers with search functionality
+- **Stats Cards**: When supplier selected, shows Total POs, Total Purchased, Total Paid, Pending Payment
+- **PO List Tabs**: Filter by All, Unpaid, Pending Delivery with counts
+- **PO Table**: Shows PO#, Date, Items, Total, Paid, Balance, Delivery status, Payment status
+- **PO Detail Dialog**: Click any PO number to see full details including items and payment history
+- **Payment History**: Bottom section shows all payments made to the supplier
+- **Navigation**: Added "Suppliers" link in sidebar
+- **Status**: VERIFIED — 100% test pass (all frontend features working)
+
+## Current File Structure
+```
+/app
+├── backend/
+│   └── server.py      # Monolithic backend (needs refactoring)
+└── frontend/
+    ├── src/
+    │   ├── pages/
+    │   │   ├── PurchaseOrderPage.js  # PO creation, list, pay supplier tabs
+    │   │   ├── SuppliersPage.js      # NEW: Supplier management with history
+    │   │   └── ... other pages
+    │   ├── components/
+    │   │   └── Layout.js             # Updated with Suppliers nav item
+    │   └── App.js                    # Added /suppliers route
+```
+
+## Default Credentials
+- Username: admin
+- Password: admin123
+
+## Prioritized Backlog (Updated Feb 19, 2026)
+
+### P0 (Critical - Technical Debt)
+- [ ] **Refactor Backend Monolith**: Break `/app/backend/server.py` into modular structure (/routes, /services, /models)
+
+### P1 (High Priority)
+- [ ] Advanced Reporting Dashboards (monthly/quarterly summaries, sales incentive tracking)
+- [ ] Barcode scanning support in POS
+- [ ] Receipt printing (thermal printer support)
+
+### P2 (Medium Priority)
+- [ ] User Roles & Permissions UI (dedicated management page)
+- [ ] Bulk Data Import/Export (CSV for products)
+- [ ] Stock alerts and notifications
+- [ ] Product images and categories management
+
+### P3 (Low/Future)
+- [ ] Multi-currency support
+- [ ] API for mobile app
+- [ ] Audit trail / activity logs
+- [ ] Data backup and export
+- [ ] Dashboard charts with Recharts

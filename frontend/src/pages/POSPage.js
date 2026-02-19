@@ -535,6 +535,103 @@ export default function POSPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Today's Report Dialog */}
+      <Dialog open={reportDialog} onOpenChange={setReportDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle style={{ fontFamily: 'Manrope' }}>Today's Sales Report — {today}</DialogTitle>
+              <Button variant="outline" size="sm" onClick={() => window.print()}><Printer size={14} className="mr-1" /> Print</Button>
+            </div>
+          </DialogHeader>
+          {dailyReport ? (
+            <div className="space-y-4 mt-2 text-sm">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-lg bg-emerald-50"><p className="text-xs text-slate-500">Revenue</p><p className="text-xl font-bold text-emerald-700">{formatPHP(dailyReport.total_revenue)}</p></div>
+                <div className="p-3 rounded-lg bg-red-50"><p className="text-xs text-slate-500">Expenses</p><p className="text-xl font-bold text-red-600">{formatPHP(dailyReport.total_expenses)}</p></div>
+                <div className={`p-3 rounded-lg ${dailyReport.net_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}><p className="text-xs text-slate-500">Net Profit</p><p className={`text-xl font-bold ${dailyReport.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatPHP(dailyReport.net_profit)}</p></div>
+              </div>
+              <div><h3 className="font-bold text-xs uppercase text-slate-500 mb-2">Sales by Category</h3>
+                {Object.entries(dailyReport.sales_by_category || {}).map(([cat, d]) => (
+                  <div key={cat} className="flex justify-between p-1.5"><span>{cat}</span><span className="font-bold">{formatPHP(typeof d === 'object' ? d.total : d)}</span></div>
+                ))}
+              </div>
+              {dailyReport.payments_today?.length > 0 && (
+                <div><h3 className="font-bold text-xs uppercase text-slate-500 mb-2">Payments Received</h3>
+                  {dailyReport.payments_today.map((p, i) => (
+                    <div key={i} className="flex justify-between p-1.5 bg-slate-50 rounded mb-1">
+                      <span>{p.customer_name} — {p.invoice_number}</span><span className="font-bold">{formatPHP(p.payment?.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {dailyReport.expenses?.length > 0 && (
+                <div><h3 className="font-bold text-xs uppercase text-slate-500 mb-2">Expenses</h3>
+                  {dailyReport.expenses.map((e, i) => (
+                    <div key={i} className="flex justify-between p-1.5"><span><Badge variant="outline" className="text-[10px] mr-1">{e.category}</Badge>{e.description}</span><span className="font-bold text-red-600">{formatPHP(e.amount)}</span></div>
+                  ))}
+                </div>
+              )}
+              <div className="text-xs text-slate-400 text-center pt-2">{dailyReport.transaction_count} transactions today</div>
+            </div>
+          ) : <p className="text-center py-8 text-slate-400">Loading...</p>}
+        </DialogContent>
+      </Dialog>
+
+      {/* Close Day Dialog */}
+      <Dialog open={closeDialog} onOpenChange={setCloseDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle style={{ fontFamily: 'Manrope' }}>
+                {closingResult ? 'Daily Closing Report' : 'Close Accounts'} — {today}
+              </DialogTitle>
+              {closingResult && <Button variant="outline" size="sm" onClick={() => window.print()}><Printer size={14} className="mr-1" /> Print</Button>}
+            </div>
+          </DialogHeader>
+          {closingResult ? (
+            <PrintableReport data={closingResult} />
+          ) : (
+            <div className="space-y-4 mt-2">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                This will lock all transactions for {today}. New sales will go to the next day.
+              </div>
+              {dailyReport && (
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Sales</p><p className="font-bold">{formatPHP(dailyReport.total_revenue)}</p></div>
+                  <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Payments</p><p className="font-bold">{formatPHP(dailyReport.total_payments)}</p></div>
+                  <div className="p-3 bg-slate-50 rounded-lg"><p className="text-xs text-slate-500">Expenses</p><p className="font-bold text-red-600">{formatPHP(dailyReport.total_expenses)}</p></div>
+                </div>
+              )}
+              <Separator />
+              <h3 className="font-bold text-sm" style={{ fontFamily: 'Manrope' }}>Cash Counting</h3>
+              <p className="text-xs text-slate-500">Expected Cash: <span className="font-bold text-slate-800">{formatPHP(
+                ((dailyReport?.total_revenue || 0) + (dailyReport?.total_payments || 0) - (dailyReport?.total_expenses || 0))
+              )}</span></p>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Actual Cash Count</Label><Input type="number" value={closeForm.actual_cash} onChange={e => setCloseForm(f => ({ ...f, actual_cash: parseFloat(e.target.value) || 0 }))} className="h-10 text-lg font-bold" data-testid="close-actual-cash" /></div>
+                <div><Label className="text-xs">Bank Checks</Label><Input type="number" value={closeForm.bank_checks} onChange={e => setCloseForm(f => ({ ...f, bank_checks: parseFloat(e.target.value) || 0 }))} className="h-10" /></div>
+                <div><Label className="text-xs">Other (GCash, transfers)</Label><Input type="number" value={closeForm.other_payment_forms} onChange={e => setCloseForm(f => ({ ...f, other_payment_forms: parseFloat(e.target.value) || 0 }))} className="h-10" /></div>
+                <div><Label className="text-xs">Extra Cash</Label>
+                  <div className={`h-10 flex items-center px-3 rounded-md font-bold ${(closeForm.actual_cash - ((dailyReport?.total_revenue || 0) + (dailyReport?.total_payments || 0) - (dailyReport?.total_expenses || 0) - closeForm.bank_checks - closeForm.other_payment_forms)) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                    {formatPHP(Math.round((closeForm.actual_cash - ((dailyReport?.total_revenue || 0) + (dailyReport?.total_payments || 0) - (dailyReport?.total_expenses || 0) - closeForm.bank_checks - closeForm.other_payment_forms)) * 100) / 100)}
+                  </div>
+                </div>
+              </div>
+              <Separator />
+              <h3 className="font-bold text-sm" style={{ fontFamily: 'Manrope' }}>End-of-Day Allocation</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs">Cash Remaining in Drawer</Label><Input type="number" value={closeForm.cash_to_drawer} onChange={e => setCloseForm(f => ({ ...f, cash_to_drawer: parseFloat(e.target.value) || 0 }))} className="h-10" /></div>
+                <div><Label className="text-xs">Cash to Transfer to Safe</Label><Input type="number" value={closeForm.cash_to_safe} onChange={e => setCloseForm(f => ({ ...f, cash_to_safe: parseFloat(e.target.value) || 0 }))} className="h-10" /></div>
+              </div>
+              <Button onClick={handleCloseDay} className="w-full h-11 bg-red-600 hover:bg-red-700 text-white" data-testid="confirm-close-day">
+                <Lock size={16} className="mr-2" /> Close Accounts for {today}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

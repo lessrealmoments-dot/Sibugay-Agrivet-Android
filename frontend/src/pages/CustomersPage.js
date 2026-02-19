@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../contexts/AuthContext';
-import { Card, CardContent } from '../components/ui/card';
+import { formatPHP } from '../lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -8,7 +9,9 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Users, Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Users, Plus, Pencil, Trash2, Search, FileText, Eye, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CustomersPage() {
@@ -20,7 +23,13 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState(null);
   const [schemes, setSchemes] = useState([]);
   const LIMIT = 20;
-  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0 });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0, interest_rate: 0 });
+  
+  // Transaction history
+  const [historyDialog, setHistoryDialog] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [transactions, setTransactions] = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -35,8 +44,21 @@ export default function CustomersPage() {
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
   useEffect(() => { api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, []);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0 }); setDialogOpen(true); };
-  const openEdit = (c) => { setEditing(c); setForm({ name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', price_scheme: c.price_scheme || 'retail', credit_limit: c.credit_limit || 0 }); setDialogOpen(true); };
+  const openCreate = () => { 
+    setEditing(null); 
+    setForm({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0, interest_rate: 0 }); 
+    setDialogOpen(true); 
+  };
+  
+  const openEdit = (c) => { 
+    setEditing(c); 
+    setForm({ 
+      name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', 
+      price_scheme: c.price_scheme || 'retail', credit_limit: c.credit_limit || 0,
+      interest_rate: c.interest_rate || 0
+    }); 
+    setDialogOpen(true); 
+  };
 
   const handleSave = async () => {
     try {
@@ -50,6 +72,31 @@ export default function CustomersPage() {
     if (!window.confirm('Delete this customer?')) return;
     try { await api.delete(`/customers/${id}`); toast.success('Customer deleted'); fetchCustomers(); }
     catch { toast.error('Failed to delete'); }
+  };
+
+  const openHistory = async (customer) => {
+    setSelectedCustomer(customer);
+    setHistoryDialog(true);
+    setLoadingHistory(true);
+    try {
+      const res = await api.get(`/customers/${customer.id}/transactions`);
+      setTransactions(res.data);
+    } catch (e) {
+      toast.error('Failed to load transactions');
+      setTransactions(null);
+    }
+    setLoadingHistory(false);
+  };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      paid: 'bg-emerald-100 text-emerald-700',
+      partial: 'bg-amber-100 text-amber-700',
+      open: 'bg-red-100 text-red-700',
+      overdue: 'bg-red-200 text-red-800',
+      pending: 'bg-slate-100 text-slate-600',
+    };
+    return <Badge className={`text-[10px] ${styles[status] || styles.pending}`}>{status}</Badge>;
   };
 
   return (
@@ -79,25 +126,32 @@ export default function CustomersPage() {
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Price Scheme</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Balance</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Credit Limit</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-24">Actions</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {customers.map(c => (
-                <TableRow key={c.id} className="table-row-hover">
+                <TableRow key={c.id} className="table-row-hover cursor-pointer" onClick={() => openHistory(c)}>
                   <TableCell className="font-medium">{c.name}</TableCell>
                   <TableCell className="text-slate-500">{c.phone || '—'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-[10px] capitalize">{c.price_scheme}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <span className={c.balance > 0 ? 'text-red-600 font-semibold' : ''}>{(c.balance || 0).toFixed(2)}</span>
+                    <span className={c.balance > 0 ? 'text-red-600 font-semibold' : 'text-emerald-600'}>{formatPHP(c.balance || 0)}</span>
                   </TableCell>
-                  <TableCell className="text-right">{(c.credit_limit || 0).toFixed(2)}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">{formatPHP(c.credit_limit || 0)}</TableCell>
+                  <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" data-testid={`edit-customer-${c.id}`} onClick={() => openEdit(c)}><Pencil size={14} /></Button>
-                      <Button variant="ghost" size="sm" data-testid={`delete-customer-${c.id}`} onClick={() => handleDelete(c.id)} className="text-red-500"><Trash2 size={14} /></Button>
+                      <Button variant="ghost" size="sm" data-testid={`view-customer-${c.id}`} onClick={() => openHistory(c)} title="View Transactions">
+                        <Eye size={14} />
+                      </Button>
+                      <Button variant="ghost" size="sm" data-testid={`edit-customer-${c.id}`} onClick={() => openEdit(c)}>
+                        <Pencil size={14} />
+                      </Button>
+                      <Button variant="ghost" size="sm" data-testid={`delete-customer-${c.id}`} onClick={() => handleDelete(c.id)} className="text-red-500">
+                        <Trash2 size={14} />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -110,6 +164,18 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
+      {/* Pagination */}
+      {total > LIMIT && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">Showing {page * LIMIT + 1} - {Math.min((page + 1) * LIMIT, total)} of {total}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Previous</Button>
+            <Button variant="outline" size="sm" disabled={(page + 1) * LIMIT >= total} onClick={() => setPage(p => p + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>{editing ? 'Edit Customer' : 'New Customer'}</DialogTitle></DialogHeader>
@@ -123,7 +189,7 @@ export default function CustomersPage() {
               <div><Label>Email</Label><Input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             </div>
             <div><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Price Scheme</Label>
                 <Select value={form.price_scheme} onValueChange={v => setForm({ ...form, price_scheme: v })}>
@@ -137,12 +203,143 @@ export default function CustomersPage() {
                 <Label>Credit Limit</Label>
                 <Input data-testid="customer-credit-input" type="number" value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: parseFloat(e.target.value) || 0 })} />
               </div>
+              <div>
+                <Label>Interest Rate (%/mo)</Label>
+                <Input type="number" step="0.1" value={form.interest_rate} onChange={e => setForm({ ...form, interest_rate: parseFloat(e.target.value) || 0 })} />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button data-testid="save-customer-btn" onClick={handleSave} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save</Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transaction History Dialog */}
+      <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
+        <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
+              <Users size={20} />
+              {selectedCustomer?.name} - Account History
+            </DialogTitle>
+          </DialogHeader>
+          
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-slate-400">Loading transactions...</div>
+            </div>
+          ) : transactions ? (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-4 gap-3 mb-4">
+                <Card className="border-slate-200">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-slate-500">Total Invoiced</p>
+                    <p className="text-lg font-bold">{formatPHP(transactions.summary.total_invoiced)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-slate-500">Total Paid</p>
+                    <p className="text-lg font-bold text-emerald-600">{formatPHP(transactions.summary.total_paid)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-slate-500">Balance Due</p>
+                    <p className="text-lg font-bold text-red-600">{formatPHP(transactions.summary.total_balance)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200">
+                  <CardContent className="p-3">
+                    <p className="text-xs text-slate-500">Open Invoices</p>
+                    <p className="text-lg font-bold">{transactions.summary.open_invoices}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Transactions Table */}
+              <Tabs defaultValue="invoices" className="flex-1 flex flex-col overflow-hidden">
+                <TabsList>
+                  <TabsTrigger value="invoices">Invoices ({transactions.invoices.length})</TabsTrigger>
+                  {transactions.receivables.length > 0 && (
+                    <TabsTrigger value="receivables">Legacy AR ({transactions.receivables.length})</TabsTrigger>
+                  )}
+                </TabsList>
+                
+                <TabsContent value="invoices" className="flex-1 overflow-hidden mt-3">
+                  <ScrollArea className="h-[350px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50">
+                          <TableHead className="text-xs">Invoice #</TableHead>
+                          <TableHead className="text-xs">Date</TableHead>
+                          <TableHead className="text-xs text-right">Total</TableHead>
+                          <TableHead className="text-xs text-right">Paid</TableHead>
+                          <TableHead className="text-xs text-right">Balance</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs">Type</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.invoices.map(inv => (
+                          <TableRow key={inv.id}>
+                            <TableCell className="font-medium text-sm">{inv.invoice_number}</TableCell>
+                            <TableCell className="text-sm text-slate-500">{inv.order_date}</TableCell>
+                            <TableCell className="text-sm text-right">{formatPHP(inv.grand_total)}</TableCell>
+                            <TableCell className="text-sm text-right text-emerald-600">{formatPHP(inv.amount_paid)}</TableCell>
+                            <TableCell className="text-sm text-right text-red-600 font-medium">{formatPHP(inv.balance)}</TableCell>
+                            <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[10px]">{inv.payment_type || inv.sale_type}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {transactions.invoices.length === 0 && (
+                          <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">No invoices</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </TabsContent>
+
+                {transactions.receivables.length > 0 && (
+                  <TabsContent value="receivables" className="flex-1 overflow-hidden mt-3">
+                    <ScrollArea className="h-[350px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead className="text-xs">Reference</TableHead>
+                            <TableHead className="text-xs">Date</TableHead>
+                            <TableHead className="text-xs text-right">Amount</TableHead>
+                            <TableHead className="text-xs text-right">Paid</TableHead>
+                            <TableHead className="text-xs text-right">Balance</TableHead>
+                            <TableHead className="text-xs">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {transactions.receivables.map(rec => (
+                            <TableRow key={rec.id}>
+                              <TableCell className="font-medium text-sm">{rec.sale_id?.slice(0, 8) || '—'}</TableCell>
+                              <TableCell className="text-sm text-slate-500">{rec.created_at?.slice(0, 10)}</TableCell>
+                              <TableCell className="text-sm text-right">{formatPHP(rec.amount)}</TableCell>
+                              <TableCell className="text-sm text-right text-emerald-600">{formatPHP(rec.paid)}</TableCell>
+                              <TableCell className="text-sm text-right text-red-600 font-medium">{formatPHP(rec.balance)}</TableCell>
+                              <TableCell>{getStatusBadge(rec.status)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </TabsContent>
+                )}
+              </Tabs>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-400">No transaction data available</div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

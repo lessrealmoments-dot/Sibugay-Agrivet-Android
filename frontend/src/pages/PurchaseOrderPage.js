@@ -53,7 +53,7 @@ export default function PurchaseOrderPage() {
   };
 
   const handleCreateNewProduct = (name) => {
-    setNewProductForm({ sku: '', name, category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
+    setNewProductForm({ sku: '', name, category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
     setCreateProductDialog(true);
   };
 

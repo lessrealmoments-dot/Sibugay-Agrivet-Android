@@ -403,6 +403,12 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     for item in data.get("items", []):
         qty = float(item.get("quantity", 0))
         rate = float(item.get("rate", 0))
+        # HARD RULE: Never sell below capital
+        if item.get("product_id"):
+            prod_check = await db.products.find_one({"id": item["product_id"]}, {"_id": 0, "cost_price": 1, "name": 1})
+            if prod_check and rate < prod_check.get("cost_price", 0) and rate > 0:
+                raise HTTPException(status_code=400,
+                    detail=f"Cannot sell '{prod_check.get('name', '')}' at ₱{rate:.2f} — below capital ₱{prod_check['cost_price']:.2f}")
         disc_type = item.get("discount_type", "amount")
         disc_val = float(item.get("discount_value", 0))
         disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)

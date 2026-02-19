@@ -7,325 +7,247 @@ class AgriPOSAPITester:
     def __init__(self, base_url="https://multibranch-pos-4.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
-        self.user = None
+        self.user_id = None
         self.branch_id = None
         self.tests_run = 0
         self.tests_passed = 0
-        self.failed_tests = []
+        self.results = []
 
-    def log_result(self, test_name, success, details=""):
-        """Log test result"""
-        self.tests_run += 1
-        if success:
-            self.tests_passed += 1
-            print(f"✅ {test_name}: PASSED {details}")
-        else:
-            self.failed_tests.append({"test": test_name, "details": details})
-            print(f"❌ {test_name}: FAILED - {details}")
-
-    def make_request(self, method, endpoint, data=None, expected_status=200):
-        """Make HTTP request with proper headers"""
+    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
+        """Run a single API test"""
         url = f"{self.base_url}/api/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        req_headers = {'Content-Type': 'application/json'}
         if self.token:
-            headers['Authorization'] = f'Bearer {self.token}'
+            req_headers['Authorization'] = f'Bearer {self.token}'
+        if headers:
+            req_headers.update(headers)
+
+        self.tests_run += 1
+        print(f"\n🔍 Testing {name}...")
         
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, timeout=10)
+                response = requests.get(url, headers=req_headers, timeout=30)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
+                response = requests.post(url, json=data, headers=req_headers, timeout=30)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers, timeout=10)
-            elif method == 'DELETE':
-                response = requests.delete(url, headers=headers, timeout=10)
-            
+                response = requests.put(url, json=data, headers=req_headers, timeout=30)
+
             success = response.status_code == expected_status
-            result_data = {}
             
-            if response.headers.get('content-type', '').startswith('application/json'):
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
                 try:
-                    result_data = response.json()
+                    resp_data = response.json() if response.content else {}
+                    self.results.append({"test": name, "status": "PASSED", "response": resp_data})
+                    return success, resp_data
                 except:
-                    pass
-            
-            return success, response.status_code, result_data
-            
+                    self.results.append({"test": name, "status": "PASSED", "response": {}})
+                    return success, {}
+            else:
+                print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
+                try:
+                    error_data = response.json() if response.content else {"error": response.text}
+                except:
+                    error_data = {"error": response.text}
+                print(f"   Response: {error_data}")
+                self.results.append({"test": name, "status": "FAILED", "error": error_data})
+                return False, error_data
+
         except Exception as e:
-            return False, 0, {"error": str(e)}
+            print(f"❌ Failed - Error: {str(e)}")
+            self.results.append({"test": name, "status": "ERROR", "error": str(e)})
+            return False, {"error": str(e)}
 
     def test_login(self):
-        """Test login with admin/admin123"""
-        print("\n🔐 Testing Authentication...")
-        success, status, data = self.make_request('POST', 'auth/login', {
-            "username": "admin",
-            "password": "admin123"
-        })
-        
-        if success and 'token' in data:
-            self.token = data['token']
-            self.user = data.get('user', {})
-            self.log_result("Admin Login", True, f"Token obtained, Role: {self.user.get('role')}")
+        """Test admin login and store token"""
+        success, response = self.run_test(
+            "Admin Login",
+            "POST",
+            "auth/login",
+            200,
+            data={"username": "admin", "password": "admin123"}
+        )
+        if success and 'token' in response:
+            self.token = response['token']
+            self.user_id = response['user']['id']
+            print(f"   Logged in as: {response['user'].get('full_name', 'admin')}")
             return True
-        else:
-            self.log_result("Admin Login", False, f"Status: {status}, Data: {data}")
-            return False
+        return False
 
-    def test_branches(self):
-        """Test branch operations"""
-        print("\n🏢 Testing Branches...")
-        
-        # Get branches
-        success, status, data = self.make_request('GET', 'branches')
-        if success and isinstance(data, list):
-            if data:
-                self.branch_id = data[0]['id']  # Use first branch for subsequent tests
-                self.log_result("Get Branches", True, f"Found {len(data)} branches")
-            else:
-                self.log_result("Get Branches", False, "No branches found")
-                return False
-        else:
-            self.log_result("Get Branches", False, f"Status: {status}")
-            return False
-        
-        # Create new branch
-        new_branch_data = {
-            "name": f"Test Branch {datetime.now().strftime('%H%M%S')}",
-            "address": "Test Address", 
-            "phone": "1234567890"
-        }
-        success, status, data = self.make_request('POST', 'branches', new_branch_data, 200)  # Try with 200
-        if success and 'id' in data:
-            self.log_result("Create Branch", True, f"Created branch: {data.get('name')}")
-        else:
-            self.log_result("Create Branch", False, f"Status: {status}, Data: {data}")
-        
-        return True
+    def test_get_branches(self):
+        """Get branches and store one for testing"""
+        success, response = self.run_test(
+            "Get Branches",
+            "GET", 
+            "branches",
+            200
+        )
+        if success and response:
+            self.branch_id = response[0]['id']
+            print(f"   Using branch: {response[0]['name']}")
+            return True
+        return False
 
-    def test_products(self):
-        """Test product operations including parent and repack"""
-        print("\n📦 Testing Products...")
-        
-        # Create parent product
-        timestamp = datetime.now().strftime('%H%M%S')
-        parent_product = {
-            "sku": f"LAN-250G-{timestamp}",
-            "name": f"Lannate 250g {timestamp}",
-            "category": "Pesticides",
-            "unit": "Box",
-            "cost_price": 100,
-            "prices": {"retail": 150, "wholesale": 130}
-        }
-        
-        success, status, data = self.make_request('POST', 'products', parent_product, 200)  # Try with 200
-        if success and 'id' in data:
-            parent_id = data.get('id')
-            self.log_result("Create Parent Product", True, f"SKU: {data.get('sku')}")
-            
-            # Generate repack
-            repack_data = {
-                "name": "R Lannate 250g",
-                "unit": "Sachet",
-                "units_per_parent": 10,
-                "cost_price": 10,
-                "prices": {"retail": 15, "wholesale": 13}
-            }
-            
-            success, status, repack_result = self.make_request('POST', f'products/{parent_id}/generate-repack', repack_data, 200)
-            if success and 'id' in repack_result:
-                self.log_result("Generate Repack", True, f"Repack SKU: {repack_result.get('sku')}")
-                return parent_id, repack_result.get('id')
-            else:
-                self.log_result("Generate Repack", False, f"Status: {status}, Data: {repack_result}")
-        else:
-            self.log_result("Create Parent Product", False, f"Status: {status}, Data: {data}")
-        
-        return None, None
-
-    def test_inventory(self, parent_id, repack_id):
-        """Test inventory operations"""
-        print("\n📊 Testing Inventory...")
-        
-        if not parent_id or not self.branch_id:
-            self.log_result("Inventory Setup", False, "Missing parent_id or branch_id")
-            return False
-        
-        # Adjust parent stock
-        adjust_data = {
-            "product_id": parent_id,
-            "branch_id": self.branch_id,
-            "quantity": 10,
-            "reason": "Initial stock"
-        }
-        
-        success, status, data = self.make_request('POST', 'inventory/adjust', adjust_data)
+    def test_sync_pos_data(self):
+        """Test the new /api/sync/pos-data endpoint"""
+        success, response = self.run_test(
+            "Sync POS Data Endpoint",
+            "GET",
+            "sync/pos-data", 
+            200
+        )
         if success:
-            self.log_result("Adjust Parent Stock", True, f"Added 10 units")
-        else:
-            self.log_result("Adjust Parent Stock", False, f"Status: {status}")
-        
-        # Adjust repack stock
-        if repack_id:
-            repack_adjust = {
-                "product_id": repack_id,
-                "branch_id": self.branch_id,
-                "quantity": 100,
-                "reason": "Initial repack stock"
-            }
+            # Verify response structure
+            required_keys = ['products', 'customers', 'price_schemes', 'branches', 'timestamp']
+            missing = [key for key in required_keys if key not in response]
+            if missing:
+                print(f"   ⚠️  Missing keys in response: {missing}")
+                return False
             
-            success, status, data = self.make_request('POST', 'inventory/adjust', repack_adjust)
-            if success:
-                self.log_result("Adjust Repack Stock", True, f"Added 100 units")
+            print(f"   Products: {len(response['products'])}")
+            print(f"   Customers: {len(response['customers'])}")
+            print(f"   Price schemes: {len(response['price_schemes'])}")
+            print(f"   Branches: {len(response['branches'])}")
+            print(f"   Timestamp: {response['timestamp']}")
+            return True
+        return False
+
+    def test_sync_offline_sales(self):
+        """Test the new /api/sales/sync endpoint with sample offline sales"""
+        # Create sample offline sales data
+        sample_sales = [
+            {
+                "id": f"offline-{datetime.now().strftime('%Y%m%d%H%M%S')}-001",
+                "sale_number": f"SL-{datetime.now().strftime('%Y%m%d')}-OFFLINE1",
+                "branch_id": self.branch_id,
+                "customer_id": None,
+                "customer_name": "Walk-in",
+                "items": [
+                    {
+                        "product_id": "sample-product-id",
+                        "product_name": "Test Offline Product",
+                        "sku": "TEST-001",
+                        "quantity": 2,
+                        "price": 15.0,
+                        "total": 30.0,
+                        "is_repack": False
+                    }
+                ],
+                "subtotal": 30.0,
+                "discount": 0.0,
+                "total": 30.0,
+                "payment_method": "Cash",
+                "payment_details": {"tendered": 30.0, "change": 0.0},
+                "cashier_id": self.user_id,
+                "cashier_name": "Admin",
+                "status": "completed",
+                "created_at": datetime.now().isoformat()
+            }
+        ]
+
+        success, response = self.run_test(
+            "Sync Offline Sales",
+            "POST",
+            "sales/sync",
+            200,
+            data={"sales": sample_sales}
+        )
+        
+        if success:
+            # Verify response structure
+            if 'results' not in response or 'synced' not in response:
+                print("   ⚠️  Invalid sync response structure")
+                return False
+            
+            print(f"   Results: {len(response['results'])}")
+            print(f"   Synced: {response['synced']}")
+            print(f"   Total: {response.get('total', 0)}")
+            
+            # Check individual results
+            for result in response['results']:
+                print(f"   Sale {result['id']}: {result['status']}")
+            
+            return True
+        return False
+
+    def test_duplicate_sale_detection(self):
+        """Test duplicate detection by sending same sale twice"""
+        # Use same sale ID as previous test to check duplicate detection
+        duplicate_sale = {
+            "id": f"offline-{datetime.now().strftime('%Y%m%d%H%M%S')}-DUPLICATE",
+            "sale_number": f"SL-{datetime.now().strftime('%Y%m%d')}-DUP",
+            "branch_id": self.branch_id,
+            "customer_name": "Walk-in",
+            "items": [{"product_id": "test", "quantity": 1, "price": 10, "total": 10}],
+            "subtotal": 10.0, "total": 10.0,
+            "payment_method": "Cash", "cashier_id": self.user_id,
+            "status": "completed", "created_at": datetime.now().isoformat()
+        }
+
+        # Send first time
+        success1, _ = self.run_test(
+            "Sync Sale (First Time)",
+            "POST", "sales/sync", 200,
+            data={"sales": [duplicate_sale]}
+        )
+
+        # Send second time (should detect duplicate)
+        success2, response = self.run_test(
+            "Sync Sale (Duplicate Check)",
+            "POST", "sales/sync", 200,
+            data={"sales": [duplicate_sale]}
+        )
+
+        if success1 and success2:
+            # Check if duplicate was detected
+            if response['results'] and response['results'][0]['status'] == 'duplicate':
+                print("   ✅ Duplicate detection working correctly")
+                return True
             else:
-                self.log_result("Adjust Repack Stock", False, f"Status: {status}")
+                print(f"   ⚠️  Expected duplicate, got: {response['results'][0]['status']}")
         
-        # Get inventory
-        success, status, data = self.make_request('GET', f'inventory?branch_id={self.branch_id}')
-        if success and 'items' in data:
-            self.log_result("Get Inventory", True, f"Found {len(data['items'])} items")
-        else:
-            self.log_result("Get Inventory", False, f"Status: {status}")
-        
-        return True
-
-    def test_customers(self):
-        """Test customer operations"""
-        print("\n👥 Testing Customers...")
-        
-        # Create customer
-        customer_data = {
-            "name": "Test Customer",
-            "phone": "1234567890",
-            "email": "test@example.com",
-            "price_scheme": "retail"
-        }
-        
-        success, status, data = self.make_request('POST', 'customers', customer_data, 200)  # Try with 200
-        if success and 'id' in data:
-            customer_id = data.get('id')
-            self.log_result("Create Customer", True, f"Name: {data.get('name')}")
-            return customer_id
-        else:
-            self.log_result("Create Customer", False, f"Status: {status}, Data: {data}")
-            return None
-
-    def test_pos_sale(self, repack_id, customer_id):
-        """Test POS sale creation"""
-        print("\n🛒 Testing POS Sale...")
-        
-        if not repack_id or not self.branch_id:
-            self.log_result("POS Sale Setup", False, "Missing repack_id or branch_id")
-            return False
-        
-        sale_data = {
-            "branch_id": self.branch_id,
-            "customer_id": customer_id,
-            "customer_name": "Test Customer",
-            "items": [
-                {
-                    "product_id": repack_id,
-                    "quantity": 2,
-                    "price": 15
-                }
-            ],
-            "discount": 0,
-            "payment_method": "Cash",
-            "payment_details": {"tendered": 30, "change": 0}
-        }
-        
-        success, status, data = self.make_request('POST', 'sales', sale_data, 200)  # Try with 200
-        if success and 'id' in data:
-            sale_id = data.get('id')
-            self.log_result("Create POS Sale", True, f"Sale ID: {sale_id}, Total: {data.get('total')}")
-            return sale_id
-        else:
-            self.log_result("Create POS Sale", False, f"Status: {status}, Data: {data}")
-            return None
-
-    def test_sales_history(self):
-        """Test sales history retrieval"""
-        print("\n📋 Testing Sales History...")
-        
-        success, status, data = self.make_request('GET', 'sales')
-        if success and 'sales' in data:
-            self.log_result("Get Sales History", True, f"Found {len(data['sales'])} sales")
-        else:
-            self.log_result("Get Sales History", False, f"Status: {status}")
-
-    def test_accounting(self):
-        """Test accounting operations"""
-        print("\n💰 Testing Accounting...")
-        
-        # Create expense
-        expense_data = {
-            "branch_id": self.branch_id,
-            "category": "Office Supplies",
-            "description": "Test expense",
-            "amount": 50
-        }
-        
-        success, status, data = self.make_request('POST', 'expenses', expense_data, 200)  # Try with 200
-        if success and 'id' in data:
-            self.log_result("Create Expense", True, f"Amount: {data.get('amount')}")
-        else:
-            self.log_result("Create Expense", False, f"Status: {status}, Data: {data}")
-
-    def test_dashboard(self):
-        """Test dashboard stats"""
-        print("\n📊 Testing Dashboard...")
-        
-        success, status, data = self.make_request('GET', 'dashboard/stats')
-        if success and isinstance(data, dict):
-            self.log_result("Get Dashboard Stats", True, f"Today's revenue: {data.get('today_revenue', 0)}")
-        else:
-            self.log_result("Get Dashboard Stats", False, f"Status: {status}")
-
-    def test_settings(self):
-        """Test settings/users"""
-        print("\n⚙️ Testing Settings...")
-        
-        success, status, data = self.make_request('GET', 'users')
-        if success and isinstance(data, list):
-            self.log_result("Get Users", True, f"Found {len(data)} users")
-        else:
-            self.log_result("Get Users", False, f"Status: {status}")
+        return False
 
     def run_all_tests(self):
-        """Run all API tests"""
-        print("🧪 Starting AgriPOS API Testing...")
-        print(f"Testing against: {self.base_url}")
+        """Run all backend tests"""
+        print("=" * 60)
+        print("🧪 AgriPOS Backend API Tests - PWA + Offline Features")
         print("=" * 60)
         
-        # Test authentication first
+        # Login first
         if not self.test_login():
-            print("❌ Authentication failed - stopping tests")
+            print("❌ Login failed - cannot continue with other tests")
             return False
         
-        # Test other features
-        self.test_branches()
-        parent_id, repack_id = self.test_products()
-        self.test_inventory(parent_id, repack_id)
-        customer_id = self.test_customers()
-        sale_id = self.test_pos_sale(repack_id, customer_id)
-        self.test_sales_history()
-        self.test_accounting()
-        self.test_dashboard()
-        self.test_settings()
+        # Get branches
+        if not self.test_get_branches():
+            print("❌ Could not get branches - using None")
         
-        # Print final results
+        # Test new sync endpoints
+        self.test_sync_pos_data()
+        self.test_sync_offline_sales() 
+        self.test_duplicate_sale_detection()
+        
+        # Print summary
         print("\n" + "=" * 60)
-        print(f"📊 Test Results: {self.tests_passed}/{self.tests_run} passed")
-        success_rate = (self.tests_passed / self.tests_run * 100) if self.tests_run > 0 else 0
-        print(f"Success Rate: {success_rate:.1f}%")
+        print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} passed")
+        print("=" * 60)
         
-        if self.failed_tests:
-            print("\n❌ Failed Tests:")
-            for failed in self.failed_tests:
-                print(f"  - {failed['test']}: {failed['details']}")
+        # Print detailed results
+        for result in self.results:
+            status_emoji = "✅" if result["status"] == "PASSED" else "❌"
+            print(f"{status_emoji} {result['test']}: {result['status']}")
+            if result["status"] != "PASSED":
+                print(f"   Error: {result.get('error', 'Unknown error')}")
         
-        return success_rate >= 80  # 80% success rate threshold
+        return self.tests_passed == self.tests_run
 
-if __name__ == "__main__":
+def main():
     tester = AgriPOSAPITester()
     success = tester.run_all_tests()
-    sys.exit(0 if success else 1)
+    return 0 if success else 1
+
+if __name__ == "__main__":
+    sys.exit(main())

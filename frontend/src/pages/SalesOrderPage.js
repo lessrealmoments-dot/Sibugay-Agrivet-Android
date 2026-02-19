@@ -36,7 +36,7 @@ export default function SalesOrderPage() {
   const [priceChangeInfo, setPriceChangeInfo] = useState(null);
   const [createProductDialog, setCreateProductDialog] = useState(false);
   const [newProductName, setNewProductName] = useState('');
-  const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
+  const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
   const [custSearch, setCustSearch] = useState('');
   const [custDropdownOpen, setCustDropdownOpen] = useState(false);
   const [isNewCustomer, setIsNewCustomer] = useState(false);

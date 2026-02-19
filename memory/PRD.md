@@ -115,3 +115,13 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 ## Default Credentials
 - Username: admin
 - Password: admin123
+
+### Phase 4: Sales Order System + Fund Management + Payments (Feb 19, 2026)
+- **Sales Order Page**: Excel-style line items with full invoice header (Customer, Contact, Phone, Address, Terms, PO#, Sales Rep, Prefix, Order/Invoice/Due dates)
+- **Smart Product Search**: Type-ahead search with detail bubbles showing retail price (₱), capital, available stock, reserved, coming inventory, parent stock for repacks. Arrow key navigation + Enter to select.
+- **Invoice System**: Auto-generated invoice numbers with configurable prefixes (SI, DR, TR, PO). Auto-computed due dates from terms. Per-line discounts (₱ or %) + overall discount + freight.
+- **Repack Capital Auto-Compute**: Parent cost / units per parent + add-on cost = repack capital
+- **Fund Management**: Three wallet types (Cashier Drawer, Safe with dated cash lots, Bank). Safe uses intelligent lot allocation (largest-first, fewest lots). Full lot usage audit trail.
+- **Payments Page**: Customer invoice lookup, record payments with fund source selection (Cashier/Safe/Bank). Interest & penalties deducted first, then principal.
+- **Interest Computation**: Prorated monthly from last computation date. Auto-detects overdue invoices. Per-customer interest rates.
+- **Payment Terms**: COD, Net 7/15/30/60, Custom days. Due date auto-computed.

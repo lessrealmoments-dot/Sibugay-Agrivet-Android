@@ -255,7 +255,7 @@ export default function DailyLogPage() {
                   <div key={cat} className="flex justify-between"><span>{cat}</span><span className="font-bold">{formatPHP(total)}</span></div>
                 ))}
                 <Separator />
-                <div className="flex justify-between font-bold"><span>Total Sales</span><span>{formatPHP(closing.total_sales)}</span></div>
+                <div className="flex justify-between font-bold"><span>New Sales Today</span><span>{formatPHP(closing.new_sales_today)}</span></div>
               </CardContent></Card>
               {closing.payments_received?.length > 0 && (
                 <Card className="border-slate-200"><CardContent className="p-4 text-sm">

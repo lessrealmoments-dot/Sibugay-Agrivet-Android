@@ -149,3 +149,11 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Backend**: Skip duplicate check for empty SKUs, auto-generate if not provided
 - **Frontend**: Updated label to "(optional - auto-generated if blank)" with new placeholder
 - **Status**: VERIFIED
+
+
+### Critical Fix: Daily Closing Double-Counting (Feb 19, 2026)
+- **Problem**: Expected Cash doubled actual amount (₱1,100 sales showed ₱2,200) because system added sales_log totals + invoice payments — same-day paid invoices counted twice
+- **Fix**: Expected Cash now uses `total_cash_received` (invoice payments + POS cash) instead of `sales + payments`. Credit Collections only counts payments on OLD invoices.
+- **Renames**: "Total Sales" → "New Sales Today", "Total Payments Received" → "Credit Collections Today", Dashboard "Today's Revenue" → "New Sales Today"
+- **Key rule**: New Sales Today = revenue/profit. Credit Collections = cash recovery only. Never combined as revenue.
+- **Status**: VERIFIED

@@ -810,15 +810,36 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
             "applied": apply, "new_balance": max(0, new_balance), "status": new_status
         })
         remaining = round(remaining - apply, 2)
-    # Update customer balance
+    # Deposit to selected wallet
     total_applied = round(amount - remaining, 2)
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": -total_applied}})
-    # Add to cashier wallet
+    deposit_to = data.get("deposit_to", "cashier")
     branch_id = invoices[0].get("branch_id", "") if invoices else ""
+    deposit_label = deposit_to.title()
     if total_applied > 0 and branch_id:
-        await update_cashier_wallet(branch_id, total_applied, f"Payment from {customer['name']}")
+        wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": deposit_to, "active": True}, {"_id": 0})
+        if wallet:
+            if deposit_to == "safe":
+                await db.safe_lots.insert_one({
+                    "id": new_id(), "branch_id": branch_id, "wallet_id": wallet["id"],
+                    "date_received": pay_date, "original_amount": total_applied, "remaining_amount": total_applied,
+                    "source_reference": f"Payment from {customer['name']} ({method})",
+                    "created_by": user["id"], "created_at": now_iso()
+                })
+            else:
+                await db.fund_wallets.update_one({"id": wallet["id"]}, {"$inc": {"balance": round(total_applied, 2)}})
+            await db.wallet_movements.insert_one({
+                "id": new_id(), "wallet_id": wallet["id"], "branch_id": branch_id,
+                "type": "cash_in", "amount": round(total_applied, 2),
+                "reference": f"Payment from {customer['name']} - {method} {reference}".strip(),
+                "created_at": now_iso()
+            })
+            deposit_label = wallet.get("name", deposit_to.title())
+        else:
+            await update_cashier_wallet(branch_id, total_applied, f"Payment from {customer['name']}")
+            deposit_label = "Cashier Drawer (auto)"
     return {"message": "Payment applied", "total_received": amount, "total_applied": total_applied,
-            "remaining": remaining, "allocations": allocations}
+            "remaining": remaining, "allocations": allocations, "deposited_to": deposit_label}
 
 # ==================== FUND WALLET SYSTEM ====================
 @api_router.get("/fund-wallets")

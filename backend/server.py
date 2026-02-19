@@ -269,13 +269,20 @@ async def generate_repack(product_id: str, data: dict, user=Depends(get_current_
         count = await db.products.count_documents({"parent_id": product_id, "active": True})
         repack_sku = f"R-{parent['sku']}-{count + 1}"
     repack_name = data.get("name", f"R {parent['name']}")
+    units = int(data.get("units_per_parent", 1))
+    add_on_cost = float(data.get("add_on_cost", 0))
+    auto_cost = (parent.get("cost_price", 0) / units) + add_on_cost if units > 0 else 0
     repack = {
         "id": new_id(), "sku": repack_sku, "name": repack_name,
         "category": parent["category"], "description": f"Repack from {parent['name']} ({parent['unit']})",
-        "unit": data.get("unit", "Piece"), "cost_price": float(data.get("cost_price", 0)),
+        "unit": data.get("unit", "Piece"),
+        "cost_price": float(data.get("cost_price", 0)) if float(data.get("cost_price", 0)) > 0 else round(auto_cost, 2),
         "prices": data.get("prices", {}), "parent_id": product_id, "is_repack": True,
-        "units_per_parent": int(data.get("units_per_parent", 1)),
+        "units_per_parent": units, "add_on_cost": add_on_cost,
         "repack_unit": data.get("unit", "Piece"), "barcode": data.get("barcode", ""),
+        "product_type": "stockable", "capital_method": "manual",
+        "reorder_point": 0, "reorder_quantity": 0,
+        "unit_of_measurement": data.get("unit", "Piece"), "last_vendor": "",
         "active": True, "created_at": now_iso(),
     }
     await db.products.insert_one(repack)

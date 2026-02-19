@@ -581,6 +581,52 @@ export default function PurchaseOrderPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Supplier History Dialog */}
+      <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Supplier History — {historyVendor}</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            {historyPOs.map(po => (
+              <Card key={po.id} className={`border-slate-200 ${po.payment_status === 'paid' ? 'opacity-70' : ''}`}>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setDetailPO(po); setDetailDialog(true); }} className="font-mono text-sm text-blue-600 hover:underline font-bold">{po.po_number}</button>
+                      <Badge className={`text-[10px] ${statusColor(po.status)}`}>{po.status}</Badge>
+                      <Badge className={`text-[10px] ${po.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : po.payment_status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                        {po.payment_status || 'unpaid'}
+                      </Badge>
+                    </div>
+                    <span className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(po.subtotal)}</span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Date: {po.purchase_date || po.created_at?.slice(0, 10)} &middot; Items: {po.items?.length || 0}
+                    {po.balance > 0 && <> &middot; <span className="text-red-600 font-semibold">Balance: {formatPHP(po.balance)}</span></>}
+                  </div>
+                  {/* Payment history for this PO */}
+                  {po.payment_history?.length > 0 && (
+                    <div className="mt-2 bg-slate-50 rounded p-2 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase text-slate-400">Payments</p>
+                      {po.payment_history.map((pay, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <ArrowRight size={10} className="text-emerald-500" />
+                            <span>{pay.date}</span>
+                            {pay.check_number && <span className="text-slate-400">Check #{pay.check_number}</span>}
+                          </div>
+                          <span className="font-bold text-emerald-600">{formatPHP(pay.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+            {!historyPOs.length && <p className="text-center py-8 text-slate-400">No purchase orders found</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

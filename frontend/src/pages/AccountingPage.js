@@ -51,6 +51,11 @@ export default function AccountingPage() {
     payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
     due_date: '', terms: ''
   });
+  const [cashOutForm, setCashOutForm] = useState({
+    description: '', notes: '', amount: 0, customer_id: '',
+    payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
+    due_date: '', terms: ''
+  });
   const [payableForm, setPayableForm] = useState({ supplier: '', description: '', amount: 0, due_date: '' });
   
   // Filters

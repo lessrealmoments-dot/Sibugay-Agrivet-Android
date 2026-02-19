@@ -33,15 +33,13 @@ from routes import (
     sales_router,
     purchase_orders_router,
     dashboard_router,
+    accounting_router,
+    daily_ops_router,
+    suppliers_router,
+    sync_router,
+    employees_router,
+    settings_router,
 )
-
-# Import remaining routes (accounting, daily ops, sync, etc.)
-from routes.accounting import router as accounting_router
-from routes.daily_operations import router as daily_ops_router
-from routes.suppliers import router as suppliers_router
-from routes.sync import router as sync_router
-from routes.employees import router as employees_router
-from routes.settings import router as settings_router
 
 # =============================================================================
 # APP SETUP

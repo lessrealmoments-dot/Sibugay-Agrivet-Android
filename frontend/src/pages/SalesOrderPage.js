@@ -282,7 +282,7 @@ export default function SalesOrderPage() {
                   </td>
                   <td className="px-2 py-1"><input className="w-full h-8 px-2 text-sm border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded" value={line.description} onChange={e => updateLine(i, 'description', e.target.value)} /></td>
                   <td className="px-2 py-1"><input ref={el => qtyRefs.current[i] = el} type="number" min="0" className="w-full h-8 px-2 text-sm text-right border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded" value={line.quantity} onChange={e => updateLine(i, 'quantity', parseFloat(e.target.value) || 0)} /></td>
-                  <td className="px-2 py-1"><input type="number" className="w-full h-8 px-2 text-sm text-right border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded" value={line.rate} onChange={e => updateLine(i, 'rate', parseFloat(e.target.value) || 0)} /></td>
+                  <td className="px-2 py-1"><input type="number" className="w-full h-8 px-2 text-sm text-right border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded" value={line.rate} onChange={e => updateLine(i, 'rate', parseFloat(e.target.value) || 0)} onBlur={() => validateLineRate(i)} /></td>
                   <td className="px-2 py-1">
                     <div className="flex items-center gap-1">
                       <input type="number" className="w-16 h-8 px-2 text-sm text-right border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded" value={line.discount_value} onChange={e => updateLine(i, 'discount_value', parseFloat(e.target.value) || 0)} />

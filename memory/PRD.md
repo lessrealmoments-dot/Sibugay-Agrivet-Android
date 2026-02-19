@@ -181,4 +181,20 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Credit PO**: Creates payable record, no cash movement. "Pay" button appears in PO list to pay later (deducts from cashier)
 - **New endpoint**: `POST /api/purchase-orders/{po_id}/pay` — pays credit PO, updates balance, linked payable
 - **PO fields added**: `payment_method`, `payment_status` (paid/unpaid/partial), `amount_paid`, `balance`
+
+### Feature: QuickBooks-Style Receive Payments (Feb 19, 2026)
+- **Complete rewrite** of Receive Payments page with QuickBooks-inspired workflow
+- **Customer lookup**: Select customer → all open invoices displayed with Original, Paid, Open Balance columns + totals row
+- **Total Open Balance**: Prominent display of customer's total outstanding amount
+- **Generate Interest**: Account-level button computes interest on ALL overdue invoices and creates a single Interest Charge invoice
+- **Compute Penalty**: Similar, creates Penalty Charge invoice with configurable % rate
+- **Smart Payment Allocation**: Enter amount received → auto-applies in priority order:
+  1. Interest Charge invoices first
+  2. Penalty Charge invoices second  
+  3. Oldest regular invoices last
+- **Live Allocation Preview**: Shows exactly how payment will be distributed before confirming
+- **Connected to Fund Management**: Payment auto-updates Cashier Drawer wallet
+- **New endpoints**: generate-interest, generate-penalty, receive-payment (all per customer)
+- **Status**: VERIFIED — 100% test pass (13/13 backend, all frontend)
+
 - **Status**: VERIFIED — Cash/Credit PO creation, wallet updates, payable creation, late payment all working

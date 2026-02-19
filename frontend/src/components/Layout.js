@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck
+  ChevronDown, LogOut, User, Store, Truck, Shield
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 
@@ -18,16 +18,17 @@ const NAV_ITEMS = [
   { path: '/branches', label: 'Branches', icon: Building2, perm: 'branches.view' },
   { path: '/products', label: 'Products', icon: Package, perm: 'products.view' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, perm: 'inventory.view' },
-  { path: '/sales-new', label: 'Sales', icon: ShoppingCart, perm: 'pos.view' },
-  { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'inventory.adjust' },
-  { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'inventory.view' },
+  { path: '/sales-new', label: 'Sales', icon: ShoppingCart, perm: 'sales.view' },
+  { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'purchase_orders.view' },
+  { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view' },
   { path: '/daily-ops', label: 'Daily Operations', icon: Receipt, perm: 'reports.view' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },
   { path: '/payments', label: 'Receive Payments', icon: Tags, perm: 'accounting.view' },
   { path: '/price-schemes', label: 'Price Schemes', icon: Tags, perm: 'price_schemes.view' },
-  { path: '/fund-management', label: 'Fund Mgmt', icon: Calculator, perm: 'accounting.view' },
+  { path: '/fund-management', label: 'Fund Mgmt', icon: Calculator, perm: 'accounting.manage_funds' },
   { path: '/sales', label: 'Sales History', icon: Receipt, perm: 'reports.view' },
   { path: '/accounting', label: 'Accounting', icon: Calculator, perm: 'accounting.view' },
+  { path: '/user-permissions', label: 'User Permissions', icon: Shield, perm: 'settings.manage_permissions' },
   { path: '/settings', label: 'Settings', icon: Settings, perm: 'settings.view' },
 ];
 

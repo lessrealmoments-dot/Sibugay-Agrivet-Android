@@ -268,7 +268,49 @@ export default function PurchaseOrderPage() {
           <Card className="border-slate-200">
             <CardContent className="p-5">
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                <div><Label className="text-xs text-slate-500">Vendor Name</Label><Input data-testid="po-vendor" className="h-9" value={header.vendor} onChange={e => setHeader(h => ({ ...h, vendor: e.target.value }))} placeholder="Supplier name" /></div>
+                <div className="relative" ref={supplierSearchRef}>
+                  <Label className="text-xs text-slate-500">Vendor Name</Label>
+                  <Input
+                    data-testid="po-vendor"
+                    className="h-9"
+                    value={supplierSearch || header.vendor}
+                    onChange={e => {
+                      setSupplierSearch(e.target.value);
+                      setHeader(h => ({ ...h, vendor: e.target.value }));
+                    }}
+                    onFocus={() => supplierSearch && setShowSupplierDropdown(true)}
+                    placeholder="Type supplier name..."
+                    autoComplete="off"
+                  />
+                  {showSupplierDropdown && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {supplierResults.length > 0 ? (
+                        supplierResults.map(name => (
+                          <button
+                            key={name}
+                            onClick={() => selectSupplier(name)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2"
+                          >
+                            <Truck size={12} className="text-slate-400" />
+                            {name}
+                          </button>
+                        ))
+                      ) : null}
+                      {supplierSearch && !supplierResults.some(n => n.toLowerCase() === supplierSearch.toLowerCase()) && (
+                        <button
+                          onClick={quickCreateSupplier}
+                          className="w-full text-left px-3 py-2 text-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center gap-2 border-t"
+                        >
+                          <UserPlus size={12} />
+                          Create "{supplierSearch}" as new supplier
+                        </button>
+                      )}
+                      {supplierResults.length === 0 && !supplierSearch && (
+                        <p className="px-3 py-2 text-xs text-slate-400">Start typing to search...</p>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div><Label className="text-xs text-slate-500">Purchase Date</Label><Input className="h-9" type="date" value={header.purchase_date} onChange={e => setHeader(h => ({ ...h, purchase_date: e.target.value }))} /></div>
                 <div>
                   <Label className="text-xs text-slate-500">Payment</Label>

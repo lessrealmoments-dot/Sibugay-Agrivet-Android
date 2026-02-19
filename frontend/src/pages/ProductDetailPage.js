@@ -205,7 +205,8 @@ export default function ProductDetailPage() {
             </AccordionTrigger>
             <AccordionContent className="px-5 pb-5">
               <Button size="sm" data-testid="create-repack-btn" onClick={() => {
-                setRepackForm({ name: `R ${product.name}`, unit: 'Pack', units_per_parent: 1, cost_price: 0, prices: {} });
+                const autoCost = product.cost_price ? Math.round(product.cost_price * 100) / 100 : 0;
+                setRepackForm({ name: `R ${product.name}`, unit: 'Pack', units_per_parent: 1, cost_price: autoCost, add_on_cost: 0, prices: {} });
                 setRepackDialog(true);
               }} className="mb-4 bg-[#D97706] hover:bg-[#b45309] text-white">
                 <Plus size={14} className="mr-1" /> Generate Repack

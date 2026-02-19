@@ -420,24 +420,38 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
     products = await db.products.find(query, {"_id": 0}).limit(10).to_list(10)
     results = []
     for p in products:
-        inv = await db.inventory.find_one({"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}) if branch_id else None
-        available = inv["quantity"] if inv else 0
-        coming_r = await db.purchase_orders.aggregate([
-            {"$match": {"status": {"$in": ["ordered", "draft"]}}}, {"$unwind": "$items"},
-            {"$match": {"items.product_id": p["id"]}}, {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
-        ]).to_list(1)
-        reserved_r = await db.sales.aggregate([
-            {"$match": {"status": "reserved"}}, {"$unwind": "$items"},
-            {"$match": {"items.product_id": p["id"]}}, {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
-        ]).to_list(1)
-        result = {**p, "available": available, "reserved": reserved_r[0]["t"] if reserved_r else 0,
-                  "coming": coming_r[0]["t"] if coming_r else 0}
+        # For repacks: calculate available from parent stock
         if p.get("is_repack") and p.get("parent_id"):
             parent = await db.products.find_one({"id": p["parent_id"]}, {"_id": 0})
             pinv = await db.inventory.find_one({"product_id": p["parent_id"], "branch_id": branch_id}, {"_id": 0}) if branch_id else None
-            result["parent_name"] = parent["name"] if parent else ""
-            result["parent_stock"] = pinv["quantity"] if pinv else 0
-            result["parent_unit"] = parent["unit"] if parent else ""
+            parent_stock = pinv["quantity"] if pinv else 0
+            units_per_parent = p.get("units_per_parent", 1)
+            # Repack available = parent stock × units_per_parent
+            available = parent_stock * units_per_parent
+            result = {
+                **p, 
+                "available": available,
+                "reserved": 0,
+                "coming": 0,
+                "parent_name": parent["name"] if parent else "",
+                "parent_stock": parent_stock,
+                "parent_unit": parent["unit"] if parent else "",
+                "derived_from_parent": True,
+            }
+        else:
+            # Regular product: use its own inventory
+            inv = await db.inventory.find_one({"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}) if branch_id else None
+            available = inv["quantity"] if inv else 0
+            coming_r = await db.purchase_orders.aggregate([
+                {"$match": {"status": {"$in": ["ordered", "draft"]}}}, {"$unwind": "$items"},
+                {"$match": {"items.product_id": p["id"]}}, {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+            ]).to_list(1)
+            reserved_r = await db.sales.aggregate([
+                {"$match": {"status": "reserved"}}, {"$unwind": "$items"},
+                {"$match": {"items.product_id": p["id"]}}, {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+            ]).to_list(1)
+            result = {**p, "available": available, "reserved": reserved_r[0]["t"] if reserved_r else 0,
+                      "coming": coming_r[0]["t"] if coming_r else 0}
         results.append(result)
     return results
 

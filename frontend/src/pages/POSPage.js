@@ -579,34 +579,60 @@ export default function POSPage() {
             </div>
           </DialogHeader>
           {dailyReport ? (
-            <div className="space-y-4 mt-2 text-sm">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 rounded-lg bg-emerald-50"><p className="text-xs text-slate-500">Revenue</p><p className="text-xl font-bold text-emerald-700">{formatPHP(dailyReport.total_revenue)}</p></div>
-                <div className="p-3 rounded-lg bg-red-50"><p className="text-xs text-slate-500">Expenses</p><p className="text-xl font-bold text-red-600">{formatPHP(dailyReport.total_expenses)}</p></div>
-                <div className={`p-3 rounded-lg ${dailyReport.net_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}><p className="text-xs text-slate-500">Net Profit</p><p className={`text-xl font-bold ${dailyReport.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatPHP(dailyReport.net_profit)}</p></div>
+            <div className="max-w-[680px] mx-auto" style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}>
+              <div className="text-center mb-3">
+                <h2 className="text-lg font-bold" style={{ color: '#1a365d', fontFamily: 'Manrope' }}>TODAY'S SALES REPORT</h2>
+                <p className="text-xs text-slate-500">{currentBranch?.name} &middot; {new Date(today).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
               </div>
-              <div><h3 className="font-bold text-xs uppercase text-slate-500 mb-2">Sales by Category</h3>
-                {Object.entries(dailyReport.sales_by_category || {}).map(([cat, d]) => (
-                  <div key={cat} className="flex justify-between p-1.5"><span>{cat}</span><span className="font-bold">{formatPHP(typeof d === 'object' ? d.total : d)}</span></div>
-                ))}
+              <div className="rpt-header">Summary</div>
+              <div className="rpt-row"><span>Total Revenue:</span><b className="text-emerald-700">{formatPHP(dailyReport.total_revenue)}</b></div>
+              <div className="rpt-row"><span>Cost of Goods Sold:</span><b>{formatPHP(dailyReport.total_cogs)}</b></div>
+              <div className="rpt-row"><span>Gross Profit:</span><b className={dailyReport.gross_profit >= 0 ? 'text-emerald-700' : 'text-red-600'}>{formatPHP(dailyReport.gross_profit)}</b></div>
+              <div className="rpt-row"><span>Total Expenses:</span><b className="text-red-600">{formatPHP(dailyReport.total_expenses)}</b></div>
+              <div className="rpt-row" style={{ backgroundColor: dailyReport.net_profit >= 0 ? '#ecfdf5' : '#fef2f2' }}>
+                <span className="font-bold">Net Profit:</span>
+                <b className={dailyReport.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}>{formatPHP(dailyReport.net_profit)}</b>
               </div>
+
+              <div className="rpt-header">Sales by Category</div>
+              {Object.entries(dailyReport.sales_by_category || {}).map(([cat, d]) => (
+                <div key={cat} className="rpt-row"><span>{cat}:</span><b>{formatPHP(typeof d === 'object' ? d.total : d)}</b></div>
+              ))}
+
               {dailyReport.payments_today?.length > 0 && (
-                <div><h3 className="font-bold text-xs uppercase text-slate-500 mb-2">Payments Received</h3>
-                  {dailyReport.payments_today.map((p, i) => (
-                    <div key={i} className="flex justify-between p-1.5 bg-slate-50 rounded mb-1">
-                      <span>{p.customer_name} — {p.invoice_number}</span><span className="font-bold">{formatPHP(p.payment?.amount)}</span>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="rpt-header">Payments Received</div>
+                  <table className="w-full text-xs border-collapse mt-1">
+                    <thead><tr style={{ backgroundColor: '#1a365d', color: 'white' }}>
+                      <th className="text-left py-1.5 px-3 font-semibold">Payee</th>
+                      <th className="text-left py-1.5 px-3 font-semibold">Invoice</th>
+                      <th className="text-right py-1.5 px-3 font-semibold">Amount</th>
+                    </tr></thead>
+                    <tbody>{dailyReport.payments_today.map((p, i) => (
+                      <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : ''}>
+                        <td className="py-1 px-3">{p.customer_name}</td>
+                        <td className="py-1 px-3 font-mono">{p.invoice_number}</td>
+                        <td className="py-1 px-3 text-right font-semibold">{formatPHP(p.payment?.amount)}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </>
               )}
+
               {dailyReport.expenses?.length > 0 && (
-                <div><h3 className="font-bold text-xs uppercase text-slate-500 mb-2">Expenses</h3>
-                  {dailyReport.expenses.map((e, i) => (
-                    <div key={i} className="flex justify-between p-1.5"><span><Badge variant="outline" className="text-[10px] mr-1">{e.category}</Badge>{e.description}</span><span className="font-bold text-red-600">{formatPHP(e.amount)}</span></div>
-                  ))}
-                </div>
+                <>
+                  <div className="rpt-header">Expenses</div>
+                  <div className="px-4 py-2 space-y-1 text-[13px]">
+                    {dailyReport.expenses.map((e, i) => (
+                      <div key={i} className="flex items-baseline gap-1">
+                        <span>&#8226;</span>
+                        <span>{e.category}: {e.description} <b className="text-red-600">{formatPHP(e.amount)}</b></span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
-              <div className="text-xs text-slate-400 text-center pt-2">{dailyReport.transaction_count} transactions today</div>
+              <div className="text-xs text-slate-400 text-center pt-3">{dailyReport.transaction_count} transactions today</div>
             </div>
           ) : <p className="text-center py-8 text-slate-400">Loading...</p>}
         </DialogContent>

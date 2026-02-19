@@ -171,7 +171,7 @@ export default function DailyLogPage() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
-                  { label: 'Revenue', value: report.total_revenue, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ArrowUp },
+                  { label: 'New Sales Today', value: report.new_sales_today, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ArrowUp },
                   { label: 'COGS', value: report.total_cogs, color: 'text-slate-600', bg: 'bg-slate-50', icon: ArrowDown },
                   { label: 'Gross Profit', value: report.gross_profit, color: report.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600', bg: 'bg-white', icon: TrendingUp },
                   { label: 'Expenses', value: report.total_expenses, color: 'text-red-600', bg: 'bg-red-50', icon: ArrowDown },

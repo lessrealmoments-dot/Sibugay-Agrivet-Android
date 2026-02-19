@@ -327,6 +327,23 @@ async def get_repacks(product_id: str, user=Depends(get_current_user)):
     repacks = await db.products.find({"parent_id": product_id, "active": True}, {"_id": 0}).to_list(100)
     return repacks
 
+@api_router.put("/products/{product_id}/update-price")
+async def update_product_price(product_id: str, data: dict, user=Depends(get_current_user)):
+    """Update a specific price scheme for a product"""
+    check_perm(user, "products", "edit")
+    scheme = data.get("scheme")
+    new_price = float(data.get("price", 0))
+    product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    # Hard rule: cannot set price below cost
+    if new_price < product.get("cost_price", 0) and new_price > 0:
+        raise HTTPException(status_code=400, detail=f"Price ₱{new_price:.2f} is below capital ₱{product['cost_price']:.2f}")
+    prices = product.get("prices", {})
+    prices[scheme] = new_price
+    await db.products.update_one({"id": product_id}, {"$set": {"prices": prices, "updated_at": now_iso()}})
+    return {"message": f"{scheme} price updated to ₱{new_price:.2f}", "prices": prices}
+
 @api_router.get("/products/categories/list")
 async def list_categories(user=Depends(get_current_user)):
     categories = await db.products.distinct("category", {"active": True})

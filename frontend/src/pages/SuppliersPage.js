@@ -4,39 +4,60 @@ import { formatPHP } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Search, Truck, FileText, DollarSign, ArrowRight, Clock, CheckCircle, AlertCircle, History } from 'lucide-react';
+import { Search, Truck, FileText, DollarSign, ArrowRight, CheckCircle, AlertCircle, History, Plus, Edit2, Phone, Mail, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SuppliersPage() {
   const [vendors, setVendors] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedVendor, setSelectedVendor] = useState(null);
+  const [selectedSupplierDetails, setSelectedSupplierDetails] = useState(null);
   const [vendorPOs, setVendorPOs] = useState([]);
   const [vendorStats, setVendorStats] = useState(null);
   const [detailPO, setDetailPO] = useState(null);
   const [detailDialog, setDetailDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  
+  // New supplier dialog
+  const [supplierDialog, setSupplierDialog] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({
+    name: '', contact_person: '', phone: '', email: '', address: '', notes: ''
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchVendors();
+    fetchData();
   }, []);
 
-  const fetchVendors = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/purchase-orders/vendors');
-      setVendors(res.data);
+      const [vendorsRes, suppliersRes] = await Promise.all([
+        api.get('/purchase-orders/vendors'),
+        api.get('/suppliers')
+      ]);
+      setVendors(vendorsRes.data);
+      setSuppliers(suppliersRes.data);
     } catch (e) {
       toast.error('Failed to load suppliers');
     }
     setLoading(false);
   };
+
+  // Combine vendors from POs and suppliers collection
+  const allSupplierNames = [...new Set([
+    ...vendors,
+    ...suppliers.map(s => s.name)
+  ])].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
 
   const selectVendor = async (vendor) => {
     setSelectedVendor(vendor);

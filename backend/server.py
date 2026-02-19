@@ -618,6 +618,185 @@ async def get_customer_invoices(customer_id: str, user=Depends(get_current_user)
     ).sort("created_at", -1).to_list(200)
     return invoices
 
+@api_router.post("/customers/{customer_id}/generate-interest")
+async def generate_account_interest(customer_id: str, user=Depends(get_current_user)):
+    """Compute interest on all overdue invoices and create a single Interest Charge invoice."""
+    check_perm(user, "accounting", "create")
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer: raise HTTPException(status_code=404, detail="Customer not found")
+    invoices = await db.invoices.find(
+        {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
+    ).to_list(500)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    total_interest = 0
+    interest_details = []
+    for inv in invoices:
+        if inv.get("sale_type") in ("interest_charge", "penalty_charge"): continue
+        rate = inv.get("interest_rate", 0)
+        if rate <= 0: continue
+        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else now
+        if now <= due: continue
+        last_date = datetime.strptime(inv["last_interest_date"], "%Y-%m-%d") if inv.get("last_interest_date") else due
+        days = (now - last_date).days
+        if days <= 0: continue
+        principal = inv.get("grand_total", 0)
+        daily_rate = (rate / 100) / 30
+        interest = round(principal * daily_rate * days, 2)
+        if interest > 0:
+            total_interest += interest
+            interest_details.append({"invoice": inv["invoice_number"], "principal": principal, "days": days, "interest": interest})
+            await db.invoices.update_one({"id": inv["id"]}, {"$set": {"last_interest_date": now.strftime("%Y-%m-%d")}})
+    if total_interest <= 0:
+        return {"message": "No interest to charge", "total": 0}
+    # Create interest charge invoice
+    settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
+    prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"
+    count = await db.invoices.count_documents({"prefix": prefix})
+    inv_number = f"{prefix}-{now.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    branch_id = invoices[0].get("branch_id", "") if invoices else ""
+    desc_lines = "; ".join([f"{d['invoice']}: {d['days']}d = ₱{d['interest']:.2f}" for d in interest_details])
+    interest_invoice = {
+        "id": new_id(), "invoice_number": inv_number, "prefix": prefix,
+        "customer_id": customer_id, "customer_name": customer["name"],
+        "customer_contact": "", "customer_phone": "", "customer_address": "",
+        "terms": "COD", "terms_days": 0, "customer_po": "",
+        "sales_rep_id": "", "sales_rep_name": "", "branch_id": branch_id,
+        "order_date": now.strftime("%Y-%m-%d"), "invoice_date": now.strftime("%Y-%m-%d"),
+        "due_date": now.strftime("%Y-%m-%d"),
+        "items": [{"product_id": "", "product_name": "Interest Charge",
+                    "description": desc_lines, "quantity": 1,
+                    "rate": total_interest, "discount_type": "amount",
+                    "discount_value": 0, "discount_amount": 0,
+                    "total": total_interest, "is_repack": False}],
+        "subtotal": total_interest, "freight": 0, "overall_discount": 0,
+        "grand_total": total_interest, "amount_paid": 0, "balance": total_interest,
+        "interest_rate": 0, "interest_accrued": 0, "penalties": 0,
+        "last_interest_date": None, "sale_type": "interest_charge",
+        "status": "open", "payments": [],
+        "cashier_id": user["id"], "cashier_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.invoices.insert_one(interest_invoice)
+    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": total_interest}})
+    return {"message": f"Interest invoice created: {inv_number}", "invoice_number": inv_number,
+            "total_interest": total_interest, "details": interest_details}
+
+@api_router.post("/customers/{customer_id}/generate-penalty")
+async def generate_account_penalty(customer_id: str, data: dict, user=Depends(get_current_user)):
+    """Compute penalty on all overdue invoices and create a Penalty Charge invoice."""
+    check_perm(user, "accounting", "create")
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer: raise HTTPException(status_code=404, detail="Customer not found")
+    penalty_rate = float(data.get("penalty_rate", 5))
+    invoices = await db.invoices.find(
+        {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
+    ).to_list(500)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    total_penalty = 0
+    penalty_details = []
+    for inv in invoices:
+        if inv.get("sale_type") in ("interest_charge", "penalty_charge"): continue
+        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else now
+        if now <= due: continue
+        principal = inv.get("grand_total", 0)
+        penalty = round(principal * penalty_rate / 100, 2)
+        if penalty > 0:
+            total_penalty += penalty
+            penalty_details.append({"invoice": inv["invoice_number"], "principal": principal, "penalty": penalty})
+    if total_penalty <= 0:
+        return {"message": "No penalty to charge", "total": 0}
+    settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
+    prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"
+    count = await db.invoices.count_documents({"prefix": prefix})
+    inv_number = f"{prefix}-{now.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    branch_id = invoices[0].get("branch_id", "") if invoices else ""
+    desc_lines = "; ".join([f"{d['invoice']}: ₱{d['penalty']:.2f}" for d in penalty_details])
+    penalty_invoice = {
+        "id": new_id(), "invoice_number": inv_number, "prefix": prefix,
+        "customer_id": customer_id, "customer_name": customer["name"],
+        "customer_contact": "", "customer_phone": "", "customer_address": "",
+        "terms": "COD", "terms_days": 0, "customer_po": "",
+        "sales_rep_id": "", "sales_rep_name": "", "branch_id": branch_id,
+        "order_date": now.strftime("%Y-%m-%d"), "invoice_date": now.strftime("%Y-%m-%d"),
+        "due_date": now.strftime("%Y-%m-%d"),
+        "items": [{"product_id": "", "product_name": "Penalty Charge",
+                    "description": desc_lines, "quantity": 1,
+                    "rate": total_penalty, "discount_type": "amount",
+                    "discount_value": 0, "discount_amount": 0,
+                    "total": total_penalty, "is_repack": False}],
+        "subtotal": total_penalty, "freight": 0, "overall_discount": 0,
+        "grand_total": total_penalty, "amount_paid": 0, "balance": total_penalty,
+        "interest_rate": 0, "interest_accrued": 0, "penalties": 0,
+        "last_interest_date": None, "sale_type": "penalty_charge",
+        "status": "open", "payments": [],
+        "cashier_id": user["id"], "cashier_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.invoices.insert_one(penalty_invoice)
+    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": total_penalty}})
+    return {"message": f"Penalty invoice created: {inv_number}", "invoice_number": inv_number,
+            "total_penalty": total_penalty, "details": penalty_details}
+
+@api_router.post("/customers/{customer_id}/receive-payment")
+async def receive_customer_payment(customer_id: str, data: dict, user=Depends(get_current_user)):
+    """QuickBooks-style payment: auto-allocate to interest first, penalty second, then oldest invoice."""
+    check_perm(user, "accounting", "create")
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer: raise HTTPException(status_code=404, detail="Customer not found")
+    amount = float(data["amount"])
+    pay_date = data.get("date", now_iso()[:10])
+    method = data.get("method", "Cash")
+    reference = data.get("reference", "")
+    if amount <= 0: raise HTTPException(status_code=400, detail="Amount must be positive")
+    # Get all open invoices, sorted: interest_charge first, penalty_charge second, then by oldest date
+    invoices = await db.invoices.find(
+        {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
+    ).to_list(500)
+    def sort_key(inv):
+        if inv.get("sale_type") == "interest_charge": return (0, inv.get("order_date", ""))
+        if inv.get("sale_type") == "penalty_charge": return (1, inv.get("order_date", ""))
+        return (2, inv.get("order_date", ""))
+    invoices.sort(key=sort_key)
+    remaining = amount
+    allocations = []
+    for inv in invoices:
+        if remaining <= 0: break
+        bal = inv["balance"]
+        apply = min(remaining, bal)
+        # Record payment on this invoice
+        interest_owed = inv.get("interest_accrued", 0) + inv.get("penalties", 0)
+        applied_interest = min(apply, interest_owed)
+        applied_principal = apply - applied_interest
+        new_interest = max(0, round(inv.get("interest_accrued", 0) - applied_interest, 2))
+        new_balance = round(bal - apply, 2)
+        new_paid = round(inv.get("amount_paid", 0) + apply, 2)
+        new_status = "paid" if new_balance <= 0 else "partial"
+        payment = {
+            "id": new_id(), "amount": apply, "date": pay_date,
+            "method": method, "fund_source": "cashier", "reference": reference,
+            "applied_to_interest": applied_interest, "applied_to_principal": applied_principal,
+            "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+        }
+        await db.invoices.update_one({"id": inv["id"]}, {
+            "$set": {"balance": max(0, new_balance), "amount_paid": new_paid,
+                     "interest_accrued": new_interest, "status": new_status},
+            "$push": {"payments": payment}
+        })
+        allocations.append({
+            "invoice": inv["invoice_number"], "type": inv.get("sale_type", "regular"),
+            "applied": apply, "new_balance": max(0, new_balance), "status": new_status
+        })
+        remaining = round(remaining - apply, 2)
+    # Update customer balance
+    total_applied = round(amount - remaining, 2)
+    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": -total_applied}})
+    # Add to cashier wallet
+    branch_id = invoices[0].get("branch_id", "") if invoices else ""
+    if total_applied > 0 and branch_id:
+        await update_cashier_wallet(branch_id, total_applied, f"Payment from {customer['name']}")
+    return {"message": "Payment applied", "total_received": amount, "total_applied": total_applied,
+            "remaining": remaining, "allocations": allocations}
+
 # ==================== FUND WALLET SYSTEM ====================
 @api_router.get("/fund-wallets")
 async def list_fund_wallets(user=Depends(get_current_user), branch_id: Optional[str] = None):

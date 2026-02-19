@@ -172,3 +172,13 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Auto-create wallet**: Cashier Drawer wallet auto-created on first transaction if missing.
 - **helper**: `update_cashier_wallet(branch_id, amount, reference)` — single function for all cash movements with audit trail via wallet_movements collection.
 - **Status**: VERIFIED — 100% test pass rate (9/9 backend, all frontend)
+
+
+### Feature: Purchase Order Payment Integration (Feb 19, 2026)
+- **Renamed**: "Expected Date" → "Purchase Date" (defaults to today)
+- **Payment Method**: "Pay in Cash" or "Purchase on Credit" selector on PO form
+- **Cash PO**: Deducts total from Cashier Drawer wallet immediately on creation
+- **Credit PO**: Creates payable record, no cash movement. "Pay" button appears in PO list to pay later (deducts from cashier)
+- **New endpoint**: `POST /api/purchase-orders/{po_id}/pay` — pays credit PO, updates balance, linked payable
+- **PO fields added**: `payment_method`, `payment_status` (paid/unpaid/partial), `amount_paid`, `balance`
+- **Status**: VERIFIED — Cash/Credit PO creation, wallet updates, payable creation, late payment all working

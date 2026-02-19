@@ -274,9 +274,9 @@ export default function PurchaseOrderPage() {
                     <TableHead className="text-xs uppercase text-slate-500">Vendor</TableHead>
                     <TableHead className="text-xs uppercase text-slate-500">Items</TableHead>
                     <TableHead className="text-xs uppercase text-slate-500 text-right">Total</TableHead>
-                    <TableHead className="text-xs uppercase text-slate-500">Expected</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Purchase Date</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Payment</TableHead>
                     <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
-                    <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
                     <TableHead className="w-48">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

@@ -2572,8 +2572,14 @@ async def set_inventory(data: dict, user=Depends(get_current_user)):
 
 # ==================== CUSTOMER ROUTES ====================
 @api_router.get("/customers")
-async def list_customers(user=Depends(get_current_user), search: Optional[str] = None, skip: int = 0, limit: int = 50):
+async def list_customers(user=Depends(get_current_user), search: Optional[str] = None, branch_id: Optional[str] = None, skip: int = 0, limit: int = 50):
     query = {"active": True}
+    # Apply branch filter for data isolation (non-admin users see only their branch)
+    if user.get("role") != "admin":
+        branch_filter = await get_branch_filter(user, branch_id)
+        query = apply_branch_filter(query, branch_filter)
+    elif branch_id:
+        query["branch_id"] = branch_id
     if search:
         query["$or"] = [{"name": {"$regex": search, "$options": "i"}}, {"phone": {"$regex": search, "$options": "i"}}]
     total = await db.customers.count_documents(query)
@@ -2583,6 +2589,11 @@ async def list_customers(user=Depends(get_current_user), search: Optional[str] =
 @api_router.post("/customers")
 async def create_customer(data: dict, user=Depends(get_current_user)):
     check_perm(user, "customers", "create")
+    # Assign branch_id if not provided
+    branch_id = data.get("branch_id") or user.get("branch_id")
+    if not branch_id and user.get("role") == "admin":
+        default_branch = await db.branches.find_one({"active": True}, {"_id": 0})
+        branch_id = default_branch["id"] if default_branch else None
     customer = {
         "id": new_id(), "name": data["name"], "phone": data.get("phone", ""),
         "email": data.get("email", ""), "address": data.get("address", ""),
@@ -2590,6 +2601,7 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
         "credit_limit": float(data.get("credit_limit", 0)),
         "interest_rate": float(data.get("interest_rate", 0)),
         "grace_period": int(data.get("grace_period", 7)),
+        "branch_id": branch_id,
         "balance": 0.0, "active": True, "created_at": now_iso(),
     }
     await db.customers.insert_one(customer)

@@ -166,6 +166,23 @@ export default function AccountingPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error creating farm expense'); }
   };
 
+  const handleCreateCashOut = async () => {
+    if (!cashOutForm.customer_id) {
+      toast.error('Please select a customer');
+      return;
+    }
+    if (!cashOutForm.amount || cashOutForm.amount <= 0) {
+      toast.error('Amount must be greater than 0');
+      return;
+    }
+    try {
+      const res = await api.post('/expenses/customer-cashout', { ...cashOutForm, branch_id: currentBranch?.id });
+      toast.success(res.data.message);
+      setCashOutDialog(false);
+      fetchAll();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating cash out'); }
+  };
+
   const handleCreatePayable = async () => {
     try {
       await api.post('/payables', { ...payableForm, branch_id: currentBranch?.id });

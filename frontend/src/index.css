@@ -80,6 +80,17 @@
 .rpt-alloc { border: 1.5px solid #c5d3e0; margin-top: 10px; }
 .rpt-extra { background: #dc2626; color: white; font-weight: 700; padding: 6px 14px; display: flex; justify-content: space-between; font-size: 13px; }
 
+/* Hide platform badge */
+#emergent-badge {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+}
+
 /* Animation */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fadeIn { animation: fadeIn 0.3s ease-out; }

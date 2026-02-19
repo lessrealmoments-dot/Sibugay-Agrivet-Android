@@ -3418,9 +3418,11 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
     ]
     top_products_sales = await db.sales.aggregate(top_products_pipeline).to_list(5)
     
-    # Also get from invoices
+    # Also get from invoices (branch filtered)
+    top_inv_match = {"status": {"$ne": "voided"}}
+    top_inv_match = apply_branch_filter(top_inv_match, branch_filter)
     top_products_invoices_pipeline = [
-        {"$match": {"status": {"$ne": "voided"}}},
+        {"$match": top_inv_match},
         {"$unwind": "$items"},
         {"$group": {"_id": "$items.product_name", "total_qty": {"$sum": "$items.quantity"}, "total_revenue": {"$sum": "$items.total"}}},
         {"$sort": {"total_revenue": -1}},
@@ -3432,10 +3434,11 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
     product_totals = {}
     for p in top_products_sales + top_products_inv:
         name = p["_id"]
-        if name not in product_totals:
+        if name and name not in product_totals:
             product_totals[name] = {"qty": 0, "revenue": 0}
-        product_totals[name]["qty"] += p.get("total_qty", 0)
-        product_totals[name]["revenue"] += p.get("total_revenue", 0)
+        if name:
+            product_totals[name]["qty"] += p.get("total_qty", 0)
+            product_totals[name]["revenue"] += p.get("total_revenue", 0)
     
     top_products = sorted(
         [{"name": k, "quantity": v["qty"], "revenue": v["revenue"]} for k, v in product_totals.items()],
@@ -3443,7 +3446,12 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
         reverse=True
     )[:5]
 
-    branches = await db.branches.find({"active": True}, {"_id": 0}).to_list(100)
+    # Get branches user can access
+    user_branches = await get_user_branches(user)
+    if user_branches:
+        branches = await db.branches.find({"active": True, "id": {"$in": user_branches}}, {"_id": 0}).to_list(100)
+    else:
+        branches = await db.branches.find({"active": True}, {"_id": 0}).to_list(100)
 
     return {
         "today_revenue": today_revenue, "today_sales_count": today_count,
@@ -3452,6 +3460,68 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
         "total_receivables": total_receivables, "recent_sales": recent_sales,
         "top_products": top_products,
         "branches": branches,
+        "current_branch_filter": branch_id or "all",
+        "is_multi_branch_view": user.get("role") == "admin" and not branch_id,
+    }
+
+@api_router.get("/dashboard/branch-summary")
+async def branch_summary(user=Depends(get_current_user)):
+    """Get summary for all branches the user can access."""
+    user_branches = await get_user_branches(user)
+    if not user_branches:
+        return {"branches": [], "totals": {"today_revenue": 0, "receivables": 0, "today_expenses": 0, "net_today": 0}}
+    
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    summaries = []
+    
+    for bid in user_branches:
+        branch = await db.branches.find_one({"id": bid}, {"_id": 0})
+        if not branch:
+            continue
+        
+        # Today's revenue for this branch
+        today_invoices = await db.invoices.find(
+            {"branch_id": bid, "status": {"$ne": "voided"}, "created_at": {"$gte": today}},
+            {"_id": 0, "grand_total": 1}
+        ).to_list(10000)
+        today_revenue = sum(inv.get("grand_total", 0) for inv in today_invoices)
+        
+        # Outstanding receivables for this branch
+        rec_result = await db.invoices.aggregate([
+            {"$match": {"branch_id": bid, "status": {"$nin": ["paid", "voided"]}, "balance": {"$gt": 0}}},
+            {"$group": {"_id": None, "total": {"$sum": "$balance"}}}
+        ]).to_list(1)
+        receivables = rec_result[0]["total"] if rec_result else 0
+        
+        # Today's expenses
+        exp_result = await db.expenses.aggregate([
+            {"$match": {"branch_id": bid, "date": today}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]).to_list(1)
+        expenses = exp_result[0]["total"] if exp_result else 0
+        
+        summaries.append({
+            "branch_id": bid,
+            "branch_name": branch.get("name", ""),
+            "today_revenue": today_revenue,
+            "receivables": receivables,
+            "today_expenses": expenses,
+            "net_today": today_revenue - expenses,
+        })
+    
+    # Calculate totals
+    total_revenue = sum(s["today_revenue"] for s in summaries)
+    total_receivables = sum(s["receivables"] for s in summaries)
+    total_expenses = sum(s["today_expenses"] for s in summaries)
+    
+    return {
+        "branches": summaries,
+        "totals": {
+            "today_revenue": total_revenue,
+            "receivables": total_receivables,
+            "today_expenses": total_expenses,
+            "net_today": total_revenue - total_expenses,
+        }
     }
 
 # ==================== USER MANAGEMENT ROUTES ====================

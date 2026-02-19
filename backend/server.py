@@ -1391,7 +1391,29 @@ async def list_inventory(
     total = count_result[0]["total"] if count_result else 0
     pipeline.extend([{"$skip": skip}, {"$limit": limit}])
     items = await db.products.aggregate(pipeline).to_list(limit)
-    return {"items": items, "total": total}
+    
+    # For repacks, calculate derived stock from parent
+    enriched_items = []
+    for item in items:
+        if item.get("is_repack") and item.get("parent_id"):
+            # Get parent stock
+            parent_inv = await db.inventory.find_one(
+                {"product_id": item["parent_id"], "branch_id": branch_id} if branch_id else {"product_id": item["parent_id"]},
+                {"_id": 0}
+            )
+            parent_stock = parent_inv["quantity"] if parent_inv else 0
+            units_per_parent = item.get("units_per_parent", 1)
+            # Calculate derived stock
+            item["total_stock"] = parent_stock * units_per_parent
+            item["derived_from_parent"] = True
+            item["parent_stock"] = parent_stock
+            # Get parent name
+            parent = await db.products.find_one({"id": item["parent_id"]}, {"_id": 0, "name": 1, "unit": 1})
+            item["parent_name"] = parent["name"] if parent else ""
+            item["parent_unit"] = parent["unit"] if parent else ""
+        enriched_items.append(item)
+    
+    return {"items": enriched_items, "total": total}
 
 @api_router.post("/inventory/adjust")
 async def adjust_inventory(data: dict, user=Depends(get_current_user)):

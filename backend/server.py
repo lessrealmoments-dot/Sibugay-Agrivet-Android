@@ -917,6 +917,13 @@ async def list_safe_lots(user=Depends(get_current_user), branch_id: Optional[str
     lots = await db.safe_lots.find(query, {"_id": 0}).sort("date_received", 1).to_list(500)
     return lots
 
+@api_router.get("/fund-wallets/{wallet_id}/movements")
+async def get_wallet_movements(wallet_id: str, user=Depends(get_current_user), limit: int = 50):
+    movements = await db.wallet_movements.find(
+        {"wallet_id": wallet_id}, {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    return movements
+
 # ==================== INVOICE SETTINGS ====================
 @api_router.get("/settings/invoice-prefixes")
 async def get_invoice_prefixes(user=Depends(get_current_user)):

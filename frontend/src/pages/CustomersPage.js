@@ -189,7 +189,7 @@ export default function CustomersPage() {
               <div><Label>Email</Label><Input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             </div>
             <div><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
                 <Label>Price Scheme</Label>
                 <Select value={form.price_scheme} onValueChange={v => setForm({ ...form, price_scheme: v })}>
@@ -204,8 +204,12 @@ export default function CustomersPage() {
                 <Input data-testid="customer-credit-input" type="number" value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: parseFloat(e.target.value) || 0 })} />
               </div>
               <div>
-                <Label>Interest Rate (%/mo)</Label>
+                <Label>Interest (%/mo)</Label>
                 <Input type="number" step="0.1" value={form.interest_rate} onChange={e => setForm({ ...form, interest_rate: parseFloat(e.target.value) || 0 })} />
+              </div>
+              <div>
+                <Label>Grace Period (days)</Label>
+                <Input type="number" value={form.grace_period} onChange={e => setForm({ ...form, grace_period: parseInt(e.target.value) || 7 })} placeholder="7" />
               </div>
             </div>
             <div className="flex justify-end gap-2">

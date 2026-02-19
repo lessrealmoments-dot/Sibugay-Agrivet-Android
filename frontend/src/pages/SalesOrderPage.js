@@ -34,6 +34,9 @@ export default function SalesOrderPage() {
   const [saving, setSaving] = useState(false);
   const [priceChangeDialog, setPriceChangeDialog] = useState(false);
   const [priceChangeInfo, setPriceChangeInfo] = useState(null);
+  const [createProductDialog, setCreateProductDialog] = useState(false);
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
   const qtyRefs = useRef([]);
 
   useEffect(() => {

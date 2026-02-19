@@ -1711,7 +1711,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     total_pos_cash = sum(s.get("total", 0) for s in pos_cash_sales)
     # Total cash received = invoice payments + POS cash (no double-counting)
     total_cash_received = round(total_invoice_cash + total_pos_cash, 2)
-    # Fund balances
+    # Fund balances (real-time from wallet updates)
     wallets = await db.fund_wallets.find({"branch_id": branch_id, "active": True}, {"_id": 0}).to_list(10)
     safe_wallet = next((w for w in wallets if w["type"] == "safe"), None)
     bank_wallet = next((w for w in wallets if w["type"] == "bank"), None)
@@ -1721,9 +1721,8 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         lots = await db.safe_lots.find({"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
         safe_balance = sum(l["remaining_amount"] for l in lots)
     bank_balance = bank_wallet["balance"] if bank_wallet else 0
-    prev_drawer = cashier_wallet["balance"] if cashier_wallet else 0
-    # Expected cash = actual cash received - expenses + previous drawer (NO double-counting)
-    expected_cash = round(total_cash_received - total_expenses + prev_drawer, 2)
+    # Expected cash = cashier wallet balance (real-time, already updated by all transactions)
+    expected_cash = round(cashier_wallet["balance"], 2) if cashier_wallet else 0
     actual_cash = float(data.get("actual_cash", 0))
     bank_checks = float(data.get("bank_checks", 0))
     other_payment_forms = float(data.get("other_payment_forms", 0))

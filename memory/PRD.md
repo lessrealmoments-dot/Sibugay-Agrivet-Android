@@ -144,8 +144,12 @@ New Endpoints:
 - [x] **Backend Modular Refactoring - Phase 1** (COMPLETE)
   - Created modular foundation: config.py, utils/, models/, routes/
   - Extracted 7 route modules: auth, branches, users, products, customers, inventory, price_schemes
+  
+- [x] **Backend Modular Refactoring - Phase 2** (COMPLETE - Feb 19, 2026)
+  - Extracted complex routes: invoices.py, sales.py, purchase_orders.py
+  - Total: 10 route modules with 62 endpoints
   - All modules tested and working
-  - Remaining: Extract complex routes (invoices, sales, accounting)
+  - Remaining: Lower priority routes (fund management, accounting, dashboard, etc.)
 - [ ] **Multi-Branch Data Isolation**
   - Branch-specific: prices, customers, suppliers, capital
   - Global: product names/SKUs

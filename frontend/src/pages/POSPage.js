@@ -210,10 +210,17 @@ export default function POSPage() {
               autoFocus
             />
           </div>
+          <div className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium ${isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+            {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {isOnline ? 'Online' : 'Offline'}
+            {pendingCount > 0 && (
+              <Badge className="ml-1 h-5 bg-amber-500 text-white text-[10px]">{pendingCount} pending</Badge>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {products.map(p => (
+          {filteredProducts.map(p => (
             <button
               key={p.id}
               data-testid={`pos-product-${p.id}`}

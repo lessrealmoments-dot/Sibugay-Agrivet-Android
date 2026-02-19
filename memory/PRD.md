@@ -222,18 +222,27 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Structure**: Added table of contents at top of `server.py` with line numbers for each route section
 - **Status**: COMPLETE — Backend organized, documentation created, all APIs working
 
+### Supplier Management Enhancement (Feb 19, 2026)
+- **New Feature**: Full supplier CRUD with contact details (name, contact person, phone, email, address, notes)
+- **Suppliers Page**: Added "New Supplier" button with creation dialog
+- **Supplier Details**: When selecting a supplier, shows contact info card with Edit button
+- **PO Quick-Create**: Smart vendor search in PO form with dropdown - type a new name to quick-create supplier
+- **Backend Endpoints**: Added `/api/suppliers` CRUD endpoints
+- **Status**: VERIFIED — 100% test pass (backend 9/9, frontend all features working)
+
 ## Current File Structure
 ```
 /app
 ├── backend/
-│   ├── server.py        # Main API server (~2200 lines, organized with section headers)
+│   ├── server.py        # Main API server (~2300 lines, with supplier routes)
 │   ├── ARCHITECTURE.md  # Complete API documentation and architecture reference
+│   ├── tests/           # Backend tests including test_supplier_crud.py
 │   └── .env             # Environment configuration
 └── frontend/
     ├── src/
     │   ├── pages/
-    │   │   ├── PurchaseOrderPage.js  # PO creation, list, pay supplier tabs
-    │   │   ├── SuppliersPage.js      # Supplier management with history
+    │   │   ├── PurchaseOrderPage.js  # PO creation with smart supplier search
+    │   │   ├── SuppliersPage.js      # Supplier management with CRUD
     │   │   └── ... other pages
     │   ├── components/
     │   │   └── Layout.js             # Navigation with Suppliers link

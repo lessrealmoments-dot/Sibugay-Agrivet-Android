@@ -74,7 +74,13 @@ export default function ProductsPage() {
         await api.put(`/products/${editing.id}`, form);
         toast.success('Product updated');
       } else {
-        await api.post('/products', form);
+        const res = await api.post('/products', form);
+        // Set starting inventory if provided
+        if (form.starting_inventory > 0 && currentBranch) {
+          await api.post('/inventory/set', {
+            product_id: res.data.id, branch_id: currentBranch.id, quantity: form.starting_inventory
+          });
+        }
         toast.success('Product created');
       }
       setDialogOpen(false);

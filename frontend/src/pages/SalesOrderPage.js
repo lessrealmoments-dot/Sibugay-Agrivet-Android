@@ -461,6 +461,33 @@ export default function SalesOrderPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Save New Customer Dialog */}
+      <Dialog open={saveCustomerDialog} onOpenChange={setSaveCustomerDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Save New Customer</DialogTitle></DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div><Label>Name</Label><Input value={newCustForm.name} onChange={e => setNewCustForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Phone</Label><Input value={newCustForm.phone} onChange={e => setNewCustForm(f => ({ ...f, phone: e.target.value }))} /></div>
+              <div><Label>Price Scheme</Label>
+                <Select value={newCustForm.price_scheme} onValueChange={v => setNewCustForm(f => ({ ...f, price_scheme: v }))}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {schemes.map(s => <SelectItem key={s.key} value={s.key}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div><Label>Address</Label><Input value={newCustForm.address} onChange={e => setNewCustForm(f => ({ ...f, address: e.target.value }))} /></div>
+            <div><Label>Interest Rate (%/mo)</Label><Input type="number" value={newCustForm.interest_rate} onChange={e => setNewCustForm(f => ({ ...f, interest_rate: parseFloat(e.target.value) || 0 }))} /></div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setSaveCustomerDialog(false)}>Cancel</Button>
+              <Button onClick={handleSaveCustomer} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save Customer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

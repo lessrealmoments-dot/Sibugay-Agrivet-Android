@@ -107,9 +107,10 @@ class AgriPOSAPITester:
         print("\n📦 Testing Products...")
         
         # Create parent product
+        timestamp = datetime.now().strftime('%H%M%S')
         parent_product = {
-            "sku": "LAN-250G",
-            "name": "Lannate 250g",
+            "sku": f"LAN-250G-{timestamp}",
+            "name": f"Lannate 250g {timestamp}",
             "category": "Pesticides",
             "unit": "Box",
             "cost_price": 100,

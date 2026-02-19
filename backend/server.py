@@ -1229,35 +1229,77 @@ async def generate_account_interest(customer_id: str, data: dict = {}, user=Depe
 
 @api_router.post("/customers/{customer_id}/generate-penalty")
 async def generate_account_penalty(customer_id: str, data: dict, user=Depends(get_current_user)):
-    """Compute penalty on all overdue invoices and create a Penalty Charge invoice."""
+    """
+    Compute one-time penalty on all overdue invoices (past grace period) and create a Penalty Charge invoice.
+    Only applies to invoices that haven't been penalized yet.
+    """
     check_perm(user, "accounting", "create")
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
-    if not customer: raise HTTPException(status_code=404, detail="Customer not found")
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
     penalty_rate = float(data.get("penalty_rate", 5))
     comp_date_str = data.get("as_of_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
+    
+    # Get customer's grace period (default 7 days)
+    grace_period = customer.get("grace_period", 7)
+    
     invoices = await db.invoices.find(
         {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
     ).to_list(500)
+    
     total_penalty = 0
     penalty_details = []
+    penalized_invoice_ids = []
+    
     for inv in invoices:
-        if inv.get("sale_type") in ("interest_charge", "penalty_charge"): continue
-        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else comp_date
-        if comp_date <= due: continue
-        principal = inv.get("grand_total", 0)
+        if inv.get("sale_type") in ("interest_charge", "penalty_charge"):
+            continue
+        
+        # Skip if already penalized (one-time penalty)
+        if inv.get("penalty_applied"):
+            continue
+        
+        due_date_str = inv.get("due_date", comp_date_str)
+        due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+        grace_end_date = due_date + timedelta(days=grace_period)
+        
+        # Only apply penalty if past grace period
+        if comp_date <= grace_end_date:
+            continue
+        
+        days_overdue = (comp_date - due_date).days
+        principal = inv.get("balance", 0)  # Use current balance
         penalty = round(principal * penalty_rate / 100, 2)
+        
         if penalty > 0:
             total_penalty += penalty
-            penalty_details.append({"invoice": inv["invoice_number"], "principal": principal, "penalty": penalty})
+            penalty_details.append({
+                "invoice": inv["invoice_number"],
+                "principal": principal,
+                "days_overdue": days_overdue,
+                "penalty": penalty
+            })
+            penalized_invoice_ids.append(inv["id"])
+    
     if total_penalty <= 0:
-        return {"message": "No penalty to charge", "total": 0}
+        return {"message": "No penalty to charge (invoices may be within grace period or already penalized)", "total": 0, "grace_period": grace_period}
+    
+    # Mark invoices as penalized
+    for inv_id in penalized_invoice_ids:
+        await db.invoices.update_one(
+            {"id": inv_id},
+            {"$set": {"penalty_applied": True, "penalty_date": comp_date_str}}
+        )
+    
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"
     count = await db.invoices.count_documents({"prefix": prefix})
     inv_number = f"{prefix}-{comp_date_str.replace('-','')}-{str(count + 1).zfill(4)}"
     branch_id = invoices[0].get("branch_id", "") if invoices else ""
-    desc_lines = "; ".join([f"{d['invoice']}: ₱{d['penalty']:.2f}" for d in penalty_details])
+    desc_lines = "; ".join([f"{d['invoice']}: {d['days_overdue']}d overdue = ₱{d['penalty']:.2f}" for d in penalty_details])
+    
     penalty_invoice = {
         "id": new_id(), "invoice_number": inv_number, "prefix": prefix,
         "customer_id": customer_id, "customer_name": customer["name"],
@@ -1282,7 +1324,7 @@ async def generate_account_penalty(customer_id: str, data: dict, user=Depends(ge
     await db.invoices.insert_one(penalty_invoice)
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": total_penalty}})
     return {"message": f"Penalty invoice created: {inv_number}", "invoice_number": inv_number,
-            "total_penalty": total_penalty, "details": penalty_details}
+            "total_penalty": total_penalty, "penalty_rate": penalty_rate, "details": penalty_details}
 
 @api_router.post("/customers/{customer_id}/receive-payment")
 async def receive_customer_payment(customer_id: str, data: dict, user=Depends(get_current_user)):

@@ -56,7 +56,7 @@ export default function SalesOrderPage() {
 
   const handleCreateNewProduct = (name) => {
     setNewProductName(name);
-    setNewProductForm({ sku: '', name, category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
+    setNewProductForm({ sku: '', name, category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
     setCreateProductDialog(true);
   };
 

@@ -119,7 +119,7 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Products</h1>
           <p className="text-sm text-slate-500 mt-1">{total} products &middot; Parent & Repack management</p>
         </div>
-        <Button data-testid="create-product-btn" onClick={openCreate} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+        <Button data-testid="create-product-btn" onClick={() => openCreate()} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
           <Plus size={16} className="mr-2" /> Add Product
         </Button>
       </div>

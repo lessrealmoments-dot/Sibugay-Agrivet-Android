@@ -6,13 +6,15 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - Offline POS with auto-sync capability
 - 3000+ SKU support with preset product setup
 - Multiple price schemes (Retail, Wholesale, Special, Government)
-- Granular role-based permissions
+- Granular role-based permissions (Inflow Cloud style)
 - Advanced accounting (expenses, receivables, payables)
+- QuickBooks-style editable invoices with audit trail
 
 ## User Personas
 1. **Admin/Owner** - Full system access, manages all branches, users, and financial data
 2. **Branch Manager** - Manages branch operations, inventory, sales, with configurable permissions
 3. **Cashier** - POS operations, customer service, limited system access
+4. **Inventory Clerk** - Stock management, purchase orders, receiving
 
 ## Architecture
 - **Frontend**: React 19 + Tailwind CSS + shadcn/ui components
@@ -22,51 +24,64 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## What's Been Implemented
 
-### Phase 9: Invoice Editor Feature (Feb 19, 2026)
-**QuickBooks-style invoice viewer/editor - double-click any invoice to view/edit**
+### Phase 10: Granular Permission System (Feb 19, 2026) ✅
+**Inflow Cloud-style user permission management - COMPLETE**
 
 Features:
-- **Universal Invoice Detail Modal** (`InvoiceDetailModal.js`)
-  - Opens on double-click/click of any invoice number
-  - Shows full invoice details: items, customer, dates, totals
-  - Works across all pages: Payments, Sales History, Customer Transactions
-  - Supports all types: Sales Invoice, PO, Interest Charge, Penalty Charge
+- **User Permissions Page** (`/user-permissions`)
+  - Left panel: User list with role badges (admin, manager, cashier, etc.)
+  - Right panel: Permission editor with toggles for each action
+  - Click user to select and load their permissions
 
-- **Edit with Audit Trail**
-  - Requires edit reason (mandatory text field)
-  - Optional proof/attachment upload
-  - Creates edit history record with: who, when, why, what changed
-  - "Edited" badge on invoices with edit count
-  - Click badge to view full edit history
+- **Permission Modules** (12 modules, 53 total permissions)
+  - Dashboard, Branches, Products, Inventory
+  - Sales/POS, Purchase Orders, Suppliers, Customers
+  - Accounting, Price Schemes, Reports, Settings
 
-- **Inventory Auto-Adjustment on Edit**
-  - Increase qty → Deduct more from inventory
-  - Decrease qty → Return stock to inventory
-  - Remove item → Full return
-  - Add item → New deduction
+- **Per-Action Toggles**
+  - Each module has specific actions: view, create, edit, delete
+  - Special permissions: view_cost, sell_below_cost, give_discount, void, manage_credit, etc.
 
-- **PO Price Updates**
-  - Editing PO item price updates product cost_price
+- **Role Presets**
+  - Administrator: Full access to everything
+  - Branch Manager: Manage branch ops, limited admin
+  - Cashier: POS operations only
+  - Inventory Clerk: Stock management focus
+  - Custom: Manual per-user configuration
+
+- **Quick Actions**
+  - "None" button: Disable all permissions for a module
+  - "All" button: Enable all permissions for a module
+  - "Apply Preset" dropdown: Apply predefined role
+
+- **Unsaved Changes**
+  - Yellow banner shows pending changes
+  - Discard/Save buttons for user confirmation
 
 New Endpoints:
-- `GET /api/invoices/{id}` - Get invoice with edit_history and edit_count
-- `GET /api/invoices/by-number/{number}` - Find invoice by number across collections
-- `PUT /api/invoices/{id}/edit` - Edit invoice (requires reason)
-- `GET /api/invoices/{id}/edit-history` - Get edit history
+- `GET /api/permissions/modules` - All permission modules with actions
+- `GET /api/permissions/presets` - All role presets
+- `GET /api/permissions/presets/{key}` - Specific preset details
+- `GET /api/users/{id}/permissions` - User's current permissions
+- `PUT /api/users/{id}/permissions` - Update all permissions
+- `PUT /api/users/{id}/permissions/module/{module}` - Update specific module
+- `POST /api/users/{id}/apply-preset` - Apply preset to user
 
-### Phase 8: Interest & Penalty Enhancement (Feb 19, 2026)
-- **Grace Period Support**: 7-day default, configurable per customer
-- **Auto-Preview Charges**: See computed interest before generating
-- **Interest Formula**: Simple daily `Balance × (Rate%/30) × Days`
-- **One-Time Penalty**: Flat rate, tracks `penalty_applied` per invoice
+### Phase 9: Invoice Editor Feature (Feb 19, 2026) ✅
+- QuickBooks-style invoice viewer/editor with audit trail
+- Edit with mandatory reason, creates edit history
+- Inventory auto-adjustment on quantity changes
 
-### Phase 7: Unified Sales System (Feb 19, 2026)
-- **Unified Sales Page** (`/sales-new`): Combined Quick POS + Sales Order
-- **Payment Options**: Cash (immediate), Partial (balance to AR), Credit (full to AR)
-- **Manager Approval**: PIN verification for credit sales (1234 default)
-- **Credit Limit Check**: Validates customer credit limit before sale
+### Phase 8: Interest & Penalty Enhancement (Feb 19, 2026) ✅
+- Grace period support, auto-preview charges
+- Simple daily interest formula
 
-### Previous Phases
+### Phase 7: Unified Sales System (Feb 19, 2026) ✅
+- Combined Quick POS + Sales Order workflow
+- Cash, Partial, Credit payment options
+- Manager PIN approval for credit sales
+
+### Previous Phases ✅
 - Customer Transaction History
 - Dashboard with Combined Receivables
 - Offline POS with IndexedDB + auto-sync
@@ -74,26 +89,39 @@ New Endpoints:
 - Fund Management (Cashier, Safe, Bank wallets)
 - Daily Operations (Sales log, profit report, day close)
 - Supplier Management with transaction history
-- Parent/Repack inventory system (derived quantities)
-- Enhanced expense management (Farm, Cash Out workflows)
+- Parent/Repack inventory system
 
 ## Current File Structure
 ```
 /app
 ├── backend/
-│   ├── server.py        # Main API server (~3100 lines)
+│   ├── server.py        # Main API server (~3800 lines)
+│   ├── config.py        # NEW: Centralized configuration
 │   ├── ARCHITECTURE.md  
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── auth.py      # NEW: Auth utilities
+│   │   └── helpers.py   # NEW: Common helpers
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── permissions.py # NEW: Permission definitions
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── auth.py      # NEW: Auth routes
+│   │   ├── branches.py  # NEW: Branch routes
+│   │   └── users.py     # NEW: User/permission routes
 │   ├── tests/
-│   │   └── test_invoice_edit.py  # Invoice edit tests
+│   │   └── test_user_permissions.py # NEW: Permission tests
 │   └── .env
 └── frontend/
     ├── src/
     │   ├── components/
-    │   │   └── InvoiceDetailModal.js  # NEW: Universal invoice viewer/editor
+    │   │   ├── InvoiceDetailModal.js
+    │   │   └── Layout.js
     │   ├── pages/
+    │   │   ├── UserPermissionsPage.js  # Full permission UI
     │   │   ├── UnifiedSalesPage.js
-    │   │   ├── PaymentsPage.js       # Updated: clickable invoice numbers
-    │   │   ├── SalesPage.js          # Updated: clickable invoice numbers
+    │   │   ├── PaymentsPage.js
     │   │   └── CustomersPage.js
     │   └── App.js
 ```
@@ -105,22 +133,21 @@ New Endpoints:
 
 ## Prioritized Backlog (Updated Feb 19, 2026)
 
-### P0 (Critical - Completed)
-- [x] **Invoice Editor** - QuickBooks-style view/edit with audit trail
+### P0 (Critical - Completed) ✅
+- [x] **Granular Permission System** (Inflow Cloud style)
+- [x] **Invoice Editor** with audit trail
 - [x] **Interest & Penalty with Grace Period**
 - [x] **Unified Sales Interface**
 - [x] **Customer Transaction Tracking**
 
-### P1 (High Priority - User Requested)
-- [ ] **Granular Permission System** (like Inflow Cloud)
-  - User Permissions page with checkboxes per module
-  - Preset roles (Admin, Manager, Cashier) + custom
-  - Per-feature access: No Access / View Only / Full Access
+### P1 (High Priority - Next)
+- [ ] **Backend Modular Refactoring** (In Progress)
+  - Foundation created: config.py, utils/, models/, routes/
+  - Remaining: Migrate all routes from server.py to modular structure
 - [ ] **Multi-Branch Data Isolation**
   - Branch-specific: prices, customers, suppliers, capital
   - Global: product names/SKUs
   - Owner view: all branches; User view: assigned branch only
-- [ ] Backend Modular Refactoring
 
 ### P2 (Medium Priority)
 - [ ] Advanced Reporting Dashboards
@@ -135,11 +162,16 @@ New Endpoints:
 - [ ] Audit trail / activity logs
 
 ## Key API Endpoints
-- `GET /api/invoices/{id}` - Get invoice with edit history
-- `GET /api/invoices/by-number/{number}` - Find invoice by number
+- `GET /api/permissions/modules` - All permission modules
+- `GET /api/permissions/presets` - Role presets
+- `PUT /api/users/{id}/permissions` - Update permissions
+- `POST /api/users/{id}/apply-preset` - Apply preset
+- `GET /api/invoices/{id}` - Invoice with edit history
 - `PUT /api/invoices/{id}/edit` - Edit invoice with reason
-- `GET /api/invoices/{id}/edit-history` - Get edit history
 - `GET /api/customers/{id}/charges-preview` - Preview interest/penalty
-- `POST /api/customers/{id}/generate-interest` - Create interest invoice
 - `POST /api/unified-sale` - Create sale (cash/partial/credit)
 - `POST /api/auth/verify-manager-pin` - Verify manager PIN
+
+## Testing Status
+- **Granular Permissions**: 100% tested (12 backend, all frontend features)
+- **Test reports**: /app/test_reports/iteration_18.json

@@ -15,15 +15,16 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
   const debounceRef = useRef(null);
 
   useEffect(() => {
-    if (!query || query.length < 1) { setResults([]); setOpen(false); return; }
+    if (!query || query.length < 1) { setResults([]); setOpen(false); setNoResults(false); return; }
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await api.get('/products/search-detail', { params: { q: query, branch_id: branchId } });
         setResults(res.data);
-        setOpen(res.data.length > 0);
+        setNoResults(res.data.length === 0 && query.length >= 2);
+        setOpen(true);
         setActiveIndex(-1);
-      } catch { setResults([]); }
+      } catch { setResults([]); setNoResults(true); }
     }, 200);
     return () => clearTimeout(debounceRef.current);
   }, [query, branchId]);

@@ -541,21 +541,31 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     if sale_type != "delivery":
         for item in items:
             if item["product_id"]:
-                await db.inventory.update_one(
-                    {"product_id": item["product_id"], "branch_id": branch_id},
-                    {"$inc": {"quantity": -item["quantity"]}, "$set": {"updated_at": now_iso()}},
-                    upsert=True
-                )
                 product = await db.products.find_one({"id": item["product_id"]}, {"_id": 0})
+                
+                # For repacks: only deduct from parent
                 if product and product.get("is_repack") and product.get("parent_id"):
-                    pd = item["quantity"] / product.get("units_per_parent", 1)
+                    units_per_parent = product.get("units_per_parent", 1)
+                    parent_deduction = item["quantity"] / units_per_parent
                     await db.inventory.update_one(
                         {"product_id": product["parent_id"], "branch_id": branch_id},
-                        {"$inc": {"quantity": -pd}, "$set": {"updated_at": now_iso()}}, upsert=True
+                        {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
+                        upsert=True
                     )
-                await log_movement(item["product_id"], branch_id, "sale", -item["quantity"],
-                                   invoice["id"], inv_number, item["rate"], user["id"],
-                                   user.get("full_name", user["username"]))
+                    await log_movement(product["parent_id"], branch_id, "sale", -parent_deduction,
+                                       invoice["id"], inv_number, item["rate"] * units_per_parent, user["id"],
+                                       user.get("full_name", user["username"]),
+                                       f"Sold as repack: {product['name']} x {item['quantity']}")
+                else:
+                    # Regular product: deduct from its own inventory
+                    await db.inventory.update_one(
+                        {"product_id": item["product_id"], "branch_id": branch_id},
+                        {"$inc": {"quantity": -item["quantity"]}, "$set": {"updated_at": now_iso()}},
+                        upsert=True
+                    )
+                    await log_movement(item["product_id"], branch_id, "sale", -item["quantity"],
+                                       invoice["id"], inv_number, item["rate"], user["id"],
+                                       user.get("full_name", user["username"]))
     else:
         invoice["status"] = "reserved" if balance > 0 else "paid"
     # Record initial payment if any

@@ -303,6 +303,117 @@ export default function PurchaseOrderPage() {
           </div>
         </TabsContent>
 
+        {/* PAY SUPPLIER TAB */}
+        <TabsContent value="pay" className="mt-4 space-y-4">
+          <div className="grid lg:grid-cols-3 gap-5">
+            {/* Vendor Search */}
+            <Card className="border-slate-200">
+              <CardContent className="p-4 space-y-3">
+                <Label className="text-xs text-slate-500 font-semibold uppercase">Supplier</Label>
+                <div className="relative">
+                  <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input value={vendorSearch} onChange={e => { setVendorSearch(e.target.value); setPayVendor(''); setVendorPOs([]); }}
+                    placeholder="Type supplier name..." className="pl-8 h-9" data-testid="pay-vendor-search" />
+                </div>
+                <div className="max-h-[350px] overflow-y-auto space-y-0.5">
+                  {filteredVendors.map(v => (
+                    <button key={v} onClick={() => selectPayVendor(v)}
+                      className={`w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50 ${payVendor === v ? 'bg-[#1A4D2E]/5 border-l-2 border-l-[#1A4D2E] font-medium' : ''}`}>
+                      {v}
+                    </button>
+                  ))}
+                  {!filteredVendors.length && <p className="text-xs text-slate-400 text-center py-4">No suppliers found</p>}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Form + Unpaid POs */}
+            <div className="lg:col-span-2 space-y-4">
+              {payVendor ? (
+                <>
+                  <Card className="border-slate-200">
+                    <CardContent className="p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>{payVendor}</h3>
+                        <Button variant="outline" size="sm" onClick={() => openSupplierHistory(payVendor)}>
+                          <History size={13} className="mr-1" /> View Full History
+                        </Button>
+                      </div>
+                      <Separator />
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div><Label className="text-xs">Amount</Label>
+                          <Input data-testid="pay-sup-amount" type="number" value={paySupForm.amount} onChange={e => setPaySupForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))} className="h-10 text-lg font-bold" />
+                        </div>
+                        <div><Label className="text-xs">Payment Date</Label>
+                          <Input type="date" value={paySupForm.payment_date} onChange={e => setPaySupForm(f => ({ ...f, payment_date: e.target.value }))} className="h-10" />
+                        </div>
+                        <div><Label className="text-xs">Check #</Label>
+                          <Input value={paySupForm.check_number} onChange={e => setPaySupForm(f => ({ ...f, check_number: e.target.value }))} placeholder="Optional" className="h-10" />
+                        </div>
+                        <div><Label className="text-xs">Check Date</Label>
+                          <Input type="date" value={paySupForm.check_date} onChange={e => setPaySupForm(f => ({ ...f, check_date: e.target.value }))} className="h-10" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Select PO to Pay</Label>
+                        <Select value={paySupForm.selected_po} onValueChange={v => {
+                          const po = vendorPOs.find(p => p.id === v);
+                          setPaySupForm(f => ({ ...f, selected_po: v, amount: po ? (po.balance || po.subtotal) : f.amount }));
+                        }}>
+                          <SelectTrigger data-testid="pay-sup-po-select" className="h-10"><SelectValue placeholder="Select unpaid PO..." /></SelectTrigger>
+                          <SelectContent>
+                            {vendorPOs.map(po => (
+                              <SelectItem key={po.id} value={po.id}>
+                                {po.po_number} — {formatPHP(po.subtotal)} (bal: {formatPHP(po.balance || po.subtotal)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button data-testid="confirm-sup-pay" onClick={handlePaySupplier} className="w-full h-11 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                        <DollarSign size={16} className="mr-2" /> Pay {formatPHP(paySupForm.amount)} to {payVendor}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Unpaid POs Table */}
+                  <Card className="border-slate-200">
+                    <CardContent className="p-0">
+                      <div className="px-4 py-2 bg-slate-50 border-b text-xs font-semibold uppercase text-slate-500">Open Purchase Orders</div>
+                      <Table>
+                        <TableHeader><TableRow>
+                          <TableHead className="text-xs uppercase text-slate-500">PO #</TableHead>
+                          <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                          <TableHead className="text-xs uppercase text-slate-500 text-right">Total</TableHead>
+                          <TableHead className="text-xs uppercase text-slate-500 text-right">Paid</TableHead>
+                          <TableHead className="text-xs uppercase text-slate-500 text-right">Balance</TableHead>
+                          <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
+                        </TableRow></TableHeader>
+                        <TableBody>
+                          {vendorPOs.map(po => (
+                            <TableRow key={po.id} className={`table-row-hover cursor-pointer ${paySupForm.selected_po === po.id ? 'bg-emerald-50' : ''}`}
+                              onClick={() => { setPaySupForm(f => ({ ...f, selected_po: po.id, amount: po.balance || po.subtotal })); }}>
+                              <TableCell className="font-mono text-xs text-blue-600" onClick={e => { e.stopPropagation(); setDetailPO(po); setDetailDialog(true); }}>{po.po_number}</TableCell>
+                              <TableCell className="text-xs">{po.purchase_date || po.created_at?.slice(0, 10)}</TableCell>
+                              <TableCell className="text-right text-sm">{formatPHP(po.subtotal)}</TableCell>
+                              <TableCell className="text-right text-sm text-slate-500">{formatPHP(po.amount_paid || 0)}</TableCell>
+                              <TableCell className="text-right text-sm font-bold text-red-600">{formatPHP(po.balance || po.subtotal)}</TableCell>
+                              <TableCell><Badge className={`text-[10px] ${po.payment_status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{po.payment_status || 'unpaid'}</Badge></TableCell>
+                            </TableRow>
+                          ))}
+                          {!vendorPOs.length && <TableRow><TableCell colSpan={6} className="text-center py-6 text-slate-400">No unpaid POs for this supplier</TableCell></TableRow>}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-48 text-slate-400 text-sm">Select a supplier to view unpaid POs</div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
         {/* LIST TAB */}
         <TabsContent value="list" className="mt-4">
           <Card className="border-slate-200">

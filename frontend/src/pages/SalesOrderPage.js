@@ -152,6 +152,30 @@ export default function SalesOrderPage() {
     setSaving(false);
   };
 
+  const handleSaveAs = async (type) => {
+    const validLines = lines.filter(l => l.product_id);
+    if (!validLines.length) { toast.error('Add at least one product'); return; }
+    if (!currentBranch) { toast.error('Select a branch'); return; }
+    setSaving(true);
+    try {
+      const paid = type === 'paid' ? grandTotal : amountPaid;
+      const data = {
+        ...header, branch_id: currentBranch.id, items: validLines, freight, overall_discount: overallDiscount,
+        amount_paid: paid, due_date: dueDate,
+        payment_method: type === 'paid' ? (header.payment_method || 'Cash') : 'Credit',
+      };
+      const res = await api.post('/invoices', data);
+      toast.success(type === 'paid'
+        ? `Invoice ${res.data.invoice_number} — Fully Paid!`
+        : `Invoice ${res.data.invoice_number} — Saved (Balance: ${formatPHP(res.data.balance)})`
+      );
+      setLines([{ ...EMPTY_LINE }]);
+      setFreight(0); setOverallDiscount(0); setAmountPaid(0);
+      setHeader(h => ({ ...h, customer_id: '', customer_name: '', customer_contact: '', customer_phone: '', customer_address: '', customer_po: '' }));
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating invoice'); }
+    setSaving(false);
+  };
+
   return (
     <div className="space-y-5 animate-fadeIn" data-testid="sales-order-page">
       <div className="flex items-center justify-between">
@@ -159,9 +183,16 @@ export default function SalesOrderPage() {
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>New Sales Order</h1>
           <p className="text-sm text-slate-500">Create invoice with line items</p>
         </div>
-        <Button data-testid="save-invoice-btn" onClick={handleSave} disabled={saving} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-          <Save size={16} className="mr-2" /> {saving ? 'Saving...' : 'Save Invoice'}
-        </Button>
+        <div className="flex gap-2">
+          <Button data-testid="save-paid-btn" onClick={() => handleSaveAs('paid')} disabled={saving}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <CreditCard size={16} className="mr-2" /> {saving ? 'Saving...' : 'Receive Payment (Fully Paid)'}
+          </Button>
+          <Button data-testid="save-invoice-btn" onClick={() => handleSaveAs('credit')} disabled={saving}
+            className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+            <Save size={16} className="mr-2" /> {saving ? 'Saving...' : 'Save as Invoice'}
+          </Button>
+        </div>
       </div>
 
       {/* Header */}

@@ -1802,30 +1802,9 @@ async def get_vendor_pos(vendor: str, user=Depends(get_current_user)):
     return pos
 
 # =============================================================================
-# INVOICE DETAIL & EDIT ROUTES
+# INVOICE DETAIL & EDIT ROUTES  
 # =============================================================================
-@api_router.get("/invoices/{invoice_id}")
-async def get_invoice_detail(invoice_id: str, user=Depends(get_current_user)):
-    """Get full invoice details including edit history."""
-    invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
-    if not invoice:
-        # Try sales collection
-        invoice = await db.sales.find_one({"id": invoice_id}, {"_id": 0})
-    if not invoice:
-        # Try purchase orders
-        invoice = await db.purchase_orders.find_one({"id": invoice_id}, {"_id": 0})
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
-    
-    # Get edit history
-    edit_history = await db.invoice_edits.find(
-        {"invoice_id": invoice_id}, {"_id": 0}
-    ).sort("edited_at", -1).to_list(100)
-    
-    invoice["edit_history"] = edit_history
-    invoice["edit_count"] = len(edit_history)
-    
-    return invoice
+# Note: GET /invoices/{inv_id} with edit_history is defined above in INVOICE / SALES ORDER section
 
 @api_router.get("/invoices/by-number/{invoice_number}")
 async def get_invoice_by_number(invoice_number: str, user=Depends(get_current_user)):

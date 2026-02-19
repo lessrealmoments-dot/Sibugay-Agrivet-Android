@@ -320,8 +320,8 @@ export default function DailyLogPage() {
                 <Separator />
                 <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>End-of-Day Allocation</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label className="text-xs">Cash Remaining in Drawer</Label><Input data-testid="cash-to-drawer" type="number" value={closeForm.cash_to_drawer} onChange={e => setCloseForm({ ...closeForm, cash_to_drawer: parseFloat(e.target.value) || 0 })} className="h-10" /></div>
-                  <div><Label className="text-xs">Cash to Transfer to Safe</Label><Input data-testid="cash-to-safe" type="number" value={closeForm.cash_to_safe} onChange={e => setCloseForm({ ...closeForm, cash_to_safe: parseFloat(e.target.value) || 0 })} className="h-10" /></div>
+                  <div><Label className="text-xs">Cash Remaining in Drawer</Label><Input data-testid="cash-to-drawer" type="number" value={closeForm.cash_to_drawer} onChange={e => { const v = parseFloat(e.target.value) || 0; setCloseForm({ ...closeForm, cash_to_drawer: v, cash_to_safe: round2(closeForm.actual_cash - v) }); }} className="h-10" /></div>
+                  <div><Label className="text-xs">Cash to Transfer to Safe</Label><Input data-testid="cash-to-safe" type="number" value={closeForm.cash_to_safe} onChange={e => { const v = parseFloat(e.target.value) || 0; setCloseForm({ ...closeForm, cash_to_safe: v, cash_to_drawer: round2(closeForm.actual_cash - v) }); }} className="h-10" /></div>
                 </div>
                 <Button data-testid="close-day-btn" onClick={handleClose} className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-base">
                   <Lock size={16} className="mr-2" /> Close Accounts for {date}

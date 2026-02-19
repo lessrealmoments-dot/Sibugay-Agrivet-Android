@@ -36,6 +36,10 @@ export default function PaymentsPage() {
       const res = await api.get(`/customers/${custId}/invoices`);
       setInvoices(res.data);
     } catch { setInvoices([]); }
+    try {
+      const res = await api.get(`/customers/${custId}/payment-history`);
+      setPayHistory(res.data);
+    } catch { setPayHistory([]); }
   };
 
   const selectCustomer = (c) => {

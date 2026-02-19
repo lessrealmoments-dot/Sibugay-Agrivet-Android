@@ -1357,11 +1357,17 @@ async def list_inventory(
     branch_id: Optional[str] = None,
     search: Optional[str] = None,
     low_stock: Optional[bool] = None,
+    include_repacks: Optional[bool] = True,
     skip: int = 0,
     limit: int = 50
 ):
+    # Base query - only get non-repack products for direct inventory
+    base_match = {"active": True}
+    if not include_repacks:
+        base_match["is_repack"] = {"$ne": True}
+    
     pipeline = [
-        {"$match": {"active": True}},
+        {"$match": base_match},
         {"$lookup": {"from": "inventory", "localField": "id", "foreignField": "product_id", "as": "stock_records"}},
     ]
     if branch_id:

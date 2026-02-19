@@ -113,9 +113,14 @@ export default function FundManagementPage() {
               {w.type === 'safe' && w.lots && (
                 <p className="text-[11px] text-slate-400 mt-1">{w.lots.length} active cash lot{w.lots.length !== 1 ? 's' : ''}</p>
               )}
-              <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => openDeposit(w)}>
-                <Plus size={12} className="mr-1" /> Deposit
-              </Button>
+              <div className="flex gap-2 mt-3">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => openDeposit(w)}>
+                  <Plus size={12} className="mr-1" /> Deposit
+                </Button>
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => viewMovements(w)}>
+                  <ArrowRightLeft size={12} className="mr-1" /> History
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}

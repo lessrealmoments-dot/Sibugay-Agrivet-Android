@@ -1,0 +1,635 @@
+"""
+Invoice and Sales Order routes: CRUD, payments, interest/penalty, editing.
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from datetime import datetime, timezone, timedelta
+from config import db
+from utils import (
+    get_current_user, check_perm, now_iso, new_id,
+    log_movement, log_sale_items, get_active_date, update_cashier_wallet
+)
+
+router = APIRouter(tags=["Invoices"])
+
+
+# ==================== INVOICE CRUD ====================
+@router.get("/invoices")
+async def list_invoices(
+    user=Depends(get_current_user),
+    status: Optional[str] = None,
+    customer_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50
+):
+    """List invoices with optional filters."""
+    query = {"status": {"$ne": "voided"}}
+    if status:
+        query["status"] = status
+    if customer_id:
+        query["customer_id"] = customer_id
+    if branch_id:
+        query["branch_id"] = branch_id
+    
+    total = await db.invoices.count_documents(query)
+    items = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    return {"invoices": items, "total": total}
+
+
+@router.post("/invoices")
+async def create_invoice(data: dict, user=Depends(get_current_user)):
+    """Create a new invoice/sales order."""
+    check_perm(user, "pos", "sell")
+    
+    # Get prefix settings
+    settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
+    prefix = data.get("prefix", settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI")
+    
+    # Auto-generate number
+    count = await db.invoices.count_documents({"prefix": prefix})
+    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    
+    # Compute due date
+    terms_days = int(data.get("terms_days", 0))
+    order_date = data.get("order_date", now_iso()[:10])
+    if terms_days > 0:
+        od = datetime.strptime(order_date, "%Y-%m-%d")
+        due_date = (od + timedelta(days=terms_days)).strftime("%Y-%m-%d")
+    else:
+        due_date = order_date
+    
+    # Compute line items
+    items = []
+    subtotal = 0
+    for item in data.get("items", []):
+        qty = float(item.get("quantity", 0))
+        rate = float(item.get("rate", 0))
+        
+        # HARD RULE: Never sell below capital
+        if item.get("product_id"):
+            prod_check = await db.products.find_one(
+                {"id": item["product_id"]},
+                {"_id": 0, "cost_price": 1, "name": 1}
+            )
+            if prod_check and rate < prod_check.get("cost_price", 0) and rate > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot sell '{prod_check.get('name', '')}' at ₱{rate:.2f} — below capital ₱{prod_check['cost_price']:.2f}"
+                )
+        
+        disc_type = item.get("discount_type", "amount")
+        disc_val = float(item.get("discount_value", 0))
+        disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
+        line_total = round(qty * rate - disc_amt, 2)
+        
+        items.append({
+            "product_id": item.get("product_id", ""),
+            "product_name": item.get("product_name", ""),
+            "description": item.get("description", ""),
+            "quantity": qty,
+            "rate": rate,
+            "discount_type": disc_type,
+            "discount_value": disc_val,
+            "discount_amount": disc_amt,
+            "total": line_total,
+            "is_repack": item.get("is_repack", False),
+        })
+        subtotal += line_total
+    
+    freight = float(data.get("freight", 0))
+    overall_disc = float(data.get("overall_discount", 0))
+    grand_total = round(subtotal + freight - overall_disc, 2)
+    amount_paid = float(data.get("amount_paid", 0))
+    balance = round(grand_total - amount_paid, 2)
+    
+    # Get customer interest rate
+    customer = await db.customers.find_one({"id": data.get("customer_id")}, {"_id": 0}) if data.get("customer_id") else None
+    interest_rate = float(data.get("interest_rate", customer.get("interest_rate", 0) if customer else 0))
+    
+    status = "paid" if balance <= 0 else ("partial" if amount_paid > 0 else "open")
+    sale_type = data.get("sale_type", "walk_in")
+    
+    invoice = {
+        "id": new_id(),
+        "invoice_number": inv_number,
+        "prefix": prefix,
+        "customer_id": data.get("customer_id"),
+        "customer_name": data.get("customer_name", "Walk-in"),
+        "customer_contact": data.get("customer_contact", ""),
+        "customer_phone": data.get("customer_phone", ""),
+        "customer_address": data.get("customer_address", ""),
+        "terms": data.get("terms", "COD"),
+        "terms_days": terms_days,
+        "customer_po": data.get("customer_po", ""),
+        "sales_rep_id": data.get("sales_rep_id"),
+        "sales_rep_name": data.get("sales_rep_name", ""),
+        "branch_id": data.get("branch_id", ""),
+        "order_date": order_date,
+        "invoice_date": data.get("invoice_date", order_date),
+        "due_date": due_date,
+        "items": items,
+        "subtotal": subtotal,
+        "freight": freight,
+        "overall_discount": overall_disc,
+        "grand_total": grand_total,
+        "amount_paid": amount_paid,
+        "balance": balance,
+        "interest_rate": interest_rate,
+        "interest_accrued": 0,
+        "penalties": 0,
+        "last_interest_date": None,
+        "sale_type": sale_type,
+        "status": status,
+        "payments": [],
+        "cashier_id": user["id"],
+        "cashier_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    
+    # Handle inventory deduction
+    branch_id = data.get("branch_id", "")
+    if sale_type != "delivery":
+        for item in items:
+            if item["product_id"]:
+                product = await db.products.find_one({"id": item["product_id"]}, {"_id": 0})
+                
+                # For repacks: only deduct from parent
+                if product and product.get("is_repack") and product.get("parent_id"):
+                    units_per_parent = product.get("units_per_parent", 1)
+                    parent_deduction = item["quantity"] / units_per_parent
+                    await db.inventory.update_one(
+                        {"product_id": product["parent_id"], "branch_id": branch_id},
+                        {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
+                        upsert=True
+                    )
+                    await log_movement(
+                        product["parent_id"], branch_id, "sale", -parent_deduction,
+                        invoice["id"], inv_number, item["rate"] * units_per_parent,
+                        user["id"], user.get("full_name", user["username"]),
+                        f"Sold as repack: {product['name']} x {item['quantity']}"
+                    )
+                else:
+                    # Regular product: deduct from its own inventory
+                    await db.inventory.update_one(
+                        {"product_id": item["product_id"], "branch_id": branch_id},
+                        {"$inc": {"quantity": -item["quantity"]}, "$set": {"updated_at": now_iso()}},
+                        upsert=True
+                    )
+                    await log_movement(
+                        item["product_id"], branch_id, "sale", -item["quantity"],
+                        invoice["id"], inv_number, item["rate"],
+                        user["id"], user.get("full_name", user["username"])
+                    )
+    else:
+        invoice["status"] = "reserved" if balance > 0 else "paid"
+    
+    # Record initial payment if any
+    if amount_paid > 0:
+        invoice["payments"].append({
+            "id": new_id(),
+            "amount": amount_paid,
+            "date": order_date,
+            "method": data.get("payment_method", "Cash"),
+            "fund_source": data.get("fund_source", "cashier"),
+            "reference": "",
+            "applied_to_interest": 0,
+            "applied_to_principal": amount_paid,
+            "recorded_by": user.get("full_name", user["username"]),
+            "recorded_at": now_iso(),
+        })
+        # Update cashier wallet with initial payment
+        fund_source = data.get("fund_source", "cashier")
+        if fund_source == "cashier":
+            await update_cashier_wallet(branch_id, amount_paid, f"Invoice payment {inv_number}")
+    
+    await db.invoices.insert_one(invoice)
+    del invoice["_id"]
+    
+    # Log to sequential sales log
+    active_date = await get_active_date(branch_id)
+    for item in items:
+        if item["product_id"]:
+            prod = await db.products.find_one({"id": item["product_id"]}, {"_id": 0, "category": 1})
+            item["category"] = prod.get("category", "General") if prod else "General"
+    
+    await log_sale_items(
+        branch_id, active_date, items, inv_number,
+        data.get("customer_name", "Walk-in"),
+        data.get("payment_method", "Cash"),
+        user.get("full_name", user["username"])
+    )
+    
+    return invoice
+
+
+@router.get("/invoices/{inv_id}")
+async def get_invoice(inv_id: str, user=Depends(get_current_user)):
+    """Get invoice by ID with edit history."""
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        inv = await db.sales.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        inv = await db.purchase_orders.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Include edit history and count
+    edit_history = await db.invoice_edits.find(
+        {"invoice_id": inv_id}, {"_id": 0}
+    ).sort("edited_at", -1).to_list(100)
+    inv["edit_history"] = edit_history
+    inv["edit_count"] = len(edit_history)
+    
+    return inv
+
+
+@router.get("/invoices/by-number/{invoice_number}")
+async def get_invoice_by_number(invoice_number: str, user=Depends(get_current_user)):
+    """Get invoice by invoice number (searches all collections)."""
+    # Search in invoices
+    invoice = await db.invoices.find_one({"invoice_number": invoice_number}, {"_id": 0})
+    if invoice:
+        invoice["_collection"] = "invoices"
+        return invoice
+    
+    # Search in sales
+    sale = await db.sales.find_one({"sale_number": invoice_number}, {"_id": 0})
+    if sale:
+        sale["_collection"] = "sales"
+        return sale
+    
+    # Search in purchase orders
+    po = await db.purchase_orders.find_one({"po_number": invoice_number}, {"_id": 0})
+    if po:
+        po["_collection"] = "purchase_orders"
+        return po
+    
+    raise HTTPException(status_code=404, detail="Invoice not found")
+
+
+# ==================== INVOICE PAYMENTS ====================
+@router.post("/invoices/{inv_id}/payment")
+async def record_invoice_payment(inv_id: str, data: dict, user=Depends(get_current_user)):
+    """Record a payment on an invoice."""
+    check_perm(user, "accounting", "create")
+    
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    amount = float(data["amount"])
+    fund_source = data.get("fund_source", "cashier")
+    branch_id = inv.get("branch_id", "")
+    
+    # Interest & penalties first, then principal
+    interest_owed = inv.get("interest_accrued", 0) + inv.get("penalties", 0)
+    applied_interest = min(amount, interest_owed)
+    applied_principal = amount - applied_interest
+    new_interest = max(0, round(inv.get("interest_accrued", 0) - applied_interest, 2))
+    new_balance = round(inv["balance"] - amount, 2)
+    new_paid = round(inv["amount_paid"] + amount, 2)
+    new_status = "paid" if new_balance <= 0 else "partial"
+    
+    payment = {
+        "id": new_id(),
+        "amount": amount,
+        "date": data.get("date", now_iso()[:10]),
+        "method": data.get("method", "Cash"),
+        "fund_source": fund_source,
+        "reference": data.get("reference", ""),
+        "applied_to_interest": applied_interest,
+        "applied_to_principal": applied_principal,
+        "recorded_by": user.get("full_name", user["username"]),
+        "recorded_at": now_iso(),
+    }
+    
+    await db.invoices.update_one({"id": inv_id}, {
+        "$set": {
+            "balance": max(0, new_balance),
+            "amount_paid": new_paid,
+            "interest_accrued": new_interest,
+            "status": new_status
+        },
+        "$push": {"payments": payment}
+    })
+    
+    # Add to wallet
+    wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": fund_source}, {"_id": 0})
+    if wallet:
+        if fund_source == "safe":
+            await db.safe_lots.insert_one({
+                "id": new_id(),
+                "branch_id": branch_id,
+                "wallet_id": wallet["id"],
+                "date_received": data.get("date", now_iso()[:10]),
+                "original_amount": amount,
+                "remaining_amount": amount,
+                "source_reference": f"Payment from {inv.get('customer_name', '')} - {inv['invoice_number']}",
+                "created_by": user["id"],
+                "created_at": now_iso()
+            })
+        else:
+            await db.fund_wallets.update_one({"id": wallet["id"]}, {"$inc": {"balance": amount}})
+    
+    # Update customer balance
+    if inv.get("customer_id"):
+        await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": {"balance": -amount}})
+    
+    return {
+        "message": "Payment recorded",
+        "new_balance": max(0, new_balance),
+        "status": new_status,
+        "payment": payment
+    }
+
+
+@router.post("/invoices/{inv_id}/compute-interest")
+async def compute_interest(inv_id: str, user=Depends(get_current_user)):
+    """Compute interest on an overdue invoice."""
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if inv["balance"] <= 0 or inv["interest_rate"] <= 0:
+        return {"interest": 0, "message": "No interest applicable"}
+    
+    due = datetime.strptime(inv["due_date"], "%Y-%m-%d")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    if now <= due:
+        return {"interest": 0, "message": "Not yet overdue"}
+    
+    last_date = datetime.strptime(inv["last_interest_date"], "%Y-%m-%d") if inv.get("last_interest_date") else due
+    days_overdue = (now - last_date).days
+    
+    if days_overdue <= 0:
+        return {"interest": 0, "message": "Already computed today"}
+    
+    monthly_rate = inv["interest_rate"] / 100
+    daily_rate = monthly_rate / 30
+    principal_balance = inv["balance"] - inv.get("interest_accrued", 0) - inv.get("penalties", 0)
+    new_interest = round(max(0, principal_balance) * daily_rate * days_overdue, 2)
+    total_interest = round(inv.get("interest_accrued", 0) + new_interest, 2)
+    new_balance = round(inv["balance"] + new_interest, 2)
+    
+    await db.invoices.update_one({"id": inv_id}, {"$set": {
+        "interest_accrued": total_interest,
+        "balance": new_balance,
+        "last_interest_date": now.strftime("%Y-%m-%d"),
+        "status": "overdue"
+    }})
+    
+    return {
+        "interest_added": new_interest,
+        "total_interest": total_interest,
+        "new_balance": new_balance,
+        "days": days_overdue
+    }
+
+
+# ==================== INVOICE EDITING ====================
+@router.put("/invoices/{invoice_id}/edit")
+async def edit_invoice(invoice_id: str, data: dict, user=Depends(get_current_user)):
+    """Edit an invoice with reason and optional proof. Handles inventory adjustments."""
+    check_perm(user, "pos", "edit")
+    
+    reason = data.get("reason", "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Edit reason is required")
+    
+    # Find the invoice
+    collection_name = data.get("_collection", "invoices")
+    if collection_name == "invoices":
+        invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+        collection = db.invoices
+        id_field = "invoice_number"
+    elif collection_name == "sales":
+        invoice = await db.sales.find_one({"id": invoice_id}, {"_id": 0})
+        collection = db.sales
+        id_field = "sale_number"
+    elif collection_name == "purchase_orders":
+        invoice = await db.purchase_orders.find_one({"id": invoice_id}, {"_id": 0})
+        collection = db.purchase_orders
+        id_field = "po_number"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid collection type")
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    if invoice.get("status") == "voided":
+        raise HTTPException(status_code=400, detail="Cannot edit voided invoice")
+    
+    # Store original state for history
+    original_state = {
+        "items": invoice.get("items", []),
+        "customer_name": invoice.get("customer_name", ""),
+        "customer_id": invoice.get("customer_id"),
+        "subtotal": invoice.get("subtotal", 0),
+        "grand_total": invoice.get("grand_total", 0),
+        "notes": invoice.get("notes", ""),
+    }
+    
+    branch_id = invoice.get("branch_id", "")
+    changes_made = []
+    inventory_adjustments = []
+    
+    # Handle item changes
+    new_items = data.get("items")
+    if new_items is not None:
+        old_items = {item.get("product_id"): item for item in invoice.get("items", [])}
+        new_items_map = {item.get("product_id"): item for item in new_items}
+        
+        # Check for removed or reduced items (return to inventory)
+        for prod_id, old_item in old_items.items():
+            new_item = new_items_map.get(prod_id)
+            old_qty = old_item.get("quantity", 0)
+            new_qty = new_item.get("quantity", 0) if new_item else 0
+            qty_diff = old_qty - new_qty
+            
+            if qty_diff > 0:
+                product = await db.products.find_one({"id": prod_id}, {"_id": 0})
+                if product:
+                    if product.get("is_repack") and product.get("parent_id"):
+                        units_per_parent = product.get("units_per_parent", 1)
+                        parent_return = qty_diff / units_per_parent
+                        await db.inventory.update_one(
+                            {"product_id": product["parent_id"], "branch_id": branch_id},
+                            {"$inc": {"quantity": parent_return}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": product["parent_id"],
+                            "change": parent_return,
+                            "reason": f"Edit return from repack {product['name']}"
+                        })
+                    else:
+                        await db.inventory.update_one(
+                            {"product_id": prod_id, "branch_id": branch_id},
+                            {"$inc": {"quantity": qty_diff}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": prod_id,
+                            "change": qty_diff,
+                            "reason": "Edit return"
+                        })
+                changes_made.append(f"Reduced {old_item.get('product_name', prod_id)} qty: {old_qty} → {new_qty}")
+        
+        # Check for added or increased items (deduct from inventory)
+        for prod_id, new_item in new_items_map.items():
+            old_item = old_items.get(prod_id)
+            old_qty = old_item.get("quantity", 0) if old_item else 0
+            new_qty = new_item.get("quantity", 0)
+            qty_diff = new_qty - old_qty
+            
+            if qty_diff > 0:
+                product = await db.products.find_one({"id": prod_id}, {"_id": 0})
+                if product:
+                    if product.get("is_repack") and product.get("parent_id"):
+                        units_per_parent = product.get("units_per_parent", 1)
+                        parent_deduction = qty_diff / units_per_parent
+                        await db.inventory.update_one(
+                            {"product_id": product["parent_id"], "branch_id": branch_id},
+                            {"$inc": {"quantity": -parent_deduction}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": product["parent_id"],
+                            "change": -parent_deduction,
+                            "reason": f"Edit deduction for repack {product['name']}"
+                        })
+                    else:
+                        await db.inventory.update_one(
+                            {"product_id": prod_id, "branch_id": branch_id},
+                            {"$inc": {"quantity": -qty_diff}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": prod_id,
+                            "change": -qty_diff,
+                            "reason": "Edit deduction"
+                        })
+                
+                if old_qty == 0:
+                    changes_made.append(f"Added {new_item.get('product_name', prod_id)} qty: {new_qty}")
+                else:
+                    changes_made.append(f"Increased {new_item.get('product_name', prod_id)} qty: {old_qty} → {new_qty}")
+            
+            # Check for price changes
+            if old_item:
+                old_rate = old_item.get("rate", 0)
+                new_rate = new_item.get("rate", 0)
+                if old_rate != new_rate:
+                    changes_made.append(f"Price changed for {new_item.get('product_name', prod_id)}: ₱{old_rate} → ₱{new_rate}")
+                    
+                    # For POs, update product cost
+                    if collection_name == "purchase_orders" and new_rate > 0:
+                        await db.products.update_one(
+                            {"id": prod_id},
+                            {"$set": {"cost_price": new_rate, "updated_at": now_iso()}}
+                        )
+                        changes_made.append(f"Updated product cost to ₱{new_rate}")
+    
+    # Prepare update data
+    update_data = {}
+    
+    # Allowed editable fields
+    editable_fields = ["customer_name", "customer_id", "notes", "terms", "customer_po",
+                       "sales_rep_name", "sales_rep_id", "freight", "overall_discount"]
+    for field in editable_fields:
+        if field in data:
+            old_val = invoice.get(field)
+            new_val = data[field]
+            if old_val != new_val:
+                update_data[field] = new_val
+                changes_made.append(f"{field}: '{old_val}' → '{new_val}'")
+    
+    # Update items if provided
+    if new_items is not None:
+        subtotal = 0
+        for item in new_items:
+            qty = item.get("quantity", 0)
+            rate = item.get("rate", 0)
+            disc_type = item.get("discount_type", "amount")
+            disc_val = item.get("discount_value", 0)
+            disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
+            item["discount_amount"] = disc_amt
+            item["total"] = round(qty * rate - disc_amt, 2)
+            subtotal += item["total"]
+        
+        freight = data.get("freight", invoice.get("freight", 0))
+        overall_discount = data.get("overall_discount", invoice.get("overall_discount", 0))
+        grand_total = round(subtotal + freight - overall_discount, 2)
+        
+        amount_paid = invoice.get("amount_paid", 0)
+        new_balance = max(0, grand_total - amount_paid)
+        
+        update_data["items"] = new_items
+        update_data["subtotal"] = subtotal
+        update_data["grand_total"] = grand_total
+        update_data["balance"] = new_balance
+        
+        if new_balance <= 0:
+            update_data["status"] = "paid"
+        elif amount_paid > 0:
+            update_data["status"] = "partial"
+        else:
+            update_data["status"] = "open"
+        
+        # Update customer balance if changed
+        if invoice.get("customer_id"):
+            old_balance = invoice.get("balance", 0)
+            balance_diff = new_balance - old_balance
+            if balance_diff != 0:
+                await db.customers.update_one(
+                    {"id": invoice["customer_id"]},
+                    {"$inc": {"balance": balance_diff}}
+                )
+    
+    if not update_data and not changes_made:
+        return {"message": "No changes made", "invoice": invoice}
+    
+    # Mark as edited
+    update_data["edited"] = True
+    update_data["last_edited_at"] = now_iso()
+    update_data["last_edited_by"] = user.get("full_name", user["username"])
+    update_data["updated_at"] = now_iso()
+    
+    await collection.update_one({"id": invoice_id}, {"$set": update_data})
+    
+    # Create edit history record
+    edit_record = {
+        "id": new_id(),
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.get(id_field, ""),
+        "collection": collection_name,
+        "edited_by_id": user["id"],
+        "edited_by_name": user.get("full_name", user["username"]),
+        "edited_at": now_iso(),
+        "reason": reason,
+        "proof_url": data.get("proof_url"),
+        "changes": changes_made,
+        "original_state": original_state,
+        "inventory_adjustments": inventory_adjustments,
+    }
+    await db.invoice_edits.insert_one(edit_record)
+    
+    updated_invoice = await collection.find_one({"id": invoice_id}, {"_id": 0})
+    
+    return {
+        "message": "Invoice updated successfully",
+        "changes": changes_made,
+        "inventory_adjustments": inventory_adjustments,
+        "invoice": updated_invoice
+    }
+
+
+@router.get("/invoices/{invoice_id}/edit-history")
+async def get_invoice_edit_history(invoice_id: str, user=Depends(get_current_user)):
+    """Get edit history for an invoice."""
+    history = await db.invoice_edits.find(
+        {"invoice_id": invoice_id}, {"_id": 0}
+    ).sort("edited_at", -1).to_list(100)
+    return history

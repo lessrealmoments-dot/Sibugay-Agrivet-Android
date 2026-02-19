@@ -1649,12 +1649,17 @@ async def get_daily_report(date: str, branch_id: Optional[str] = None, user=Depe
     total_cash_from_invoices = sum(p["payment"]["amount"] for p in all_payments_today)
     gross_profit = round(total_revenue - total_cogs, 2)
     net_profit = round(gross_profit - total_expenses, 2)
+    # Get real-time cashier wallet balance
+    cashier_wallet = await db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "cashier", "active": True} if branch_id else {"type": "cashier", "active": True}, {"_id": 0})
+    cashier_balance = cashier_wallet["balance"] if cashier_wallet else 0
     return {
         "date": date, "new_sales_today": total_revenue, "total_cogs": total_cogs,
         "gross_profit": gross_profit, "total_expenses": total_expenses, "net_profit": net_profit,
         "sales_by_category": sales_by_category, "expenses": expenses,
         "credit_collections": credit_collections, "total_credit_collections": total_credit_collections,
         "total_cash_from_invoices": total_cash_from_invoices,
+        "cashier_wallet_balance": round(cashier_balance, 2),
         "transaction_count": len(log_entries),
     }
 

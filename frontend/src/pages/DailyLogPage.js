@@ -266,7 +266,7 @@ export default function DailyLogPage() {
                     <TableHead className="text-xs text-right">Principal</TableHead><TableHead className="text-xs text-right">Interest</TableHead>
                     <TableHead className="text-xs text-right">Total Paid</TableHead><TableHead className="text-xs text-right">Open Bal</TableHead>
                   </TableRow></TableHeader><TableBody>
-                    {closing.payments_received.map((p, i) => (
+                    {closing.credit_collections.map((p, i) => (
                       <TableRow key={i}><TableCell>{p.customer}</TableCell><TableCell className="font-mono text-xs">{p.invoice}</TableCell>
                         <TableCell className="text-right">{formatPHP(p.principal_paid)}</TableCell>
                         <TableCell className="text-right text-amber-600">{formatPHP(p.interest_paid)}</TableCell>

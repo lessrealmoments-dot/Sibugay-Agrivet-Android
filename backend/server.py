@@ -690,16 +690,17 @@ async def generate_account_penalty(customer_id: str, data: dict, user=Depends(ge
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer: raise HTTPException(status_code=404, detail="Customer not found")
     penalty_rate = float(data.get("penalty_rate", 5))
+    comp_date_str = data.get("as_of_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
     invoices = await db.invoices.find(
         {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
     ).to_list(500)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     total_penalty = 0
     penalty_details = []
     for inv in invoices:
         if inv.get("sale_type") in ("interest_charge", "penalty_charge"): continue
-        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else now
-        if now <= due: continue
+        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else comp_date
+        if comp_date <= due: continue
         principal = inv.get("grand_total", 0)
         penalty = round(principal * penalty_rate / 100, 2)
         if penalty > 0:
@@ -710,7 +711,7 @@ async def generate_account_penalty(customer_id: str, data: dict, user=Depends(ge
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"
     count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{now.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    inv_number = f"{prefix}-{comp_date_str.replace('-','')}-{str(count + 1).zfill(4)}"
     branch_id = invoices[0].get("branch_id", "") if invoices else ""
     desc_lines = "; ".join([f"{d['invoice']}: ₱{d['penalty']:.2f}" for d in penalty_details])
     penalty_invoice = {
@@ -719,8 +720,8 @@ async def generate_account_penalty(customer_id: str, data: dict, user=Depends(ge
         "customer_contact": "", "customer_phone": "", "customer_address": "",
         "terms": "COD", "terms_days": 0, "customer_po": "",
         "sales_rep_id": "", "sales_rep_name": "", "branch_id": branch_id,
-        "order_date": now.strftime("%Y-%m-%d"), "invoice_date": now.strftime("%Y-%m-%d"),
-        "due_date": now.strftime("%Y-%m-%d"),
+        "order_date": comp_date_str, "invoice_date": comp_date_str,
+        "due_date": comp_date_str,
         "items": [{"product_id": "", "product_name": "Penalty Charge",
                     "description": desc_lines, "quantity": 1,
                     "rate": total_penalty, "discount_type": "amount",

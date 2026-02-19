@@ -193,7 +193,8 @@ export default function ProductsPage() {
             </TableHeader>
             <TableBody>
               {products.map(p => (
-                <TableRow key={p.id} className="table-row-hover">
+                <TableRow key={p.id} className={`table-row-hover ${selected.has(p.id) ? 'bg-blue-50/50' : ''}`}>
+                  <TableCell><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded border-slate-300 cursor-pointer" /></TableCell>
                   <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

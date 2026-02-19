@@ -1892,8 +1892,11 @@ async def remove_product_vendor(product_id: str, vendor_id: str, user=Depends(ge
 
 # ==================== PURCHASE ORDER ROUTES ====================
 @api_router.get("/purchase-orders")
-async def list_purchase_orders(user=Depends(get_current_user), status: Optional[str] = None, skip: int = 0, limit: int = 50):
+async def list_purchase_orders(user=Depends(get_current_user), status: Optional[str] = None, branch_id: Optional[str] = None, skip: int = 0, limit: int = 50):
     query = {}
+    # Apply branch filter for data isolation
+    branch_filter = await get_branch_filter(user, branch_id)
+    query = apply_branch_filter(query, branch_filter)
     if status:
         query["status"] = status
     total = await db.purchase_orders.count_documents(query)

@@ -10,12 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Plus, DollarSign, ArrowDown, ArrowUp, Search, Filter, Edit2, Tractor, FileText } from 'lucide-react';
+import { Plus, DollarSign, ArrowDown, ArrowUp, Search, Filter, Edit2, Tractor, FileText, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EXPENSE_CATEGORIES = [
   "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
-  "Employee Advance", "Farm Expense", "Repairs & Maintenance",
+  "Employee Advance", "Farm Expense", "Customer Cash Out", "Repairs & Maintenance",
   "Marketing", "Salaries & Wages", "Communication", "Insurance",
   "Professional Fees", "Taxes & Licenses", "Office Supplies",
   "Equipment", "Miscellaneous"
@@ -33,6 +33,7 @@ export default function AccountingPage() {
   // Dialog states
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [farmExpenseDialog, setFarmExpenseDialog] = useState(false);
+  const [cashOutDialog, setCashOutDialog] = useState(false);
   const [payableDialog, setPayableDialog] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState(null);

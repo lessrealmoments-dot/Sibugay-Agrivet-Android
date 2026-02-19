@@ -1177,16 +1177,22 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
     if po.get("payment_status") == "paid": raise HTTPException(status_code=400, detail="PO already paid")
     amount = float(data.get("amount", po.get("balance", po["subtotal"])))
     branch_id = po.get("branch_id", "")
-    # Deduct from cashier drawer
-    await update_cashier_wallet(branch_id, -amount, f"PO Payment {po['po_number']} - {po['vendor']}")
-    # Update PO payment status
+    ref_parts = [f"PO Payment {po['po_number']} - {po['vendor']}"]
+    if data.get("check_number"): ref_parts.append(f"Check #{data['check_number']}")
+    await update_cashier_wallet(branch_id, -amount, " ".join(ref_parts))
     new_paid = po.get("amount_paid", 0) + amount
     new_balance = max(0, round(po["subtotal"] - new_paid, 2))
     new_status = "paid" if new_balance <= 0 else "partial"
-    await db.purchase_orders.update_one({"id": po_id}, {"$set": {
-        "amount_paid": new_paid, "balance": new_balance, "payment_status": new_status
-    }})
-    # Update linked payable
+    payment_record = {
+        "id": new_id(), "amount": amount, "date": data.get("payment_date", now_iso()[:10]),
+        "check_number": data.get("check_number", ""), "check_date": data.get("check_date", ""),
+        "method": data.get("method", "Cash"),
+        "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+    }
+    await db.purchase_orders.update_one({"id": po_id}, {
+        "$set": {"amount_paid": new_paid, "balance": new_balance, "payment_status": new_status},
+        "$push": {"payment_history": payment_record}
+    })
     payable = await db.payables.find_one({"po_id": po_id}, {"_id": 0})
     if payable:
         pay_new_paid = payable["paid"] + amount
@@ -1194,6 +1200,20 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
         pay_status = "paid" if pay_new_balance <= 0 else "partial"
         await db.payables.update_one({"po_id": po_id}, {"$set": {"paid": pay_new_paid, "balance": pay_new_balance, "status": pay_status}})
     return {"message": "Payment recorded", "new_balance": new_balance, "payment_status": new_status}
+
+@api_router.get("/purchase-orders/vendors")
+async def list_po_vendors(user=Depends(get_current_user)):
+    """Get unique vendor names from purchase orders."""
+    vendors = await db.purchase_orders.distinct("vendor", {"status": {"$ne": "cancelled"}})
+    return sorted(vendors)
+
+@api_router.get("/purchase-orders/by-vendor")
+async def get_vendor_pos(vendor: str, user=Depends(get_current_user)):
+    """Get all POs for a vendor, unpaid ones first."""
+    pos = await db.purchase_orders.find(
+        {"vendor": vendor, "status": {"$ne": "cancelled"}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+    return pos
 
 # ==================== INVENTORY ROUTES ====================
 @api_router.get("/inventory")

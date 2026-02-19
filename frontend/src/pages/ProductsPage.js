@@ -27,6 +27,7 @@ export default function ProductsPage() {
   const [selectedParent, setSelectedParent] = useState(null);
   const [schemes, setSchemes] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [selected, setSelected] = useState(new Set());
   const LIMIT = 20;
 
   const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', unit_of_measurement: 'Box' });

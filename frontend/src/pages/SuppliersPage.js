@@ -211,6 +211,36 @@ export default function SuppliersPage() {
         <div className="lg:col-span-3 space-y-4">
           {selectedVendor ? (
             <>
+              {/* Supplier Contact Info (if available) */}
+              {selectedSupplierDetails && (
+                <Card className="border-slate-200 bg-slate-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <h3 className="font-bold text-lg" style={{ fontFamily: 'Manrope' }}>{selectedSupplierDetails.name}</h3>
+                        <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+                          {selectedSupplierDetails.contact_person && (
+                            <span>{selectedSupplierDetails.contact_person}</span>
+                          )}
+                          {selectedSupplierDetails.phone && (
+                            <span className="flex items-center gap-1"><Phone size={12} /> {selectedSupplierDetails.phone}</span>
+                          )}
+                          {selectedSupplierDetails.email && (
+                            <span className="flex items-center gap-1"><Mail size={12} /> {selectedSupplierDetails.email}</span>
+                          )}
+                          {selectedSupplierDetails.address && (
+                            <span className="flex items-center gap-1"><MapPin size={12} /> {selectedSupplierDetails.address}</span>
+                          )}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => openEditSupplier(selectedSupplierDetails)}>
+                        <Edit2 size={12} className="mr-1" /> Edit
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card className="border-slate-200">
@@ -255,7 +285,18 @@ export default function SuppliersPage() {
               <Card className="border-slate-200">
                 <CardContent className="p-0">
                   <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Manrope' }}>{selectedVendor}</h2>
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-bold text-lg" style={{ fontFamily: 'Manrope' }}>{selectedVendor}</h2>
+                      {!selectedSupplierDetails && (
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setSupplierForm({ ...supplierForm, name: selectedVendor });
+                          setEditMode(false);
+                          setSupplierDialog(true);
+                        }}>
+                          <Plus size={12} className="mr-1" /> Save as Supplier
+                        </Button>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-500">
                       <span className="mr-3">{vendorStats?.unpaidPOs || 0} Unpaid</span>
                       <span>{vendorStats?.orderedPOs || 0} Pending Delivery</span>

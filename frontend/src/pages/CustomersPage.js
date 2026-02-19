@@ -46,7 +46,7 @@ export default function CustomersPage() {
 
   const openCreate = () => { 
     setEditing(null); 
-    setForm({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0, interest_rate: 0 }); 
+    setForm({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0, interest_rate: 0, grace_period: 7 }); 
     setDialogOpen(true); 
   };
   
@@ -55,7 +55,7 @@ export default function CustomersPage() {
     setForm({ 
       name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', 
       price_scheme: c.price_scheme || 'retail', credit_limit: c.credit_limit || 0,
-      interest_rate: c.interest_rate || 0
+      interest_rate: c.interest_rate || 0, grace_period: c.grace_period || 7
     }); 
     setDialogOpen(true); 
   };

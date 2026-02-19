@@ -141,6 +141,21 @@ async def get_active_date(branch_id):
         return next_day
     return today
 
+async def update_cashier_wallet(branch_id, amount, reference=""):
+    """Update cashier drawer wallet balance in real-time. Positive = cash in, negative = cash out."""
+    wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
+    if not wallet:
+        wallet = {"id": new_id(), "branch_id": branch_id, "type": "cashier",
+                  "name": "Cashier Drawer", "balance": 0, "active": True, "created_at": now_iso()}
+        await db.fund_wallets.insert_one(wallet)
+        del wallet["_id"]
+    await db.fund_wallets.update_one({"id": wallet["id"]}, {"$inc": {"balance": round(amount, 2)}})
+    await db.wallet_movements.insert_one({
+        "id": new_id(), "wallet_id": wallet["id"], "branch_id": branch_id,
+        "type": "cash_in" if amount >= 0 else "cash_out", "amount": round(amount, 2),
+        "reference": reference, "created_at": now_iso()
+    })
+
 # ==================== AUTH ROUTES ====================
 @api_router.post("/auth/login")
 async def login(data: dict):

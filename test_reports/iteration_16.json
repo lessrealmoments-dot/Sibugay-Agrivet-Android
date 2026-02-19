@@ -1,0 +1,100 @@
+{
+  "summary": "Completed testing of Interest and Penalty calculation system with 7-day grace period. Found and FIXED 1 bug in the backend where interest_rate fallback wasn't working when invoice had interest_rate=0. All 12 backend tests pass, all frontend UI tests pass.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "bugs_fixed": [
+    {
+      "file": "/app/backend/server.py",
+      "issue": "Interest rate fallback wasn't working when invoice.interest_rate=0",
+      "root_cause": "Using inv.get('interest_rate', default_rate) returns 0 instead of falling back to default_rate when the value is 0 (falsy)",
+      "fix": "Changed to inv.get('interest_rate') or default_interest_rate to properly fall back when rate is 0",
+      "lines_changed": [1046, 1153]
+    }
+  ],
+
+  "passed_tests": [
+    "BACKEND TESTS (12/12 passed):",
+    "- GET /customers/{id}/charges-preview returns correct structure with grace_period, default_interest_rate, interest_breakdown",
+    "- No interest charged within grace period (7 days default)",
+    "- Interest calculated correctly after grace period: Balance × (Rate%/30) × Days",
+    "- interest_breakdown has all required fields: invoice_number, grace_end_date, interest_days, computed_interest",
+    "- POST /generate-interest returns message when no overdue invoices",
+    "- POST /generate-interest creates interest invoice when applicable",
+    "- POST /generate-penalty with penalty_rate creates penalty invoice",
+    "- Penalty respects grace period - no penalty within 7 days",
+    "- Customer can be created with custom grace_period",
+    "- Customer grace_period can be updated via PUT /customers/{id}",
+    "- Customer has interest_rate field saved correctly",
+    "- Interest formula accuracy verified: Balance × (Rate%/30) × Days",
+    "",
+    "FRONTEND TESTS:",
+    "- Payments page loads with 'Receive Payments' title",
+    "- Customer search (payment-customer-search) works correctly",
+    "- Customer selection shows interest rate and grace period info",
+    "- Generate Interest button (data-testid='generate-interest-btn') present",
+    "- Apply Penalty button (data-testid='generate-penalty-btn') present",
+    "- 'Grace period: 7 days · Interest starts after grace period ends' displayed",
+    "- Amount Received input (data-testid='receive-amount') works",
+    "- Apply Payment button (data-testid='apply-payment-btn') enabled with amount",
+    "- Customer form has 'Grace Period (days)' field with default 7",
+    "- Customer form has 'Interest (%/mo)' field",
+    "- Open invoices table shows Penalized status and Int: date badges"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_interest_penalty.py",
+    "/app/test_reports/pytest/pytest_interest_penalty.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/server.py - Fixed interest rate fallback logic (lines 1046, 1153)",
+    "/app/backend/tests/test_interest_penalty.py - Created comprehensive interest/penalty tests"
+  ],
+
+  "success_rate": {
+    "backend": "100% - 12/12 tests passed",
+    "frontend": "100% - All UI features verified working"
+  },
+
+  "seed_data_creation": "Test Customer (ID: 38511712-81e6-45ea-ac10-4a3ac6adad04) has interest_rate=3 and grace_period=7 already set up",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Interest/Penalty system fully tested with grace period support. Key features: 1) charges-preview endpoint shows interest breakdown without creating invoices, 2) 7-day default grace period - no interest within grace, 3) Simple daily interest formula: Balance × (Rate%/30) × Days Past Grace, 4) One-time penalty per invoice (penalty_applied flag). Bug was fixed where interest_rate=0 at invoice level wasn't falling back to customer rate. Test credentials: admin/admin123. Backend test file: /app/backend/tests/test_interest_penalty.py.",
+
+  "verified_features": {
+    "charges_preview_endpoint": true,
+    "grace_period_7_days_default": true,
+    "interest_calculation_formula": true,
+    "generate_interest_button": true,
+    "generate_penalty_button": true,
+    "customer_grace_period_field": true,
+    "customer_interest_rate_field": true,
+    "interest_preview_breakdown": true,
+    "penalty_eligible_list": true,
+    "payment_allocation_preview": true
+  },
+
+  "feature_implementation_details": {
+    "charges_preview": "GET /api/customers/{id}/charges-preview?as_of_date=YYYY-MM-DD returns principal, interest preview, penalty eligible list",
+    "grace_period": "Interest only starts after due_date + grace_period days (default 7)",
+    "interest_formula": "Balance × (Rate% / 30) × Days Past Grace (simple daily)",
+    "penalty": "One-time flat rate penalty, marks invoice with penalty_applied=true",
+    "customer_fields": "grace_period and interest_rate stored on customer, fallback for invoices"
+  }
+}

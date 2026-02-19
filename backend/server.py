@@ -3316,9 +3316,12 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
 @api_router.get("/dashboard/stats")
 async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[str] = None):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Apply branch filter for data isolation
+    branch_filter = await get_branch_filter(user, branch_id)
+    
     sales_query = {"status": "completed"}
-    if branch_id:
-        sales_query["branch_id"] = branch_id
+    sales_query = apply_branch_filter(sales_query, branch_filter)
 
     # Today's sales
     today_sales = await db.sales.find(
@@ -3326,6 +3329,13 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
     ).to_list(10000)
     today_revenue = sum(s.get("total", 0) for s in today_sales)
     today_count = len(today_sales)
+    
+    # Also count from invoices
+    invoice_query = {"status": {"$ne": "voided"}, "created_at": {"$gte": today}}
+    invoice_query = apply_branch_filter(invoice_query, branch_filter)
+    today_invoices = await db.invoices.find(invoice_query, {"_id": 0}).to_list(10000)
+    today_revenue += sum(inv.get("grand_total", 0) for inv in today_invoices)
+    today_count += len(today_invoices)
 
     # Total products & low stock
     total_products = await db.products.count_documents({"active": True})
@@ -3339,35 +3349,42 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
     low_stock_result = await db.products.aggregate(low_stock_pipeline).to_list(1)
     low_stock_count = low_stock_result[0]["total"] if low_stock_result else 0
 
-    # Total customers
-    total_customers = await db.customers.count_documents({"active": True})
+    # Total customers (branch filtered for non-admin)
+    customer_query = {"active": True}
+    if user.get("role") != "admin":
+        customer_query = apply_branch_filter(customer_query, branch_filter)
+    total_customers = await db.customers.count_documents(customer_query)
 
-    # Receivables - combine from both invoices AND legacy receivables collection
-    # From invoices (new unified system)
+    # Receivables - combine from both invoices AND legacy receivables collection (branch filtered)
+    receivables_match = {"status": {"$nin": ["paid", "voided"]}, "balance": {"$gt": 0}}
+    receivables_match = apply_branch_filter(receivables_match, branch_filter)
     invoice_receivables_pipeline = [
-        {"$match": {"status": {"$nin": ["paid", "voided"]}, "balance": {"$gt": 0}}},
+        {"$match": receivables_match},
         {"$group": {"_id": None, "total": {"$sum": "$balance"}}}
     ]
     inv_rec_result = await db.invoices.aggregate(invoice_receivables_pipeline).to_list(1)
     invoice_receivables = inv_rec_result[0]["total"] if inv_rec_result else 0
     
     # From legacy receivables collection
-    receivables_pipeline = [{"$match": {"status": {"$ne": "paid"}}}, {"$group": {"_id": None, "total": {"$sum": "$balance"}}}]
+    legacy_rec_match = {"status": {"$ne": "paid"}}
+    legacy_rec_match = apply_branch_filter(legacy_rec_match, branch_filter)
+    receivables_pipeline = [{"$match": legacy_rec_match}, {"$group": {"_id": None, "total": {"$sum": "$balance"}}}]
     rec_result = await db.receivables.aggregate(receivables_pipeline).to_list(1)
     legacy_receivables = rec_result[0]["total"] if rec_result else 0
     
     total_receivables = invoice_receivables + legacy_receivables
 
-    # Expenses today
-    today_expenses = await db.expenses.find({"date": today}, {"_id": 0}).to_list(1000)
+    # Expenses today (branch filtered)
+    expense_query = {"date": today}
+    expense_query = apply_branch_filter(expense_query, branch_filter)
+    today_expenses = await db.expenses.find(expense_query, {"_id": 0}).to_list(1000)
     today_expense_total = sum(e.get("amount", 0) for e in today_expenses)
 
-    # Recent sales - combine from both sales and invoices
+    # Recent sales - combine from both sales and invoices (branch filtered)
     recent_sales_raw = await db.sales.find(sales_query, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
-    recent_invoices_raw = await db.invoices.find(
-        {"status": {"$ne": "voided"}, "branch_id": branch_id} if branch_id else {"status": {"$ne": "voided"}},
-        {"_id": 0}
-    ).sort("created_at", -1).limit(5).to_list(5)
+    recent_invoice_query = {"status": {"$ne": "voided"}}
+    recent_invoice_query = apply_branch_filter(recent_invoice_query, branch_filter)
+    recent_invoices_raw = await db.invoices.find(recent_invoice_query, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
     
     # Normalize invoice format to match sales
     for inv in recent_invoices_raw:

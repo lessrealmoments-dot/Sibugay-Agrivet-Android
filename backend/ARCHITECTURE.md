@@ -59,6 +59,28 @@ AgriPOS uses a modular FastAPI architecture with MongoDB for the backend. The re
 | sales.py | 1 | Unified sales endpoint |
 | purchase_orders.py | 8 | PO CRUD, receiving, payments |
 
+## Multi-Branch Data Isolation
+
+### Branch Access Control
+- **Admin/Owner**: Can view all branches or filter by specific branch
+- **Regular Users**: Only see data from their assigned `branch_id`
+
+### Data Scope
+| Scope | Collections |
+|-------|-------------|
+| Branch-Specific | invoices, sales, inventory, purchase_orders, expenses, receivables, fund_wallets, movements, sales_log, customers |
+| Global | products, price_schemes, settings |
+
+### Key Utilities (`utils/branch.py`)
+- `get_user_branches(user)` - Get list of accessible branch IDs
+- `get_branch_filter(user, branch_id)` - Build MongoDB query filter
+- `apply_branch_filter(query, filter)` - Merge branch filter into query
+- `ensure_branch_access(user, branch_id)` - Verify access, raises 403
+
+### Dashboard Endpoints
+- `GET /dashboard/stats?branch_id=` - Stats with optional branch filter
+- `GET /dashboard/branch-summary` - Summary for all accessible branches
+
 ## Remaining in server.py (Phase 3 - To Extract)
 
 These routes are lower priority and can be extracted later:

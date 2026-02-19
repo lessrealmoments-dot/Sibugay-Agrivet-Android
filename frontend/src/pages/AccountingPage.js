@@ -731,6 +731,136 @@ export default function AccountingPage() {
         </DialogContent>
       </Dialog>
 
+      {/* CUSTOMER CASH OUT DIALOG */}
+      <Dialog open={cashOutDialog} onOpenChange={setCashOutDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
+              <Banknote size={20} className="text-blue-600" />
+              Customer Cash Out
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              This will release cash to a customer and automatically create an invoice for the amount owed.
+            </div>
+            
+            <div>
+              <Label className="text-xs text-slate-500">Select Customer *</Label>
+              <p className="text-xs text-slate-400 mb-2">An invoice will be automatically created for this customer</p>
+              <Select value={cashOutForm.customer_id} onValueChange={v => setCashOutForm({ ...cashOutForm, customer_id: v })}>
+                <SelectTrigger className="h-10" data-testid="cashout-customer">
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-slate-500">Amount (₱) *</Label>
+                <Input
+                  type="number"
+                  className="h-10"
+                  value={cashOutForm.amount}
+                  onChange={e => setCashOutForm({ ...cashOutForm, amount: parseFloat(e.target.value) || 0 })}
+                  data-testid="cashout-amount"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Date</Label>
+                <Input
+                  type="date"
+                  className="h-10"
+                  value={cashOutForm.date}
+                  onChange={e => setCashOutForm({ ...cashOutForm, date: e.target.value })}
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label className="text-xs text-slate-500">Purpose / Description</Label>
+              <Input
+                className="h-10"
+                value={cashOutForm.description}
+                onChange={e => setCashOutForm({ ...cashOutForm, description: e.target.value })}
+                placeholder="e.g. Cash Advance, Loan, etc."
+                data-testid="cashout-description"
+              />
+            </div>
+            
+            <div>
+              <Label className="text-xs text-slate-500">Notes (optional)</Label>
+              <Input
+                className="h-10"
+                value={cashOutForm.notes}
+                onChange={e => setCashOutForm({ ...cashOutForm, notes: e.target.value })}
+                placeholder="Additional details..."
+                data-testid="cashout-notes"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-slate-500">Payment Method</Label>
+                <Select value={cashOutForm.payment_method} onValueChange={v => setCashOutForm({ ...cashOutForm, payment_method: v })}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Reference #</Label>
+                <Input
+                  className="h-10"
+                  value={cashOutForm.reference_number}
+                  onChange={e => setCashOutForm({ ...cashOutForm, reference_number: e.target.value })}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-slate-500">Invoice Due Date</Label>
+                <Input
+                  type="date"
+                  className="h-10"
+                  value={cashOutForm.due_date}
+                  onChange={e => setCashOutForm({ ...cashOutForm, due_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Payment Terms</Label>
+                <Input
+                  className="h-10"
+                  value={cashOutForm.terms}
+                  onChange={e => setCashOutForm({ ...cashOutForm, terms: e.target.value })}
+                  placeholder="e.g. Net 30"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCashOutDialog(false)}>Cancel</Button>
+              <Button
+                onClick={handleCreateCashOut}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                data-testid="save-cashout-btn"
+              >
+                <Banknote size={14} className="mr-2" />
+                Release Cash & Create Invoice
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* PAYABLE DIALOG */}
       <Dialog open={payableDialog} onOpenChange={setPayableDialog}>
         <DialogContent className="sm:max-w-md">

@@ -165,6 +165,14 @@ export default function SalesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Detail Modal */}
+      <InvoiceDetailModal 
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceId={selectedInvoiceId}
+        onUpdated={fetchSales}
+      />
     </div>
   );
 }

@@ -311,6 +311,33 @@ export default function SalesOrderPage() {
           </div>
         </div>
       </div>
+
+      {/* Price Change Confirmation Dialog */}
+      <Dialog open={priceChangeDialog} onOpenChange={(open) => { if (!open) confirmPriceChange(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Price Changed</DialogTitle></DialogHeader>
+          {priceChangeInfo && (
+            <div className="space-y-4 mt-2">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                <p className="font-medium">{priceChangeInfo.product_name}</p>
+                <p className="mt-1">
+                  You changed the <b className="capitalize">{priceChangeInfo.scheme}</b> price from{' '}
+                  <b>{formatPHP(priceChangeInfo.old_price)}</b> to <b>{formatPHP(priceChangeInfo.new_price)}</b>
+                </p>
+              </div>
+              <p className="text-sm text-slate-600">Do you want to permanently update the <b className="capitalize">{priceChangeInfo.scheme}</b> price for this product?</p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => confirmPriceChange(false)}>
+                  No, just this invoice
+                </Button>
+                <Button className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white" onClick={() => confirmPriceChange(true)} data-testid="confirm-price-update">
+                  Yes, update {priceChangeInfo.scheme} price
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

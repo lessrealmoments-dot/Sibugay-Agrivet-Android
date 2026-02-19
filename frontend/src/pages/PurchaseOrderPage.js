@@ -63,6 +63,42 @@ export default function PurchaseOrderPage() {
     } catch {}
   };
 
+  const selectPayVendor = async (vendor) => {
+    setPayVendor(vendor);
+    setVendorSearch(vendor);
+    try {
+      const res = await api.get('/purchase-orders/by-vendor', { params: { vendor } });
+      setVendorPOs(res.data.filter(p => p.payment_status !== 'paid'));
+    } catch { setVendorPOs([]); }
+  };
+
+  const handlePaySupplier = async () => {
+    if (!paySupForm.selected_po) { toast.error('Select a PO to pay'); return; }
+    if (!paySupForm.amount || paySupForm.amount <= 0) { toast.error('Enter amount'); return; }
+    try {
+      await api.post(`/purchase-orders/${paySupForm.selected_po}/pay`, {
+        amount: paySupForm.amount, check_number: paySupForm.check_number,
+        payment_date: paySupForm.payment_date, check_date: paySupForm.check_date,
+      });
+      toast.success('Supplier payment recorded! Deducted from Cashier Drawer.');
+      selectPayVendor(payVendor);
+      fetchOrders();
+      setPaySupForm(f => ({ ...f, amount: 0, check_number: '', selected_po: '' }));
+      api.get('/purchase-orders/vendors').then(r => setVendors(r.data)).catch(() => {});
+    } catch (e) { toast.error(e.response?.data?.detail || 'Payment failed'); }
+  };
+
+  const openSupplierHistory = async (vendor) => {
+    setHistoryVendor(vendor);
+    try {
+      const res = await api.get('/purchase-orders/by-vendor', { params: { vendor } });
+      setHistoryPOs(res.data);
+      setHistoryDialog(true);
+    } catch { setHistoryPOs([]); }
+  };
+
+  const filteredVendors = vendorSearch ? vendors.filter(v => v.toLowerCase().includes(vendorSearch.toLowerCase())) : vendors;
+
   const handleCreateNewProduct = (name) => {
     setNewProductForm({ sku: '', name, category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
     setCreateProductDialog(true);

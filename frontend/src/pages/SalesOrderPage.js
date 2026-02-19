@@ -377,6 +377,37 @@ export default function SalesOrderPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Create Product Dialog (from search) */}
+      <Dialog open={createProductDialog} onOpenChange={setCreateProductDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Create New Product</DialogTitle></DialogHeader>
+          <p className="text-sm text-slate-500">Product "{newProductName}" was not found. Create it now:</p>
+          <div className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>SKU</Label><Input value={newProductForm.sku} onChange={e => setNewProductForm(f => ({ ...f, sku: e.target.value }))} placeholder="e.g. LAN-250G" /></div>
+              <div><Label>Product Name</Label><Input value={newProductForm.name} onChange={e => setNewProductForm(f => ({ ...f, name: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div><Label>Category</Label><Input value={newProductForm.category} onChange={e => setNewProductForm(f => ({ ...f, category: e.target.value }))} /></div>
+              <div><Label>Unit</Label><Input value={newProductForm.unit} onChange={e => setNewProductForm(f => ({ ...f, unit: e.target.value }))} placeholder="Box, Bag, Pack" /></div>
+              <div><Label>Cost Price</Label><Input type="number" value={newProductForm.cost_price} onChange={e => setNewProductForm(f => ({ ...f, cost_price: parseFloat(e.target.value) || 0 }))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {schemes.map(s => (
+                <div key={s.id}><Label className="text-xs text-slate-500">{s.name}</Label>
+                  <Input type="number" value={newProductForm.prices[s.key] || ''} onChange={e => setNewProductForm(f => ({ ...f, prices: { ...f.prices, [s.key]: parseFloat(e.target.value) || 0 } }))} placeholder="0.00" />
+                </div>
+              ))}
+            </div>
+            <div><Label>Starting Inventory ({currentBranch?.name})</Label><Input type="number" value={newProductForm.starting_inventory} onChange={e => setNewProductForm(f => ({ ...f, starting_inventory: parseFloat(e.target.value) || 0 }))} /></div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCreateProductDialog(false)}>Cancel</Button>
+              <Button onClick={saveNewProduct} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Create Product</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

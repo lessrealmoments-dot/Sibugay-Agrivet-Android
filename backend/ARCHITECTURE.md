@@ -1,50 +1,53 @@
 # AgriPOS Backend Architecture
 
 ## Overview
-AgriPOS uses a modular FastAPI architecture with MongoDB for the backend. The refactoring is in progress, with core modules extracted and complex routes remaining in the monolith for safe incremental migration.
+AgriPOS uses a fully modular FastAPI architecture with MongoDB. The refactoring is **COMPLETE** - all routes have been extracted from the monolith into separate, maintainable modules.
 
 ## Directory Structure
 
 ```
 /app/backend/
-├── server.py              # Main server (original monolith - still in use)
-├── server_modular.py      # Target architecture template
-├── server_backup.py       # Backup of original
+├── server.py              # Entry point (imports from main.py)
+├── main.py                # FastAPI app with all routers
 ├── config.py              # Database and environment configuration
+├── server_legacy.py       # Original monolith (backup)
 ├── requirements.txt       # Python dependencies
 │
 ├── utils/
 │   ├── __init__.py        # Exports all utilities
 │   ├── auth.py            # Authentication: JWT, password hashing, permissions
-│   └── helpers.py         # Common helpers: IDs, timestamps, logging
+│   ├── helpers.py         # Common helpers: IDs, timestamps, logging
+│   └── branch.py          # Multi-branch: access control, data isolation
 │
 ├── models/
 │   ├── __init__.py        # Exports all models
 │   └── permissions.py     # Permission modules and role presets
 │
-├── routes/                # Extracted route modules
+├── routes/                # ALL route modules (17 total)
 │   ├── __init__.py        # Exports all routers
 │   ├── auth.py            # Login, register, password, PIN verification
 │   ├── branches.py        # Branch CRUD
 │   ├── users.py           # User management and permissions
 │   ├── products.py        # Products, repacks, pricing, search
-│   ├── customers.py       # Customer CRUD, transactions
+│   ├── customers.py       # Customer CRUD, transactions (branch-filtered)
 │   ├── inventory.py       # Stock levels, adjustments, transfers
-│   └── price_schemes.py   # Price scheme management
+│   ├── price_schemes.py   # Price scheme management
+│   ├── invoices.py        # Invoice CRUD, payments, interest, editing (branch-filtered)
+│   ├── sales.py           # Unified sales endpoint
+│   ├── purchase_orders.py # PO CRUD, receiving, payments (branch-filtered)
+│   ├── dashboard.py       # Stats, branch summary (branch-filtered)
+│   ├── accounting.py      # Fund wallets, expenses, receivables, payables
+│   ├── daily_operations.py # Daily log, report, close day
+│   ├── suppliers.py       # Supplier CRUD
+│   ├── employees.py       # Employee management, advances
+│   ├── sync.py            # Offline POS data sync
+│   └── settings.py        # Invoice prefixes, terms options
 │
 └── tests/
-    └── test_user_permissions.py
+    └── test_*.py
 ```
 
-## Extracted Modules (Complete)
-
-### Phase 1 - Foundation (Complete)
-- config.py: MongoDB connection, JWT secret, logging
-- utils/auth.py: Password hashing, JWT, permissions
-- utils/helpers.py: Timestamps, IDs, logging utilities
-
-### Phase 2 - Complex Routes (Complete)
-**10 route modules extracted with 62 total endpoints:**
+## Module Summary
 
 | Module | Endpoints | Description |
 |--------|-----------|-------------|
@@ -52,12 +55,20 @@ AgriPOS uses a modular FastAPI architecture with MongoDB for the backend. The re
 | branches.py | 4 | Branch CRUD |
 | users.py | 12 | User management, permissions |
 | products.py | 11 | Products, repacks, search |
-| customers.py | 5 | Customer CRUD, transactions |
+| customers.py | 6 | Customer CRUD, transactions |
 | inventory.py | 4 | Stock levels, adjustments |
 | price_schemes.py | 4 | Price tier management |
-| invoices.py | 8 | Invoice CRUD, payments, editing |
+| invoices.py | 9 | Invoice CRUD, payments, editing |
 | sales.py | 1 | Unified sales endpoint |
-| purchase_orders.py | 8 | PO CRUD, receiving, payments |
+| purchase_orders.py | 9 | PO CRUD, receiving, payments |
+| dashboard.py | 2 | Stats, branch summary |
+| accounting.py | 18 | Fund wallets, expenses, AR/AP |
+| daily_operations.py | 4 | Daily log, report, close day |
+| suppliers.py | 5 | Supplier CRUD |
+| employees.py | 5 | Employee management |
+| sync.py | 2 | Offline POS sync |
+| settings.py | 3 | Invoice prefixes, terms |
+| **TOTAL** | **~95** | |
 
 ## Multi-Branch Data Isolation
 
@@ -81,21 +92,6 @@ AgriPOS uses a modular FastAPI architecture with MongoDB for the backend. The re
 - `GET /dashboard/stats?branch_id=` - Stats with optional branch filter
 - `GET /dashboard/branch-summary` - Summary for all accessible branches
 
-## Remaining in server.py (Phase 3 - To Extract)
-
-These routes are lower priority and can be extracted later:
-
-| Route Section | Lines | Priority | Complexity |
-|--------------|-------|----------|------------|
-| Fund Management | ~100 | P2 | Medium |
-| Accounting | ~200 | P2 | Medium |
-| Dashboard | ~100 | P3 | Low |
-| Daily Operations | ~180 | P3 | Medium |
-| Suppliers | ~100 | P3 | Low |
-| Employees | ~110 | P3 | Low |
-| Sync Endpoints | ~90 | P3 | Low |
-| Interest/Penalty | ~250 | P3 | Medium |
-
 ## API Prefix Convention
 All routes use the `/api` prefix:
 - Auth: `/api/auth/*`
@@ -106,24 +102,25 @@ All routes use the `/api` prefix:
 - Price Schemes: `/api/price-schemes/*`
 - Users: `/api/users/*`
 - Permissions: `/api/permissions/*`
+- Invoices: `/api/invoices/*`
+- Purchase Orders: `/api/purchase-orders/*`
+- Dashboard: `/api/dashboard/*`
+- Fund Wallets: `/api/fund-wallets/*`
+- Expenses: `/api/expenses/*`
+- Receivables/Payables: `/api/receivables/*`, `/api/payables/*`
+- Daily Ops: `/api/daily-log`, `/api/daily-report`, `/api/daily-close`
+- Suppliers: `/api/suppliers/*`
+- Employees: `/api/employees/*`
+- Sync: `/api/sync/*`
+- Settings: `/api/settings/*`
 
-## Migration Strategy
+## Migration Status (COMPLETE)
 
-1. **Phase 1 (Complete)**: Extract foundational modules
-   - config, utils, models
-   - Simple CRUD routes (branches, products, customers, inventory, price_schemes)
-   - User management and permissions
-
-2. **Phase 2 (Next)**: Extract complex routes
-   - Invoices with edit history
-   - Unified sales flow
-   - Purchase orders
-
-3. **Phase 3 (Future)**: Extract remaining
-   - Accounting and fund management
-   - Dashboard and reporting
-   - Daily operations and employees
-   - Sync endpoints
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 | ✅ Complete | Foundation (config, utils, models) |
+| Phase 2 | ✅ Complete | Core routes (auth, users, products, invoices, sales) |
+| Phase 3 | ✅ Complete | Remaining routes (accounting, daily ops, employees, sync) |
 
 ## Testing
 - Unit tests in `/app/backend/tests/`

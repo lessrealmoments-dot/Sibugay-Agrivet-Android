@@ -48,6 +48,20 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - Database indexing for performance
 
 ### Phase 2: PWA + Offline POS (Feb 19, 2026)
+- **Simplified Inventory Page**: Shows product name, SKU, category, type (Stockable/Service/Repack), on-hand stock, status badges. Clicking any row navigates to Product Detail.
+- **Comprehensive Product Detail Page** with accordion sections:
+  - Sales Information (pricing tiers in ₱ PHP)
+  - Create Repack (generate repack SKUs)
+  - Capital/Cost (Moving Average, Last Purchase with warning, Manual)
+  - Inventory (On Hand per branch, Coming from POs, Reserved from delivery sales, Available)
+  - Extra Info (Barcode, Reorder Point/Qty, Last Vendor, Unit of Measurement)
+  - Product Vendors (add/remove vendors per product)
+  - Movement History (sales, purchases, returns, adjustments with user tracking)
+  - Order History (combined sales + purchase history with prices)
+- **Purchase Orders**: CRUD + receive flow (receiving adds to inventory + logs movements + updates cost)
+- **Sale Reserve/Release**: Delivery sales create "reserved" status, release deducts inventory
+- **Movement Logging**: All inventory changes (sales, purchases, adjustments) are automatically tracked
+- **Philippine Peso (₱)**: All currency displays across Dashboard, POS, Products, Accounting
 - **Service Worker** (`public/sw.js`): Caches app shell, static assets, API responses, Google Fonts
 - **PWA Manifest** (`public/manifest.json`): standalone display, installable on desktop/tablet
 - **IndexedDB** (`lib/offlineDB.js`): Stores products, customers, price schemes, pending offline sales

@@ -3414,6 +3414,94 @@ async def reset_user_password(user_id: str, data: dict, user=Depends(get_current
     await db.users.update_one({"id": user_id}, {"$set": {"password_hash": hash_password(data["new_password"])}})
     return {"message": "Password reset"}
 
+@api_router.get("/permissions/modules")
+async def get_permission_modules(user=Depends(get_current_user)):
+    """Get all available permission modules and their actions."""
+    return PERMISSION_MODULES
+
+@api_router.get("/permissions/presets")
+async def get_permission_presets(user=Depends(get_current_user)):
+    """Get all preset role templates."""
+    return ROLE_PRESETS
+
+@api_router.get("/permissions/presets/{preset_key}")
+async def get_preset_permissions(preset_key: str, user=Depends(get_current_user)):
+    """Get permissions for a specific preset role."""
+    if preset_key not in ROLE_PRESETS:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    return ROLE_PRESETS[preset_key]
+
+@api_router.post("/users/{user_id}/apply-preset")
+async def apply_permission_preset(user_id: str, data: dict, user=Depends(get_current_user)):
+    """Apply a preset role's permissions to a user."""
+    check_perm(user, "settings", "manage_permissions")
+    
+    preset_key = data.get("preset")
+    if preset_key not in ROLE_PRESETS:
+        raise HTTPException(status_code=400, detail="Invalid preset")
+    
+    permissions = ROLE_PRESETS[preset_key]["permissions"]
+    await db.users.update_one(
+        {"id": user_id}, 
+        {"$set": {
+            "permissions": permissions, 
+            "role": preset_key,
+            "permission_preset": preset_key,
+            "updated_at": now_iso()
+        }}
+    )
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
+
+@api_router.put("/users/{user_id}/permissions/module/{module}")
+async def update_user_module_permissions(user_id: str, module: str, data: dict, user=Depends(get_current_user)):
+    """Update permissions for a specific module for a user."""
+    check_perm(user, "settings", "manage_permissions")
+    
+    if module not in PERMISSION_MODULES:
+        raise HTTPException(status_code=400, detail="Invalid module")
+    
+    target_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get current permissions or initialize
+    permissions = target_user.get("permissions", {})
+    permissions[module] = data.get("actions", {})
+    
+    # Mark as custom (no longer following a preset)
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "permissions": permissions,
+            "permission_preset": "custom",
+            "updated_at": now_iso()
+        }}
+    )
+    
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
+
+@api_router.get("/users/{user_id}/permissions")
+async def get_user_permissions(user_id: str, user=Depends(get_current_user)):
+    """Get detailed permissions for a specific user."""
+    # Allow users to view their own permissions
+    if user_id != user["id"]:
+        check_perm(user, "settings", "manage_users")
+    
+    target_user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {
+        "user_id": user_id,
+        "username": target_user.get("username"),
+        "role": target_user.get("role"),
+        "permission_preset": target_user.get("permission_preset", target_user.get("role")),
+        "permissions": target_user.get("permissions", {}),
+        "branch_id": target_user.get("branch_id"),
+    }
+
 # ==================== DAILY OPERATIONS ====================
 @api_router.get("/daily-log")
 async def get_daily_log(date: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):

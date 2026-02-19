@@ -185,7 +185,8 @@ export default function UserPermissionsPage() {
               {users.map(user => (
                 <button
                   key={user.id}
-                  onClick={() => selectUser(user)}
+                  data-testid={`user-item-${user.username}`}
+                  onClick={(e) => { e.stopPropagation(); selectUser(user); }}
                   className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors ${
                     selectedUser?.id === user.id ? 'bg-[#1A4D2E]/5 border-l-2 border-l-[#1A4D2E]' : ''
                   }`}
@@ -239,8 +240,8 @@ export default function UserPermissionsPage() {
                   <div className="flex items-center justify-between mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
                     <p className="text-sm text-amber-700">You have unsaved changes</p>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={discardChanges}>Discard</Button>
-                      <Button size="sm" onClick={savePermissions} disabled={saving} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                      <Button size="sm" variant="ghost" data-testid="discard-changes-btn" onClick={discardChanges}>Discard</Button>
+                      <Button size="sm" data-testid="save-permissions-btn" onClick={savePermissions} disabled={saving} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
                         <Save size={14} className="mr-1" /> {saving ? 'Saving...' : 'Save'}
                       </Button>
                     </div>

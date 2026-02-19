@@ -141,9 +141,11 @@ New Endpoints:
 - [x] **Customer Transaction Tracking**
 
 ### P1 (High Priority - Next)
-- [ ] **Backend Modular Refactoring** (In Progress)
-  - Foundation created: config.py, utils/, models/, routes/
-  - Remaining: Migrate all routes from server.py to modular structure
+- [x] **Backend Modular Refactoring - Phase 1** (COMPLETE)
+  - Created modular foundation: config.py, utils/, models/, routes/
+  - Extracted 7 route modules: auth, branches, users, products, customers, inventory, price_schemes
+  - All modules tested and working
+  - Remaining: Extract complex routes (invoices, sales, accounting)
 - [ ] **Multi-Branch Data Isolation**
   - Branch-specific: prices, customers, suppliers, capital
   - Global: product names/SKUs

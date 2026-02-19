@@ -58,6 +58,14 @@ export default function FundManagementPage() {
 
   const openDeposit = (w) => { setSelectedWallet(w); setDepositForm({ amount: 0, reference: '', date: new Date().toISOString().slice(0, 10) }); setDepositDialog(true); };
 
+  const viewMovements = async (w) => {
+    setMovementWallet(w);
+    try {
+      const res = await api.get(`/fund-wallets/${w.id}/movements`, { params: { limit: 50 } });
+      setMovements(res.data);
+    } catch { setMovements([]); }
+  };
+
   const getIcon = (type) => {
     if (type === 'cashier') return <Banknote size={20} className="text-emerald-600" />;
     if (type === 'safe') return <Lock size={20} className="text-amber-600" />;

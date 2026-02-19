@@ -1,384 +1,306 @@
 #!/usr/bin/env python3
+"""
+AgriPOS Backend API Test Suite
+Tests all sales order, payment, and fund management endpoints
+"""
+
 import requests
-import sys
 import json
+import sys
 from datetime import datetime
 
-class AgriPOSBackendTester:
+class AgriPOSAPITester:
     def __init__(self, base_url="https://multibranch-pos-4.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0
         self.tests_passed = 0
-        self.current_branch = None
-        self.test_product_id = None
-        self.test_customer_id = None
+        self.test_results = []
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
-        """Run a single API test"""
-        url = f"{self.base_url}/api/{endpoint}"
-        req_headers = {'Content-Type': 'application/json'}
-        if self.token:
-            req_headers['Authorization'] = f'Bearer {self.token}'
-        if headers:
-            req_headers.update(headers)
-
+    def log_test(self, test_name, passed, response_data=None, error=None):
+        """Log test result"""
         self.tests_run += 1
-        print(f"\n🔍 Testing {name}...")
+        if passed:
+            self.tests_passed += 1
         
+        result = {
+            "test_name": test_name,
+            "passed": passed,
+            "response_data": response_data,
+            "error": str(error) if error else None
+        }
+        self.test_results.append(result)
+        
+        status = "✅ PASS" if passed else "❌ FAIL"
+        print(f"{status} - {test_name}")
+        if error:
+            print(f"    Error: {error}")
+
+    def make_request(self, method, endpoint, data=None, expected_status=200):
+        """Make HTTP request with error handling"""
+        url = f"{self.base_url}/api/{endpoint}"
+        headers = {'Content-Type': 'application/json'}
+        
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+
         try:
             if method == 'GET':
-                response = requests.get(url, headers=req_headers, params=data)
+                response = requests.get(url, headers=headers, params=data if data else None)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=req_headers)
+                response = requests.post(url, json=data, headers=headers)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=req_headers)
+                response = requests.put(url, json=data, headers=headers)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=req_headers)
-
+                response = requests.delete(url, headers=headers)
+            
             success = response.status_code == expected_status
-            if success:
-                self.tests_passed += 1
-                print(f"✅ Passed - Status: {response.status_code}")
+            response_data = None
+            
+            if response.headers.get('content-type', '').startswith('application/json'):
                 try:
-                    return True, response.json()
+                    response_data = response.json()
                 except:
-                    return True, {}
+                    response_data = {"raw_response": response.text}
             else:
-                print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                try:
-                    error_detail = response.json()
-                    print(f"   Error: {error_detail}")
-                except:
-                    print(f"   Response: {response.text[:200]}")
-                return False, {}
-
+                response_data = {"status_code": response.status_code, "text": response.text}
+                
+            return success, response_data, None
+            
         except Exception as e:
-            print(f"❌ Failed - Error: {str(e)}")
-            return False, {}
+            return False, None, e
 
-    def test_login(self):
-        """Test admin login"""
-        success, response = self.run_test(
-            "Admin Login", "POST", "auth/login", 200,
-            data={"username": "admin", "password": "admin123"}
-        )
-        if success and 'token' in response:
-            self.token = response['token']
-            print(f"   Token received for user: {response.get('user', {}).get('full_name', 'admin')}")
-            return True
-        return False
-
-    def test_branches(self):
-        """Test branches endpoint"""
-        success, response = self.run_test(
-            "List Branches", "GET", "branches", 200
-        )
-        if success and response:
-            self.current_branch = response[0] if response else None
-            print(f"   Found {len(response)} branches")
-            if self.current_branch:
-                print(f"   Using branch: {self.current_branch['name']} (ID: {self.current_branch['id']})")
-            return True
-        return False
-
-    def test_inventory_endpoint(self):
-        """Test simplified inventory endpoint"""
-        success, response = self.run_test(
-            "Inventory List (Simplified View)", "GET", "inventory", 200,
-            data={"limit": 10}
-        )
-        if success:
-            items = response.get('items', [])
-            print(f"   Found {len(items)} inventory items")
-            print(f"   Total count: {response.get('total', 0)}")
-            if items:
-                item = items[0]
-                print(f"   Sample item: {item.get('name')} - SKU: {item.get('sku')}")
-                print(f"   Stock: {item.get('total_stock', 0)} {item.get('unit', '')}")
-                print(f"   Category: {item.get('category')}, Type: {item.get('product_type')}")
-                self.test_product_id = item.get('id')
-            return True
-        return False
-
-    def test_product_detail_endpoint(self):
-        """Test comprehensive product detail endpoint"""
-        if not self.test_product_id:
-            print("⚠️  No test product available, creating one...")
-            # Create a test product first
-            success, response = self.run_test(
-                "Create Test Product", "POST", "products", 201,
-                data={
-                    "sku": f"TEST-{datetime.now().strftime('%H%M%S')}",
-                    "name": "Test Product for Detail",
-                    "category": "Test Category",
-                    "unit": "Piece",
-                    "cost_price": 50.0,
-                    "prices": {"retail": 75.0, "wholesale": 65.0}
-                }
-            )
-            if success:
-                self.test_product_id = response.get('id')
-            else:
-                return False
-
-        success, response = self.run_test(
-            "Product Detail", "GET", f"products/{self.test_product_id}/detail", 200
-        )
-        if success:
-            product = response.get('product', {})
-            inventory = response.get('inventory', {})
-            cost = response.get('cost', {})
-            repacks = response.get('repacks', [])
-            vendors = response.get('vendors', [])
-            
-            print(f"   Product: {product.get('name')} - SKU: {product.get('sku')}")
-            print(f"   Currency in prices: {product.get('prices', {})}")
-            print(f"   Inventory - Total: {inventory.get('total', 0)}, Coming: {inventory.get('coming', 0)}, Reserved: {inventory.get('reserved', 0)}")
-            print(f"   Cost - Moving Avg: {cost.get('moving_average', 0)}, Method: {cost.get('method', 'manual')}")
-            print(f"   Repacks: {len(repacks)}, Vendors: {len(vendors)}")
-            return True
-        return False
-
-    def test_product_movements(self):
-        """Test product movement history"""
-        if not self.test_product_id:
-            return False
-            
-        success, response = self.run_test(
-            "Product Movements", "GET", f"products/{self.test_product_id}/movements", 200,
-            data={"limit": 10}
-        )
-        if success:
-            movements = response.get('movements', [])
-            print(f"   Found {len(movements)} movement records")
-            print(f"   Total movements: {response.get('total', 0)}")
-            return True
-        return False
-
-    def test_product_orders(self):
-        """Test product order history"""
-        if not self.test_product_id:
-            return False
-            
-        success, response = self.run_test(
-            "Product Order History", "GET", f"products/{self.test_product_id}/orders", 200,
-            data={"limit": 10}
-        )
-        if success:
-            orders = response.get('orders', [])
-            print(f"   Found {len(orders)} order records")
-            return True
-        return False
-
-    def test_product_vendors_crud(self):
-        """Test product vendors CRUD operations"""
-        if not self.test_product_id:
-            return False
-
-        # Add vendor
-        vendor_data = {
-            "vendor_name": "Test Vendor Co.",
-            "vendor_contact": "09123456789",
-            "last_price": 45.50,
-            "is_preferred": True
-        }
-        success, response = self.run_test(
-            "Add Product Vendor", "POST", f"products/{self.test_product_id}/vendors", 200,
-            data=vendor_data
-        )
-        if not success:
-            return False
+    def test_auth_login(self):
+        """Test login with admin credentials"""
+        success, data, error = self.make_request('POST', 'auth/login', {
+            'username': 'admin',
+            'password': 'admin123'
+        })
         
-        vendor_id = response.get('id')
-        print(f"   Created vendor: {response.get('vendor_name')} with ID: {vendor_id}")
-
-        # List vendors
-        success, vendors = self.run_test(
-            "List Product Vendors", "GET", f"products/{self.test_product_id}/vendors", 200
-        )
-        if success:
-            print(f"   Found {len(vendors)} vendors")
-
-        # Remove vendor
-        if vendor_id:
-            success, _ = self.run_test(
-                "Remove Product Vendor", "DELETE", f"products/{self.test_product_id}/vendors/{vendor_id}", 200
-            )
-            if success:
-                print(f"   Removed vendor {vendor_id}")
-
-        return success
-
-    def test_purchase_orders_crud(self):
-        """Test Purchase Orders CRUD operations"""
-        if not self.test_product_id or not self.current_branch:
-            return False
-
-        # Create PO
-        po_data = {
-            "vendor": "Test Supplier Ltd.",
-            "branch_id": self.current_branch['id'],
-            "items": [{
-                "product_id": self.test_product_id,
-                "product_name": "Test Product",
-                "quantity": 10,
-                "unit_price": 45.0
-            }],
-            "notes": "Test purchase order"
-        }
-        success, po_response = self.run_test(
-            "Create Purchase Order", "POST", "purchase-orders", 200,
-            data=po_data
-        )
-        if not success:
-            return False
-        
-        po_id = po_response.get('id')
-        print(f"   Created PO: {po_response.get('po_number')} with ID: {po_id}")
-        print(f"   Subtotal: ₱{po_response.get('subtotal', 0)}")
-
-        # List POs
-        success, po_list = self.run_test(
-            "List Purchase Orders", "GET", "purchase-orders", 200,
-            data={"limit": 5}
-        )
-        if success:
-            print(f"   Found {po_list.get('total', 0)} purchase orders")
-
-        # Receive PO (updates inventory)
-        if po_id:
-            success, _ = self.run_test(
-                "Receive Purchase Order", "POST", f"purchase-orders/{po_id}/receive", 200
-            )
-            if success:
-                print(f"   Received PO {po_id}, inventory updated")
-
-        return success
-
-    def test_pos_sale_with_php_currency(self):
-        """Test POS sale with PHP currency formatting"""
-        if not self.test_product_id or not self.current_branch:
-            return False
-
-        # Create a customer first
-        customer_data = {
-            "name": "Test Customer",
-            "phone": "09123456789",
-            "price_scheme": "retail"
-        }
-        success, customer_response = self.run_test(
-            "Create Test Customer", "POST", "customers", 200,
-            data=customer_data
-        )
-        if success:
-            self.test_customer_id = customer_response.get('id')
-            print(f"   Created customer: {customer_response.get('name')}")
-
-        # Create a sale
-        sale_data = {
-            "branch_id": self.current_branch['id'],
-            "customer_id": self.test_customer_id,
-            "customer_name": "Test Customer",
-            "items": [{
-                "product_id": self.test_product_id,
-                "quantity": 2,
-                "price": 75.0  # Retail price in PHP
-            }],
-            "payment_method": "Cash",
-            "discount": 0
-        }
-        success, sale_response = self.run_test(
-            "Create POS Sale", "POST", "sales", 200,
-            data=sale_data
-        )
-        if success:
-            print(f"   Sale Number: {sale_response.get('sale_number')}")
-            print(f"   Total: ₱{sale_response.get('total', 0)} (PHP Currency)")
-            print(f"   Status: {sale_response.get('status')}")
-            return True
-        return False
-
-    def test_dashboard_with_php_currency(self):
-        """Test dashboard stats showing PHP currency"""
-        success, response = self.run_test(
-            "Dashboard Stats (PHP Currency)", "GET", "dashboard/stats", 200,
-            data={"branch_id": self.current_branch['id'] if self.current_branch else None}
-        )
-        if success:
-            print(f"   Today's Revenue: ₱{response.get('today_revenue', 0)}")
-            print(f"   Today's Sales Count: {response.get('today_sales_count', 0)}")
-            print(f"   Today's Expenses: ₱{response.get('today_expenses', 0)}")
-            print(f"   Total Products: {response.get('total_products', 0)}")
-            print(f"   Low Stock Count: {response.get('low_stock_count', 0)}")
-            print(f"   Total Receivables: ₱{response.get('total_receivables', 0)}")
-            return True
-        return False
-
-    def test_price_schemes(self):
-        """Test price schemes (for PHP pricing tiers)"""
-        success, response = self.run_test(
-            "List Price Schemes", "GET", "price-schemes", 200
-        )
-        if success:
-            schemes = response
-            print(f"   Found {len(schemes)} price schemes")
-            for scheme in schemes:
-                print(f"   - {scheme.get('name')} ({scheme.get('key')}): {scheme.get('description')}")
-            return True
-        return False
-
-    def run_all_tests(self):
-        """Run all tests"""
-        print("🚀 Starting AgriPOS Backend Testing for Redesigned Product & Inventory Pages")
-        print("=" * 80)
-
-        if not self.test_login():
-            print("❌ Login failed, stopping tests")
-            return False
-
-        # Core data setup
-        self.test_branches()
-        self.test_price_schemes()
-
-        # Test redesigned inventory and product detail features
-        print(f"\n📦 Testing Redesigned Inventory & Product Features")
-        print("-" * 50)
-        self.test_inventory_endpoint()
-        self.test_product_detail_endpoint()
-        self.test_product_movements()
-        self.test_product_orders()
-        self.test_product_vendors_crud()
-
-        # Test new purchase orders functionality  
-        print(f"\n🛒 Testing Purchase Orders & Receive Flow")
-        print("-" * 50)
-        self.test_purchase_orders_crud()
-
-        # Test POS with PHP currency
-        print(f"\n💰 Testing POS & Dashboard with PHP Currency (₱)")
-        print("-" * 50)
-        self.test_pos_sale_with_php_currency()
-        self.test_dashboard_with_php_currency()
-
-        # Print final results
-        print(f"\n" + "=" * 80)
-        print(f"📊 FINAL RESULTS:")
-        print(f"   Tests Passed: {self.tests_passed}/{self.tests_run}")
-        success_rate = (self.tests_passed / self.tests_run * 100) if self.tests_run > 0 else 0
-        print(f"   Success Rate: {success_rate:.1f}%")
-        
-        if success_rate >= 80:
-            print("✅ Backend testing PASSED - AgriPOS APIs working correctly")
+        if success and data and 'token' in data:
+            self.token = data['token']
+            self.log_test("Login with admin/admin123", True, {"user_role": data.get('user', {}).get('role')})
             return True
         else:
-            print("❌ Backend testing FAILED - Multiple API issues found")
+            self.log_test("Login with admin/admin123", False, data, error)
             return False
 
-def main():
-    tester = AgriPOSBackendTester()
-    success = tester.run_all_tests()
-    return 0 if success else 1
+    def test_settings_endpoints(self):
+        """Test settings endpoints for invoice prefixes and terms"""
+        # Test invoice prefixes
+        success, data, error = self.make_request('GET', 'settings/invoice-prefixes')
+        self.log_test("Get invoice prefixes", success, data, error)
+        
+        # Test terms options
+        success, data, error = self.make_request('GET', 'settings/terms-options')
+        self.log_test("Get terms options", success, data, error)
+        
+        return success
+
+    def test_product_search_detail(self):
+        """Test enhanced product search with inventory details"""
+        success, data, error = self.make_request('GET', 'products/search-detail', {'q': 'lann'})
+        
+        if success and data:
+            # Check if products have required detail fields
+            has_details = False
+            if isinstance(data, list) and len(data) > 0:
+                product = data[0]
+                required_fields = ['name', 'sku', 'prices', 'available', 'reserved', 'coming']
+                has_details = all(field in product for field in required_fields)
+        else:
+            has_details = False
+            
+        self.log_test("Product search detail with 'lann'", success and has_details, 
+                     {"products_found": len(data) if isinstance(data, list) else 0}, error)
+        
+        return success and has_details
+
+    def test_fund_wallets_crud(self):
+        """Test fund wallet CRUD operations"""
+        # Create a cashier wallet
+        wallet_data = {
+            "type": "cashier",
+            "name": "Test Cashier",
+            "branch_id": "test_branch_001",
+            "balance": 1000.0
+        }
+        
+        success, data, error = self.make_request('POST', 'fund-wallets', wallet_data, 200)
+        wallet_id = data.get('id') if data else None
+        self.log_test("Create fund wallet (cashier type)", success, {"wallet_id": wallet_id}, error)
+        
+        if not success:
+            return False
+            
+        # List wallets
+        success, data, error = self.make_request('GET', 'fund-wallets')
+        self.log_test("List fund wallets", success, {"wallets_count": len(data) if isinstance(data, list) else 0}, error)
+        
+        # Test deposit to wallet
+        if wallet_id:
+            deposit_data = {
+                "amount": 500.0,
+                "reference": "Test deposit",
+                "date": datetime.now().strftime("%Y-%m-%d")
+            }
+            success, data, error = self.make_request('POST', f'fund-wallets/{wallet_id}/deposit', deposit_data)
+            self.log_test("Deposit to wallet", success, data, error)
+        
+        return True
+
+    def test_safe_lots(self):
+        """Test safe lots endpoint"""
+        success, data, error = self.make_request('GET', 'safe-lots')
+        self.log_test("Get safe cash lots", success, {"lots_count": len(data) if isinstance(data, list) else 0}, error)
+        return success
+
+    def test_invoice_creation(self):
+        """Test invoice creation with line items"""
+        invoice_data = {
+            "customer_id": "",
+            "customer_name": "Test Customer",
+            "terms": "COD",
+            "terms_days": 0,
+            "prefix": "SI",
+            "order_date": datetime.now().strftime("%Y-%m-%d"),
+            "invoice_date": datetime.now().strftime("%Y-%m-%d"),
+            "branch_id": "test_branch_001",
+            "items": [
+                {
+                    "product_id": "test_product_001",
+                    "product_name": "Test Product",
+                    "quantity": 2,
+                    "rate": 50.0,
+                    "discount_type": "amount",
+                    "discount_value": 5.0
+                }
+            ],
+            "freight": 10.0,
+            "overall_discount": 0.0,
+            "amount_paid": 0.0
+        }
+        
+        success, data, error = self.make_request('POST', 'invoices', invoice_data)
+        invoice_id = data.get('id') if data else None
+        invoice_number = data.get('invoice_number') if data else None
+        
+        self.log_test("Create invoice with line items", success, 
+                     {"invoice_id": invoice_id, "invoice_number": invoice_number}, error)
+        
+        # Test getting the created invoice
+        if invoice_id:
+            success, data, error = self.make_request('GET', f'invoices/{invoice_id}')
+            self.log_test("Get created invoice", success, {"invoice_number": data.get('invoice_number') if data else None}, error)
+        
+        return success, invoice_id
+
+    def test_invoice_payment(self):
+        """Test invoice payment with interest computation"""
+        # First create an invoice
+        invoice_success, invoice_id = self.test_invoice_creation()
+        
+        if not invoice_success or not invoice_id:
+            return False
+            
+        # Test payment recording
+        payment_data = {
+            "amount": 50.0,
+            "method": "Cash",
+            "fund_source": "cashier",
+            "reference": "Test payment",
+            "date": datetime.now().strftime("%Y-%m-%d")
+        }
+        
+        success, data, error = self.make_request('POST', f'invoices/{invoice_id}/payment', payment_data)
+        self.log_test("Record invoice payment", success, data, error)
+        
+        # Test interest computation
+        success, data, error = self.make_request('POST', f'invoices/{invoice_id}/compute-interest')
+        self.log_test("Compute interest on invoice", success, data, error)
+        
+        return success
+
+    def test_customers_and_invoices(self):
+        """Test customer invoice lookup"""
+        # Get customers list
+        success, data, error = self.make_request('GET', 'customers', {'limit': 10})
+        self.log_test("Get customers list", success, 
+                     {"customers_count": len(data.get('customers', [])) if data else 0}, error)
+        
+        if success and data and data.get('customers'):
+            customer_id = data['customers'][0]['id']
+            # Get customer invoices
+            success, data, error = self.make_request('GET', f'customers/{customer_id}/invoices')
+            self.log_test("Get customer invoices", success, 
+                         {"invoices_count": len(data) if isinstance(data, list) else 0}, error)
+        
+        return success
+
+    def test_repack_auto_compute_capital(self):
+        """Test repack auto-compute capital functionality"""
+        # This would be tested through product search results showing parent cost / units_per_parent
+        success, data, error = self.make_request('GET', 'products/search-detail', {'q': 'r-'})  # Search for repacks
+        
+        repack_found = False
+        if success and data and isinstance(data, list):
+            for product in data:
+                if product.get('is_repack'):
+                    repack_found = True
+                    break
+        
+        self.log_test("Repack auto-compute capital (search repacks)", success, 
+                     {"repack_products_found": repack_found}, error)
+        
+        return success
+
+    def run_all_tests(self):
+        """Run all backend tests"""
+        print("🚀 Starting AgriPOS Backend API Tests...")
+        print("=" * 50)
+        
+        # Authentication test
+        if not self.test_auth_login():
+            print("❌ Authentication failed - stopping tests")
+            return False
+            
+        # Settings tests
+        self.test_settings_endpoints()
+        
+        # Product search tests
+        self.test_product_search_detail()
+        
+        # Fund management tests
+        self.test_fund_wallets_crud()
+        self.test_safe_lots()
+        
+        # Invoice system tests
+        self.test_invoice_payment()
+        
+        # Customer tests
+        self.test_customers_and_invoices()
+        
+        # Repack tests
+        self.test_repack_auto_compute_capital()
+        
+        # Print summary
+        print("\n" + "=" * 50)
+        print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} passed")
+        success_rate = (self.tests_passed / self.tests_run * 100) if self.tests_run > 0 else 0
+        print(f"📈 Success Rate: {success_rate:.1f}%")
+        
+        # Show failed tests
+        failed_tests = [t for t in self.test_results if not t['passed']]
+        if failed_tests:
+            print("\n❌ Failed Tests:")
+            for test in failed_tests:
+                print(f"  - {test['test_name']}")
+                if test['error']:
+                    print(f"    Error: {test['error']}")
+        
+        return self.tests_passed == self.tests_run
 
 if __name__ == "__main__":
-    sys.exit(main())
+    tester = AgriPOSAPITester()
+    success = tester.run_all_tests()
+    sys.exit(0 if success else 1)

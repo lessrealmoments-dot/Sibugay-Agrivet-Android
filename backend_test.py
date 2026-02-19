@@ -386,6 +386,12 @@ class AgriPOSAPITester:
         # Repack tests
         self.test_repack_auto_compute_capital()
         
+        # Purchase Order tests
+        self.test_purchase_order_receive()
+        
+        # Fund wallet payment tests  
+        self.test_fund_wallet_payment()
+        
         # Print summary
         print("\n" + "=" * 50)
         print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} passed")

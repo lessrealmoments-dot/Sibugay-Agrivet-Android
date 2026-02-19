@@ -906,7 +906,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
 @api_router.put("/purchase-orders/{po_id}")
 async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current_user)):
     check_perm(user, "inventory", "adjust")
-    allowed = ["vendor", "items", "expected_date", "notes", "status", "branch_id"]
+    allowed = ["vendor", "items", "purchase_date", "notes", "status", "branch_id"]
     update = {k: v for k, v in data.items() if k in allowed}
     if "items" in update:
         update["subtotal"] = sum(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)) for i in update["items"])

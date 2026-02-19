@@ -271,7 +271,19 @@ export default function ProductsPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Category</Label>
-                <Input data-testid="product-category-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Pesticides" />
+                <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                  <SelectTrigger data-testid="product-category-input" className="h-9"><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pesticide">Pesticide</SelectItem>
+                    <SelectItem value="Fertilizers">Fertilizers</SelectItem>
+                    <SelectItem value="Seeds">Seeds</SelectItem>
+                    <SelectItem value="Feeds">Feeds</SelectItem>
+                    <SelectItem value="Tools">Tools</SelectItem>
+                    <SelectItem value="Veterinary">Veterinary</SelectItem>
+                    <SelectItem value="Customized">Customized</SelectItem>
+                    <SelectItem value="Others">Others</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Unit</Label>

@@ -37,6 +37,8 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - [x] User management with role assignment and password reset
 
 ## What's Been Implemented (Feb 19, 2026)
+
+### Phase 1: MVP Core
 ### Backend (server.py)
 - Full REST API with 30+ endpoints under /api prefix
 - JWT auth with bcrypt password hashing
@@ -44,6 +46,17 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - Parent/Repack system with auto stock deduction logic
 - Database seeding: default admin, main branch, 4 price schemes
 - Database indexing for performance
+
+### Phase 2: PWA + Offline POS (Feb 19, 2026)
+- **Service Worker** (`public/sw.js`): Caches app shell, static assets, API responses, Google Fonts
+- **PWA Manifest** (`public/manifest.json`): standalone display, installable on desktop/tablet
+- **IndexedDB** (`lib/offlineDB.js`): Stores products, customers, price schemes, pending offline sales
+- **Sync Manager** (`lib/syncManager.js`): Auto-syncs pending sales every 30s, full data refresh on reconnect
+- **Offline POS Flow**: Pre-loads all product data via /sync/pos-data, client-side search, saves sales to IndexedDB when offline
+- **Conflict Prevention**: UUID-based sale IDs generated on client, server-side duplicate detection in /sales/sync
+- **Backend Sync Endpoints**: GET /api/sync/pos-data (bulk data), POST /api/sales/sync (batch sync with dedup)
+- **Offline Indicator**: Shows online/offline status in sidebar + POS header, pending sale count, manual sync button
+- **PWA Install**: Browser prompts "Install App" button in sidebar
 
 ### Frontend (11 pages)
 - LoginPage: Split layout with warehouse image
@@ -60,8 +73,9 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Prioritized Backlog
 ### P0 (Critical)
-- [ ] Offline POS with IndexedDB + auto-sync when online
-- [ ] Conflict prevention for offline/online data sync
+- [x] Offline POS with IndexedDB + auto-sync when online (DONE)
+- [x] Conflict prevention via UUID sale IDs + server duplicate detection (DONE)
+- [x] PWA installable app (DONE)
 
 ### P1 (High)
 - [ ] Barcode scanning support in POS

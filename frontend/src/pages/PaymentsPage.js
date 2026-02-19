@@ -493,6 +493,19 @@ export default function PaymentsPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Detail Modal */}
+      <InvoiceDetailModal 
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceId={selectedInvoiceId}
+        onUpdated={() => {
+          if (selectedCustomer) {
+            loadInvoices(selectedCustomer.id);
+            loadChargesPreview(selectedCustomer.id, payDate);
+          }
+        }}
+      />
     </div>
   );
 }

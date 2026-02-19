@@ -21,6 +21,7 @@ import PaymentsPage from './pages/PaymentsPage';
 import FundManagementPage from './pages/FundManagementPage';
 import AccountingPage from './pages/AccountingPage';
 import SettingsPage from './pages/SettingsPage';
+import UserPermissionsPage from './pages/UserPermissionsPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();

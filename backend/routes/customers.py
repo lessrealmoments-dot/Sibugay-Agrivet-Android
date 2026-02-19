@@ -1,10 +1,13 @@
 """
-Customer management routes.
+Customer management routes with multi-branch support.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from config import db
-from utils import get_current_user, check_perm, now_iso, new_id
+from utils import (
+    get_current_user, check_perm, now_iso, new_id,
+    get_branch_filter, apply_branch_filter, get_default_branch, CUSTOMER_SCOPE
+)
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
@@ -13,11 +16,20 @@ router = APIRouter(prefix="/customers", tags=["Customers"])
 async def list_customers(
     user=Depends(get_current_user),
     search: Optional[str] = None,
+    branch_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 50
 ):
-    """List all customers with optional search."""
+    """List all customers with optional search. Respects branch isolation."""
     query = {"active": True}
+    
+    # Apply branch filter if customer scope is branch-specific
+    if CUSTOMER_SCOPE == "branch":
+        branch_filter = await get_branch_filter(user, branch_id)
+        # For customers without branch_id (legacy), include them for admins
+        if branch_filter and user.get("role") != "admin":
+            query = apply_branch_filter(query, branch_filter)
+    
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
@@ -34,6 +46,11 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
     """Create a new customer."""
     check_perm(user, "customers", "create")
     
+    # Determine branch_id
+    branch_id = data.get("branch_id")
+    if not branch_id:
+        branch_id = await get_default_branch(user)
+    
     customer = {
         "id": new_id(),
         "name": data["name"],
@@ -45,6 +62,7 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
         "interest_rate": float(data.get("interest_rate", 0)),
         "grace_period": int(data.get("grace_period", 7)),
         "balance": 0.0,
+        "branch_id": branch_id,  # Branch assignment
         "active": True,
         "created_at": now_iso(),
     }

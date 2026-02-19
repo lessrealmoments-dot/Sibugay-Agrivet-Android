@@ -56,6 +56,19 @@ export default function PurchaseOrderPage() {
     } catch {}
   };
 
+  const handleCreateNewProduct = (name) => {
+    setNewProductForm({ sku: '', name, category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
+    setCreateProductDialog(true);
+  };
+
+  const saveNewProduct = async () => {
+    try {
+      const res = await api.post('/products', newProductForm);
+      toast.success(`Product "${res.data.name}" created!`);
+      setCreateProductDialog(false);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+  };
+
   const handleProductSelect = (index, product) => {
     const newLines = [...lines];
     newLines[index] = {

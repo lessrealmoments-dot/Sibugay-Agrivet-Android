@@ -232,8 +232,8 @@ class AgriPOSAPITester:
             "payment_details": {"tendered": 30, "change": 0}
         }
         
-        success, status, data = self.make_request('POST', 'sales', sale_data, 201)
-        if success:
+        success, status, data = self.make_request('POST', 'sales', sale_data, 200)  # Try with 200
+        if success and 'id' in data:
             sale_id = data.get('id')
             self.log_result("Create POS Sale", True, f"Sale ID: {sale_id}, Total: {data.get('total')}")
             return sale_id

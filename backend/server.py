@@ -1788,6 +1788,312 @@ async def get_vendor_pos(vendor: str, user=Depends(get_current_user)):
     return pos
 
 # =============================================================================
+# INVOICE DETAIL & EDIT ROUTES
+# =============================================================================
+@api_router.get("/invoices/{invoice_id}")
+async def get_invoice_detail(invoice_id: str, user=Depends(get_current_user)):
+    """Get full invoice details including edit history."""
+    invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+    if not invoice:
+        # Try sales collection
+        invoice = await db.sales.find_one({"id": invoice_id}, {"_id": 0})
+    if not invoice:
+        # Try purchase orders
+        invoice = await db.purchase_orders.find_one({"id": invoice_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Get edit history
+    edit_history = await db.invoice_edits.find(
+        {"invoice_id": invoice_id}, {"_id": 0}
+    ).sort("edited_at", -1).to_list(100)
+    
+    invoice["edit_history"] = edit_history
+    invoice["edit_count"] = len(edit_history)
+    
+    return invoice
+
+@api_router.get("/invoices/by-number/{invoice_number}")
+async def get_invoice_by_number(invoice_number: str, user=Depends(get_current_user)):
+    """Get invoice by invoice number (searches all collections)."""
+    # Search in invoices
+    invoice = await db.invoices.find_one({"invoice_number": invoice_number}, {"_id": 0})
+    if invoice:
+        invoice["_collection"] = "invoices"
+        return invoice
+    
+    # Search in sales
+    sale = await db.sales.find_one({"sale_number": invoice_number}, {"_id": 0})
+    if sale:
+        sale["_collection"] = "sales"
+        return sale
+    
+    # Search in purchase orders
+    po = await db.purchase_orders.find_one({"po_number": invoice_number}, {"_id": 0})
+    if po:
+        po["_collection"] = "purchase_orders"
+        return po
+    
+    raise HTTPException(status_code=404, detail="Invoice not found")
+
+@api_router.put("/invoices/{invoice_id}/edit")
+async def edit_invoice(invoice_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Edit an invoice with reason and optional proof.
+    Handles inventory adjustments when items are changed.
+    Updates product cost when PO items are edited.
+    """
+    check_perm(user, "pos", "edit")
+    
+    reason = data.get("reason", "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Edit reason is required")
+    
+    # Find the invoice
+    collection_name = data.get("_collection", "invoices")
+    if collection_name == "invoices":
+        invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+        collection = db.invoices
+        id_field = "invoice_number"
+    elif collection_name == "sales":
+        invoice = await db.sales.find_one({"id": invoice_id}, {"_id": 0})
+        collection = db.sales
+        id_field = "sale_number"
+    elif collection_name == "purchase_orders":
+        invoice = await db.purchase_orders.find_one({"id": invoice_id}, {"_id": 0})
+        collection = db.purchase_orders
+        id_field = "po_number"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid collection type")
+    
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Prevent editing voided invoices
+    if invoice.get("status") == "voided":
+        raise HTTPException(status_code=400, detail="Cannot edit voided invoice")
+    
+    # Store original state for history
+    original_state = {
+        "items": invoice.get("items", []),
+        "customer_name": invoice.get("customer_name", ""),
+        "customer_id": invoice.get("customer_id"),
+        "subtotal": invoice.get("subtotal", 0),
+        "grand_total": invoice.get("grand_total", 0),
+        "notes": invoice.get("notes", ""),
+    }
+    
+    branch_id = invoice.get("branch_id", "")
+    changes_made = []
+    inventory_adjustments = []
+    
+    # Handle item changes
+    new_items = data.get("items")
+    if new_items is not None:
+        old_items = {item.get("product_id"): item for item in invoice.get("items", [])}
+        new_items_map = {item.get("product_id"): item for item in new_items}
+        
+        # Check for removed or reduced items (return to inventory)
+        for prod_id, old_item in old_items.items():
+            new_item = new_items_map.get(prod_id)
+            old_qty = old_item.get("quantity", 0)
+            new_qty = new_item.get("quantity", 0) if new_item else 0
+            qty_diff = old_qty - new_qty
+            
+            if qty_diff > 0:
+                # Return stock (positive adjustment)
+                product = await db.products.find_one({"id": prod_id}, {"_id": 0})
+                if product:
+                    if product.get("is_repack") and product.get("parent_id"):
+                        # Repack: return to parent
+                        units_per_parent = product.get("units_per_parent", 1)
+                        parent_return = qty_diff / units_per_parent
+                        await db.inventory.update_one(
+                            {"product_id": product["parent_id"], "branch_id": branch_id},
+                            {"$inc": {"quantity": parent_return}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": product["parent_id"],
+                            "change": parent_return,
+                            "reason": f"Edit return from repack {product['name']}"
+                        })
+                    else:
+                        await db.inventory.update_one(
+                            {"product_id": prod_id, "branch_id": branch_id},
+                            {"$inc": {"quantity": qty_diff}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": prod_id,
+                            "change": qty_diff,
+                            "reason": f"Edit return"
+                        })
+                changes_made.append(f"Reduced {old_item.get('product_name', prod_id)} qty: {old_qty} → {new_qty}")
+        
+        # Check for added or increased items (deduct from inventory)
+        for prod_id, new_item in new_items_map.items():
+            old_item = old_items.get(prod_id)
+            old_qty = old_item.get("quantity", 0) if old_item else 0
+            new_qty = new_item.get("quantity", 0)
+            qty_diff = new_qty - old_qty
+            
+            if qty_diff > 0:
+                # Deduct stock
+                product = await db.products.find_one({"id": prod_id}, {"_id": 0})
+                if product:
+                    if product.get("is_repack") and product.get("parent_id"):
+                        units_per_parent = product.get("units_per_parent", 1)
+                        parent_deduction = qty_diff / units_per_parent
+                        await db.inventory.update_one(
+                            {"product_id": product["parent_id"], "branch_id": branch_id},
+                            {"$inc": {"quantity": -parent_deduction}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": product["parent_id"],
+                            "change": -parent_deduction,
+                            "reason": f"Edit deduction for repack {product['name']}"
+                        })
+                    else:
+                        await db.inventory.update_one(
+                            {"product_id": prod_id, "branch_id": branch_id},
+                            {"$inc": {"quantity": -qty_diff}},
+                            upsert=True
+                        )
+                        inventory_adjustments.append({
+                            "product_id": prod_id,
+                            "change": -qty_diff,
+                            "reason": f"Edit deduction"
+                        })
+                
+                if old_qty == 0:
+                    changes_made.append(f"Added {new_item.get('product_name', prod_id)} qty: {new_qty}")
+                else:
+                    changes_made.append(f"Increased {new_item.get('product_name', prod_id)} qty: {old_qty} → {new_qty}")
+            
+            # Check for price changes
+            if old_item:
+                old_rate = old_item.get("rate", 0)
+                new_rate = new_item.get("rate", 0)
+                if old_rate != new_rate:
+                    changes_made.append(f"Price changed for {new_item.get('product_name', prod_id)}: ₱{old_rate} → ₱{new_rate}")
+                    
+                    # For POs, update product cost
+                    if collection_name == "purchase_orders" and new_rate > 0:
+                        await db.products.update_one(
+                            {"id": prod_id},
+                            {"$set": {"cost_price": new_rate, "updated_at": now_iso()}}
+                        )
+                        changes_made.append(f"Updated product cost to ₱{new_rate}")
+    
+    # Prepare update data
+    update_data = {}
+    
+    # Allowed editable fields
+    editable_fields = ["customer_name", "customer_id", "notes", "terms", "customer_po", 
+                       "sales_rep_name", "sales_rep_id", "freight", "overall_discount"]
+    for field in editable_fields:
+        if field in data:
+            old_val = invoice.get(field)
+            new_val = data[field]
+            if old_val != new_val:
+                update_data[field] = new_val
+                changes_made.append(f"{field}: '{old_val}' → '{new_val}'")
+    
+    # Update items if provided
+    if new_items is not None:
+        # Recalculate totals
+        subtotal = 0
+        for item in new_items:
+            qty = item.get("quantity", 0)
+            rate = item.get("rate", 0)
+            disc_type = item.get("discount_type", "amount")
+            disc_val = item.get("discount_value", 0)
+            disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
+            item["discount_amount"] = disc_amt
+            item["total"] = round(qty * rate - disc_amt, 2)
+            subtotal += item["total"]
+        
+        freight = data.get("freight", invoice.get("freight", 0))
+        overall_discount = data.get("overall_discount", invoice.get("overall_discount", 0))
+        grand_total = round(subtotal + freight - overall_discount, 2)
+        
+        # Calculate new balance
+        amount_paid = invoice.get("amount_paid", 0)
+        new_balance = max(0, grand_total - amount_paid)
+        
+        update_data["items"] = new_items
+        update_data["subtotal"] = subtotal
+        update_data["grand_total"] = grand_total
+        update_data["balance"] = new_balance
+        
+        # Update status based on balance
+        if new_balance <= 0:
+            update_data["status"] = "paid"
+        elif amount_paid > 0:
+            update_data["status"] = "partial"
+        else:
+            update_data["status"] = "open"
+        
+        # Update customer balance if changed
+        if invoice.get("customer_id"):
+            old_balance = invoice.get("balance", 0)
+            balance_diff = new_balance - old_balance
+            if balance_diff != 0:
+                await db.customers.update_one(
+                    {"id": invoice["customer_id"]},
+                    {"$inc": {"balance": balance_diff}}
+                )
+    
+    if not update_data and not changes_made:
+        return {"message": "No changes made", "invoice": invoice}
+    
+    # Mark as edited
+    update_data["edited"] = True
+    update_data["last_edited_at"] = now_iso()
+    update_data["last_edited_by"] = user.get("full_name", user["username"])
+    update_data["updated_at"] = now_iso()
+    
+    # Apply update
+    await collection.update_one({"id": invoice_id}, {"$set": update_data})
+    
+    # Create edit history record
+    edit_record = {
+        "id": new_id(),
+        "invoice_id": invoice_id,
+        "invoice_number": invoice.get(id_field, ""),
+        "collection": collection_name,
+        "edited_by_id": user["id"],
+        "edited_by_name": user.get("full_name", user["username"]),
+        "edited_at": now_iso(),
+        "reason": reason,
+        "proof_url": data.get("proof_url"),
+        "changes": changes_made,
+        "original_state": original_state,
+        "inventory_adjustments": inventory_adjustments,
+    }
+    await db.invoice_edits.insert_one(edit_record)
+    
+    # Get updated invoice
+    updated_invoice = await collection.find_one({"id": invoice_id}, {"_id": 0})
+    
+    return {
+        "message": "Invoice updated successfully",
+        "changes": changes_made,
+        "inventory_adjustments": inventory_adjustments,
+        "invoice": updated_invoice
+    }
+
+@api_router.get("/invoices/{invoice_id}/edit-history")
+async def get_invoice_edit_history(invoice_id: str, user=Depends(get_current_user)):
+    """Get edit history for an invoice."""
+    history = await db.invoice_edits.find(
+        {"invoice_id": invoice_id}, {"_id": 0}
+    ).sort("edited_at", -1).to_list(100)
+    return history
+
+# =============================================================================
 # SUPPLIER ROUTES
 # =============================================================================
 @api_router.get("/suppliers")

@@ -43,9 +43,6 @@ export default function PurchaseOrderPage() {
     api.get('/settings/invoice-prefixes').then(r => setPrefixes(r.data)).catch(() => {});
     api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
     fetchOrders();
-    if (currentBranch) {
-      api.get('/fund-wallets', { params: { branch_id: currentBranch.id } }).then(r => setWallets(r.data)).catch(() => {});
-    }
   }, [currentBranch]);
 
   const fetchOrders = async () => {

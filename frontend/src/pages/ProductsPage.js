@@ -164,12 +164,24 @@ export default function ProductsPage() {
         </Select>
       </div>
 
+      {/* Bulk Actions */}
+      {selected.size > 0 && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-2 animate-fadeIn">
+          <span className="text-sm font-medium text-red-700">{selected.size} selected</span>
+          <Button size="sm" variant="destructive" onClick={handleBulkDelete} data-testid="bulk-delete-btn">
+            <Trash2 size={13} className="mr-1" /> Delete Selected
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="text-slate-500 text-xs">Clear</Button>
+        </div>
+      )}
+
       {/* Products Table */}
       <Card className="border-slate-200">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50">
+                <TableHead className="w-10"><input type="checkbox" checked={products.length > 0 && selected.size === products.length} onChange={toggleAll} className="rounded border-slate-300 cursor-pointer" /></TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">SKU</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Product Name</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Category</TableHead>

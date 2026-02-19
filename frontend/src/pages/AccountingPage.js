@@ -382,15 +382,23 @@ export default function AccountingPage() {
                     <TableRow key={e.id} className="table-row-hover">
                       <TableCell className="text-sm">{e.date}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-[10px] ${e.category === 'Farm Expense' ? 'bg-amber-50 text-amber-700 border-amber-200' : ''}`}>
+                        <Badge variant="outline" className={`text-[10px] ${
+                          e.category === 'Farm Expense' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                          e.category === 'Customer Cash Out' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''
+                        }`}>
                           {e.category === 'Farm Expense' && <Tractor size={10} className="mr-1" />}
+                          {e.category === 'Customer Cash Out' && <Banknote size={10} className="mr-1" />}
                           {e.category}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div>{e.description}</div>
                         {e.notes && <div className="text-xs text-slate-400">{e.notes}</div>}
-                        {e.customer_name && <div className="text-xs text-amber-600">Billed to: {e.customer_name}</div>}
+                        {e.customer_name && (
+                          <div className={`text-xs ${e.category === 'Customer Cash Out' ? 'text-blue-600' : 'text-amber-600'}`}>
+                            {e.category === 'Customer Cash Out' ? 'Loaned to: ' : 'Billed to: '}{e.customer_name}
+                          </div>
+                        )}
                         {e.linked_invoice_number && (
                           <div className="text-xs text-blue-600 flex items-center gap-1">
                             <FileText size={10} /> Invoice: {e.linked_invoice_number}

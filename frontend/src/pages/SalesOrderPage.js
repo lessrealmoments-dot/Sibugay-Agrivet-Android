@@ -32,6 +32,8 @@ export default function SalesOrderPage() {
   const [overallDiscount, setOverallDiscount] = useState(0);
   const [amountPaid, setAmountPaid] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [priceChangeDialog, setPriceChangeDialog] = useState(false);
+  const [priceChangeInfo, setPriceChangeInfo] = useState(null);
   const qtyRefs = useRef([]);
 
   useEffect(() => {

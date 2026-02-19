@@ -108,8 +108,8 @@ export default function PaymentsPage() {
       const res = await api.post(`/customers/${selectedCustomer.id}/receive-payment`, {
         amount, method: payMethod, reference: payRef, date: payDate,
       });
-      const msg = res.data.allocations.map(a => `${a.invoice}: ${formatPHP(a.applied)}`).join(', ');
-      toast.success(`Payment applied! ${msg}`);
+      const depTo = res.data.deposited_to || 'Cashier Drawer';
+      toast.success(`${formatPHP(res.data.total_applied)} applied & deposited to ${depTo}`);
       setPayAmount('');
       setAllocations([]);
       loadInvoices(selectedCustomer.id);

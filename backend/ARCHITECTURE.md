@@ -38,40 +38,26 @@ AgriPOS uses a modular FastAPI architecture with MongoDB for the backend. The re
 
 ## Extracted Modules (Complete)
 
-### config.py
-- MongoDB connection (MONGO_URL, DB_NAME)
-- JWT secret configuration
-- Logging setup
+### Phase 1 - Foundation (Complete)
+- config.py: MongoDB connection, JWT secret, logging
+- utils/auth.py: Password hashing, JWT, permissions
+- utils/helpers.py: Timestamps, IDs, logging utilities
 
-### utils/auth.py
-- `hash_password()` - bcrypt hashing
-- `verify_password()` - bcrypt verification
-- `create_token()` - JWT generation
-- `get_current_user()` - FastAPI dependency
-- `check_perm()` - Permission enforcement (raises exception)
-- `has_perm()` - Permission check (returns boolean)
+### Phase 2 - Complex Routes (Complete)
+**10 route modules extracted with 62 total endpoints:**
 
-### utils/helpers.py
-- `now_iso()` - Current UTC timestamp
-- `new_id()` - UUID generation
-- `log_movement()` - Product movement logging
-- `log_sale_items()` - Sales log entries
-- `get_active_date()` - Active business date
-- `update_cashier_wallet()` - Wallet balance updates
-
-### models/permissions.py
-- `PERMISSION_MODULES` - 12 modules with actions
-- `ROLE_PRESETS` - Admin, Manager, Cashier, Inventory Clerk
-- `DEFAULT_PERMISSIONS` - Legacy mapping
-
-### routes/ (7 modules extracted)
-1. **auth.py** - Authentication endpoints
-2. **branches.py** - Branch management
-3. **users.py** - User CRUD + permission management
-4. **products.py** - Product CRUD, repacks, search
-5. **customers.py** - Customer CRUD, transactions
-6. **inventory.py** - Stock management
-7. **price_schemes.py** - Price tier management
+| Module | Endpoints | Description |
+|--------|-----------|-------------|
+| auth.py | 6 | Login, register, PIN verification |
+| branches.py | 4 | Branch CRUD |
+| users.py | 12 | User management, permissions |
+| products.py | 11 | Products, repacks, search |
+| customers.py | 5 | Customer CRUD, transactions |
+| inventory.py | 4 | Stock levels, adjustments |
+| price_schemes.py | 4 | Price tier management |
+| invoices.py | 8 | Invoice CRUD, payments, editing |
+| sales.py | 1 | Unified sales endpoint |
+| purchase_orders.py | 8 | PO CRUD, receiving, payments |
 
 ## Remaining in server.py (To Extract)
 

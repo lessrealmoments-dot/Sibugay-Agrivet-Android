@@ -1,18 +1,24 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { Card, CardContent } from '../components/ui/card';
+import { Card } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  cacheProducts, getProducts, cacheCustomers, getCustomers,
+  cachePriceSchemes, getPriceSchemes, addPendingSale, getPendingSaleCount
+} from '../lib/offlineDB';
+import { syncPendingSales, refreshPOSCache, startAutoSync, stopAutoSync } from '../lib/syncManager';
 
 export default function POSPage() {
-  const { currentBranch } = useAuth();
-  const [products, setProducts] = useState([]);
+  const { currentBranch, user } = useAuth();
+  const [allProducts, setAllProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -22,6 +28,9 @@ export default function POSPage() {
   const [checkoutDialog, setCheckoutDialog] = useState(false);
   const [amountTendered, setAmountTendered] = useState(0);
   const [schemes, setSchemes] = useState([]);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const searchRef = useRef(null);
 
   const fetchProducts = useCallback(async () => {

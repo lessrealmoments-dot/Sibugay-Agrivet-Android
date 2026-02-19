@@ -299,6 +299,362 @@ async def list_categories(user=Depends(get_current_user)):
     categories = await db.products.distinct("category", {"active": True})
     return categories
 
+# ==================== ENHANCED PRODUCT SEARCH ====================
+@api_router.get("/products/search-detail")
+async def search_products_detail(q: str = "", branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    if not q or len(q) < 1:
+        return []
+    query = {"active": True, "$or": [
+        {"name": {"$regex": q, "$options": "i"}},
+        {"sku": {"$regex": q, "$options": "i"}},
+        {"barcode": {"$regex": q, "$options": "i"}},
+    ]}
+    products = await db.products.find(query, {"_id": 0}).limit(10).to_list(10)
+    results = []
+    for p in products:
+        inv = await db.inventory.find_one({"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}) if branch_id else None
+        available = inv["quantity"] if inv else 0
+        coming_r = await db.purchase_orders.aggregate([
+            {"$match": {"status": {"$in": ["ordered", "draft"]}}}, {"$unwind": "$items"},
+            {"$match": {"items.product_id": p["id"]}}, {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+        ]).to_list(1)
+        reserved_r = await db.sales.aggregate([
+            {"$match": {"status": "reserved"}}, {"$unwind": "$items"},
+            {"$match": {"items.product_id": p["id"]}}, {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+        ]).to_list(1)
+        result = {**p, "available": available, "reserved": reserved_r[0]["t"] if reserved_r else 0,
+                  "coming": coming_r[0]["t"] if coming_r else 0}
+        if p.get("is_repack") and p.get("parent_id"):
+            parent = await db.products.find_one({"id": p["parent_id"]}, {"_id": 0})
+            pinv = await db.inventory.find_one({"product_id": p["parent_id"], "branch_id": branch_id}, {"_id": 0}) if branch_id else None
+            result["parent_name"] = parent["name"] if parent else ""
+            result["parent_stock"] = pinv["quantity"] if pinv else 0
+            result["parent_unit"] = parent["unit"] if parent else ""
+        results.append(result)
+    return results
+
+# ==================== INVOICE / SALES ORDER SYSTEM ====================
+@api_router.get("/invoices")
+async def list_invoices(user=Depends(get_current_user), status: Optional[str] = None,
+                        customer_id: Optional[str] = None, branch_id: Optional[str] = None,
+                        skip: int = 0, limit: int = 50):
+    query = {"status": {"$ne": "voided"}}
+    if status: query["status"] = status
+    if customer_id: query["customer_id"] = customer_id
+    if branch_id: query["branch_id"] = branch_id
+    total = await db.invoices.count_documents(query)
+    items = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    return {"invoices": items, "total": total}
+
+@api_router.post("/invoices")
+async def create_invoice(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "pos", "sell")
+    # Get prefix settings
+    settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
+    prefix = data.get("prefix", settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI")
+    # Auto-generate number
+    count = await db.invoices.count_documents({"prefix": prefix})
+    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    # Compute due date
+    terms_days = int(data.get("terms_days", 0))
+    order_date = data.get("order_date", now_iso()[:10])
+    if terms_days > 0:
+        from datetime import timedelta
+        od = datetime.strptime(order_date, "%Y-%m-%d")
+        due_date = (od + timedelta(days=terms_days)).strftime("%Y-%m-%d")
+    else:
+        due_date = order_date
+    # Compute line items
+    items = []
+    subtotal = 0
+    for item in data.get("items", []):
+        qty = float(item.get("quantity", 0))
+        rate = float(item.get("rate", 0))
+        disc_type = item.get("discount_type", "amount")
+        disc_val = float(item.get("discount_value", 0))
+        disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
+        line_total = round(qty * rate - disc_amt, 2)
+        items.append({
+            "product_id": item.get("product_id", ""), "product_name": item.get("product_name", ""),
+            "description": item.get("description", ""), "quantity": qty, "rate": rate,
+            "discount_type": disc_type, "discount_value": disc_val, "discount_amount": disc_amt,
+            "total": line_total, "is_repack": item.get("is_repack", False),
+        })
+        subtotal += line_total
+    freight = float(data.get("freight", 0))
+    overall_disc = float(data.get("overall_discount", 0))
+    grand_total = round(subtotal + freight - overall_disc, 2)
+    amount_paid = float(data.get("amount_paid", 0))
+    balance = round(grand_total - amount_paid, 2)
+    # Get customer interest rate
+    customer = await db.customers.find_one({"id": data.get("customer_id")}, {"_id": 0}) if data.get("customer_id") else None
+    interest_rate = float(data.get("interest_rate", customer.get("interest_rate", 0) if customer else 0))
+    status = "paid" if balance <= 0 else ("partial" if amount_paid > 0 else "open")
+    sale_type = data.get("sale_type", "walk_in")
+    invoice = {
+        "id": new_id(), "invoice_number": inv_number, "prefix": prefix,
+        "customer_id": data.get("customer_id"), "customer_name": data.get("customer_name", "Walk-in"),
+        "customer_contact": data.get("customer_contact", ""), "customer_phone": data.get("customer_phone", ""),
+        "customer_address": data.get("customer_address", ""),
+        "terms": data.get("terms", "COD"), "terms_days": terms_days, "customer_po": data.get("customer_po", ""),
+        "sales_rep_id": data.get("sales_rep_id"), "sales_rep_name": data.get("sales_rep_name", ""),
+        "branch_id": data.get("branch_id", ""),
+        "order_date": order_date, "invoice_date": data.get("invoice_date", order_date), "due_date": due_date,
+        "items": items, "subtotal": subtotal, "freight": freight, "overall_discount": overall_disc,
+        "grand_total": grand_total, "amount_paid": amount_paid, "balance": balance,
+        "interest_rate": interest_rate, "interest_accrued": 0, "penalties": 0,
+        "last_interest_date": None, "sale_type": sale_type,
+        "status": status, "payments": [],
+        "cashier_id": user["id"], "cashier_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    # Handle inventory
+    branch_id = data.get("branch_id", "")
+    if sale_type != "delivery":
+        for item in items:
+            if item["product_id"]:
+                await db.inventory.update_one(
+                    {"product_id": item["product_id"], "branch_id": branch_id},
+                    {"$inc": {"quantity": -item["quantity"]}, "$set": {"updated_at": now_iso()}},
+                    upsert=True
+                )
+                product = await db.products.find_one({"id": item["product_id"]}, {"_id": 0})
+                if product and product.get("is_repack") and product.get("parent_id"):
+                    pd = item["quantity"] / product.get("units_per_parent", 1)
+                    await db.inventory.update_one(
+                        {"product_id": product["parent_id"], "branch_id": branch_id},
+                        {"$inc": {"quantity": -pd}, "$set": {"updated_at": now_iso()}}, upsert=True
+                    )
+                await log_movement(item["product_id"], branch_id, "sale", -item["quantity"],
+                                   invoice["id"], inv_number, item["rate"], user["id"],
+                                   user.get("full_name", user["username"]))
+    else:
+        invoice["status"] = "reserved" if balance > 0 else "paid"
+    # Record initial payment if any
+    if amount_paid > 0:
+        invoice["payments"].append({
+            "id": new_id(), "amount": amount_paid, "date": order_date,
+            "method": data.get("payment_method", "Cash"), "fund_source": data.get("fund_source", "cashier"),
+            "reference": "", "applied_to_interest": 0, "applied_to_principal": amount_paid,
+            "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+        })
+    await db.invoices.insert_one(invoice)
+    del invoice["_id"]
+    return invoice
+
+@api_router.get("/invoices/{inv_id}")
+async def get_invoice(inv_id: str, user=Depends(get_current_user)):
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv: raise HTTPException(status_code=404, detail="Invoice not found")
+    return inv
+
+@api_router.post("/invoices/{inv_id}/compute-interest")
+async def compute_interest(inv_id: str, user=Depends(get_current_user)):
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv: raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv["balance"] <= 0 or inv["interest_rate"] <= 0: return {"interest": 0, "message": "No interest applicable"}
+    due = datetime.strptime(inv["due_date"], "%Y-%m-%d")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if now <= due: return {"interest": 0, "message": "Not yet overdue"}
+    last_date = datetime.strptime(inv["last_interest_date"], "%Y-%m-%d") if inv.get("last_interest_date") else due
+    days_overdue = (now - last_date).days
+    if days_overdue <= 0: return {"interest": 0, "message": "Already computed today"}
+    monthly_rate = inv["interest_rate"] / 100
+    daily_rate = monthly_rate / 30
+    principal_balance = inv["balance"] - inv.get("interest_accrued", 0) - inv.get("penalties", 0)
+    new_interest = round(max(0, principal_balance) * daily_rate * days_overdue, 2)
+    total_interest = round(inv.get("interest_accrued", 0) + new_interest, 2)
+    new_balance = round(inv["balance"] + new_interest, 2)
+    await db.invoices.update_one({"id": inv_id}, {"$set": {
+        "interest_accrued": total_interest, "balance": new_balance,
+        "last_interest_date": now.strftime("%Y-%m-%d"), "status": "overdue"
+    }})
+    return {"interest_added": new_interest, "total_interest": total_interest, "new_balance": new_balance, "days": days_overdue}
+
+@api_router.post("/invoices/{inv_id}/payment")
+async def record_invoice_payment(inv_id: str, data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv: raise HTTPException(status_code=404, detail="Invoice not found")
+    amount = float(data["amount"])
+    fund_source = data.get("fund_source", "cashier")
+    branch_id = inv.get("branch_id", "")
+    # Deduct from fund source
+    if fund_source == "safe":
+        lots = await db.safe_lots.find({"branch_id": branch_id, "remaining_amount": {"$gt": 0}}, {"_id": 0}).sort("remaining_amount", -1).to_list(100)
+        # For receiving payment, we ADD to the fund, not deduct. Skip lot allocation for income.
+    # Interest & penalties first, then principal
+    interest_owed = inv.get("interest_accrued", 0) + inv.get("penalties", 0)
+    applied_interest = min(amount, interest_owed)
+    applied_principal = amount - applied_interest
+    new_interest = max(0, round(inv.get("interest_accrued", 0) - applied_interest, 2))
+    new_balance = round(inv["balance"] - amount, 2)
+    new_paid = round(inv["amount_paid"] + amount, 2)
+    new_status = "paid" if new_balance <= 0 else "partial"
+    payment = {
+        "id": new_id(), "amount": amount, "date": data.get("date", now_iso()[:10]),
+        "method": data.get("method", "Cash"), "fund_source": fund_source,
+        "reference": data.get("reference", ""),
+        "applied_to_interest": applied_interest, "applied_to_principal": applied_principal,
+        "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+    }
+    await db.invoices.update_one({"id": inv_id}, {
+        "$set": {"balance": max(0, new_balance), "amount_paid": new_paid,
+                 "interest_accrued": new_interest, "status": new_status},
+        "$push": {"payments": payment}
+    })
+    # Add to wallet
+    wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": fund_source}, {"_id": 0})
+    if wallet:
+        if fund_source == "safe":
+            await db.safe_lots.insert_one({
+                "id": new_id(), "branch_id": branch_id, "wallet_id": wallet["id"],
+                "date_received": data.get("date", now_iso()[:10]),
+                "original_amount": amount, "remaining_amount": amount,
+                "source_reference": f"Payment from {inv.get('customer_name', '')} - {inv['invoice_number']}",
+                "created_by": user["id"], "created_at": now_iso()
+            })
+        else:
+            await db.fund_wallets.update_one({"id": wallet["id"]}, {"$inc": {"balance": amount}})
+    # Update customer balance
+    if inv.get("customer_id"):
+        await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": {"balance": -amount}})
+    return {"message": "Payment recorded", "new_balance": max(0, new_balance), "status": new_status, "payment": payment}
+
+@api_router.get("/customers/{customer_id}/invoices")
+async def get_customer_invoices(customer_id: str, user=Depends(get_current_user)):
+    invoices = await db.invoices.find(
+        {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}}, {"_id": 0}
+    ).sort("created_at", -1).to_list(200)
+    return invoices
+
+# ==================== FUND WALLET SYSTEM ====================
+@api_router.get("/fund-wallets")
+async def list_fund_wallets(user=Depends(get_current_user), branch_id: Optional[str] = None):
+    query = {"active": True}
+    if branch_id: query["branch_id"] = branch_id
+    wallets = await db.fund_wallets.find(query, {"_id": 0}).to_list(50)
+    for w in wallets:
+        if w["type"] == "safe":
+            lots = await db.safe_lots.find({"wallet_id": w["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
+            w["balance"] = sum(l["remaining_amount"] for l in lots)
+            w["lots"] = lots
+    return wallets
+
+@api_router.post("/fund-wallets")
+async def create_fund_wallet(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    wallet = {
+        "id": new_id(), "branch_id": data["branch_id"], "type": data["type"],
+        "name": data["name"], "balance": float(data.get("balance", 0)),
+        "bank_name": data.get("bank_name", ""), "account_number": data.get("account_number", ""),
+        "active": True, "created_at": now_iso(),
+    }
+    await db.fund_wallets.insert_one(wallet)
+    del wallet["_id"]
+    return wallet
+
+@api_router.post("/fund-wallets/{wallet_id}/deposit")
+async def deposit_to_wallet(wallet_id: str, data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    wallet = await db.fund_wallets.find_one({"id": wallet_id}, {"_id": 0})
+    if not wallet: raise HTTPException(status_code=404, detail="Wallet not found")
+    amount = float(data["amount"])
+    if wallet["type"] == "safe":
+        await db.safe_lots.insert_one({
+            "id": new_id(), "branch_id": wallet["branch_id"], "wallet_id": wallet_id,
+            "date_received": data.get("date", now_iso()[:10]),
+            "original_amount": amount, "remaining_amount": amount,
+            "source_reference": data.get("reference", "Manual deposit"),
+            "created_by": user["id"], "created_at": now_iso()
+        })
+    else:
+        await db.fund_wallets.update_one({"id": wallet_id}, {"$inc": {"balance": amount}})
+    await db.wallet_movements.insert_one({
+        "id": new_id(), "wallet_id": wallet_id, "branch_id": wallet["branch_id"],
+        "type": "deposit", "amount": amount, "reference": data.get("reference", ""),
+        "user_id": user["id"], "user_name": user.get("full_name", user["username"]),
+        "created_at": now_iso()
+    })
+    return {"message": "Deposited", "amount": amount}
+
+@api_router.post("/fund-wallets/pay")
+async def pay_from_wallet(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    wallet_id = data["wallet_id"]
+    amount = float(data["amount"])
+    wallet = await db.fund_wallets.find_one({"id": wallet_id}, {"_id": 0})
+    if not wallet: raise HTTPException(status_code=404, detail="Wallet not found")
+    if wallet["type"] == "safe":
+        lots = await db.safe_lots.find(
+            {"wallet_id": wallet_id, "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).sort("remaining_amount", -1).to_list(500)
+        total_available = sum(l["remaining_amount"] for l in lots)
+        if total_available < amount:
+            raise HTTPException(status_code=400, detail="Insufficient Safe balance")
+        remaining = amount
+        usages = []
+        for lot in lots:
+            if remaining <= 0: break
+            take = min(lot["remaining_amount"], remaining)
+            await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+            usages.append({"lot_id": lot["id"], "lot_date": lot["date_received"], "amount_used": take})
+            await db.safe_lot_usages.insert_one({
+                "id": new_id(), "lot_id": lot["id"], "payment_id": data.get("reference_id", ""),
+                "branch_id": wallet["branch_id"], "amount_used": take,
+                "used_by_user_id": user["id"], "used_at": now_iso()
+            })
+            remaining -= take
+        summary = ", ".join([f"{u['lot_date']} lot: ₱{u['amount_used']:.2f}" for u in usages])
+    else:
+        if wallet["balance"] < amount:
+            raise HTTPException(status_code=400, detail=f"Insufficient {wallet['type']} balance")
+        await db.fund_wallets.update_one({"id": wallet_id}, {"$inc": {"balance": -amount}})
+        summary = f"Deducted ₱{amount:.2f} from {wallet['name']}"
+    await db.wallet_movements.insert_one({
+        "id": new_id(), "wallet_id": wallet_id, "branch_id": wallet["branch_id"],
+        "type": "payment", "amount": -amount, "reference": data.get("reference", ""),
+        "description": data.get("description", ""), "user_id": user["id"],
+        "user_name": user.get("full_name", user["username"]), "created_at": now_iso()
+    })
+    return {"message": "Payment processed", "summary": summary}
+
+@api_router.get("/safe-lots")
+async def list_safe_lots(user=Depends(get_current_user), branch_id: Optional[str] = None):
+    query = {"remaining_amount": {"$gt": 0}}
+    if branch_id: query["branch_id"] = branch_id
+    lots = await db.safe_lots.find(query, {"_id": 0}).sort("date_received", 1).to_list(500)
+    return lots
+
+# ==================== INVOICE SETTINGS ====================
+@api_router.get("/settings/invoice-prefixes")
+async def get_invoice_prefixes(user=Depends(get_current_user)):
+    s = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
+    if not s:
+        defaults = {"sales_invoice": "SI", "delivery": "DR", "transfer": "TR", "purchase_order": "PO"}
+        await db.settings.insert_one({"key": "invoice_prefixes", "value": defaults})
+        return defaults
+    return s.get("value", {})
+
+@api_router.put("/settings/invoice-prefixes")
+async def update_invoice_prefixes(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "settings", "manage_users")
+    await db.settings.update_one({"key": "invoice_prefixes"}, {"$set": {"value": data}}, upsert=True)
+    return data
+
+@api_router.get("/settings/terms-options")
+async def get_terms_options(user=Depends(get_current_user)):
+    s = await db.settings.find_one({"key": "terms_options"}, {"_id": 0})
+    if not s:
+        defaults = [
+            {"label": "COD", "days": 0}, {"label": "Net 7", "days": 7},
+            {"label": "Net 15", "days": 15}, {"label": "Net 30", "days": 30},
+            {"label": "Net 60", "days": 60},
+        ]
+        await db.settings.insert_one({"key": "terms_options", "value": defaults})
+        return defaults
+    return s.get("value", [])
+
 # ==================== PRODUCT DETAIL & SUB-ROUTES ====================
 @api_router.get("/products/{product_id}/detail")
 async def get_product_detail(product_id: str, user=Depends(get_current_user)):

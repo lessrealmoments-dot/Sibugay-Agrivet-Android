@@ -244,11 +244,15 @@ async def list_products(
 @api_router.post("/products")
 async def create_product(data: dict, user=Depends(get_current_user)):
     check_perm(user, "products", "create")
-    existing = await db.products.find_one({"sku": data["sku"], "active": True}, {"_id": 0})
-    if existing:
-        raise HTTPException(status_code=400, detail="SKU already exists")
+    sku = data.get("sku", "").strip()
+    if sku:
+        existing = await db.products.find_one({"sku": sku, "active": True}, {"_id": 0})
+        if existing:
+            raise HTTPException(status_code=400, detail="SKU already exists")
+    else:
+        sku = f"P-{new_id()[:8].upper()}"
     product = {
-        "id": new_id(), "sku": data["sku"], "name": data["name"],
+        "id": new_id(), "sku": sku, "name": data["name"],
         "category": data.get("category", "General"), "description": data.get("description", ""),
         "unit": data.get("unit", "Piece"), "cost_price": float(data.get("cost_price", 0)),
         "prices": data.get("prices", {}), "parent_id": None, "is_repack": False,

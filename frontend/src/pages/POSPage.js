@@ -152,14 +152,17 @@ export default function POSPage() {
   };
 
   const setItemPrice = (productId, newPrice) => {
+    const price = parseFloat(newPrice) || 0;
+    setCart(cart.map(c => c.product_id === productId ? { ...c, price, total: c.quantity * price } : c));
+  };
+
+  const validateItemPrice = (productId) => {
     const item = cart.find(c => c.product_id === productId);
     if (!item) return;
-    const price = parseFloat(newPrice) || 0;
-    if (price > 0 && price < item.cost_price) {
-      toast.error(`Cannot sell below capital (₱${item.cost_price.toFixed(2)})`);
-      return;
+    if (item.price > 0 && item.price < item.cost_price) {
+      toast.error(`Cannot sell below capital (₱${item.cost_price.toFixed(2)}). Reverting price.`);
+      setCart(cart.map(c => c.product_id === productId ? { ...c, price: c.cost_price, total: c.quantity * c.cost_price } : c));
     }
-    setCart(cart.map(c => c.product_id === productId ? { ...c, price, total: c.quantity * price } : c));
   };
 
   const removeFromCart = (productId) => setCart(cart.filter(c => c.product_id !== productId));

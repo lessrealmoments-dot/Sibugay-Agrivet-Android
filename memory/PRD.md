@@ -138,3 +138,8 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Issue**: "Made with Emergent" badge at bottom-right (z-index: 9999) was obstructing UI buttons (Checkout, Close Day, etc.)
 - **Fix**: Added CSS override in `index.css` to hide `#emergent-badge` with `display: none !important` + multiple fallbacks
 - **Status**: VERIFIED - Badge hidden, all UI elements accessible
+
+### Bug Fix: New Product Form [object Object] (Feb 19, 2026)
+- **Issue**: Clicking "Add Product" passed click event as `prefillName` arg, rendering `[object Object]` in Product Name field
+- **Fix**: Changed `onClick={openCreate}` to `onClick={() => openCreate()}` in ProductsPage.js line 122
+- **Status**: VERIFIED - Product Name field now starts empty, product creation works correctly

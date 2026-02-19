@@ -298,11 +298,43 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def check_perm(user: dict, module: str, action: str):
+    """Check if user has permission for a specific action on a module.
+    Admin role always has full access.
+    Maps legacy module names to new structure for backward compatibility.
+    """
     if user.get("role") == "admin":
         return
+    
+    # Legacy module name mapping
+    module_map = {
+        "pos": "sales",  # pos.sell -> sales.create, pos.void -> sales.void
+    }
+    actual_module = module_map.get(module, module)
+    
+    # Legacy action mapping
+    action_map = {
+        ("pos", "sell"): ("sales", "create"),
+        ("accounting", "create"): ("accounting", "receive_payment"),  # general accounting permission
+    }
+    if (module, action) in action_map:
+        actual_module, action = action_map[(module, action)]
+    
     perms = user.get("permissions", {})
-    if not perms.get(module, {}).get(action, False):
-        raise HTTPException(status_code=403, detail=f"No permission: {module}.{action}")
+    module_perms = perms.get(actual_module, {})
+    
+    if not module_perms.get(action, False):
+        raise HTTPException(status_code=403, detail=f"No permission: {actual_module}.{action}")
+
+def has_perm(user: dict, module: str, action: str) -> bool:
+    """Check permission without raising exception - returns boolean."""
+    if user.get("role") == "admin":
+        return True
+    
+    module_map = {"pos": "sales"}
+    actual_module = module_map.get(module, module)
+    
+    perms = user.get("permissions", {})
+    return perms.get(actual_module, {}).get(action, False)
 
 def now_iso():
     return datetime.now(timezone.utc).isoformat()

@@ -237,12 +237,18 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Notes Field**: Additional details for each expense
 - **Edit Capability**: Update existing expenses with pre-filled form
 - **Filtering & Search**: Filter by category, payment method, date range; search by description/reference
-- **Farm Expense Workflow**: Special dialog that:
+- **Farm Expense Workflow** (amber theme, tractor icon):
   - Records farm service expense (Tilling, Plowing, Labor, Gas, etc.)
   - Selects customer to bill
   - Auto-creates invoice for the customer
   - Links expense to invoice (shows invoice number in table)
-- **Status**: VERIFIED — 100% test pass (backend 13/13, frontend all features working)
+- **Customer Cash Out Workflow** (blue theme, banknote icon):
+  - Records cash loan/advance to customer
+  - Selects customer who borrowed money
+  - Auto-creates invoice for the customer (they owe money)
+  - Links expense to invoice (shows invoice number in table)
+  - Shows "Loaned to: CustomerName" in expense table
+- **Status**: VERIFIED — 100% test pass (all features working)
 
 ## Current File Structure
 ```

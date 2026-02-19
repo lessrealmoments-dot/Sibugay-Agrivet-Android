@@ -22,6 +22,14 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Database**: MongoDB with Motor async driver
 - **Design**: Manrope + IBM Plex Sans fonts, Forest Green (#1A4D2E) primary, dark sidebar layout
 
+## Latest Update (Dec 2025)
+
+### Backend Modular Refactor - COMPLETE ✅
+- Migrated from 3800-line monolith to 17 modular route files
+- Entry: `server.py` → `main.py` (all routers)
+- 43/43 backend regression tests passed
+- Multi-branch data isolation verified
+
 ## What's Been Implemented
 
 ### Phase 10: Granular Permission System (Feb 19, 2026) ✅

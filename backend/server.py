@@ -536,6 +536,8 @@ async def adjust_inventory(data: dict, user=Depends(get_current_user)):
         "created_at": now_iso()
     }
     await db.inventory_logs.insert_one(log)
+    await log_movement(product_id, branch_id, "adjustment", quantity, log["id"], "ADJ",
+                       0, user["id"], user.get("full_name", user["username"]), reason)
     return {"message": "Inventory adjusted", "new_quantity": (existing["quantity"] + quantity) if existing else quantity}
 
 @api_router.post("/inventory/transfer")

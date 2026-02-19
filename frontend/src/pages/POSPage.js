@@ -473,6 +473,14 @@ export default function POSPage() {
           >
             <CreditCard size={18} className="mr-2" /> Checkout
           </Button>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" size="sm" className="flex-1 text-xs" data-testid="pos-today-report" onClick={openReport}>
+              <FileText size={14} className="mr-1" /> Today's Report
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1 text-xs border-red-200 text-red-600 hover:bg-red-50" data-testid="pos-close-day" onClick={openClose}>
+              <Lock size={14} className="mr-1" /> Close Day
+            </Button>
+          </div>
         </div>
       </div>
 

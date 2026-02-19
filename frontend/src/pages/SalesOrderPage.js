@@ -132,26 +132,6 @@ export default function SalesOrderPage() {
   const grandTotal = subtotal + freight - overallDiscount;
   const balance = grandTotal - amountPaid;
 
-  const handleSave = async () => {
-    const validLines = lines.filter(l => l.product_id);
-    if (!validLines.length) { toast.error('Add at least one product'); return; }
-    if (!currentBranch) { toast.error('Select a branch'); return; }
-    setSaving(true);
-    try {
-      const data = {
-        ...header, branch_id: currentBranch.id, items: validLines, freight, overall_discount: overallDiscount,
-        amount_paid: amountPaid, due_date: dueDate,
-      };
-      const res = await api.post('/invoices', data);
-      toast.success(`Invoice ${res.data.invoice_number} created!`);
-      // Reset form
-      setLines([{ ...EMPTY_LINE }]);
-      setFreight(0); setOverallDiscount(0); setAmountPaid(0);
-      setHeader(h => ({ ...h, customer_id: '', customer_name: '', customer_contact: '', customer_phone: '', customer_address: '', customer_po: '' }));
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating invoice'); }
-    setSaving(false);
-  };
-
   const handleSaveAs = async (type) => {
     const validLines = lines.filter(l => l.product_id);
     if (!validLines.length) { toast.error('Add at least one product'); return; }

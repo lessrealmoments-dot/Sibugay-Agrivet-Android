@@ -1,5 +1,6 @@
 """
 Invoice and Sales Order routes: CRUD, payments, interest/penalty, editing.
+Supports multi-branch data isolation.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
@@ -7,7 +8,8 @@ from datetime import datetime, timezone, timedelta
 from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id,
-    log_movement, log_sale_items, get_active_date, update_cashier_wallet
+    log_movement, log_sale_items, get_active_date, update_cashier_wallet,
+    get_branch_filter, apply_branch_filter, ensure_branch_access
 )
 
 router = APIRouter(tags=["Invoices"])
@@ -23,14 +25,17 @@ async def list_invoices(
     skip: int = 0,
     limit: int = 50
 ):
-    """List invoices with optional filters."""
+    """List invoices with optional filters. Respects branch isolation."""
     query = {"status": {"$ne": "voided"}}
+    
+    # Apply branch filter for data isolation
+    branch_filter = await get_branch_filter(user, branch_id)
+    query = apply_branch_filter(query, branch_filter)
+    
     if status:
         query["status"] = status
     if customer_id:
         query["customer_id"] = customer_id
-    if branch_id:
-        query["branch_id"] = branch_id
     
     total = await db.invoices.count_documents(query)
     items = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)

@@ -46,6 +46,26 @@ export default function SalesOrderPage() {
     api.get('/users').then(r => setUsers(r.data)).catch(() => setUsers([]));
   }, []);
 
+  const [schemes, setSchemes] = useState([]);
+  useEffect(() => { api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, []);
+
+  const handleCreateNewProduct = (name) => {
+    setNewProductName(name);
+    setNewProductForm({ sku: '', name, category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
+    setCreateProductDialog(true);
+  };
+
+  const saveNewProduct = async () => {
+    try {
+      const res = await api.post('/products', newProductForm);
+      if (newProductForm.starting_inventory > 0 && currentBranch) {
+        await api.post('/inventory/set', { product_id: res.data.id, branch_id: currentBranch.id, quantity: newProductForm.starting_inventory });
+      }
+      toast.success(`Product "${res.data.name}" created!`);
+      setCreateProductDialog(false);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating product'); }
+  };
+
   const selectCustomer = (custId) => {
     const c = customers.find(x => x.id === custId);
     if (c) {

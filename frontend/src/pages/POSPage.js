@@ -131,7 +131,8 @@ export default function POSPage() {
     } else {
       setCart([...cart, {
         product_id: product.id, product_name: product.name, sku: product.sku,
-        price, quantity: 1, total: price, unit: product.unit, is_repack: product.is_repack
+        price, quantity: 1, total: price, unit: product.unit, is_repack: product.is_repack,
+        cost_price: product.cost_price || 0,
       }]);
     }
   };
@@ -142,6 +143,23 @@ export default function POSPage() {
       const newQty = Math.max(0, c.quantity + delta);
       return newQty === 0 ? null : { ...c, quantity: newQty, total: newQty * c.price };
     }).filter(Boolean));
+  };
+
+  const setItemQty = (productId, qty) => {
+    const newQty = Math.max(0, parseFloat(qty) || 0);
+    if (newQty === 0) { removeFromCart(productId); return; }
+    setCart(cart.map(c => c.product_id === productId ? { ...c, quantity: newQty, total: newQty * c.price } : c));
+  };
+
+  const setItemPrice = (productId, newPrice) => {
+    const item = cart.find(c => c.product_id === productId);
+    if (!item) return;
+    const price = parseFloat(newPrice) || 0;
+    if (price > 0 && price < item.cost_price) {
+      toast.error(`Cannot sell below capital (₱${item.cost_price.toFixed(2)})`);
+      return;
+    }
+    setCart(cart.map(c => c.product_id === productId ? { ...c, price, total: c.quantity * price } : c));
   };
 
   const removeFromCart = (productId) => setCart(cart.filter(c => c.product_id !== productId));

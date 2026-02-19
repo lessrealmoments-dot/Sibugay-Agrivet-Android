@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import SmartProductSearch from '../components/SmartProductSearch';
-import { FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign, Search, History, ArrowRight, Receipt } from 'lucide-react';
+import { FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign, Search, History, ArrowRight, Receipt, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMPTY_LINE = { product_id: '', product_name: '', description: '', quantity: 1, unit_price: 0 };

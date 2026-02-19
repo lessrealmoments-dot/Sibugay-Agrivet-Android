@@ -320,15 +320,36 @@ export default function ProductsPage() {
                     data-testid="repack-units-per-parent"
                     type="number"
                     value={repackForm.units_per_parent}
-                    onChange={e => setRepackForm({ ...repackForm, units_per_parent: parseInt(e.target.value) || 1 })}
+                    onChange={e => {
+                      const units = parseInt(e.target.value) || 1;
+                      const autoCost = selectedParent.cost_price ? Math.round((selectedParent.cost_price / units + (repackForm.add_on_cost || 0)) * 100) / 100 : 0;
+                      setRepackForm({ ...repackForm, units_per_parent: units, cost_price: autoCost });
+                    }}
                     min={1}
                   />
                   <p className="text-[11px] text-slate-500 mt-1">How many {repackForm.unit || 'pieces'} inside 1 {selectedParent.unit}?</p>
                 </div>
                 <div>
-                  <Label>Cost Price per {repackForm.unit || 'unit'}</Label>
-                  <Input data-testid="repack-cost-input" type="number" value={repackForm.cost_price} onChange={e => setRepackForm({ ...repackForm, cost_price: parseFloat(e.target.value) || 0 })} />
+                  <Label>Add-on Cost (optional)</Label>
+                  <Input data-testid="repack-addon-cost" type="number" value={repackForm.add_on_cost || 0}
+                    onChange={e => {
+                      const addon = parseFloat(e.target.value) || 0;
+                      const units = repackForm.units_per_parent || 1;
+                      const autoCost = Math.round((selectedParent.cost_price / units + addon) * 100) / 100;
+                      setRepackForm({ ...repackForm, add_on_cost: addon, cost_price: autoCost });
+                    }}
+                    placeholder="Extra cost per repack"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">Repacking labor, packaging, etc.</p>
                 </div>
+              </div>
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-sm">
+                <p className="text-blue-800 font-medium">Auto-computed Cost per {repackForm.unit || 'unit'}:</p>
+                <p className="text-blue-900 text-lg font-bold" style={{ fontFamily: 'Manrope' }}>
+                  ₱{(selectedParent.cost_price / (repackForm.units_per_parent || 1)).toFixed(2)} (parent ÷ {repackForm.units_per_parent})
+                  {(repackForm.add_on_cost || 0) > 0 && <span> + ₱{repackForm.add_on_cost.toFixed(2)} add-on</span>}
+                  {' '}= <span className="text-emerald-700">₱{repackForm.cost_price.toFixed(2)}</span>
+                </p>
               </div>
               <div>
                 <Label className="text-sm font-semibold">Repack Prices</Label>

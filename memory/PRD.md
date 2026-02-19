@@ -230,23 +230,37 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Backend Endpoints**: Added `/api/suppliers` CRUD endpoints
 - **Status**: VERIFIED — 100% test pass (backend 9/9, frontend all features working)
 
+### Enhanced Expense Management (Feb 19, 2026)
+- **Preset Categories**: Dropdown with 17 categories (Utilities, Rent, Supplies, Transportation, Fuel/Gas, Employee Advance, Repairs & Maintenance, Marketing, Salaries & Wages, Communication, Insurance, Professional Fees, Taxes & Licenses, Office Supplies, Equipment, Miscellaneous)
+- **Payment Methods**: Cash, Check, Bank Transfer, GCash, Maya, Credit Card (with color-coded badges)
+- **Reference Number**: Track check numbers, OR numbers, receipt references
+- **Notes Field**: Additional details for each expense
+- **Edit Capability**: Update existing expenses with pre-filled form
+- **Filtering & Search**: Filter by category, payment method, date range; search by description/reference
+- **Farm Expense Workflow**: Special dialog that:
+  - Records farm service expense (Tilling, Plowing, Labor, Gas, etc.)
+  - Selects customer to bill
+  - Auto-creates invoice for the customer
+  - Links expense to invoice (shows invoice number in table)
+- **Status**: VERIFIED — 100% test pass (backend 13/13, frontend all features working)
+
 ## Current File Structure
 ```
 /app
 ├── backend/
-│   ├── server.py        # Main API server (~2300 lines, with supplier routes)
-│   ├── ARCHITECTURE.md  # Complete API documentation and architecture reference
-│   ├── tests/           # Backend tests including test_supplier_crud.py
-│   └── .env             # Environment configuration
+│   ├── server.py        # Main API server (~2500 lines)
+│   ├── ARCHITECTURE.md  # Complete API documentation
+│   ├── tests/           # Backend tests
+│   └── .env
 └── frontend/
     ├── src/
     │   ├── pages/
-    │   │   ├── PurchaseOrderPage.js  # PO creation with smart supplier search
-    │   │   ├── SuppliersPage.js      # Supplier management with CRUD
+    │   │   ├── AccountingPage.js      # Enhanced expense management
+    │   │   ├── PurchaseOrderPage.js   # PO with smart supplier search
+    │   │   ├── SuppliersPage.js       # Supplier management
     │   │   └── ... other pages
     │   ├── components/
-    │   │   └── Layout.js             # Navigation with Suppliers link
-    │   └── App.js                    # Routes including /suppliers
+    │   └── App.js
 ```
 
 ## Default Credentials
@@ -269,6 +283,8 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - [ ] Bulk Data Import/Export (CSV for products)
 - [ ] Stock alerts and notifications
 - [ ] Product images and categories management
+- [ ] Recurring expenses (auto-create monthly rent, utilities)
+- [ ] Budget tracking per category
 
 ### P3 (Low/Future)
 - [ ] Multi-currency support
@@ -276,3 +292,4 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - [ ] Audit trail / activity logs
 - [ ] Data backup and export
 - [ ] Dashboard charts with Recharts
+- [ ] Receipt image upload

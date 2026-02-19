@@ -65,6 +65,44 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# MULTI-BRANCH UTILITIES
+# =============================================================================
+async def get_user_branches(user: dict) -> list:
+    """Get list of branch IDs the user can access."""
+    if user.get("role") == "admin" or user.get("is_owner"):
+        branches = await db.branches.find({"active": True}, {"_id": 0, "id": 1}).to_list(100)
+        return [b["id"] for b in branches]
+    branch_id = user.get("branch_id")
+    return [branch_id] if branch_id else []
+
+async def get_branch_filter(user: dict, requested_branch_id: str = None) -> dict:
+    """Build a MongoDB query filter for branch isolation."""
+    allowed_branches = await get_user_branches(user)
+    if not allowed_branches:
+        return {}  # No restriction if no branches assigned (legacy support)
+    
+    # If specific branch requested, verify access
+    if requested_branch_id:
+        if user.get("role") != "admin" and requested_branch_id not in allowed_branches:
+            raise HTTPException(status_code=403, detail="No access to this branch")
+        return {"branch_id": requested_branch_id}
+    
+    # Admin with all branches - no filter for cross-branch views
+    if user.get("role") == "admin" or user.get("is_owner"):
+        return {}  # No branch restriction
+    
+    # Regular user - filter to their branch only
+    if len(allowed_branches) == 1:
+        return {"branch_id": allowed_branches[0]}
+    return {"branch_id": {"$in": allowed_branches}}
+
+def apply_branch_filter(base_query: dict, branch_filter: dict) -> dict:
+    """Merge branch filter into an existing query."""
+    if not branch_filter:
+        return base_query
+    return {**base_query, **branch_filter}
+
+# =============================================================================
 # AUTH HELPERS & PERMISSIONS
 # =============================================================================
 # =============================================================================

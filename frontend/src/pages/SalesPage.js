@@ -5,8 +5,9 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Receipt } from 'lucide-react';
+import { Receipt, Edit3 } from 'lucide-react';
 import { toast } from 'sonner';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 export default function SalesPage() {
   const { currentBranch } = useAuth();
@@ -16,6 +17,10 @@ export default function SalesPage() {
   const [detailDialog, setDetailDialog] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const LIMIT = 20;
+  
+  // Invoice detail modal
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
 
   const fetchSales = useCallback(async () => {
     try {
@@ -28,6 +33,11 @@ export default function SalesPage() {
   }, [currentBranch, page]);
 
   useEffect(() => { fetchSales(); }, [fetchSales]);
+
+  const openInvoiceDetail = (sale) => {
+    setSelectedInvoiceId(sale.id);
+    setInvoiceModalOpen(true);
+  };
 
   const viewSale = async (sale) => {
     try {

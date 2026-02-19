@@ -231,8 +231,8 @@ export default function ProductsPage() {
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>SKU</Label>
-                <Input data-testid="product-sku-input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="e.g. LAN-250G" disabled={!!editing} />
+                <Label>SKU <span className="text-xs text-muted-foreground font-normal">(optional - auto-generated if blank)</span></Label>
+                <Input data-testid="product-sku-input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="Leave blank to auto-generate" disabled={!!editing} />
               </div>
               <div>
                 <Label>Product Name</Label>

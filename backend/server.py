@@ -867,21 +867,40 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     check_perm(user, "inventory", "adjust")
     items = data.get("items", [])
     subtotal = sum(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)) for i in items)
+    payment_method = data.get("payment_method", "cash")
+    branch_id = data.get("branch_id", "")
     po = {
         "id": new_id(),
         "po_number": f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
-        "vendor": data["vendor"], "branch_id": data.get("branch_id", ""),
+        "vendor": data["vendor"], "branch_id": branch_id,
         "items": [{"product_id": i["product_id"], "product_name": i.get("product_name", ""),
                     "quantity": float(i["quantity"]), "unit_price": float(i.get("unit_price", 0)),
                     "total": float(i["quantity"]) * float(i.get("unit_price", 0))} for i in items],
         "subtotal": subtotal, "status": data.get("status", "ordered"),
-        "expected_date": data.get("expected_date", ""), "received_date": None,
+        "purchase_date": data.get("purchase_date", now_iso()[:10]),
+        "payment_method": payment_method,
+        "payment_status": "paid" if payment_method == "cash" else "unpaid",
+        "amount_paid": subtotal if payment_method == "cash" else 0,
+        "balance": 0 if payment_method == "cash" else subtotal,
+        "received_date": None,
         "notes": data.get("notes", ""),
         "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),
     }
     await db.purchase_orders.insert_one(po)
     del po["_id"]
+    # Cash payment: deduct from cashier drawer
+    if payment_method == "cash" and subtotal > 0:
+        await update_cashier_wallet(branch_id, -subtotal, f"PO Payment {po['po_number']} - {data['vendor']}")
+    # Credit: create payable
+    if payment_method == "credit" and subtotal > 0:
+        await db.payables.insert_one({
+            "id": new_id(), "supplier": data["vendor"], "branch_id": branch_id,
+            "description": f"Purchase Order {po['po_number']}", "po_id": po["id"],
+            "amount": subtotal, "paid": 0, "balance": subtotal,
+            "due_date": data.get("due_date", ""), "status": "pending",
+            "created_at": now_iso(),
+        })
     return po
 
 @api_router.put("/purchase-orders/{po_id}")

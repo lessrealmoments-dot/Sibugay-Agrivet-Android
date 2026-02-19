@@ -1422,6 +1422,15 @@ async def adjust_inventory(data: dict, user=Depends(get_current_user)):
     branch_id = data["branch_id"]
     quantity = float(data["quantity"])
     reason = data.get("reason", "Manual adjustment")
+    
+    # Check if this is a repack - cannot adjust repack inventory directly
+    product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if product and product.get("is_repack"):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot adjust repack inventory directly. Adjust the parent product '{product.get('parent_id')}' instead. Repack stock is derived from parent."
+        )
+    
     existing = await db.inventory.find_one({"product_id": product_id, "branch_id": branch_id}, {"_id": 0})
     if existing:
         new_qty = existing["quantity"] + quantity

@@ -129,6 +129,47 @@ export default function FundManagementPage() {
         )}
       </div>
 
+      {/* Wallet Transaction History */}
+      {movementWallet && (
+        <Card className="border-slate-200">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+                {movementWallet.name} — Transaction History
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setMovementWallet(null)} className="text-slate-400">Close</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow className="bg-slate-50">
+                <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                <TableHead className="text-xs uppercase text-slate-500">Type</TableHead>
+                <TableHead className="text-xs uppercase text-slate-500 text-right">Amount</TableHead>
+                <TableHead className="text-xs uppercase text-slate-500">Reference</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {movements.map((m, i) => (
+                  <TableRow key={i} className="table-row-hover">
+                    <TableCell className="text-xs">{m.created_at?.slice(0, 10)}</TableCell>
+                    <TableCell>
+                      <Badge className={`text-[10px] ${m.amount >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {m.amount >= 0 ? 'Cash In' : 'Cash Out'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`text-right font-bold text-sm ${m.amount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {m.amount >= 0 ? '+' : ''}{formatPHP(m.amount)}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">{m.reference || '—'}</TableCell>
+                  </TableRow>
+                ))}
+                {!movements.length && <TableRow><TableCell colSpan={4} className="text-center py-6 text-slate-400">No transactions recorded yet</TableCell></TableRow>}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Safe Lots */}
       {safeLots.length > 0 && (
         <Card className="border-slate-200">

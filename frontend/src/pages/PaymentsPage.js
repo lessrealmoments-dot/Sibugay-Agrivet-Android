@@ -12,8 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { DollarSign, Search, AlertTriangle, Percent, Receipt, ArrowRight, Clock, Calculator, Calendar, Info, CheckCircle2 } from 'lucide-react';
+import { DollarSign, Search, AlertTriangle, Percent, Receipt, ArrowRight, Clock, Calculator, Calendar, Info, CheckCircle2, Edit3 } from 'lucide-react';
 import { toast } from 'sonner';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 export default function PaymentsPage() {
   const { currentBranch } = useAuth();
@@ -28,6 +29,10 @@ export default function PaymentsPage() {
   const [allocations, setAllocations] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [penaltyRate, setPenaltyRate] = useState(5);
+  
+  // Invoice detail modal
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
   const [payHistory, setPayHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   

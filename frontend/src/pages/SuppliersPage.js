@@ -61,6 +61,10 @@ export default function SuppliersPage() {
 
   const selectVendor = async (vendor) => {
     setSelectedVendor(vendor);
+    // Find supplier details if exists
+    const supplierDetail = suppliers.find(s => s.name.toLowerCase() === vendor.toLowerCase());
+    setSelectedSupplierDetails(supplierDetail || null);
+    
     try {
       const res = await api.get('/purchase-orders/by-vendor', { params: { vendor } });
       setVendorPOs(res.data);
@@ -82,9 +86,52 @@ export default function SuppliersPage() {
     }
   };
 
+  const openNewSupplier = () => {
+    setEditMode(false);
+    setSupplierForm({ name: '', contact_person: '', phone: '', email: '', address: '', notes: '' });
+    setSupplierDialog(true);
+  };
+
+  const openEditSupplier = (supplier) => {
+    setEditMode(true);
+    setSupplierForm({
+      id: supplier.id,
+      name: supplier.name || '',
+      contact_person: supplier.contact_person || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      address: supplier.address || '',
+      notes: supplier.notes || '',
+    });
+    setSupplierDialog(true);
+  };
+
+  const saveSupplier = async () => {
+    if (!supplierForm.name.trim()) {
+      toast.error('Supplier name is required');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editMode && supplierForm.id) {
+        await api.put(`/suppliers/${supplierForm.id}`, supplierForm);
+        toast.success('Supplier updated');
+      } else {
+        await api.post('/suppliers', supplierForm);
+        toast.success('Supplier created');
+      }
+      setSupplierDialog(false);
+      fetchData();
+      if (selectedVendor) selectVendor(selectedVendor);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save supplier');
+    }
+    setSaving(false);
+  };
+
   const filteredVendors = search
-    ? vendors.filter(v => v.toLowerCase().includes(search.toLowerCase()))
-    : vendors;
+    ? allSupplierNames.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+    : allSupplierNames;
 
   const filteredPOs = activeTab === 'all'
     ? vendorPOs

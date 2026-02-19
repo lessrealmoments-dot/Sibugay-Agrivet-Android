@@ -99,6 +99,15 @@ def now_iso():
 def new_id():
     return str(uuid.uuid4())
 
+async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_number, price, user_id, user_name, notes=""):
+    await db.movements.insert_one({
+        "id": new_id(), "product_id": product_id, "branch_id": branch_id,
+        "type": m_type, "quantity_change": qty_change,
+        "reference_id": ref_id, "reference_number": ref_number,
+        "price_at_time": float(price) if price else 0, "notes": notes,
+        "user_id": user_id, "user_name": user_name, "created_at": now_iso()
+    })
+
 # ==================== AUTH ROUTES ====================
 @api_router.post("/auth/login")
 async def login(data: dict):
@@ -211,6 +220,12 @@ async def create_product(data: dict, user=Depends(get_current_user)):
         "unit": data.get("unit", "Piece"), "cost_price": float(data.get("cost_price", 0)),
         "prices": data.get("prices", {}), "parent_id": None, "is_repack": False,
         "units_per_parent": None, "repack_unit": None, "barcode": data.get("barcode", ""),
+        "product_type": data.get("product_type", "stockable"),
+        "capital_method": data.get("capital_method", "manual"),
+        "reorder_point": float(data.get("reorder_point", 0)),
+        "reorder_quantity": float(data.get("reorder_quantity", 0)),
+        "unit_of_measurement": data.get("unit_of_measurement", data.get("unit", "Piece")),
+        "last_vendor": data.get("last_vendor", ""),
         "active": True, "created_at": now_iso(),
     }
     await db.products.insert_one(product)
@@ -220,7 +235,9 @@ async def create_product(data: dict, user=Depends(get_current_user)):
 @api_router.put("/products/{product_id}")
 async def update_product(product_id: str, data: dict, user=Depends(get_current_user)):
     check_perm(user, "products", "edit")
-    allowed = ["name", "category", "description", "unit", "cost_price", "prices", "barcode", "units_per_parent", "repack_unit"]
+    allowed = ["name", "category", "description", "unit", "cost_price", "prices", "barcode",
+               "units_per_parent", "repack_unit", "product_type", "capital_method",
+               "reorder_point", "reorder_quantity", "unit_of_measurement", "last_vendor"]
     update = {k: v for k, v in data.items() if k in allowed}
     if "cost_price" in update:
         update["cost_price"] = float(update["cost_price"])

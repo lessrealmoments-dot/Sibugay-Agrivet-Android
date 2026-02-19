@@ -654,7 +654,7 @@ async def generate_account_interest(customer_id: str, data: dict = {}, user=Depe
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"
     count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{now.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    inv_number = f"{prefix}-{comp_date_str.replace('-','')}-{str(count + 1).zfill(4)}"
     branch_id = invoices[0].get("branch_id", "") if invoices else ""
     desc_lines = "; ".join([f"{d['invoice']}: {d['days']}d = ₱{d['interest']:.2f}" for d in interest_details])
     interest_invoice = {
@@ -663,8 +663,8 @@ async def generate_account_interest(customer_id: str, data: dict = {}, user=Depe
         "customer_contact": "", "customer_phone": "", "customer_address": "",
         "terms": "COD", "terms_days": 0, "customer_po": "",
         "sales_rep_id": "", "sales_rep_name": "", "branch_id": branch_id,
-        "order_date": now.strftime("%Y-%m-%d"), "invoice_date": now.strftime("%Y-%m-%d"),
-        "due_date": now.strftime("%Y-%m-%d"),
+        "order_date": comp_date_str, "invoice_date": comp_date_str,
+        "due_date": comp_date_str,
         "items": [{"product_id": "", "product_name": "Interest Charge",
                     "description": desc_lines, "quantity": 1,
                     "rate": total_interest, "discount_type": "amount",

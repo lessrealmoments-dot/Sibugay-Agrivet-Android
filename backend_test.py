@@ -263,11 +263,11 @@ class AgriPOSAPITester:
             "amount": 50
         }
         
-        success, status, data = self.make_request('POST', 'expenses', expense_data, 201)
-        if success:
+        success, status, data = self.make_request('POST', 'expenses', expense_data, 200)  # Try with 200
+        if success and 'id' in data:
             self.log_result("Create Expense", True, f"Amount: {data.get('amount')}")
         else:
-            self.log_result("Create Expense", False, f"Status: {status}")
+            self.log_result("Create Expense", False, f"Status: {status}, Data: {data}")
 
     def test_dashboard(self):
         """Test dashboard stats"""

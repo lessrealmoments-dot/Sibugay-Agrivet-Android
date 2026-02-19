@@ -473,6 +473,17 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
         })
     await db.invoices.insert_one(invoice)
     del invoice["_id"]
+    # Log to sequential sales log
+    active_date = await get_active_date(branch_id)
+    # Enrich items with category for log
+    for item in items:
+        if item["product_id"]:
+            prod = await db.products.find_one({"id": item["product_id"]}, {"_id": 0, "category": 1})
+            item["category"] = prod.get("category", "General") if prod else "General"
+    await log_sale_items(branch_id, active_date, items, inv_number,
+                         data.get("customer_name", "Walk-in"),
+                         data.get("payment_method", "Cash"),
+                         user.get("full_name", user["username"]))
     return invoice
 
 @api_router.get("/invoices/{inv_id}")

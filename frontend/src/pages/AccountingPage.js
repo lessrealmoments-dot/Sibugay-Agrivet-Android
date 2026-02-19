@@ -299,6 +299,9 @@ export default function AccountingPage() {
               )}
             </div>
             <div className="flex gap-2">
+              <Button onClick={openCashOut} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="cashout-btn">
+                <Banknote size={16} className="mr-2" /> Customer Cash Out
+              </Button>
               <Button onClick={openFarmExpense} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50" data-testid="farm-expense-btn">
                 <Tractor size={16} className="mr-2" /> Farm Expense
               </Button>

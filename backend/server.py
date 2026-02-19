@@ -683,6 +683,79 @@ async def record_payable_payment(pay_id: str, data: dict, user=Depends(get_curre
     await db.payables.update_one({"id": pay_id}, {"$set": {"paid": new_paid, "balance": max(0, new_balance), "status": status, "updated_at": now_iso()}})
     return {"message": "Payment recorded", "new_balance": max(0, new_balance)}
 
+# ==================== SYNC ENDPOINTS (Offline POS) ====================
+@api_router.get("/sync/pos-data")
+async def get_pos_data(user=Depends(get_current_user)):
+    """Return all data needed for offline POS in one call"""
+    products = await db.products.find({"active": True}, {"_id": 0}).to_list(5000)
+    customers = await db.customers.find({"active": True}, {"_id": 0}).to_list(5000)
+    schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
+    branches = await db.branches.find({"active": True}, {"_id": 0}).to_list(100)
+    return {
+        "products": products, "customers": customers,
+        "price_schemes": schemes, "branches": branches,
+        "timestamp": now_iso()
+    }
+
+@api_router.post("/sales/sync")
+async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
+    """Sync batch of offline sales with duplicate detection"""
+    check_perm(user, "pos", "sell")
+    results = []
+    for sale_data in data.get("sales", []):
+        sale_id = sale_data.get("id")
+        # Duplicate check
+        existing = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+        if existing:
+            results.append({"id": sale_id, "status": "duplicate", "message": "Already synced"})
+            continue
+        try:
+            sale_doc = {**sale_data, "synced_at": now_iso(), "sync_source": "offline"}
+            branch_id = sale_doc.get("branch_id")
+            # Process inventory for each item
+            for item in sale_doc.get("items", []):
+                product_id = item.get("product_id")
+                qty = float(item.get("quantity", 0))
+                # Deduct from product inventory
+                await db.inventory.update_one(
+                    {"product_id": product_id, "branch_id": branch_id},
+                    {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
+                    upsert=True
+                )
+                # Handle repack parent deduction
+                if item.get("is_repack"):
+                    product = await db.products.find_one({"id": product_id, "is_repack": True}, {"_id": 0})
+                    if product and product.get("parent_id"):
+                        units_per_parent = product.get("units_per_parent", 1)
+                        parent_deduction = qty / units_per_parent
+                        await db.inventory.update_one(
+                            {"product_id": product["parent_id"], "branch_id": branch_id},
+                            {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
+                            upsert=True
+                        )
+            # Handle credit sales
+            if sale_doc.get("payment_method") == "Credit" and sale_doc.get("customer_id"):
+                await db.customers.update_one(
+                    {"id": sale_doc["customer_id"]},
+                    {"$inc": {"balance": sale_doc.get("total", 0)}}
+                )
+                receivable = {
+                    "id": new_id(), "customer_id": sale_doc["customer_id"],
+                    "customer_name": sale_doc.get("customer_name", ""),
+                    "sale_id": sale_id, "branch_id": branch_id,
+                    "amount": sale_doc.get("total", 0), "paid": 0,
+                    "balance": sale_doc.get("total", 0),
+                    "status": "pending", "created_at": now_iso(),
+                }
+                await db.receivables.insert_one(receivable)
+            await db.sales.insert_one(sale_doc)
+            results.append({"id": sale_id, "status": "synced"})
+        except Exception as e:
+            logger.error(f"Sync error for sale {sale_id}: {e}")
+            results.append({"id": sale_id, "status": "error", "message": str(e)})
+    synced = len([r for r in results if r["status"] == "synced"])
+    return {"results": results, "synced": synced, "total": len(data.get("sales", []))}
+
 # ==================== DASHBOARD ROUTES ====================
 @api_router.get("/dashboard/stats")
 async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[str] = None):

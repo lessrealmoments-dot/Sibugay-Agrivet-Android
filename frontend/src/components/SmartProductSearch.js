@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { api, useAuth } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Badge } from './ui/badge';
-import { Search, Package, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Package, ArrowUp, ArrowDown, PlusCircle } from 'lucide-react';
 
-export default function SmartProductSearch({ onSelect, branchId }) {
+export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [open, setOpen] = useState(false);
+  const [noResults, setNoResults] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);

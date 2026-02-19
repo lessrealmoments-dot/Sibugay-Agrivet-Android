@@ -71,7 +71,7 @@ export default function PaymentsPage() {
 
   const handleGenerateInterest = async () => {
     try {
-      const res = await api.post(`/customers/${selectedCustomer.id}/generate-interest`);
+      const res = await api.post(`/customers/${selectedCustomer.id}/generate-interest`, { as_of_date: payDate });
       if (res.data.total_interest > 0) {
         toast.success(`Interest invoice created: ${res.data.invoice_number} for ${formatPHP(res.data.total_interest)}`);
         loadInvoices(selectedCustomer.id);
@@ -81,7 +81,7 @@ export default function PaymentsPage() {
 
   const handleGeneratePenalty = async () => {
     try {
-      const res = await api.post(`/customers/${selectedCustomer.id}/generate-penalty`, { penalty_rate: penaltyRate });
+      const res = await api.post(`/customers/${selectedCustomer.id}/generate-penalty`, { penalty_rate: penaltyRate, as_of_date: payDate });
       if (res.data.total_penalty > 0) {
         toast.success(`Penalty invoice created: ${res.data.invoice_number} for ${formatPHP(res.data.total_penalty)}`);
         loadInvoices(selectedCustomer.id);

@@ -11,6 +11,7 @@ from .price_schemes import router as price_schemes_router
 from .invoices import router as invoices_router
 from .sales import router as sales_router
 from .purchase_orders import router as purchase_orders_router
+from .dashboard import router as dashboard_router
 
 __all__ = [
     'auth_router',
@@ -23,4 +24,5 @@ __all__ = [
     'invoices_router',
     'sales_router',
     'purchase_orders_router',
+    'dashboard_router',
 ]

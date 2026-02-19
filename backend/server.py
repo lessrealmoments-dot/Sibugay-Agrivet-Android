@@ -1265,7 +1265,9 @@ async def generate_account_penalty(customer_id: str, data: dict, user=Depends(ge
         if inv.get("penalty_applied"):
             continue
         
-        due_date_str = inv.get("due_date", comp_date_str)
+        due_date_str = inv.get("due_date") or inv.get("order_date") or comp_date_str
+        if not due_date_str:
+            continue
         due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
         grace_end_date = due_date + timedelta(days=grace_period)
         

@@ -237,92 +237,125 @@ export default function POSPage() {
   const PrintableReport = ({ data }) => {
     if (!data) return null;
     const r = dailyReport;
-    const walletInfo = data;
-    const expectedCash = Math.round(((r?.total_revenue || 0) + (r?.total_payments || 0) - (r?.total_expenses || 0) + (walletInfo.previous_cashier_balance || 0)) * 100) / 100;
+    const expectedCash = Math.round(((r?.total_revenue || 0) + (r?.total_payments || 0) - (r?.total_expenses || 0) + (data.previous_cashier_balance || 0)) * 100) / 100;
+    const isOwner = user?.role === 'admin';
+    // Categorize expenses
+    const allExpenses = data.expenses || r?.expenses || [];
+    const empAdvances = allExpenses.filter(e => e.category === 'Employee Cash Advance');
+    const farmExps = allExpenses.filter(e => e.category === 'Farm Expense');
+    const otherExps = allExpenses.filter(e => !['Employee Cash Advance', 'Farm Expense'].includes(e.category));
+
     return (
-      <div className="space-y-4 text-sm" id="printable-report">
-        <div className="text-center border-b pb-3">
-          <h2 className="text-xl font-bold" style={{ fontFamily: 'Manrope' }}>Daily Closing Report</h2>
-          <p className="text-slate-500">{currentBranch?.name} &middot; {data.date || today}</p>
-          {data.closed_by_name && <p className="text-xs text-slate-400">Closed by {data.closed_by_name} at {new Date(data.closed_at).toLocaleString()}</p>}
+      <div id="printable-report" className="max-w-[680px] mx-auto bg-white" style={{ fontFamily: 'IBM Plex Sans, sans-serif' }}>
+        {/* Title */}
+        <div className="text-center mb-4">
+          <h2 className="text-xl font-bold tracking-tight" style={{ color: '#1a365d', fontFamily: 'Manrope' }}>DAILY CLOSING REPORT</h2>
+          <p className="text-sm text-slate-600">{new Date(data.date || today).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          {data.closed_by_name && <p className="text-[11px] text-slate-400 mt-1">Closed by {data.closed_by_name}</p>}
         </div>
-        {/* General Details */}
-        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">General Details</h3>
-          <div className="space-y-1">
-            <div className="flex justify-between"><span>Total Cash in Safe</span><span className="font-bold">{formatPHP(data.safe_balance)}</span></div>
-            <div className="flex justify-between"><span>Total Cash in Bank</span><span className="font-bold">{formatPHP(data.bank_balance)}</span></div>
-            <div className="flex justify-between"><span>Cash Deposited to Safe Today</span><span className="font-bold">{formatPHP(data.cash_deposited_to_safe)}</span></div>
-            <div className="flex justify-between"><span>Previous Cashier Balance</span><span className="font-bold">{formatPHP(data.previous_cashier_balance)}</span></div>
-          </div>
-        </div>
-        <Separator />
-        {/* Sales by Category */}
-        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Sales Today (by Category)</h3>
-          {Object.entries(data.sales_by_category || r?.sales_by_category || {}).map(([cat, val]) => (
-            <div key={cat} className="flex justify-between py-0.5"><span>{cat}</span><span className="font-bold">{formatPHP(typeof val === 'object' ? val.total : val)}</span></div>
-          ))}
-          <div className="flex justify-between pt-1 border-t font-bold"><span>Total Sales</span><span>{formatPHP(data.total_sales || r?.total_revenue)}</span></div>
-        </div>
-        <Separator />
-        {/* Payments Received */}
-        {(data.payments_received?.length > 0 || r?.payments_today?.length > 0) && (
-          <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Payments Received Today</h3>
-            {(data.payments_received || r?.payments_today || []).map((p, i) => (
-              <div key={i} className="p-2 bg-slate-50 rounded mb-1">
-                <div className="flex justify-between font-medium"><span>{p.customer || p.customer_name}</span><span>{formatPHP(p.total_paid || p.payment?.amount)}</span></div>
-                <div className="text-xs text-slate-400 flex gap-3">
-                  <span>Invoice: {p.invoice || p.invoice_number}</span>
-                  {(p.interest_paid > 0 || p.interest) && <span>Interest: {formatPHP(p.interest_paid || p.interest)}</span>}
-                  <span>Open Bal: {formatPHP(p.balance)}</span>
-                </div>
-              </div>
-            ))}
-            <div className="flex justify-between pt-1 border-t font-bold"><span>Total Payments</span><span>{formatPHP(data.total_payments || r?.total_payments)}</span></div>
-          </div>
+
+        {/* GENERAL DETAILS */}
+        <div className="rpt-header">General Details</div>
+        <div className="rpt-row"><span>Total Cash in Safe:</span><b>{formatPHP(data.safe_balance)}</b></div>
+        <div className="rpt-row"><span>Total Cash in Bank:</span><b>{isOwner ? formatPHP(data.bank_balance) : 'HIDDEN'}</b></div>
+        <div className="rpt-row"><span>Cash Deposit to Safe Today:</span><b>{formatPHP(data.cash_deposited_to_safe)}</b></div>
+        <div className="rpt-row"><span>Previous Cashier Balance:</span><b>{formatPHP(data.previous_cashier_balance)}</b></div>
+
+        {/* SALES / PAYMENTS TODAY */}
+        <div className="rpt-header">Sales / Payments Today</div>
+        {Object.entries(data.sales_by_category || r?.sales_by_category || {}).map(([cat, val]) => (
+          <div key={cat} className="rpt-row"><span>{cat}:</span><b>{formatPHP(typeof val === 'object' ? val.total : val)}</b></div>
+        ))}
+        {Object.keys(data.sales_by_category || r?.sales_by_category || {}).length === 0 && (
+          <div className="rpt-row text-slate-400"><span>No sales recorded</span><b>₱0.00</b></div>
         )}
-        <Separator />
-        {/* Expenses */}
-        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Expenses Today</h3>
-          {(data.employee_advances?.length > 0) && (
-            <div className="mb-2"><p className="text-xs font-semibold text-slate-500">Employee Cash Advances</p>
-              {data.employee_advances.map((e, i) => <div key={i} className="flex justify-between py-0.5"><span>{e.description}</span><span className="text-red-600">{formatPHP(e.amount)}</span></div>)}
-            </div>
-          )}
-          {(data.farm_expenses?.length > 0) && (
-            <div className="mb-2"><p className="text-xs font-semibold text-slate-500">Farm Expenses (added to customer balance)</p>
-              {data.farm_expenses.map((e, i) => <div key={i} className="flex justify-between py-0.5"><span>{e.description}</span><span className="text-red-600">{formatPHP(e.amount)}</span></div>)}
-            </div>
-          )}
-          {(data.expenses || r?.expenses || []).filter(e => !['Employee Cash Advance', 'Farm Expense'].includes(e.category)).length > 0 && (
-            <div className="mb-2"><p className="text-xs font-semibold text-slate-500">Other Expenses</p>
-              {(data.expenses || r?.expenses || []).filter(e => !['Employee Cash Advance', 'Farm Expense'].includes(e.category)).map((e, i) => (
-                <div key={i} className="flex justify-between py-0.5"><span>{e.description || e.category}</span><span className="text-red-600">{formatPHP(e.amount)}</span></div>
+
+        {/* PAYMENTS RECEIVED TODAY */}
+        <div className="rpt-header">Payments Received Today</div>
+        {(data.payments_received?.length > 0 || r?.payments_today?.length > 0) ? (
+          <table className="w-full text-xs border-collapse mt-1">
+            <thead>
+              <tr style={{ backgroundColor: '#1a365d', color: 'white' }}>
+                <th className="text-left py-2 px-3 font-semibold">Payee</th>
+                <th className="text-right py-2 px-3 font-semibold">Open Balance</th>
+                <th className="text-right py-2 px-3 font-semibold">Principal Paid</th>
+                <th className="text-right py-2 px-3 font-semibold">Interest Paid</th>
+                <th className="text-right py-2 px-3 font-semibold">Penalty Paid</th>
+                <th className="text-right py-2 px-3 font-semibold">Total Payment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.payments_received || []).map((p, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                  <td className="py-1.5 px-3 text-left">{p.customer || p.customer_name}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.balance)}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.principal_paid)}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.interest_paid || 0)}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.penalty_paid || 0)}</td>
+                  <td className="py-1.5 px-3 text-right font-semibold">{formatPHP(p.total_paid)}</td>
+                </tr>
               ))}
+              {r?.payments_today?.map((p, i) => (
+                <tr key={`api-${i}`} className={i % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                  <td className="py-1.5 px-3">{p.customer_name}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.balance)}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.payment?.applied_to_principal || p.payment?.amount)}</td>
+                  <td className="py-1.5 px-3 text-right">{formatPHP(p.payment?.applied_to_interest || 0)}</td>
+                  <td className="py-1.5 px-3 text-right">₱0.00</td>
+                  <td className="py-1.5 px-3 text-right font-semibold">{formatPHP(p.payment?.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="rpt-row text-slate-400"><span>No payments received</span></div>
+        )}
+
+        {/* EXPENSES FOR TODAY */}
+        <div className="rpt-header">Expenses for Today</div>
+        <div className="px-4 py-2 space-y-1 text-[13px]">
+          {empAdvances.map((e, i) => (
+            <div key={`adv-${i}`} className="flex items-baseline gap-1">
+              <span className="text-slate-600">&#8226;</span>
+              <span>Employee Cash Advance: <b>{formatPHP(e.amount)}</b></span>
+              <span className="text-xs text-slate-400 ml-1">(Total CA This Month: {formatPHP(e.monthly_total || 0)})</span>
             </div>
-          )}
-          <div className="flex justify-between pt-1 border-t font-bold"><span>Total Expenses</span><span className="text-red-600">{formatPHP(data.total_expenses || r?.total_expenses)}</span></div>
+          ))}
+          {otherExps.map((e, i) => (
+            <div key={`oth-${i}`} className="flex items-baseline gap-1">
+              <span className="text-slate-600">&#8226;</span>
+              <span>{e.category || e.description}: <b>{formatPHP(e.amount)}</b></span>
+            </div>
+          ))}
+          {farmExps.map((e, i) => (
+            <div key={`farm-${i}`} className="flex items-baseline gap-1">
+              <span className="text-slate-600">&#8226;</span>
+              <span>Farm Charge - {e.description?.replace('Farm Cash Out - ', '')}: <b>{formatPHP(e.amount)}</b></span>
+            </div>
+          ))}
+          {allExpenses.length === 0 && <p className="text-slate-400 text-sm">No expenses recorded</p>}
         </div>
-        <Separator />
-        {/* Cash Counting */}
-        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Cash Counting</h3>
-          <div className="space-y-1">
-            <div className="flex justify-between"><span>Expected Cash in Drawer</span><span className="font-bold">{formatPHP(data.expected_cash || expectedCash)}</span></div>
-            <div className="flex justify-between"><span>Actual Cash in Drawer</span><span className="font-bold">{formatPHP(data.actual_cash)}</span></div>
-            <div className="flex justify-between text-slate-400"><span>Bank Checks (ref only)</span><span>{formatPHP(data.bank_checks)}</span></div>
-            <div className="flex justify-between text-slate-400"><span>Other Payments - GCash etc. (ref only)</span><span>{formatPHP(data.other_payment_forms)}</span></div>
-            <Separator />
-            <div className="flex justify-between text-base"><span className="font-bold">Extra Cash</span>
-              <span className={`font-bold ${(data.extra_cash || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatPHP(data.extra_cash)}</span>
-            </div>
-            <p className="text-[10px] text-slate-400 italic">Extra cash may offset missing inventory. If missing inventory exceeds extra cash, cashier is responsible.</p>
+
+        {/* CASH COUNTING */}
+        <div className="rpt-header">Cash Counting</div>
+        <div className="rpt-row"><span>Expected Cash in Drawer:</span><b>{formatPHP(data.expected_cash || expectedCash)}</b></div>
+        <div className="rpt-row"><span>Actual Cash in Drawer:</span><b>{formatPHP(data.actual_cash)}</b></div>
+        <div className="rpt-row"><span>Bank Checks:</span><b>{formatPHP(data.bank_checks)}</b></div>
+        <div className="rpt-row"><span>Other Payments (GCash, etc.):</span><b>{formatPHP(data.other_payment_forms)}</b></div>
+
+        {/* ALLOCATION BOX */}
+        <div className="rpt-alloc">
+          <div className="rpt-row"><span>Cash to Leave in Drawer:</span><b>{formatPHP(data.cash_to_drawer)}</b></div>
+          <div className="rpt-row"><span>Cash Transferred to Safe:</span><b>{formatPHP(data.cash_to_safe)}</b></div>
+          <div className="rpt-extra">
+            <span>EXTRA MONEY ({(data.extra_cash || 0) >= 0 ? 'Over' : 'Short'}):</span>
+            <span>{formatPHP(Math.abs(data.extra_cash || 0))}</span>
           </div>
         </div>
-        <Separator />
-        {/* Allocation */}
-        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">End-of-Day Allocation</h3>
-          <div className="flex justify-between"><span>Cash Remaining in Drawer</span><span className="font-bold">{formatPHP(data.cash_to_drawer)}</span></div>
-          <div className="flex justify-between"><span>Cash Transferred to Safe</span><span className="font-bold">{formatPHP(data.cash_to_safe)}</span></div>
-        </div>
+
+        <p className="text-[10px] text-slate-400 text-center mt-4 italic">
+          Extra cash may be used to offset missing inventory during stock counts. If missing inventory exceeds extra cash, cashier is responsible for the difference.
+        </p>
       </div>
     );
   };

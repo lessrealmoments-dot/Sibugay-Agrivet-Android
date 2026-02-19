@@ -63,7 +63,8 @@ export default function ProductsPage() {
 
   const openRepack = (p) => {
     setSelectedParent(p);
-    setRepackForm({ name: `R ${p.name}`, unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
+    const autoCost = p.cost_price ? Math.round((p.cost_price / 1) * 100) / 100 : 0;
+    setRepackForm({ name: `R ${p.name}`, unit: 'Sachet', units_per_parent: 1, cost_price: autoCost, add_on_cost: 0, prices: {} });
     setRepackDialog(true);
   };
 

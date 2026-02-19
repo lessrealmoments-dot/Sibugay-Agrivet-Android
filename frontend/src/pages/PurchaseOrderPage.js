@@ -207,6 +207,7 @@ export default function PurchaseOrderPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="create" data-testid="tab-create-po">New PO</TabsTrigger>
+          <TabsTrigger value="pay" data-testid="tab-pay-supplier">Pay Supplier</TabsTrigger>
           <TabsTrigger value="list" data-testid="tab-list-po">PO List ({totalOrders})</TabsTrigger>
         </TabsList>
 

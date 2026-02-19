@@ -230,7 +230,7 @@ export default function POSPage() {
               <p className="font-medium text-sm truncate">{p.name}</p>
               <p className="text-[11px] text-slate-400 font-mono mt-0.5">{p.sku}</p>
               <div className="flex items-center justify-between mt-2">
-                <span className="text-base font-bold text-[#1A4D2E]">{getPriceForCustomer(p).toFixed(2)}</span>
+                <span className="text-base font-bold text-[#1A4D2E]">₱{getPriceForCustomer(p).toFixed(2)}</span>
                 {p.is_repack && <Badge variant="outline" className="text-[9px] border-amber-300 text-amber-600">R</Badge>}
               </div>
               <p className="text-[10px] text-slate-400 mt-1">per {p.unit}</p>
@@ -282,7 +282,7 @@ export default function POSPage() {
               <div key={item.product_id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 animate-slideIn">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{item.product_name}</p>
-                  <p className="text-[11px] text-slate-400">{item.price.toFixed(2)} x {item.quantity}</p>
+                  <p className="text-[11px] text-slate-400">₱{item.price.toFixed(2)} x {item.quantity}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="outline" size="sm" className="h-7 w-7 p-0" data-testid={`cart-minus-${item.product_id}`} onClick={() => updateQty(item.product_id, -1)}>
@@ -294,7 +294,7 @@ export default function POSPage() {
                   </Button>
                 </div>
                 <div className="text-right w-20">
-                  <p className="text-sm font-bold">{item.total.toFixed(2)}</p>
+                  <p className="text-sm font-bold">₱{item.total.toFixed(2)}</p>
                   <button onClick={() => removeFromCart(item.product_id)} className="text-red-400 hover:text-red-600">
                     <Trash2 size={12} />
                   </button>
@@ -314,7 +314,7 @@ export default function POSPage() {
         <div className="border-t border-slate-100 p-4 space-y-3 bg-slate-50/50">
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-500">Subtotal</span>
-            <span className="font-semibold">{subtotal.toFixed(2)}</span>
+            <span className="font-semibold">₱{subtotal.toFixed(2)}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-500">Discount</span>
@@ -329,7 +329,7 @@ export default function POSPage() {
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-slate-200">
             <span className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>Total</span>
-            <span className="text-2xl font-bold text-[#1A4D2E]" style={{ fontFamily: 'Manrope' }}>{grandTotal.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-[#1A4D2E]" style={{ fontFamily: 'Manrope' }}>₱{grandTotal.toFixed(2)}</span>
           </div>
           <Button
             data-testid="pos-checkout-btn"
@@ -349,7 +349,7 @@ export default function POSPage() {
           <div className="space-y-4 mt-2">
             <div className="p-4 bg-emerald-50 rounded-lg text-center">
               <p className="text-sm text-emerald-600">Total Amount</p>
-              <p className="text-3xl font-bold text-emerald-800" style={{ fontFamily: 'Manrope' }}>{grandTotal.toFixed(2)}</p>
+              <p className="text-3xl font-bold text-emerald-800" style={{ fontFamily: 'Manrope' }}>₱{grandTotal.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-sm font-medium mb-2">Payment Method</p>

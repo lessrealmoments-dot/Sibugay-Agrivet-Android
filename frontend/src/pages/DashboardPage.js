@@ -3,6 +3,7 @@ import { useAuth, api } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { DollarSign, ShoppingCart, Package, Users, AlertTriangle, TrendingUp, ArrowDown } from 'lucide-react';
+import { formatPHP } from '../lib/utils';
 
 export default function DashboardPage() {
   const { currentBranch } = useAuth();
@@ -26,9 +27,9 @@ export default function DashboardPage() {
   if (loading) return <div className="flex items-center justify-center h-64"><div className="text-slate-400">Loading dashboard...</div></div>;
 
   const kpis = [
-    { label: "Today's Revenue", value: `${(stats?.today_revenue || 0).toLocaleString('en', { minimumFractionDigits: 2 })}`, icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: "Today's Revenue", value: formatPHP(stats?.today_revenue), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: "Today's Sales", value: stats?.today_sales_count || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: "Today's Expenses", value: `${(stats?.today_expenses || 0).toLocaleString('en', { minimumFractionDigits: 2 })}`, icon: ArrowDown, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: "Today's Expenses", value: formatPHP(stats?.today_expenses), icon: ArrowDown, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Total Products', value: stats?.total_products || 0, icon: Package, color: 'text-slate-600', bg: 'bg-slate-50' },
     { label: 'Low Stock Items', value: stats?.low_stock_count || 0, icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50' },
     { label: 'Total Customers', value: stats?.total_customers || 0, icon: Users, color: 'text-violet-600', bg: 'bg-violet-50' },
@@ -64,7 +65,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-amber-600" style={{ fontFamily: 'Manrope' }}>
-              {(stats?.total_receivables || 0).toLocaleString('en', { minimumFractionDigits: 2 })}
+              {(stats?.total_receivables || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
             </p>
             <p className="text-xs text-slate-500 mt-1">Total unpaid customer credit</p>
           </CardContent>

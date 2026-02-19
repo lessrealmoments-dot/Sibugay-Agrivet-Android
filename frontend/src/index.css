@@ -67,6 +67,19 @@
 .pos-products { overflow-y: auto; }
 .pos-cart { border-left: 1px solid hsl(var(--border)); display: flex; flex-direction: column; }
 
+/* Daily Closing Report - Print */
+@media print {
+  body * { visibility: hidden !important; }
+  #printable-report, #printable-report * { visibility: visible !important; }
+  #printable-report { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; background: white; }
+  .no-print { display: none !important; }
+}
+.rpt-header { background: #c5d3e0; padding: 7px 14px; margin: 14px 0 6px; font-weight: 700; font-size: 12px; text-transform: uppercase; color: #1a365d; letter-spacing: 0.04em; }
+.rpt-row { display: flex; justify-content: space-between; padding: 4px 14px; font-size: 13px; color: #333; }
+.rpt-row b { font-weight: 600; }
+.rpt-alloc { border: 1.5px solid #c5d3e0; margin-top: 10px; }
+.rpt-extra { background: #dc2626; color: white; font-weight: 700; padding: 6px 14px; display: flex; justify-content: space-between; font-size: 13px; }
+
 /* Animation */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .animate-fadeIn { animation: fadeIn 0.3s ease-out; }

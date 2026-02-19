@@ -28,7 +28,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState([]);
   const LIMIT = 20;
 
-  const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '' });
+  const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', unit_of_measurement: 'Box' });
   const [repackForm, setRepackForm] = useState({ name: '', unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
 
   const fetchProducts = useCallback(async () => {

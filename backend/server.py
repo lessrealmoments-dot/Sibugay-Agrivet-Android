@@ -2042,6 +2042,8 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
         "email": data.get("email", ""), "address": data.get("address", ""),
         "price_scheme": data.get("price_scheme", "retail"),
         "credit_limit": float(data.get("credit_limit", 0)),
+        "interest_rate": float(data.get("interest_rate", 0)),
+        "grace_period": int(data.get("grace_period", 7)),
         "balance": 0.0, "active": True, "created_at": now_iso(),
     }
     await db.customers.insert_one(customer)

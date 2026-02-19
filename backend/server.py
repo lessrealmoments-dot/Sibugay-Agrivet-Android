@@ -1712,29 +1712,212 @@ async def release_sale(sale_id: str, user=Depends(get_current_user)):
 
 # ==================== ACCOUNTING ROUTES ====================
 @api_router.get("/expenses")
-async def list_expenses(user=Depends(get_current_user), branch_id: Optional[str] = None, skip: int = 0, limit: int = 50):
+async def list_expenses(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    category: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50
+):
     check_perm(user, "accounting", "view")
     query = {}
     if branch_id:
         query["branch_id"] = branch_id
+    if category:
+        query["category"] = category
+    if payment_method:
+        query["payment_method"] = payment_method
+    if date_from:
+        query["date"] = {"$gte": date_from}
+    if date_to:
+        query.setdefault("date", {})["$lte"] = date_to
+    if search:
+        query["$or"] = [
+            {"description": {"$regex": search, "$options": "i"}},
+            {"reference_number": {"$regex": search, "$options": "i"}},
+            {"notes": {"$regex": search, "$options": "i"}},
+        ]
     total = await db.expenses.count_documents(query)
     expenses = await db.expenses.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
     return {"expenses": expenses, "total": total}
+
+# Preset expense categories
+EXPENSE_CATEGORIES = [
+    "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
+    "Employee Advance", "Farm Expense", "Repairs & Maintenance",
+    "Marketing", "Salaries & Wages", "Communication", "Insurance",
+    "Professional Fees", "Taxes & Licenses", "Office Supplies",
+    "Equipment", "Miscellaneous"
+]
+
+@api_router.get("/expenses/categories")
+async def get_expense_categories(user=Depends(get_current_user)):
+    """Get preset expense categories"""
+    return EXPENSE_CATEGORIES
 
 @api_router.post("/expenses")
 async def create_expense(data: dict, user=Depends(get_current_user)):
     check_perm(user, "accounting", "create")
     expense = {
-        "id": new_id(), "branch_id": data["branch_id"], "category": data.get("category", "General"),
-        "description": data.get("description", ""), "amount": float(data["amount"]),
-        "date": data.get("date", now_iso()[:10]), "created_by": user["id"],
-        "created_by_name": user.get("full_name", user["username"]), "created_at": now_iso(),
+        "id": new_id(),
+        "branch_id": data["branch_id"],
+        "category": data.get("category", "Miscellaneous"),
+        "description": data.get("description", ""),
+        "notes": data.get("notes", ""),
+        "amount": float(data["amount"]),
+        "payment_method": data.get("payment_method", "Cash"),
+        "reference_number": data.get("reference_number", ""),
+        "date": data.get("date", now_iso()[:10]),
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
     }
     await db.expenses.insert_one(expense)
     # Deduct from cashier wallet
-    await update_cashier_wallet(data["branch_id"], -float(data["amount"]), f"Expense: {data.get('category', 'General')} - {data.get('description', '')}")
+    ref_text = f"Expense: {data.get('category', 'General')} - {data.get('description', '')}"
+    if data.get("reference_number"):
+        ref_text += f" (Ref: {data['reference_number']})"
+    await update_cashier_wallet(data["branch_id"], -float(data["amount"]), ref_text)
     del expense["_id"]
     return expense
+
+@api_router.put("/expenses/{expense_id}")
+async def update_expense(expense_id: str, data: dict, user=Depends(get_current_user)):
+    """Update an existing expense"""
+    check_perm(user, "accounting", "edit")
+    expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    
+    old_amount = expense.get("amount", 0)
+    new_amount = float(data.get("amount", old_amount))
+    amount_diff = new_amount - old_amount
+    
+    allowed = ["category", "description", "notes", "amount", "payment_method", "reference_number", "date"]
+    update = {k: v for k, v in data.items() if k in allowed}
+    if "amount" in update:
+        update["amount"] = float(update["amount"])
+    update["updated_at"] = now_iso()
+    update["updated_by"] = user["id"]
+    update["updated_by_name"] = user.get("full_name", user["username"])
+    
+    await db.expenses.update_one({"id": expense_id}, {"$set": update})
+    
+    # Adjust cashier wallet if amount changed
+    if amount_diff != 0:
+        await update_cashier_wallet(
+            expense["branch_id"],
+            -amount_diff,
+            f"Expense adjusted: {expense.get('description', '')} ({'+' if amount_diff > 0 else ''}{amount_diff:.2f})"
+        )
+    
+    return await db.expenses.find_one({"id": expense_id}, {"_id": 0})
+
+@api_router.post("/expenses/farm")
+async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_user)):
+    """
+    Create a farm expense and automatically generate an invoice for the linked customer.
+    This is used when farm services (tilling, labor, gas) are provided to a customer.
+    """
+    check_perm(user, "accounting", "create")
+    
+    customer_id = data.get("customer_id")
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="Customer is required for farm expense")
+    
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    amount = float(data["amount"])
+    branch_id = data["branch_id"]
+    
+    # Create the expense record
+    expense = {
+        "id": new_id(),
+        "branch_id": branch_id,
+        "category": "Farm Expense",
+        "description": data.get("description", "Farm Service"),
+        "notes": data.get("notes", ""),
+        "amount": amount,
+        "payment_method": data.get("payment_method", "Cash"),
+        "reference_number": data.get("reference_number", ""),
+        "date": data.get("date", now_iso()[:10]),
+        "customer_id": customer_id,
+        "customer_name": customer.get("name", ""),
+        "linked_invoice_id": None,  # Will be updated after invoice creation
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    
+    # Deduct from cashier wallet (we paid for the farm expense)
+    await update_cashier_wallet(branch_id, -amount, f"Farm Expense for {customer.get('name', '')}: {data.get('description', '')}")
+    
+    # Generate invoice number
+    prefix_doc = await db.settings.find_one({"type": "invoice_prefixes"}, {"_id": 0})
+    inv_prefix = prefix_doc.get("invoice", "INV") if prefix_doc else "INV"
+    inv_count = await db.invoices.count_documents({}) + 1
+    invoice_number = f"{inv_prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{inv_count:04d}"
+    
+    # Create the invoice for the customer
+    invoice = {
+        "id": new_id(),
+        "invoice_number": invoice_number,
+        "branch_id": branch_id,
+        "customer_id": customer_id,
+        "customer_name": customer.get("name", ""),
+        "type": "Farm Service",
+        "items": [{
+            "product_id": None,
+            "product_name": f"Farm Service: {data.get('description', 'Service')}",
+            "description": data.get("notes", ""),
+            "quantity": 1,
+            "price": amount,
+            "discount": 0,
+            "total": amount,
+        }],
+        "subtotal": amount,
+        "discount": 0,
+        "total": amount,
+        "amount_paid": 0,
+        "balance": amount,
+        "payment_method": "credit",
+        "payment_status": "unpaid",
+        "status": "confirmed",
+        "terms": data.get("terms", ""),
+        "due_date": data.get("due_date", ""),
+        "notes": f"Auto-generated from Farm Expense. {data.get('notes', '')}",
+        "farm_expense_id": expense["id"],
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.invoices.insert_one(invoice)
+    
+    # Update expense with linked invoice
+    expense["linked_invoice_id"] = invoice["id"]
+    expense["linked_invoice_number"] = invoice_number
+    await db.expenses.insert_one(expense)
+    
+    # Update customer balance
+    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": amount}})
+    
+    del expense["_id"]
+    return {
+        "expense": expense,
+        "invoice": {
+            "id": invoice["id"],
+            "invoice_number": invoice_number,
+            "customer_name": customer.get("name", ""),
+            "total": amount,
+        },
+        "message": f"Farm expense recorded and Invoice {invoice_number} created for {customer.get('name', '')}"
+    }
 
 @api_router.delete("/expenses/{expense_id}")
 async def delete_expense(expense_id: str, user=Depends(get_current_user)):

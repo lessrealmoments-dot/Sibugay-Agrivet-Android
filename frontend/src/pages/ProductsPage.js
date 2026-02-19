@@ -49,9 +49,9 @@ export default function ProductsPage() {
     api.get('/products/categories/list').then(r => setCategories(r.data)).catch(() => {});
   }, []);
 
-  const openCreate = () => {
+  const openCreate = (prefillName = '') => {
     setEditing(null);
-    setForm({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable' });
+    setForm({ sku: '', name: prefillName, category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', starting_inventory: 0 });
     setDialogOpen(true);
   };
 

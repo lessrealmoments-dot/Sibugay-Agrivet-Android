@@ -553,7 +553,7 @@ export default function AccountingPage() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPENSE_CATEGORIES.filter(c => c !== 'Farm Expense').map(c => (
+                    {EXPENSE_CATEGORIES.filter(c => c !== 'Farm Expense' && c !== 'Customer Cash Out').map(c => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>

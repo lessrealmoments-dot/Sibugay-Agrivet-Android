@@ -2594,19 +2594,44 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
     # Total customers
     total_customers = await db.customers.count_documents({"active": True})
 
-    # Receivables
+    # Receivables - combine from both invoices AND legacy receivables collection
+    # From invoices (new unified system)
+    invoice_receivables_pipeline = [
+        {"$match": {"status": {"$nin": ["paid", "voided"]}, "balance": {"$gt": 0}}},
+        {"$group": {"_id": None, "total": {"$sum": "$balance"}}}
+    ]
+    inv_rec_result = await db.invoices.aggregate(invoice_receivables_pipeline).to_list(1)
+    invoice_receivables = inv_rec_result[0]["total"] if inv_rec_result else 0
+    
+    # From legacy receivables collection
     receivables_pipeline = [{"$match": {"status": {"$ne": "paid"}}}, {"$group": {"_id": None, "total": {"$sum": "$balance"}}}]
     rec_result = await db.receivables.aggregate(receivables_pipeline).to_list(1)
-    total_receivables = rec_result[0]["total"] if rec_result else 0
+    legacy_receivables = rec_result[0]["total"] if rec_result else 0
+    
+    total_receivables = invoice_receivables + legacy_receivables
 
     # Expenses today
     today_expenses = await db.expenses.find({"date": today}, {"_id": 0}).to_list(1000)
     today_expense_total = sum(e.get("amount", 0) for e in today_expenses)
 
-    # Recent sales
-    recent_sales = await db.sales.find(sales_query, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    # Recent sales - combine from both sales and invoices
+    recent_sales_raw = await db.sales.find(sales_query, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    recent_invoices_raw = await db.invoices.find(
+        {"status": {"$ne": "voided"}, "branch_id": branch_id} if branch_id else {"status": {"$ne": "voided"}},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(5).to_list(5)
+    
+    # Normalize invoice format to match sales
+    for inv in recent_invoices_raw:
+        inv["sale_number"] = inv.get("invoice_number", "")
+        inv["total"] = inv.get("grand_total", 0)
+    
+    # Merge and sort by created_at
+    all_recent = recent_sales_raw + recent_invoices_raw
+    all_recent.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    recent_sales = all_recent[:5]
 
-    # Top products (last 30 days)
+    # Top products (from both sales and invoices)
     top_products_pipeline = [
         {"$match": {"status": "completed"}},
         {"$unwind": "$items"},
@@ -2614,7 +2639,32 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
         {"$sort": {"total_revenue": -1}},
         {"$limit": 5}
     ]
-    top_products = await db.sales.aggregate(top_products_pipeline).to_list(5)
+    top_products_sales = await db.sales.aggregate(top_products_pipeline).to_list(5)
+    
+    # Also get from invoices
+    top_products_invoices_pipeline = [
+        {"$match": {"status": {"$ne": "voided"}}},
+        {"$unwind": "$items"},
+        {"$group": {"_id": "$items.product_name", "total_qty": {"$sum": "$items.quantity"}, "total_revenue": {"$sum": "$items.total"}}},
+        {"$sort": {"total_revenue": -1}},
+        {"$limit": 5}
+    ]
+    top_products_inv = await db.invoices.aggregate(top_products_invoices_pipeline).to_list(5)
+    
+    # Merge top products
+    product_totals = {}
+    for p in top_products_sales + top_products_inv:
+        name = p["_id"]
+        if name not in product_totals:
+            product_totals[name] = {"qty": 0, "revenue": 0}
+        product_totals[name]["qty"] += p.get("total_qty", 0)
+        product_totals[name]["revenue"] += p.get("total_revenue", 0)
+    
+    top_products = sorted(
+        [{"name": k, "quantity": v["qty"], "revenue": v["revenue"]} for k, v in product_totals.items()],
+        key=lambda x: x["revenue"],
+        reverse=True
+    )[:5]
 
     branches = await db.branches.find({"active": True}, {"_id": 0}).to_list(100)
 
@@ -2623,7 +2673,7 @@ async def dashboard_stats(user=Depends(get_current_user), branch_id: Optional[st
         "today_expenses": today_expense_total, "total_products": total_products,
         "low_stock_count": low_stock_count, "total_customers": total_customers,
         "total_receivables": total_receivables, "recent_sales": recent_sales,
-        "top_products": [{"name": p["_id"], "quantity": p["total_qty"], "revenue": p["total_revenue"]} for p in top_products],
+        "top_products": top_products,
         "branches": branches,
     }
 

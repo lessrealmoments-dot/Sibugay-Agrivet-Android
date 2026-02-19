@@ -499,6 +499,7 @@ export default function POSPage() {
                       min="0"
                       value={item.price}
                       onChange={e => setItemPrice(item.product_id, e.target.value)}
+                      onBlur={() => validateItemPrice(item.product_id)}
                       className="w-20 h-7 text-right text-sm font-semibold border border-slate-200 rounded focus:outline-none focus:border-[#1A4D2E]"
                       data-testid={`cart-price-${item.product_id}`}
                     />

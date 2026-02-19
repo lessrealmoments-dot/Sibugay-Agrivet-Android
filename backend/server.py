@@ -1154,7 +1154,9 @@ async def generate_account_interest(customer_id: str, data: dict = {}, user=Depe
         if rate <= 0:
             continue
         
-        due_date_str = inv.get("due_date", comp_date_str)
+        due_date_str = inv.get("due_date") or inv.get("order_date") or comp_date_str
+        if not due_date_str:
+            continue
         due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
         
         # Grace period: interest starts after due_date + grace_period

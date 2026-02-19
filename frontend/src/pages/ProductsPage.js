@@ -238,7 +238,7 @@ export default function ProductsPage() {
               </div>
               <div>
                 <Label>Unit</Label>
-                <Input data-testid="product-unit-input" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Box, Bag, Bottle" />
+                <Input data-testid="product-unit-input" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Box, Bag, Bottle, Pack" />
               </div>
               <div>
                 <Label>Cost Price</Label>
@@ -257,12 +257,12 @@ export default function ProductsPage() {
                 </Select>
               </div>
               <div>
-                <Label>Unit of Measurement</Label>
-                <Input data-testid="product-uom-input" value={form.unit_of_measurement} onChange={e => setForm({ ...form, unit_of_measurement: e.target.value })} placeholder="Pack, Box, Bag, Bottle, Kg" />
-              </div>
-              <div>
                 <Label>Barcode</Label>
                 <Input value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })} placeholder="Optional" />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
               </div>
             </div>
             <div>

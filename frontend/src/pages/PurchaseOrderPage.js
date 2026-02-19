@@ -148,7 +148,7 @@ export default function PurchaseOrderPage() {
       const res = await api.post('/purchase-orders', data);
       toast.success(`PO ${res.data.po_number} created!`);
       setLines([{ ...EMPTY_LINE }]);
-      setHeader({ vendor: '', branch_id: '', purchase_date: new Date().toISOString().slice(0, 10), notes: '', status: 'ordered', payment_method: 'cash' });
+      setHeader({ vendor: '', branch_id: '', purchase_date: new Date().toISOString().slice(0, 10), notes: '', status: 'ordered', payment_method: 'cash', po_number: '' });
       fetchOrders();
       setTab('list');
     } catch (e) { toast.error(e.response?.data?.detail || 'Error creating PO'); }

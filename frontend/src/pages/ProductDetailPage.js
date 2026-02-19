@@ -1,0 +1,521 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth, api } from '../contexts/AuthContext';
+import { formatPHP } from '../lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Badge } from '../components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  ArrowLeft, Package, Tags, DollarSign, Warehouse, Info, Users, History, ShoppingCart,
+  Plus, Pencil, Trash2, Link2, AlertTriangle, TrendingDown, Save
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function ProductDetailPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { currentBranch, branches } = useAuth();
+  const [detail, setDetail] = useState(null);
+  const [movements, setMovements] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [repackDialog, setRepackDialog] = useState(false);
+  const [vendorDialog, setVendorDialog] = useState(false);
+  const [schemes, setSchemes] = useState([]);
+  const [repackForm, setRepackForm] = useState({ name: '', unit: 'Pack', units_per_parent: 1, cost_price: 0, prices: {} });
+  const [vendorForm, setVendorForm] = useState({ vendor_name: '', vendor_contact: '', last_price: 0, is_preferred: false });
+
+  const fetchDetail = useCallback(async () => {
+    try {
+      const res = await api.get(`/products/${id}/detail`);
+      setDetail(res.data);
+      setEditForm(res.data.product);
+    } catch (e) { toast.error('Failed to load product'); navigate('/products'); }
+    setLoading(false);
+  }, [id, navigate]);
+
+  const fetchMovements = useCallback(async () => {
+    try { const res = await api.get(`/products/${id}/movements`, { params: { limit: 50 } }); setMovements(res.data.movements); }
+    catch { }
+  }, [id]);
+
+  const fetchOrders = useCallback(async () => {
+    try { const res = await api.get(`/products/${id}/orders`, { params: { limit: 50 } }); setOrders(res.data.orders); }
+    catch { }
+  }, [id]);
+
+  useEffect(() => { fetchDetail(); api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, [fetchDetail]);
+
+  const handleSave = async () => {
+    try {
+      await api.put(`/products/${id}`, editForm);
+      toast.success('Product updated');
+      setEditMode(false);
+      fetchDetail();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error saving'); }
+  };
+
+  const handleRepack = async () => {
+    try {
+      await api.post(`/products/${id}/generate-repack`, repackForm);
+      toast.success('Repack generated!');
+      setRepackDialog(false);
+      fetchDetail();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+  };
+
+  const handleAddVendor = async () => {
+    try {
+      await api.post(`/products/${id}/vendors`, vendorForm);
+      toast.success('Vendor added');
+      setVendorDialog(false);
+      fetchDetail();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+  };
+
+  const removeVendor = async (vendorId) => {
+    try { await api.delete(`/products/${id}/vendors/${vendorId}`); toast.success('Removed'); fetchDetail(); }
+    catch { toast.error('Error'); }
+  };
+
+  const updatePrice = (key, val) => setEditForm({ ...editForm, prices: { ...editForm.prices, [key]: parseFloat(val) || 0 } });
+  const updateRepackPrice = (key, val) => setRepackForm({ ...repackForm, prices: { ...repackForm.prices, [key]: parseFloat(val) || 0 } });
+
+  if (loading) return <div className="flex items-center justify-center h-64 text-slate-400">Loading...</div>;
+  if (!detail) return null;
+
+  const { product, inventory, cost, repacks, vendors } = detail;
+  const branchStock = currentBranch ? (inventory.on_hand[currentBranch.id] || 0) : inventory.total;
+
+  return (
+    <div className="space-y-6 animate-fadeIn" data-testid="product-detail-page">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/products')} data-testid="back-to-products">
+            <ArrowLeft size={16} />
+          </Button>
+          <div>
+            {editMode ? (
+              <Input data-testid="edit-product-name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                className="text-2xl font-bold h-10 mb-1" style={{ fontFamily: 'Manrope' }} />
+            ) : (
+              <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>{product.name}</h1>
+            )}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-mono text-sm text-slate-500">{product.sku}</span>
+              <Badge variant="outline" className={`text-[10px] ${product.is_repack ? 'border-amber-300 text-amber-700 bg-amber-50' : 'border-emerald-300 text-emerald-700 bg-emerald-50'}`}>
+                {product.is_repack ? 'Repack' : 'Parent'}
+              </Badge>
+              <Badge variant="outline" className="text-[10px]">{product.product_type || 'stockable'}</Badge>
+              <Badge variant="outline" className="text-[10px]">{product.category}</Badge>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {editMode ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setEditMode(false); setEditForm(product); }}>Cancel</Button>
+              <Button size="sm" data-testid="save-product-detail" onClick={handleSave} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                <Save size={14} className="mr-1" /> Save
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" data-testid="edit-product-detail" onClick={() => setEditMode(true)} variant="outline">
+              <Pencil size={14} className="mr-1" /> Edit
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="border-slate-200"><CardContent className="p-4">
+          <p className="text-xs text-slate-500 uppercase font-medium mb-1">On Hand ({currentBranch?.name || 'Total'})</p>
+          <p className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>{branchStock.toFixed(2)} <span className="text-sm font-normal text-slate-400">{product.unit}</span></p>
+        </CardContent></Card>
+        <Card className="border-slate-200"><CardContent className="p-4">
+          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Coming (On Order)</p>
+          <p className="text-2xl font-bold text-blue-600" style={{ fontFamily: 'Manrope' }}>{inventory.coming}</p>
+        </CardContent></Card>
+        <Card className="border-slate-200"><CardContent className="p-4">
+          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Reserved</p>
+          <p className="text-2xl font-bold text-amber-600" style={{ fontFamily: 'Manrope' }}>{inventory.reserved}</p>
+        </CardContent></Card>
+        <Card className="border-slate-200"><CardContent className="p-4">
+          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Cost ({cost.method})</p>
+          <p className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(cost.moving_average)}</p>
+          {cost.last_purchase_warning && <p className="text-[11px] text-amber-600 flex items-center gap-1"><AlertTriangle size={10} /> Last purchase was cheaper</p>}
+        </CardContent></Card>
+      </div>
+
+      {/* Accordion Sections */}
+      <Accordion type="multiple" defaultValue={["sales", "inventory"]} className="space-y-3">
+        {/* Sales Information */}
+        <AccordionItem value="sales" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-sales">
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <Tags size={18} className="text-[#1A4D2E]" strokeWidth={1.5} /> Sales Information (Pricing Tiers)
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {schemes.map(s => (
+                <div key={s.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50">
+                  <p className="text-xs text-slate-500 font-medium mb-1">{s.name}</p>
+                  {editMode ? (
+                    <Input type="number" value={editForm.prices?.[s.key] || ''} onChange={e => updatePrice(s.key, e.target.value)}
+                      className="h-9 text-lg font-bold" data-testid={`edit-price-${s.key}`} />
+                  ) : (
+                    <p className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(product.prices?.[s.key])}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            {editMode && (
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div><Label>Category</Label><Input value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} /></div>
+                <div><Label>Type</Label>
+                  <Select value={editForm.product_type || 'stockable'} onValueChange={v => setEditForm({ ...editForm, product_type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="stockable">Stockable</SelectItem><SelectItem value="service">Service</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div><Label>Description</Label><Input value={editForm.description || ''} onChange={e => setEditForm({ ...editForm, description: e.target.value })} /></div>
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Repack Section */}
+        {!product.is_repack && (
+          <AccordionItem value="repack" className="border border-slate-200 rounded-lg bg-white">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-repack">
+              <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+                <Link2 size={18} className="text-amber-600" strokeWidth={1.5} /> Repacks ({repacks.length})
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5">
+              <Button size="sm" data-testid="create-repack-btn" onClick={() => {
+                setRepackForm({ name: `R ${product.name}`, unit: 'Pack', units_per_parent: 1, cost_price: 0, prices: {} });
+                setRepackDialog(true);
+              }} className="mb-4 bg-[#D97706] hover:bg-[#b45309] text-white">
+                <Plus size={14} className="mr-1" /> Generate Repack
+              </Button>
+              {repacks.length > 0 && (
+                <Table>
+                  <TableHeader><TableRow className="bg-slate-50">
+                    <TableHead className="text-xs uppercase text-slate-500">SKU</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Name</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Unit</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500 text-right">Per Parent</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500 text-right">Retail</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {repacks.map(r => (
+                      <TableRow key={r.id} className="cursor-pointer table-row-hover" onClick={() => navigate(`/products/${r.id}`)}>
+                        <TableCell className="font-mono text-xs">{r.sku}</TableCell>
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell>{r.unit}</TableCell>
+                        <TableCell className="text-right">{r.units_per_parent}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatPHP(r.prices?.retail)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {/* Capital / Cost */}
+        <AccordionItem value="capital" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-capital">
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <DollarSign size={18} className="text-emerald-600" strokeWidth={1.5} /> Capital / Cost
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-3 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">Method</p>
+                {editMode ? (
+                  <Select value={editForm.capital_method || 'manual'} onValueChange={v => setEditForm({ ...editForm, capital_method: v })}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="moving_average">Moving Average</SelectItem>
+                      <SelectItem value="last_purchase">Last Purchase</SelectItem>
+                      <SelectItem value="manual">Manual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="font-semibold capitalize">{(cost.method || 'manual').replace('_', ' ')}</p>
+                )}
+              </div>
+              <div className="p-3 rounded-lg border bg-emerald-50">
+                <p className="text-xs text-slate-500 mb-1">Moving Average</p>
+                <p className="text-xl font-bold text-emerald-700">{formatPHP(cost.moving_average)}</p>
+              </div>
+              <div className="p-3 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">Last Purchase</p>
+                <p className="text-xl font-bold">{formatPHP(cost.last_purchase)}</p>
+                {cost.last_purchase_warning && <p className="text-[10px] text-amber-600"><AlertTriangle size={10} className="inline" /> Cheaper than avg</p>}
+              </div>
+              <div className="p-3 rounded-lg border bg-slate-50">
+                <p className="text-xs text-slate-500 mb-1">Manual Cost</p>
+                {editMode ? (
+                  <Input type="number" value={editForm.cost_price || 0} onChange={e => setEditForm({ ...editForm, cost_price: parseFloat(e.target.value) || 0 })} className="h-9" />
+                ) : (
+                  <p className="text-xl font-bold">{formatPHP(product.cost_price)}</p>
+                )}
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Inventory */}
+        <AccordionItem value="inventory" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-inventory">
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <Warehouse size={18} className="text-blue-600" strokeWidth={1.5} /> Inventory
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Stock by Branch</h4>
+                <Table>
+                  <TableHeader><TableRow><TableHead className="text-xs">Branch</TableHead><TableHead className="text-xs text-right">On Hand</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {(detail.branches || []).map(b => (
+                      <TableRow key={b.id} className={b.id === currentBranch?.id ? 'bg-emerald-50' : ''}>
+                        <TableCell className="text-sm">{b.name} {b.id === currentBranch?.id && <Badge className="ml-1 text-[9px] bg-emerald-100 text-emerald-700">Current</Badge>}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold">{(inventory.on_hand[b.id] || 0).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="space-y-3">
+                <div className="p-3 rounded-lg border border-blue-200 bg-blue-50">
+                  <p className="text-xs text-blue-600 font-medium">Coming Inventory (On Order)</p>
+                  <p className="text-2xl font-bold text-blue-800">{inventory.coming} <span className="text-sm font-normal">{product.unit}</span></p>
+                  <p className="text-[11px] text-blue-500">From pending purchase orders</p>
+                </div>
+                <div className="p-3 rounded-lg border border-amber-200 bg-amber-50">
+                  <p className="text-xs text-amber-600 font-medium">Reserved (Pending Delivery)</p>
+                  <p className="text-2xl font-bold text-amber-800">{inventory.reserved} <span className="text-sm font-normal">{product.unit}</span></p>
+                  <p className="text-[11px] text-amber-500">From sales not yet released</p>
+                </div>
+                <div className="p-3 rounded-lg border border-slate-200">
+                  <p className="text-xs text-slate-500 font-medium">Available (On Hand - Reserved)</p>
+                  <p className="text-2xl font-bold">{Math.max(0, inventory.total - inventory.reserved).toFixed(2)} <span className="text-sm font-normal">{product.unit}</span></p>
+                </div>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Extra Info */}
+        <AccordionItem value="extra" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-extra">
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <Info size={18} className="text-slate-500" strokeWidth={1.5} /> Extra Information
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[
+                { label: 'Barcode', key: 'barcode', placeholder: 'Scan or enter' },
+                { label: 'Reorder Point', key: 'reorder_point', type: 'number' },
+                { label: 'Reorder Quantity', key: 'reorder_quantity', type: 'number' },
+                { label: 'Last Vendor', key: 'last_vendor' },
+                { label: 'Unit of Measurement', key: 'unit_of_measurement', placeholder: 'Pack, Box, Bag...' },
+              ].map(f => (
+                <div key={f.key}>
+                  <Label className="text-xs text-slate-500">{f.label}</Label>
+                  {editMode ? (
+                    <Input type={f.type || 'text'} value={editForm[f.key] || ''} placeholder={f.placeholder}
+                      onChange={e => setEditForm({ ...editForm, [f.key]: f.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value })} className="h-9" />
+                  ) : (
+                    <p className="font-medium text-sm mt-1">{product[f.key] || '—'}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Product Vendors */}
+        <AccordionItem value="vendors" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-vendors">
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <Users size={18} className="text-violet-600" strokeWidth={1.5} /> Product Vendors ({vendors.length})
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <Button size="sm" onClick={() => { setVendorForm({ vendor_name: '', vendor_contact: '', last_price: 0, is_preferred: false }); setVendorDialog(true); }}
+              className="mb-3 bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid="add-vendor-btn">
+              <Plus size={14} className="mr-1" /> Add Vendor
+            </Button>
+            {vendors.length > 0 ? (
+              <Table>
+                <TableHeader><TableRow className="bg-slate-50">
+                  <TableHead className="text-xs uppercase text-slate-500">Vendor</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Contact</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Last Price</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Last Order</TableHead>
+                  <TableHead className="w-16"></TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {vendors.map(v => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-medium">{v.vendor_name} {v.is_preferred && <Badge className="ml-1 text-[9px] bg-emerald-100 text-emerald-700">Preferred</Badge>}</TableCell>
+                      <TableCell className="text-sm text-slate-500">{v.vendor_contact || '—'}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPHP(v.last_price)}</TableCell>
+                      <TableCell className="text-sm text-slate-500">{v.last_order_date || '—'}</TableCell>
+                      <TableCell><Button variant="ghost" size="sm" onClick={() => removeVendor(v.id)} className="text-red-500"><Trash2 size={12} /></Button></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : <p className="text-sm text-slate-400">No vendors added yet</p>}
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Movement History */}
+        <AccordionItem value="movements" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-movements" onClick={() => { if (!movements.length) fetchMovements(); }}>
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <History size={18} className="text-slate-500" strokeWidth={1.5} /> Movement History
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            {movements.length > 0 ? (
+              <Table>
+                <TableHeader><TableRow className="bg-slate-50">
+                  <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Type</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Ref</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Qty</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Price</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">By</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Notes</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {movements.map(m => (
+                    <TableRow key={m.id}>
+                      <TableCell className="text-xs">{new Date(m.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell><Badge className={`text-[10px] ${m.type === 'sale' ? 'bg-red-100 text-red-700' : m.type === 'purchase' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>{m.type}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs">{m.reference_number}</TableCell>
+                      <TableCell className={`text-right font-semibold ${m.quantity_change < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{m.quantity_change > 0 ? '+' : ''}{m.quantity_change}</TableCell>
+                      <TableCell className="text-right">{formatPHP(m.price_at_time)}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{m.user_name}</TableCell>
+                      <TableCell className="text-xs text-slate-400">{m.notes}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : <p className="text-sm text-slate-400">No movement history. Click to load.</p>}
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Order History */}
+        <AccordionItem value="orders" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-orders" onClick={() => { if (!orders.length) fetchOrders(); }}>
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <ShoppingCart size={18} className="text-blue-500" strokeWidth={1.5} /> Order History
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            {orders.length > 0 ? (
+              <Table>
+                <TableHeader><TableRow className="bg-slate-50">
+                  <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Type</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Reference</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Party</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Qty</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Price</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Total</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {orders.map((o, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs">{new Date(o.date).toLocaleDateString()}</TableCell>
+                      <TableCell><Badge className={`text-[10px] ${o.type === 'sale' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>{o.type}</Badge></TableCell>
+                      <TableCell className="font-mono text-xs">{o.reference}</TableCell>
+                      <TableCell className="text-sm">{o.party}</TableCell>
+                      <TableCell className="text-right">{o.quantity}</TableCell>
+                      <TableCell className="text-right">{formatPHP(o.price)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPHP(o.total)}</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px]">{o.status}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : <p className="text-sm text-slate-400">No order history. Click to load.</p>}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+      {/* Repack Dialog */}
+      <Dialog open={repackDialog} onOpenChange={setRepackDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Generate Repack</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-sm">
+              <p className="font-semibold text-emerald-800">Parent: {product.name}</p>
+              <p className="text-emerald-600 text-xs">SKU: {product.sku} | Unit: {product.unit}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Repack Name</Label><Input data-testid="repack-name" value={repackForm.name} onChange={e => setRepackForm({ ...repackForm, name: e.target.value })} /></div>
+              <div><Label>Unit</Label><Input data-testid="repack-unit" value={repackForm.unit} onChange={e => setRepackForm({ ...repackForm, unit: e.target.value })} placeholder="Pack, Sachet, Piece" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div><Label>Units per {product.unit}</Label><Input data-testid="repack-per-parent" type="number" value={repackForm.units_per_parent} onChange={e => setRepackForm({ ...repackForm, units_per_parent: parseInt(e.target.value) || 1 })} min={1} /></div>
+              <div><Label>Cost per {repackForm.unit || 'unit'}</Label><Input type="number" value={repackForm.cost_price} onChange={e => setRepackForm({ ...repackForm, cost_price: parseFloat(e.target.value) || 0 })} /></div>
+            </div>
+            <div><Label className="font-semibold">Prices</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                {schemes.map(s => (
+                  <div key={s.id}><Label className="text-xs text-slate-500">{s.name}</Label>
+                    <Input type="number" value={repackForm.prices[s.key] || ''} onChange={e => updateRepackPrice(s.key, e.target.value)} placeholder="0.00" /></div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRepackDialog(false)}>Cancel</Button>
+              <Button data-testid="generate-repack-confirm" onClick={handleRepack} className="bg-[#D97706] hover:bg-[#b45309] text-white"><Link2 size={14} className="mr-1" /> Generate</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vendor Dialog */}
+      <Dialog open={vendorDialog} onOpenChange={setVendorDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Add Vendor</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div><Label>Vendor Name</Label><Input data-testid="vendor-name" value={vendorForm.vendor_name} onChange={e => setVendorForm({ ...vendorForm, vendor_name: e.target.value })} /></div>
+            <div><Label>Contact</Label><Input value={vendorForm.vendor_contact} onChange={e => setVendorForm({ ...vendorForm, vendor_contact: e.target.value })} /></div>
+            <div><Label>Last Price</Label><Input type="number" value={vendorForm.last_price} onChange={e => setVendorForm({ ...vendorForm, last_price: parseFloat(e.target.value) || 0 })} /></div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setVendorDialog(false)}>Cancel</Button>
+              <Button data-testid="save-vendor" onClick={handleAddVendor} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

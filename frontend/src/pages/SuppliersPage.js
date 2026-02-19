@@ -165,6 +165,9 @@ export default function SuppliersPage() {
         {/* Vendor List Panel */}
         <Card className="border-slate-200 lg:col-span-1">
           <CardContent className="p-4 space-y-3">
+            <Button onClick={openNewSupplier} className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid="new-supplier-btn">
+              <Plus size={14} className="mr-2" /> New Supplier
+            </Button>
             <div className="relative">
               <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <Input
@@ -176,7 +179,7 @@ export default function SuppliersPage() {
               />
             </div>
             <Separator />
-            <div className="max-h-[calc(100vh-280px)] overflow-y-auto space-y-0.5">
+            <div className="max-h-[calc(100vh-320px)] overflow-y-auto space-y-0.5">
               {loading ? (
                 <p className="text-xs text-slate-400 text-center py-4">Loading...</p>
               ) : filteredVendors.length === 0 ? (

@@ -108,6 +108,21 @@ export default function ProductsPage() {
     } catch { toast.error('Failed to delete'); }
   };
 
+  const handleBulkDelete = async () => {
+    if (!selected.size) return;
+    if (!window.confirm(`Delete ${selected.size} product(s)? This will also deactivate their linked repacks.`)) return;
+    let deleted = 0;
+    for (const id of selected) {
+      try { await api.delete(`/products/${id}`); deleted++; } catch {}
+    }
+    toast.success(`${deleted} product(s) deleted`);
+    setSelected(new Set());
+    fetchProducts();
+  };
+
+  const toggleSelect = (id) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  const toggleAll = () => { if (selected.size === products.length) { setSelected(new Set()); } else { setSelected(new Set(products.map(p => p.id))); } };
+
   const updatePrice = (key, val) => setForm({ ...form, prices: { ...form.prices, [key]: parseFloat(val) || 0 } });
   const updateRepackPrice = (key, val) => setRepackForm({ ...repackForm, prices: { ...repackForm.prices, [key]: parseFloat(val) || 0 } });
 

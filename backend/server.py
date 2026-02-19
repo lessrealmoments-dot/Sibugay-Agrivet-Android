@@ -871,7 +871,22 @@ async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
                                            "quantity": qty, "updated_at": now_iso()})
         await log_movement(pid, branch_id, "purchase", qty, po["id"], po["po_number"],
                            price, user["id"], user.get("full_name", user["username"]), f"PO received from {po['vendor']}")
-        await db.products.update_one({"id": pid}, {"$set": {"last_vendor": po["vendor"]}})
+        # Update product cost: Last Purchase + Moving Average
+        product_update = {"last_vendor": po["vendor"], "cost_price": price}
+        # Recalculate moving average from all purchase movements
+        all_purchases = await db.movements.find(
+            {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
+        ).to_list(10000)
+        total_pqty = sum(m["quantity_change"] for m in all_purchases)
+        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
+        if total_pqty > 0:
+            product_update["moving_average_cost"] = round(total_pcost / total_pqty, 2)
+        await db.products.update_one({"id": pid}, {"$set": product_update})
+        # Update vendor last_price
+        await db.product_vendors.update_many(
+            {"product_id": pid, "vendor_name": po["vendor"]},
+            {"$set": {"last_price": price, "last_order_date": now_iso()[:10]}}
+        )
     await db.purchase_orders.update_one({"id": po_id}, {"$set": {"status": "received", "received_date": now_iso()}})
     return {"message": "PO received, inventory updated"}
 

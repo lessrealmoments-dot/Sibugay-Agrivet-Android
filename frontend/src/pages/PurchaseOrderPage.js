@@ -132,20 +132,16 @@ export default function PurchaseOrderPage() {
 
   const openPay = (po) => {
     setSelectedPO(po);
-    setPayForm({ wallet_id: '', amount: po.subtotal, reference: '', description: `Payment for ${po.po_number} - ${po.vendor}` });
+    setPayForm({ amount: po.balance || po.subtotal, reference: '' });
     setPayDialog(true);
   };
 
   const handlePay = async () => {
-    if (!payForm.wallet_id) { toast.error('Select fund source'); return; }
     try {
-      await api.post('/fund-wallets/pay', {
-        wallet_id: payForm.wallet_id, amount: payForm.amount,
-        reference: payForm.reference, reference_id: selectedPO?.id,
-        description: payForm.description,
-      });
-      toast.success('Payment processed!');
+      await api.post(`/purchase-orders/${selectedPO.id}/pay`, { amount: payForm.amount, reference: payForm.reference });
+      toast.success('Payment recorded! Deducted from Cashier Drawer.');
       setPayDialog(false);
+      fetchOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Payment failed'); }
   };
 

@@ -1,0 +1,333 @@
+import { useState, useEffect, useCallback } from 'react';
+import { api } from '../contexts/AuthContext';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Badge } from '../components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Package, Plus, Pencil, Trash2, Search, Link2, ChevronRight } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [page, setPage] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [repackDialog, setRepackDialog] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [selectedParent, setSelectedParent] = useState(null);
+  const [schemes, setSchemes] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const LIMIT = 20;
+
+  const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '' });
+  const [repackForm, setRepackForm] = useState({ name: '', unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const params = { skip: page * LIMIT, limit: LIMIT };
+      if (search) params.search = search;
+      if (filter === 'parent') params.is_repack = false;
+      if (filter === 'repack') params.is_repack = true;
+      const res = await api.get('/products', { params });
+      setProducts(res.data.products);
+      setTotal(res.data.total);
+    } catch { toast.error('Failed to load products'); }
+  }, [search, filter, page]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => {
+    api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
+    api.get('/products/categories/list').then(r => setCategories(r.data)).catch(() => {});
+  }, []);
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '' });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (p) => {
+    setEditing(p);
+    setForm({ sku: p.sku, name: p.name, category: p.category, unit: p.unit, cost_price: p.cost_price, prices: p.prices || {}, barcode: p.barcode || '', description: p.description || '' });
+    setDialogOpen(true);
+  };
+
+  const openRepack = (p) => {
+    setSelectedParent(p);
+    setRepackForm({ name: `R ${p.name}`, unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
+    setRepackDialog(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      if (editing) {
+        await api.put(`/products/${editing.id}`, form);
+        toast.success('Product updated');
+      } else {
+        await api.post('/products', form);
+        toast.success('Product created');
+      }
+      setDialogOpen(false);
+      fetchProducts();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error saving product'); }
+  };
+
+  const handleRepack = async () => {
+    try {
+      await api.post(`/products/${selectedParent.id}/generate-repack`, repackForm);
+      toast.success('Repack SKU generated!');
+      setRepackDialog(false);
+      fetchProducts();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error generating repack'); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this product? This will also deactivate linked repacks.')) return;
+    try {
+      await api.delete(`/products/${id}`);
+      toast.success('Product deleted');
+      fetchProducts();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  const updatePrice = (key, val) => setForm({ ...form, prices: { ...form.prices, [key]: parseFloat(val) || 0 } });
+  const updateRepackPrice = (key, val) => setRepackForm({ ...repackForm, prices: { ...repackForm.prices, [key]: parseFloat(val) || 0 } });
+
+  const totalPages = Math.ceil(total / LIMIT);
+
+  return (
+    <div className="space-y-6 animate-fadeIn" data-testid="products-page">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Products</h1>
+          <p className="text-sm text-slate-500 mt-1">{total} products &middot; Parent & Repack management</p>
+        </div>
+        <Button data-testid="create-product-btn" onClick={openCreate} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+          <Plus size={16} className="mr-2" /> Add Product
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input
+            data-testid="product-search"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            placeholder="Search SKU or name..."
+            className="pl-9 h-10"
+          />
+        </div>
+        <Select value={filter} onValueChange={v => { setFilter(v); setPage(0); }}>
+          <SelectTrigger data-testid="product-filter" className="w-[160px] h-10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Products</SelectItem>
+            <SelectItem value="parent">Parent Only</SelectItem>
+            <SelectItem value="repack">Repacks Only</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Products Table */}
+      <Card className="border-slate-200">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">SKU</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Product Name</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Category</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Unit</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Cost</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Type</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-32">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map(p => (
+                <TableRow key={p.id} className="table-row-hover">
+                  <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {p.is_repack && <span className="w-4 border-l-2 border-b-2 border-slate-300 h-3 inline-block" />}
+                      <span className="font-medium">{p.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-slate-500">{p.category}</TableCell>
+                  <TableCell>{p.unit}</TableCell>
+                  <TableCell className="text-right font-mono">{p.cost_price?.toFixed(2)}</TableCell>
+                  <TableCell>
+                    {p.is_repack ? (
+                      <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">Repack</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] border-emerald-300 text-emerald-700 bg-emerald-50">Parent</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {!p.is_repack && (
+                        <Button variant="ghost" size="sm" data-testid={`repack-btn-${p.id}`} onClick={() => openRepack(p)} title="Generate Repack">
+                          <Link2 size={14} className="text-amber-600" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" data-testid={`edit-product-${p.id}`} onClick={() => openEdit(p)}>
+                        <Pencil size={14} />
+                      </Button>
+                      <Button variant="ghost" size="sm" data-testid={`delete-product-${p.id}`} onClick={() => handleDelete(p.id)} className="text-red-500">
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!products.length && (
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">No products found</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-slate-500">Showing {page * LIMIT + 1}-{Math.min((page + 1) * LIMIT, total)} of {total}</p>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Prev</Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Product Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>{editing ? 'Edit Product' : 'New Product'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>SKU</Label>
+                <Input data-testid="product-sku-input" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="e.g. LAN-250G" disabled={!!editing} />
+              </div>
+              <div>
+                <Label>Product Name</Label>
+                <Input data-testid="product-name-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Lannate 250g" />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Category</Label>
+                <Input data-testid="product-category-input" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Pesticides" />
+              </div>
+              <div>
+                <Label>Unit</Label>
+                <Input data-testid="product-unit-input" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Box, Bag, Bottle" />
+              </div>
+              <div>
+                <Label>Cost Price</Label>
+                <Input data-testid="product-cost-input" type="number" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: parseFloat(e.target.value) || 0 })} />
+              </div>
+            </div>
+            <div>
+              <Label>Barcode</Label>
+              <Input value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })} placeholder="Optional barcode" />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold">Price Schemes</Label>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                {schemes.map(s => (
+                  <div key={s.id}>
+                    <Label className="text-xs text-slate-500">{s.name}</Label>
+                    <Input
+                      data-testid={`price-${s.key}`}
+                      type="number"
+                      value={form.prices[s.key] || ''}
+                      onChange={e => updatePrice(s.key, e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button data-testid="save-product-btn" onClick={handleSave} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save Product</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Repack Dialog */}
+      <Dialog open={repackDialog} onOpenChange={setRepackDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Generate Repack SKU</DialogTitle>
+          </DialogHeader>
+          {selectedParent && (
+            <div className="space-y-4 mt-2">
+              <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-sm">
+                <p className="font-semibold text-emerald-800">Parent: {selectedParent.name}</p>
+                <p className="text-emerald-600 text-xs">SKU: {selectedParent.sku} &middot; Unit: {selectedParent.unit}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Repack Name</Label>
+                  <Input data-testid="repack-name-input" value={repackForm.name} onChange={e => setRepackForm({ ...repackForm, name: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Unit</Label>
+                  <Input data-testid="repack-unit-input" value={repackForm.unit} onChange={e => setRepackForm({ ...repackForm, unit: e.target.value })} placeholder="Sachet, Pack, Piece" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Units per Parent ({selectedParent.unit})</Label>
+                  <Input
+                    data-testid="repack-units-per-parent"
+                    type="number"
+                    value={repackForm.units_per_parent}
+                    onChange={e => setRepackForm({ ...repackForm, units_per_parent: parseInt(e.target.value) || 1 })}
+                    min={1}
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">How many {repackForm.unit || 'pieces'} inside 1 {selectedParent.unit}?</p>
+                </div>
+                <div>
+                  <Label>Cost Price per {repackForm.unit || 'unit'}</Label>
+                  <Input data-testid="repack-cost-input" type="number" value={repackForm.cost_price} onChange={e => setRepackForm({ ...repackForm, cost_price: parseFloat(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-semibold">Repack Prices</Label>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  {schemes.map(s => (
+                    <div key={s.id}>
+                      <Label className="text-xs text-slate-500">{s.name}</Label>
+                      <Input type="number" value={repackForm.prices[s.key] || ''} onChange={e => updateRepackPrice(s.key, e.target.value)} placeholder="0.00" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setRepackDialog(false)}>Cancel</Button>
+                <Button data-testid="generate-repack-btn" onClick={handleRepack} className="bg-[#D97706] hover:bg-[#b45309] text-white">
+                  <Link2 size={16} className="mr-2" /> Generate Repack
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

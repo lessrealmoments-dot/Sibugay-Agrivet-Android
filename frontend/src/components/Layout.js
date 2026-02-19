@@ -1,0 +1,169 @@
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { Button } from './ui/button';
+import { ScrollArea } from './ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { Separator } from './ui/separator';
+import {
+  LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
+  Users, Tags, Receipt, Calculator, Settings, Menu, X,
+  ChevronDown, LogOut, User, Store
+} from 'lucide-react';
+
+const NAV_ITEMS = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null },
+  { path: '/branches', label: 'Branches', icon: Building2, perm: 'branches.view' },
+  { path: '/products', label: 'Products', icon: Package, perm: 'products.view' },
+  { path: '/inventory', label: 'Inventory', icon: Warehouse, perm: 'inventory.view' },
+  { path: '/pos', label: 'POS Terminal', icon: ShoppingCart, perm: 'pos.view' },
+  { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },
+  { path: '/price-schemes', label: 'Price Schemes', icon: Tags, perm: 'price_schemes.view' },
+  { path: '/sales', label: 'Sales History', icon: Receipt, perm: 'reports.view' },
+  { path: '/accounting', label: 'Accounting', icon: Calculator, perm: 'accounting.view' },
+  { path: '/settings', label: 'Settings', icon: Settings, perm: 'settings.view' },
+];
+
+export default function Layout({ children }) {
+  const { user, logout, currentBranch, branches, switchBranch, hasPerm } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const filteredNav = NAV_ITEMS.filter(item => {
+    if (!item.perm) return true;
+    const [mod, act] = item.perm.split('.');
+    return hasPerm(mod, act);
+  });
+
+  const NavLink = ({ item }) => {
+    const active = location.pathname === item.path;
+    return (
+      <Link
+        to={item.path}
+        data-testid={`nav-${item.path.slice(1)}`}
+        onClick={() => setSidebarOpen(false)}
+        className={`flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+          active
+            ? 'bg-[#1A4D2E] text-white shadow-sm'
+            : 'text-slate-400 hover:text-white hover:bg-white/5'
+        }`}
+      >
+        <item.icon size={18} strokeWidth={1.5} />
+        <span>{item.label}</span>
+      </Link>
+    );
+  };
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="px-5 py-5 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-[#1A4D2E] flex items-center justify-center">
+          <Store size={18} className="text-white" strokeWidth={2} />
+        </div>
+        <div>
+          <h1 className="text-base font-bold text-white tracking-tight" style={{ fontFamily: 'Manrope' }}>AgriPOS</h1>
+          <p className="text-[11px] text-slate-500">Inventory & POS</p>
+        </div>
+      </div>
+      <Separator className="bg-white/5" />
+      <div className="px-3 py-3">
+        <Select
+          value={currentBranch?.id || ''}
+          onValueChange={(val) => {
+            const b = branches.find(br => br.id === val);
+            if (b) switchBranch(b);
+          }}
+        >
+          <SelectTrigger
+            data-testid="branch-selector"
+            className="bg-white/5 border-white/10 text-white text-xs h-9"
+          >
+            <SelectValue placeholder="Select Branch" />
+          </SelectTrigger>
+          <SelectContent>
+            {branches.map(b => (
+              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <ScrollArea className="flex-1 px-3">
+        <nav className="space-y-1 py-2">
+          {filteredNav.map(item => <NavLink key={item.path} item={item} />)}
+        </nav>
+      </ScrollArea>
+      <Separator className="bg-white/5" />
+      <div className="p-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              data-testid="user-menu-trigger"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-white/5 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-[#1A4D2E] flex items-center justify-center text-white text-xs font-bold">
+                {user?.full_name?.[0] || user?.username?.[0] || 'U'}
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm text-white font-medium truncate">{user?.full_name || user?.username}</p>
+                <p className="text-[11px] text-slate-500 capitalize">{user?.role}</p>
+              </div>
+              <ChevronDown size={14} className="text-slate-500" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <User size={14} className="mr-2" /> Profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem data-testid="logout-btn" onClick={logout} className="text-red-600">
+              <LogOut size={14} className="mr-2" /> Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex w-[250px] flex-col bg-[#0F172A] sidebar-texture shrink-0">
+        <SidebarContent />
+      </aside>
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-[250px] bg-[#0F172A] sidebar-texture">
+            <button onClick={() => setSidebarOpen(false)} className="absolute top-4 right-4 text-white">
+              <X size={20} />
+            </button>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col overflow-hidden bg-[#F5F5F0]">
+        <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 lg:px-6 shrink-0">
+          <div className="flex items-center gap-3">
+            <button data-testid="mobile-menu-btn" onClick={() => setSidebarOpen(true)} className="lg:hidden p-1">
+              <Menu size={20} />
+            </button>
+            <h2 className="text-sm font-semibold text-slate-700" style={{ fontFamily: 'Manrope' }}>
+              {currentBranch?.name || 'AgriPOS'}
+            </h2>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="hidden sm:inline">{user?.full_name || user?.username}</span>
+            <span className="capitalize bg-slate-100 px-2 py-0.5 rounded text-[11px]">{user?.role}</span>
+          </div>
+        </header>
+        <div className="flex-1 overflow-auto p-4 lg:p-6">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}

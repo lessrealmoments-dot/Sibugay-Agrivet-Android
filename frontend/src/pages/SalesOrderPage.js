@@ -300,7 +300,7 @@ export default function SalesOrderPage() {
                         <button onClick={() => updateLine(i, 'product_id', '')} className="text-slate-400 hover:text-red-500 text-xs">&times;</button>
                       </div>
                     ) : (
-                      <SmartProductSearch branchId={currentBranch?.id} onSelect={(p) => handleProductSelect(i, p)} />
+                      <SmartProductSearch branchId={currentBranch?.id} onSelect={(p) => handleProductSelect(i, p)} onCreateNew={handleCreateNewProduct} />
                     )}
                   </td>
                   <td className="px-2 py-1"><input className="w-full h-8 px-2 text-sm border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded" value={line.description} onChange={e => updateLine(i, 'description', e.target.value)} /></td>

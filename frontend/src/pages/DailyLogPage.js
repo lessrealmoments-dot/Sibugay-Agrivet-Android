@@ -287,12 +287,14 @@ export default function DailyLogPage() {
               {report && (
                 <div className="grid md:grid-cols-3 gap-4 text-sm">
                   <Card className="border-slate-200"><CardContent className="p-4">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Total Sales</p>
-                    <p className="text-xl font-bold text-emerald-600">{formatPHP(report.total_revenue)}</p>
+                    <p className="text-xs text-slate-500 uppercase mb-1">New Sales Today</p>
+                    <p className="text-xl font-bold text-emerald-600">{formatPHP(report.new_sales_today)}</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Revenue from products sold today</p>
                   </CardContent></Card>
                   <Card className="border-slate-200"><CardContent className="p-4">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Total Payments Received</p>
-                    <p className="text-xl font-bold text-blue-600">{formatPHP(report.total_payments)}</p>
+                    <p className="text-xs text-slate-500 uppercase mb-1">Credit Collections Today</p>
+                    <p className="text-xl font-bold text-blue-600">{formatPHP(report.total_credit_collections)}</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Payments on old credit (not new revenue)</p>
                   </CardContent></Card>
                   <Card className="border-slate-200"><CardContent className="p-4">
                     <p className="text-xs text-slate-500 uppercase mb-1">Total Expenses</p>

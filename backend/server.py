@@ -1580,7 +1580,7 @@ async def get_daily_report(date: str, branch_id: Optional[str] = None, user=Depe
     if branch_id: exp_query["branch_id"] = branch_id
     expenses = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
     total_expenses = sum(e.get("amount", 0) for e in expenses)
-    # Payments received today
+    # Credit collections (payments on existing receivables) - NOT new revenue
     pay_pipeline = [
         {"$match": {"status": {"$ne": "voided"}}},
         {"$unwind": "$payments"},
@@ -1589,14 +1589,14 @@ async def get_daily_report(date: str, branch_id: Optional[str] = None, user=Depe
     if branch_id: pay_pipeline[0]["$match"]["branch_id"] = branch_id
     pay_pipeline.append({"$project": {"_id": 0, "invoice_number": 1, "customer_name": 1, "payment": "$payments"}})
     payments_today = await db.invoices.aggregate(pay_pipeline).to_list(500)
-    total_payments = sum(p["payment"]["amount"] for p in payments_today)
+    total_credit_collections = sum(p["payment"]["amount"] for p in payments_today)
     gross_profit = round(total_revenue - total_cogs, 2)
     net_profit = round(gross_profit - total_expenses, 2)
     return {
-        "date": date, "total_revenue": total_revenue, "total_cogs": total_cogs,
+        "date": date, "new_sales_today": total_revenue, "total_cogs": total_cogs,
         "gross_profit": gross_profit, "total_expenses": total_expenses, "net_profit": net_profit,
         "sales_by_category": sales_by_category, "expenses": expenses,
-        "payments_today": payments_today, "total_payments": total_payments,
+        "credit_collections": payments_today, "total_credit_collections": total_credit_collections,
         "transaction_count": len(log_entries),
     }
 

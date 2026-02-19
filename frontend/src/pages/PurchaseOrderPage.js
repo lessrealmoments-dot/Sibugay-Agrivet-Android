@@ -34,10 +34,14 @@ export default function PurchaseOrderPage() {
   const [payForm, setPayForm] = useState({ wallet_id: '', amount: 0, reference: '', description: '' });
   const [detailDialog, setDetailDialog] = useState(false);
   const [detailPO, setDetailPO] = useState(null);
+  const [createProductDialog, setCreateProductDialog] = useState(false);
+  const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
+  const [schemes, setSchemes] = useState([]);
   const qtyRefs = useRef([]);
 
   useEffect(() => {
     api.get('/settings/invoice-prefixes').then(r => setPrefixes(r.data)).catch(() => {});
+    api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
     fetchOrders();
     if (currentBranch) {
       api.get('/fund-wallets', { params: { branch_id: currentBranch.id } }).then(r => setWallets(r.data)).catch(() => {});

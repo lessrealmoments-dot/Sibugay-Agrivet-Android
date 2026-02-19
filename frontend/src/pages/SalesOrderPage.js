@@ -77,7 +77,40 @@ export default function SalesOrderPage() {
       setHeader(h => ({ ...h, customer_id: c.id, customer_name: c.name,
         customer_contact: c.phone || '', customer_phone: c.phone || '', customer_address: c.address || '',
         interest_rate: c.interest_rate || 0 }));
+      setCustSearch(c.name);
+      setIsNewCustomer(false);
+      setCustDropdownOpen(false);
     }
+  };
+
+  const handleCustInput = (val) => {
+    setCustSearch(val);
+    setCustDropdownOpen(val.length > 0);
+    setHeader(h => ({ ...h, customer_id: '', customer_name: val }));
+    const match = customers.find(c => c.name.toLowerCase() === val.toLowerCase());
+    if (match) {
+      selectCustomer(match.id);
+    } else {
+      setIsNewCustomer(val.length > 0);
+    }
+  };
+
+  const filteredCusts = custSearch ? customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).slice(0, 8) : [];
+
+  const openSaveCustomer = () => {
+    setNewCustForm({ name: header.customer_name, phone: header.customer_phone, address: header.customer_address, price_scheme: 'retail', interest_rate: 0 });
+    setSaveCustomerDialog(true);
+  };
+
+  const handleSaveCustomer = async () => {
+    try {
+      const res = await api.post('/customers', newCustForm);
+      toast.success(`Customer "${res.data.name}" saved!`);
+      setSaveCustomerDialog(false);
+      setCustomers(prev => [...prev, res.data]);
+      setHeader(h => ({ ...h, customer_id: res.data.id, customer_name: res.data.name }));
+      setIsNewCustomer(false);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error saving customer'); }
   };
 
   const selectTerm = (label) => {

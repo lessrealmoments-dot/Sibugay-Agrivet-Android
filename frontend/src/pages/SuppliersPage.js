@@ -1,0 +1,390 @@
+import { useState, useEffect } from 'react';
+import { api } from '../contexts/AuthContext';
+import { formatPHP } from '../lib/utils';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Search, Truck, FileText, DollarSign, ArrowRight, Clock, CheckCircle, AlertCircle, History } from 'lucide-react';
+import { toast } from 'sonner';
+
+export default function SuppliersPage() {
+  const [vendors, setVendors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [vendorPOs, setVendorPOs] = useState([]);
+  const [vendorStats, setVendorStats] = useState(null);
+  const [detailPO, setDetailPO] = useState(null);
+  const [detailDialog, setDetailDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  const fetchVendors = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/purchase-orders/vendors');
+      setVendors(res.data);
+    } catch (e) {
+      toast.error('Failed to load suppliers');
+    }
+    setLoading(false);
+  };
+
+  const selectVendor = async (vendor) => {
+    setSelectedVendor(vendor);
+    try {
+      const res = await api.get('/purchase-orders/by-vendor', { params: { vendor } });
+      setVendorPOs(res.data);
+      
+      // Calculate stats
+      const stats = {
+        totalPOs: res.data.length,
+        totalPurchased: res.data.reduce((sum, po) => sum + (po.subtotal || 0), 0),
+        totalPaid: res.data.reduce((sum, po) => sum + (po.amount_paid || 0), 0),
+        pendingPayment: res.data.reduce((sum, po) => sum + (po.balance || (po.payment_status !== 'paid' ? po.subtotal : 0) || 0), 0),
+        unpaidPOs: res.data.filter(po => po.payment_status !== 'paid').length,
+        receivedPOs: res.data.filter(po => po.status === 'received').length,
+        orderedPOs: res.data.filter(po => po.status === 'ordered').length,
+      };
+      setVendorStats(stats);
+    } catch {
+      setVendorPOs([]);
+      setVendorStats(null);
+    }
+  };
+
+  const filteredVendors = search
+    ? vendors.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+    : vendors;
+
+  const filteredPOs = activeTab === 'all'
+    ? vendorPOs
+    : activeTab === 'unpaid'
+    ? vendorPOs.filter(po => po.payment_status !== 'paid')
+    : activeTab === 'pending'
+    ? vendorPOs.filter(po => po.status === 'ordered')
+    : vendorPOs;
+
+  const statusColor = (s) => {
+    if (s === 'received') return 'bg-emerald-100 text-emerald-700';
+    if (s === 'ordered') return 'bg-blue-100 text-blue-700';
+    if (s === 'cancelled') return 'bg-red-100 text-red-700';
+    return 'bg-slate-100 text-slate-700';
+  };
+
+  const paymentColor = (s) => {
+    if (s === 'paid') return 'bg-emerald-100 text-emerald-700';
+    if (s === 'partial') return 'bg-amber-100 text-amber-700';
+    return 'bg-red-100 text-red-700';
+  };
+
+  return (
+    <div className="space-y-5 animate-fadeIn" data-testid="suppliers-page">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Suppliers</h1>
+        <p className="text-sm text-slate-500">View supplier list, purchase history, and payment status</p>
+      </div>
+
+      <div className="grid lg:grid-cols-4 gap-5">
+        {/* Vendor List Panel */}
+        <Card className="border-slate-200 lg:col-span-1">
+          <CardContent className="p-4 space-y-3">
+            <div className="relative">
+              <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search suppliers..."
+                className="pl-8 h-9"
+                data-testid="supplier-search"
+              />
+            </div>
+            <Separator />
+            <div className="max-h-[calc(100vh-280px)] overflow-y-auto space-y-0.5">
+              {loading ? (
+                <p className="text-xs text-slate-400 text-center py-4">Loading...</p>
+              ) : filteredVendors.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-4">No suppliers found</p>
+              ) : (
+                filteredVendors.map(v => (
+                  <button
+                    key={v}
+                    onClick={() => selectVendor(v)}
+                    data-testid={`supplier-item-${v}`}
+                    className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-all ${
+                      selectedVendor === v
+                        ? 'bg-[#1A4D2E]/10 border-l-3 border-l-[#1A4D2E] font-semibold text-[#1A4D2E]'
+                        : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Truck size={14} className={selectedVendor === v ? 'text-[#1A4D2E]' : 'text-slate-400'} />
+                      {v}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Vendor Details Panel */}
+        <div className="lg:col-span-3 space-y-4">
+          {selectedVendor ? (
+            <>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="border-slate-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+                      <FileText size={12} />
+                      Total POs
+                    </div>
+                    <p className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>{vendorStats?.totalPOs || 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+                      <DollarSign size={12} />
+                      Total Purchased
+                    </div>
+                    <p className="text-2xl font-bold text-[#1A4D2E]" style={{ fontFamily: 'Manrope' }}>{formatPHP(vendorStats?.totalPurchased || 0)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+                      <CheckCircle size={12} />
+                      Total Paid
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-600" style={{ fontFamily: 'Manrope' }}>{formatPHP(vendorStats?.totalPaid || 0)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-slate-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-slate-500 text-xs mb-1">
+                      <AlertCircle size={12} />
+                      Pending Payment
+                    </div>
+                    <p className="text-2xl font-bold text-red-600" style={{ fontFamily: 'Manrope' }}>{formatPHP(vendorStats?.pendingPayment || 0)}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* PO List with Tabs */}
+              <Card className="border-slate-200">
+                <CardContent className="p-0">
+                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                    <h2 className="font-bold text-lg" style={{ fontFamily: 'Manrope' }}>{selectedVendor}</h2>
+                    <div className="text-xs text-slate-500">
+                      <span className="mr-3">{vendorStats?.unpaidPOs || 0} Unpaid</span>
+                      <span>{vendorStats?.orderedPOs || 0} Pending Delivery</span>
+                    </div>
+                  </div>
+
+                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <div className="px-4 border-b border-slate-100">
+                      <TabsList className="h-10 bg-transparent p-0 gap-4">
+                        <TabsTrigger value="all" className="px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-[#1A4D2E] data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                          All ({vendorPOs.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="unpaid" className="px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-[#1A4D2E] data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                          Unpaid ({vendorPOs.filter(po => po.payment_status !== 'paid').length})
+                        </TabsTrigger>
+                        <TabsTrigger value="pending" className="px-0 pb-2 rounded-none border-b-2 border-transparent data-[state=active]:border-[#1A4D2E] data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                          Pending Delivery ({vendorPOs.filter(po => po.status === 'ordered').length})
+                        </TabsTrigger>
+                      </TabsList>
+                    </div>
+
+                    <TabsContent value={activeTab} className="m-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50">
+                            <TableHead className="text-xs uppercase text-slate-500">PO #</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500">Items</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 text-right">Total</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 text-right">Paid</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500 text-right">Balance</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500">Delivery</TableHead>
+                            <TableHead className="text-xs uppercase text-slate-500">Payment</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredPOs.map(po => (
+                            <TableRow
+                              key={po.id}
+                              className="table-row-hover cursor-pointer"
+                              onClick={() => { setDetailPO(po); setDetailDialog(true); }}
+                              data-testid={`po-row-${po.id}`}
+                            >
+                              <TableCell className="font-mono text-xs text-blue-600 font-semibold">{po.po_number}</TableCell>
+                              <TableCell className="text-xs text-slate-500">{po.purchase_date || po.created_at?.slice(0, 10)}</TableCell>
+                              <TableCell className="text-sm">{po.items?.length || 0}</TableCell>
+                              <TableCell className="text-right font-semibold">{formatPHP(po.subtotal)}</TableCell>
+                              <TableCell className="text-right text-emerald-600">{formatPHP(po.amount_paid || 0)}</TableCell>
+                              <TableCell className="text-right font-bold text-red-600">
+                                {formatPHP(po.balance || (po.payment_status !== 'paid' ? po.subtotal : 0) || 0)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={`text-[10px] ${statusColor(po.status)}`}>{po.status}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={`text-[10px] ${paymentColor(po.payment_status || 'unpaid')}`}>
+                                  {po.payment_status || 'unpaid'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {filteredPOs.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                                No purchase orders in this category
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+
+              {/* Recent Payments Section */}
+              <Card className="border-slate-200">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <History size={14} className="text-slate-400" />
+                    Payment History
+                  </h3>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {vendorPOs.flatMap(po => 
+                      (po.payment_history || []).map((pay, idx) => ({
+                        ...pay,
+                        po_number: po.po_number,
+                        po_id: po.id,
+                        key: `${po.id}-${idx}`
+                      }))
+                    )
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .slice(0, 20)
+                    .map(pay => (
+                      <div key={pay.key} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm">
+                        <div className="flex items-center gap-3">
+                          <ArrowRight size={12} className="text-emerald-500" />
+                          <span className="font-mono text-xs text-slate-500">{pay.po_number}</span>
+                          <span className="text-slate-600">{pay.date}</span>
+                          {pay.check_number && (
+                            <span className="text-xs text-slate-400">Check #{pay.check_number}</span>
+                          )}
+                        </div>
+                        <span className="font-bold text-emerald-600">{formatPHP(pay.amount)}</span>
+                      </div>
+                    ))}
+                    {vendorPOs.flatMap(po => po.payment_history || []).length === 0 && (
+                      <p className="text-center py-4 text-slate-400 text-sm">No payment history</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-slate-400">
+              <div className="text-center">
+                <Truck size={48} className="mx-auto mb-3 opacity-30" />
+                <p>Select a supplier to view details</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* PO Detail Dialog */}
+      <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Purchase Order Detail</DialogTitle>
+          </DialogHeader>
+          {detailPO && (
+            <div className="space-y-4 mt-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-slate-500">PO #:</span> <span className="font-mono font-bold">{detailPO.po_number}</span></div>
+                <div><span className="text-slate-500">Vendor:</span> <b>{detailPO.vendor}</b></div>
+                <div><span className="text-slate-500">Delivery:</span> <Badge className={`${statusColor(detailPO.status)} text-[10px]`}>{detailPO.status}</Badge></div>
+                <div><span className="text-slate-500">Date:</span> {detailPO.purchase_date || detailPO.created_at?.slice(0, 10)}</div>
+                <div>
+                  <span className="text-slate-500">Payment:</span>{' '}
+                  <Badge className={`text-[10px] ${paymentColor(detailPO.payment_status || 'unpaid')}`}>
+                    {detailPO.payment_method === 'credit' ? 'Credit' : 'Cash'} · {detailPO.payment_status || 'unpaid'}
+                  </Badge>
+                </div>
+                {detailPO.payment_status !== 'paid' && (
+                  <div><span className="text-slate-500">Balance:</span> <b className="text-red-600">{formatPHP(detailPO.balance || detailPO.subtotal)}</b></div>
+                )}
+              </div>
+              
+              <Separator />
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Product</TableHead>
+                    <TableHead className="text-xs text-right">Qty</TableHead>
+                    <TableHead className="text-xs text-right">Price</TableHead>
+                    <TableHead className="text-xs text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailPO.items?.map((item, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-sm">{item.product_name}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{formatPHP(item.unit_price)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatPHP(item.total)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                <span>Total</span>
+                <span>{formatPHP(detailPO.subtotal)}</span>
+              </div>
+
+              {detailPO.notes && (
+                <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded">Notes: {detailPO.notes}</p>
+              )}
+
+              {/* Payment History for this PO */}
+              {detailPO.payment_history?.length > 0 && (
+                <div className="bg-emerald-50 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold uppercase text-emerald-700">Payments Made</p>
+                  {detailPO.payment_history.map((pay, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <ArrowRight size={12} className="text-emerald-500" />
+                        <span>{pay.date}</span>
+                        {pay.check_number && <span className="text-slate-400 text-xs">Check #{pay.check_number}</span>}
+                      </div>
+                      <span className="font-bold text-emerald-600">{formatPHP(pay.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

@@ -1619,7 +1619,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     # Get report data
     report_query = {"date": date, "branch_id": branch_id}
     log_entries = await db.sales_log.find(report_query, {"_id": 0}).to_list(10000)
-    total_sales = sum(e.get("line_total", 0) for e in log_entries)
+    new_sales_today = sum(e.get("line_total", 0) for e in log_entries)
     # Sales by category
     cat_map = {}
     for e in log_entries:

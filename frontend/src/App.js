@@ -13,6 +13,7 @@ import CustomersPage from './pages/CustomersPage';
 import PriceSchemesPage from './pages/PriceSchemesPage';
 import SalesPage from './pages/SalesPage';
 import SalesOrderPage from './pages/SalesOrderPage';
+import UnifiedSalesPage from './pages/UnifiedSalesPage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
 import SuppliersPage from './pages/SuppliersPage';
 import DailyLogPage from './pages/DailyLogPage';

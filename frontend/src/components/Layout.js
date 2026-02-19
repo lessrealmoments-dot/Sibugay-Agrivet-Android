@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store
+  ChevronDown, LogOut, User, Store, Truck
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { path: '/products', label: 'Products', icon: Package, perm: 'products.view' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, perm: 'inventory.view' },
   { path: '/sales-order', label: 'Sales Order', icon: Receipt, perm: 'pos.view' },
+  { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'inventory.adjust' },
   { path: '/pos', label: 'Quick POS', icon: ShoppingCart, perm: 'pos.view' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },
   { path: '/payments', label: 'Receive Payments', icon: Tags, perm: 'accounting.view' },

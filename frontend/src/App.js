@@ -13,6 +13,7 @@ import CustomersPage from './pages/CustomersPage';
 import PriceSchemesPage from './pages/PriceSchemesPage';
 import SalesPage from './pages/SalesPage';
 import SalesOrderPage from './pages/SalesOrderPage';
+import PurchaseOrderPage from './pages/PurchaseOrderPage';
 import PaymentsPage from './pages/PaymentsPage';
 import FundManagementPage from './pages/FundManagementPage';
 import AccountingPage from './pages/AccountingPage';
@@ -42,6 +43,7 @@ function AppRoutes() {
       <Route path="/price-schemes" element={<ProtectedRoute><PriceSchemesPage /></ProtectedRoute>} />
       <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
       <Route path="/sales-order" element={<ProtectedRoute><SalesOrderPage /></ProtectedRoute>} />
+      <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrderPage /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
       <Route path="/fund-management" element={<ProtectedRoute><FundManagementPage /></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />

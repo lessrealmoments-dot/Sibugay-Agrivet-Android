@@ -288,10 +288,52 @@ export default function PaymentsPage() {
                   </Table>
                 </CardContent>
               </Card>
+
+              {/* Payment History */}
+              {payHistory.length > 0 && (
+                <Card className="border-slate-200">
+                  <CardContent className="p-0">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                      <h3 className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Payment History</h3>
+                    </div>
+                    <Table>
+                      <TableHeader><TableRow>
+                        <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Invoice</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Method</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Reference</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500 text-right">Amount</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Recorded By</TableHead>
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {payHistory.map((p, i) => (
+                          <TableRow key={i} className="table-row-hover">
+                            <TableCell className="text-xs">{p.date}</TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {p.invoice_number}
+                              {p.sale_type === 'interest_charge' && <Badge className="ml-1 text-[9px] bg-amber-100 text-amber-700">Int</Badge>}
+                              {p.sale_type === 'penalty_charge' && <Badge className="ml-1 text-[9px] bg-red-100 text-red-700">Pen</Badge>}
+                            </TableCell>
+                            <TableCell className="text-xs">{p.method}</TableCell>
+                            <TableCell className="text-xs text-slate-500">{p.reference || '—'}</TableCell>
+                            <TableCell className="text-right text-sm font-bold text-emerald-600">{formatPHP(p.amount)}</TableCell>
+                            <TableCell className="text-xs text-slate-500">{p.recorded_by}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-slate-50 font-bold">
+                          <TableCell colSpan={4} className="text-right text-xs uppercase text-slate-500">Total Payments</TableCell>
+                          <TableCell className="text-right text-sm text-emerald-700">{formatPHP(payHistory.reduce((s, p) => s + (p.amount || 0), 0))}</TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
             </>
           ) : (
             <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Select a customer to view their account</div>
-          )}
+          )}}
         </div>
       </div>
     </div>

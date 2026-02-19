@@ -84,20 +84,25 @@ export default function SalesOrderPage() {
     const newLines = [...lines];
     const line = newLines[index];
     newLines[index] = { ...line, [field]: value };
-    // Below-cost check when rate changes
-    if (field === 'rate' && line.product_id && line.cost_price > 0) {
-      const newRate = parseFloat(value) || 0;
-      if (newRate > 0 && newRate < line.cost_price) {
-        toast.error(`Cannot sell below capital (₱${line.cost_price.toFixed(2)})`);
-        return; // Block the change
-      }
-      // If price changed from original, ask to update scheme
-      if (newRate !== line.original_rate && newRate > 0 && line.original_rate > 0) {
-        setPriceChangeInfo({ index, product_id: line.product_id, product_name: line.product_name, scheme: line.price_scheme, old_price: line.original_rate, new_price: newRate });
-        setPriceChangeDialog(true);
-      }
-    }
     setLines(newLines);
+  };
+
+  const validateLineRate = (index) => {
+    const line = lines[index];
+    if (!line || !line.product_id || !line.cost_price) return;
+    const rate = parseFloat(line.rate) || 0;
+    if (rate > 0 && rate < line.cost_price) {
+      toast.error(`Cannot sell below capital (₱${line.cost_price.toFixed(2)}). Reverting.`);
+      const newLines = [...lines];
+      newLines[index] = { ...newLines[index], rate: newLines[index].original_rate };
+      setLines(newLines);
+      return;
+    }
+    // If price changed from original, ask to update scheme
+    if (rate !== line.original_rate && rate > 0 && line.original_rate > 0) {
+      setPriceChangeInfo({ index, product_id: line.product_id, product_name: line.product_name, scheme: line.price_scheme, old_price: line.original_rate, new_price: rate });
+      setPriceChangeDialog(true);
+    }
   };
 
   const confirmPriceChange = async (keepChange) => {

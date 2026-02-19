@@ -1337,6 +1337,8 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
         "created_by_name": user.get("full_name", user["username"]), "created_at": now_iso(),
     }
     await db.expenses.insert_one(expense)
+    # Deduct from cashier wallet
+    await update_cashier_wallet(data["branch_id"], -float(data["amount"]), f"Expense: {data.get('category', 'General')} - {data.get('description', '')}")
     del expense["_id"]
     return expense
 

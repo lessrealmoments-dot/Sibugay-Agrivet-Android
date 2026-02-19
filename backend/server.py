@@ -1044,7 +1044,9 @@ async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] =
         
         # Use invoice-level interest rate, fallback to customer rate
         rate = inv.get("interest_rate", default_interest_rate)
-        due_date_str = inv.get("due_date", comp_date_str)
+        due_date_str = inv.get("due_date") or inv.get("order_date") or comp_date_str
+        if not due_date_str:
+            continue  # Skip invoices without any date
         due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
         
         # Grace period: interest starts after due_date + grace_period

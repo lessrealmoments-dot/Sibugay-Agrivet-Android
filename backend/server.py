@@ -1079,7 +1079,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     branch_id = data.get("branch_id", "")
     po = {
         "id": new_id(),
-        "po_number": f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
+        "po_number": data.get("po_number", "").strip() or f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
         "vendor": data["vendor"], "branch_id": branch_id,
         "items": [{"product_id": i["product_id"], "product_name": i.get("product_name", ""),
                     "quantity": float(i["quantity"]), "unit_price": float(i.get("unit_price", 0)),

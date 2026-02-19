@@ -125,3 +125,11 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Payments Page**: Customer invoice lookup, record payments with fund source selection (Cashier/Safe/Bank). Interest & penalties deducted first, then principal.
 - **Interest Computation**: Prorated monthly from last computation date. Auto-detects overdue invoices. Per-customer interest rates.
 - **Payment Terms**: COD, Net 7/15/30/60, Custom days. Due date auto-computed.
+
+### Phase 6: Daily Operations - Sales Log, Profit & Day Close (Feb 19, 2026)
+- **Sequential Sales Log**: Auto-records each sold item with sequence #, time, product, customer, invoice, qty, price, discount, line total, running total. Printable for notebook comparison.
+- **Daily Profit Report**: Revenue, COGS, Gross Profit, Expenses, Net Profit. Sales by Category breakdown. Expense list with quick-add buttons for Regular/Advance/Farm expenses.
+- **Close Accounts**: Locks the day. Cash Counting (Expected vs Actual + Checks + Other). Extra Cash computation (Actual - Expected). End-of-Day Allocation (cash to drawer + cash to safe). Auto-deposits to safe as dated lot.
+- **Employee Management**: Add employees with name/position. Track monthly cash advance totals.
+- **Farm Expense System**: When recording farm expense, selects customer/farm + purpose tag. Auto-creates receivable invoice ("Farm Cash Out - Tilling") added to customer's balance.
+- **Day Lock**: Once closed, new sales auto-go to next day. Prevents edits on closed dates.

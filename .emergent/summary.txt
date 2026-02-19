@@ -3,61 +3,81 @@ The user wants to build a comprehensive Accounting, Inventory, and Point of Sale
 
 **PRODUCT REQUIREMENTS:**
 - **Offline POS:** Must function offline and sync data automatically.
-- **Product Management:** Handle over 3000 SKUs with a parent/repack inventory system where repacks deduct stock from the parent.
-- **Multi-Branch Management:** Support multiple business locations.
-- **Advanced Accounting:** Track expenses, receivables, and manage funds across a **Cashier Drawer**, **Safe**, and **Bank**. This includes special workflows for farm expenses and customer cash advances that auto-generate invoices.
-- **Complex Pricing:** Support multiple pricing tiers (Retail, Wholesale, etc.).
-- **Sales & Purchasing Workflow:** Excel-style interfaces for Sales Orders and Purchase Orders with smart search and on-the-fly product/supplier creation.
-- **Daily Operations:** A sequential sales log, daily profit report, and a Close Accounts feature with a detailed printable report.
-- **Business Rules:** Use Philippine Peso (₱), prevent selling below cost, auto-update cost from POs, and manage complex interest/penalty calculations for credit.
-- **Supplier Management:** A dedicated section to manage suppliers and view their complete transaction history.
+- **Product Management:** Handle over 3000 SKUs with a parent/repack inventory system.
+- **Multi-Branch Management:** Support multiple business locations with branch-specific data and an owner-level overview.
+- **Advanced Accounting:** Track expenses, receivables, and manage funds. Includes workflows for farm expenses and customer cash advances that auto-generate invoices.
+- **Complex Pricing & Credit:** Support multiple pricing tiers and implement a sophisticated interest/penalty system for credit sales with per-customer grace periods and rates.
+- **Sales & Purchasing Workflow:** Unified, Excel-style interfaces for Sales and Purchasing.
+- **Daily Operations:** Sequential sales log, daily profit report, and a Close Accounts feature.
+- **Granular Permissions:** An Inflow-Cloud-style system to control user access to specific features (e.g., view, edit, add) on a per-module basis.
+- **Editable Invoices:** Ability to edit posted invoices (with an audit trail) similar to QuickBooks functionality.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A feature-rich, full-stack application (FastAPI backend, React frontend, MongoDB) that is functionally complete according to user requests. The system includes multi-branch JWT authentication, a sophisticated product/inventory system (with parent/repack logic), an offline-capable POS, and detailed sales, purchasing, and financial management modules. Recent work has focused on implementing advanced expense workflows, comprehensive supplier management, and a complete overhaul of the parent-child inventory logic.
+A feature-rich, full-stack application (FastAPI backend, React frontend, MongoDB). The system includes JWT authentication, a sophisticated product/inventory system, and an offline-capable POS. The agent recently completed several major features: a unified sales interface merging the Quick POS and Sales Order flows, a flexible interest and penalty calculation system for receivables, and a QuickBooks-style invoice editor. Work has just begun on a granular user permission system, with the backend data structures and API endpoints established and a basic UI page created.
 
 **Last working item**:
--   **Last item agent was working:** The agent re-architected the parent/repack inventory system. Previously, repacks had their own inventory, causing double-counting issues. The new system makes repacks virtual products; their available quantity is now calculated dynamically from the parent product's stock. When a repack is sold, inventory is deducted *only* from the parent product based on the conversion ratio.
--   **Status:** COMPLETED
--   **Agent Testing Done:** Y
--   **Which testing method agent to use?** NA
+-   **Last item agent was working:** The agent was implementing the Granular Permission System. It successfully created the backend APIs, expanded the user data model, and built the  UI. A test cashier user was created to demonstrate the user list. However, the UI for selecting a user and editing their permissions is not functional.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** Frontend testing agent to verify the UI interactions on the  once the bug is fixed. Manual testing with  can be used for the backend permission endpoints.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-None.
+-   **Issue 1: User Permissions Page Interaction is Buggy (P0)**
+    -   **Description:** On the  page, clicking a user in the list incorrectly triggers the main layout's user profile dropdown menu instead of selecting the user in the component's state to display their permissions for editing.
+    -   **Attempted fixes:** None. The agent identified the bug after taking a screenshot.
+    -   **Next debug checklist:**
+        -   Examine .
+        -   Check the  event handler for the user list items. It's likely propagating to a parent element.
+        -   Implement  in the  handler to prevent the event from bubbling up to the layout's dropdown trigger.
+        -   Implement state management () to track the .
+    -   **Why fix this issue and what will be achieved with the fix?** This is a blocker for the entire Granular Permissions feature. Fixing it will allow the agent to proceed with building the main permission editing interface.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Frontend
+    -   **Blocked on other issue:** None
 
 **In progress Task List**:
-None.
+-   **Task 1: Complete Granular Permission System (P0)**
+    -   **Description:** The user wants a detailed permission system inspired by Inflow Cloud, allowing an admin to check/uncheck access rights (e.g., view, add, edit, delete) for various app sections (Sales, Inventory, etc.) for each user.
+    -   **Where to resume:**
+        1.  Fix the user selection bug in  as described in Issue 1.
+        2.  Build the permission editor component that renders the permission categories and checkboxes based on the selected user's data fetched from the API.
+        3.  Implement the logic to handle checkbox changes and save the updated permission set back to the backend using the  endpoint.
+    -   **What will be achieved with this?** This will complete a core user requirement for managing user roles and securing sensitive operations like editing invoices or viewing costs.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Both
+    -   **Blocked on something:** Blocked by Issue 1.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P0: Refactor Backend Monolith:** The  file has grown to over 2200 lines and contains all API routes and business logic. A previous attempt to organize it with comments was a temporary fix. The user has explicitly requested a full refactoring to break this file into a modular structure (e.g., , , ) to improve maintainability.
+    - **P0: Refactor Backend Monolith:** The  file is over 2,200 lines. The user has explicitly requested to break this monolith into a modular structure (e.g., , , ) to improve maintainability.
+    - **P1: Multi-Branch Architecture Implementation:** The user wants to enforce data isolation between different business branches for most data types (customers, sales, etc.), while allowing product names to be global and providing an owner-level cross-branch view. This is a significant architectural change affecting almost all API endpoints and database queries.
 
 - **Future Tasks:**
     - **P1: Advanced Reporting:** Develop advanced reporting dashboards (e.g., monthly/quarterly summaries, sales incentive tracking).
-    - **P2: User Roles & Permissions:** Implement a dedicated UI for managing user roles and access controls.
+    - **P2: User Roles & Presets:** Enhance the permissions system to allow creating, customizing, and assigning reusable roles (e.g., Branch Manager, Inventory Clerk) instead of only editing per-user permissions.
     - **P2: Bulk Data Import/Export:** Add functionality to import/export data (like products) via CSV files.
 
 **Completed work in this session**
-- **Parent/Repack Inventory Rework:**
-    - Modified sales logic () to deduct stock only from the parent product when a repack is sold.
-    - Updated product search () and inventory view () to show a calculated, derived quantity for repacks.
-    - Blocked direct inventory adjustments on repacks.
-    - Updated the frontend Inventory page to clearly label repack quantities as derived and show their parent product.
-- **Customer Cash Out Workflow:**
-    - Created a new  endpoint.
-    - Added a Customer Cash Out button and dialog to the Accounting page, allowing users to record cash given to a customer, which automatically creates an invoice for that customer.
-- **Expense Section Enhancements:**
-    - **Farm Expense Workflow:** Implemented a feature to record farm-related expenses and automatically generate an invoice for the associated customer.
-    - **Quick Wins:** Added preset expense categories, fields for receipt numbers and payment methods, expense filtering/searching, and the ability to edit expenses.
-- **Supplier Management:**
-    - Created a new  page to list all suppliers and view their detailed transaction history (POs, payments, pending balances).
-    - Implemented CRUD API endpoints () for managing vendors.
-    - Added on-the-fly supplier creation from the Purchase Order page.
-- **Backend Organization:**
-    - Performed a quick organization on the monolithic  by adding extensive comments and structural headers to improve readability.
-    - Created an  file to document the backend's structure.
+- **Unified Sales Interface:**
+    - Merged Quick POS and Sales Order into a single, dynamic  page ().
+    - Implemented a credit sales flow with manager PIN approval () and credit limit checks.
+    - Unified the dashboard to show a single Outstanding Receivables total from both the modern  and legacy  collections.
+- **Advanced Interest & Penalty System:**
+    - Implemented a flexible system for calculating interest and penalties based on per-customer grace periods and interest rates ().
+    - Added fields for  and  to the customer model and UI.
+    - Created an API endpoint () to preview charges before generating invoices.
+- **QuickBooks-Style Invoice Editor:**
+    - Created an editable invoice modal () that is triggered by clicking invoice numbers across the application.
+    - Implemented an Edit Mode that requires a reason for the change, which is logged in an  field in the invoice document.
+    - Added backend endpoints ( and ) to fetch and update invoice details.
+- **Granular Permissions (Foundation):**
+    - Expanded the permission model in  to be more granular.
+    - Added backend APIs (, ) to manage permissions.
+    - Created the UI page foundation at .
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -75,71 +95,76 @@ None.
 -   **Styling:** TailwindCSS
 -   **UI Library:** Shadcn/UI
 -   **Authentication:** JSON Web Tokens (JWT)
+-   **Data Unification:** Consolidating data from legacy () and current () collections for consistent reporting.
+-   **Modal-based Editing:** Using modals for in-context editing of complex data like invoices.
 
 **key DB schema**
--   **products:** Schema now logically separates parent products (with physical stock) from repacks (virtual products with a  ratio).
--   **expenses:** Schema enhanced with , , and new fixed categories including 'Farm Expense' and 'Customer Cash Out' to trigger special workflows.
--   **vendors:** This collection is now actively managed through a new UI and CRUD API endpoints.
--   **invoices:** Now used to store auto-generated invoices from the Farm Expense and Customer Cash Out workflows.
+-   **users:** The  object is now a detailed structure with nested categories (e.g., ). A  field has been added for manager approvals.
+-   **customers:**  (Number) and  (Number, in days) fields added.
+-   **invoices:** An  array has been added to log all edits, storing the reason, timestamp, and user who made the change.
+
+**changes in tech stack**
+None.
 
 **All files of reference**
--   : Heavily modified with new endpoints and reworked inventory logic. Also restructured with extensive comments.
--   : Significantly overhauled to include Farm Expense and Customer Cash Out features and other enhancements.
--   : Updated to display derived quantities for repacks.
--   : New file created for supplier management.
--   : Modified to include an on-the-fly supplier creation component.
--   : New documentation file explaining the backend structure.
+-   : Heavily modified with new endpoints for unified sales, invoice editing, interest calculation, and granular permissions.
+-   : New page for permission management (in-progress).
+-   : New unified sales/POS page.
+-   : New component for editing invoices.
+-   : Overhauled to display a unified transaction history.
+-   : Updated to display unified receivables.
 
 **Areas that need refactoring**:
--   **CRITICAL:** The monolithic  file must be broken down into a modular structure (e.g., , , ). This remains the highest priority technical debt.
--   Frontend pages like  and  have grown very large and would benefit from being decomposed into smaller, more focused components.
+-   **CRITICAL:** The monolithic  file must be broken down into a modular structure. This is the highest priority technical debt.
+-   **Multi-Branch Architecture:** The entire application's data access layer will need to be refactored to support branch-based data isolation, as requested by the user.
 
 **key api endpoints**
--   : Logic updated to deduct from parent inventory when a repack is sold.
--   : Logic updated to show repacks with derived quantities.
--   : Logic updated to block direct adjustments to repack inventory.
--   : New endpoint for the Farm Expense auto-invoice workflow.
--   : New endpoint for the Customer Cash Out auto-invoice workflow.
--   : New CRUD endpoints for managing suppliers.
+-   : Creates a new sale or invoice from the unified sales page.
+-   : Verifies a manager's PIN for credit sales approval.
+-   : Fetches detailed data for the invoice editor modal.
+-   : Updates an invoice and logs the reason.
+-   : Previews potential interest/penalty charges.
+-   : Returns the structure of all available permissions.
+-   : Gets a specific user's current permissions.
+-   : Updates a user's entire permission set.
 
 **Critical Info for New Agent**
--   **Parent/Repack Logic is Fundamental:** The inventory system has been fundamentally re-architected. Repacks are now virtual products whose availability is calculated from their parent's stock. Sales of repacks *only* decrement the parent's inventory. Do not attempt to manage repack stock directly.
--   **Backend Refactor is P0:** The highest priority technical debt is refactoring the monolithic . The user has explicitly requested this. The  file can serve as a guide for splitting the file into logical modules.
--   **Special Expense Workflows:** Farm Expense and Customer Cash Out are special features. They are recorded as expenses (deducting from the cashier wallet) but also trigger the automatic creation of an invoice for a customer.
+-   **Fix Permissions UI First:** Your immediate task is to fix the broken user selection on the  and then build out the checkbox-based editor to complete the feature. The backend is mostly ready to support this.
+-   **Backend Refactor is P0:** The next highest priority task after completing the permissions feature is to refactor the  monolith. This is a long-standing user request.
+-   **Multi-Branch is Next Major Epic:** The user has committed to a large-scale architectural change to support multi-branch data isolation. This will be a major undertaking after the current tasks and refactoring are complete.
 
 **documents and test reports created in this job**
--   
--    (updated multiple times)
+-    (updated)
 -   Test reports from  to 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User Request:** Analyze and fix the parent/repack inventory system. Repacks should derive stock from the parent. - **Status: COMPLETED**
-2.  **User Confirmation:** Sure (to proceed with the new repack system). - **Status: ACKNOWLEDGED**
-3.  **User Request:** Create a Customer Cash Out workflow similar to Farm Expense. - **Status: COMPLETED**
-4.  **User Request:** Implement Quick Wins for the expense section and a special Farm Expense workflow that auto-creates an invoice. - **Status: COMPLETED**
-5.  **User Request:** Check weather we have an expense section already. Then do a research on what should be in the expense section... - **Status: COMPLETED**
-6.  **User Request:** Add the ability to create a new supplier on the Suppliers page and on-the-fly from the PO page. - **Status: COMPLETED**
-7.  **User Request:** refactor now (referring to the backend monolith). - **Status: PARTIALLY COMPLETED** (Organized and documented, but not split into separate files).
-8.  **User Confirmation:** A (choosing the Quick organization option for the refactor). - **Status: ACKNOWLEDGED**
-9.  **User Request:** Create a Supplier section to list suppliers and their transaction history. - **Status: COMPLETED**
-10. **User Request:** Move the PO number field near the notes on the Create PO section. - **Status: COMPLETED**
+1.  **User Request:** proceed to granular permission - **Status: IN PROGRESS**
+2.  **User Request:** Implement a QuickBooks-style invoice editor. - **Status: COMPLETED**
+3.  **User Clarification:** Provided details for the editor (reason required, permissions, audit trail). - **Status: COMPLETED**
+4.  **User Clarification:** Requested an Inflow-style granular permission model. - **Status: IN PROGRESS**
+5.  **User Request:** Discussed future plan for multi-branch architecture. - **Status: UPCOMING**
+6.  **User Confirmation:** Agreed to start with the Invoice Editor before the large multi-branch task. - **Status: ACKNOWLEDGED**
+7.  **User Request:** Improve the receive payment section with better interest/penalty logic. - **Status: COMPLETED**
+8.  **User Clarification:** Provided specifics for interest/penalty (manual generation, grace period, etc.). - **Status: COMPLETED**
+9.  **User Request:** Analyze and improve the sales workflow (Quick POS vs. Sales Order). - **Status: COMPLETED**
+10. **User Clarification:** Provided details for the unified sales workflow (offline, credit approval). - **Status: COMPLETED**
 
 **Project Health Check:**
--   **Broken:** None.
+-   **Broken:** The user selection functionality on the  is not working.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
 None.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES
+-   **Testing agent used after significant changes:** YES (used after Unified Sales, Interest/Penalty, and Invoice Editor features)
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None manually. The testing agent was used for validation.
--   **Known regressions:** None.
+-   **Test files created:** None
+-   **Known regressions:** The testing agent found and fixed a bug where the interest rate was not falling back to the default if not set on a customer.
 
 **Credentials to test flow:**
--   **Email:** 
--   **Password:** 
+-   **Admin:**  / 
+-   **Cashier:**  / 
 
 **What agent forgot to execute**
-- The agent did not fully complete the backend refactoring into separate files as initially planned. While the user agreed to a less intensive organization effort as an interim step, the core technical debt of the monolithic  file remains and is the highest priority upcoming task.</analysis>
+The agent did not complete the implementation of the Granular Permissions feature. While the backend and UI shell were created, the core frontend logic to select a user and display/edit their permissions is missing and blocked by a UI bug.</analysis>

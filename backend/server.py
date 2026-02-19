@@ -619,25 +619,27 @@ async def get_customer_invoices(customer_id: str, user=Depends(get_current_user)
     return invoices
 
 @api_router.post("/customers/{customer_id}/generate-interest")
-async def generate_account_interest(customer_id: str, user=Depends(get_current_user)):
-    """Compute interest on all overdue invoices and create a single Interest Charge invoice."""
+async def generate_account_interest(customer_id: str, data: dict = {}, user=Depends(get_current_user)):
+    """Compute interest on all overdue invoices as of a given date and create a single Interest Charge invoice."""
     check_perm(user, "accounting", "create")
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer: raise HTTPException(status_code=404, detail="Customer not found")
+    # Use provided computation date or today
+    comp_date_str = data.get("as_of_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
     invoices = await db.invoices.find(
         {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
     ).to_list(500)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     total_interest = 0
     interest_details = []
     for inv in invoices:
         if inv.get("sale_type") in ("interest_charge", "penalty_charge"): continue
         rate = inv.get("interest_rate", 0)
         if rate <= 0: continue
-        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else now
-        if now <= due: continue
+        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else comp_date
+        if comp_date <= due: continue
         last_date = datetime.strptime(inv["last_interest_date"], "%Y-%m-%d") if inv.get("last_interest_date") else due
-        days = (now - last_date).days
+        days = (comp_date - last_date).days
         if days <= 0: continue
         principal = inv.get("grand_total", 0)
         daily_rate = (rate / 100) / 30
@@ -645,7 +647,7 @@ async def generate_account_interest(customer_id: str, user=Depends(get_current_u
         if interest > 0:
             total_interest += interest
             interest_details.append({"invoice": inv["invoice_number"], "principal": principal, "days": days, "interest": interest})
-            await db.invoices.update_one({"id": inv["id"]}, {"$set": {"last_interest_date": now.strftime("%Y-%m-%d")}})
+            await db.invoices.update_one({"id": inv["id"]}, {"$set": {"last_interest_date": comp_date_str}})
     if total_interest <= 0:
         return {"message": "No interest to charge", "total": 0}
     # Create interest charge invoice

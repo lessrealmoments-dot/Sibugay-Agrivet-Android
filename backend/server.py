@@ -513,6 +513,10 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
             "reference": "", "applied_to_interest": 0, "applied_to_principal": amount_paid,
             "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
         })
+        # Update cashier wallet with initial payment
+        fund_source = data.get("fund_source", "cashier")
+        if fund_source == "cashier":
+            await update_cashier_wallet(branch_id, amount_paid, f"Invoice payment {inv_number}")
     await db.invoices.insert_one(invoice)
     del invoice["_id"]
     # Log to sequential sales log

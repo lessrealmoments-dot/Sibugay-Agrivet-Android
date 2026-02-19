@@ -1664,7 +1664,8 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         safe_balance = sum(l["remaining_amount"] for l in lots)
     bank_balance = bank_wallet["balance"] if bank_wallet else 0
     prev_drawer = cashier_wallet["balance"] if cashier_wallet else 0
-    expected_cash = round(total_sales + total_payments - total_expenses + prev_drawer, 2)
+    # Expected cash = actual cash received - expenses + previous drawer (NO double-counting)
+    expected_cash = round(total_cash_received - total_expenses + prev_drawer, 2)
     actual_cash = float(data.get("actual_cash", 0))
     bank_checks = float(data.get("bank_checks", 0))
     other_payment_forms = float(data.get("other_payment_forms", 0))
@@ -1678,13 +1679,14 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "closed_at": now_iso(),
         "safe_balance": safe_balance, "bank_balance": bank_balance,
         "cash_deposited_to_safe": cash_deposited_today, "previous_cashier_balance": prev_drawer,
-        "total_sales": total_sales, "sales_by_category": cat_map,
-        "payments_received": [{"invoice": p["invoice_number"], "customer": p["customer_name"],
+        "new_sales_today": new_sales_today, "sales_by_category": cat_map,
+        "credit_collections": [{"invoice": p["invoice_number"], "customer": p["customer_name"],
                                "balance": p.get("balance", 0), "interest": p.get("interest_accrued", 0),
                                "principal_paid": p["payment"].get("applied_to_principal", 0),
                                "interest_paid": p["payment"].get("applied_to_interest", 0),
-                               "total_paid": p["payment"]["amount"]} for p in payments],
-        "total_payments": total_payments,
+                               "total_paid": p["payment"]["amount"]} for p in credit_collections],
+        "total_credit_collections": total_credit_collections,
+        "total_cash_received": total_cash_received,
         "expenses": [{"category": e["category"], "description": e.get("description", ""),
                       "amount": e["amount"]} for e in expenses],
         "employee_advances": [{"description": e.get("description", ""), "amount": e["amount"]} for e in employee_advances],

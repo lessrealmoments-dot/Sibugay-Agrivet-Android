@@ -1735,7 +1735,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "closed_by": user["id"], "closed_by_name": user.get("full_name", user["username"]),
         "closed_at": now_iso(),
         "safe_balance": safe_balance, "bank_balance": bank_balance,
-        "cash_deposited_to_safe": cash_deposited_today, "previous_cashier_balance": prev_drawer,
+        "cash_deposited_to_safe": cash_deposited_today,
         "new_sales_today": new_sales_today, "sales_by_category": cat_map,
         "credit_collections": [{"invoice": p["invoice_number"], "customer": p["customer_name"],
                                "balance": p.get("balance", 0), "interest": p.get("interest_accrued", 0),

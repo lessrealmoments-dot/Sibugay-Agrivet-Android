@@ -215,8 +215,7 @@ export default function PurchaseOrderPage() {
         <TabsContent value="create" className="mt-4 space-y-4">
           <Card className="border-slate-200">
             <CardContent className="p-5">
-              <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-                <div><Label className="text-xs text-slate-500">PO Number</Label><Input data-testid="po-number" className="h-9" value={header.po_number} onChange={e => setHeader(h => ({ ...h, po_number: e.target.value }))} placeholder="Auto if blank" /></div>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <div><Label className="text-xs text-slate-500">Vendor Name</Label><Input data-testid="po-vendor" className="h-9" value={header.vendor} onChange={e => setHeader(h => ({ ...h, vendor: e.target.value }))} placeholder="Supplier name" /></div>
                 <div><Label className="text-xs text-slate-500">Purchase Date</Label><Input className="h-9" type="date" value={header.purchase_date} onChange={e => setHeader(h => ({ ...h, purchase_date: e.target.value }))} /></div>
                 <div>
@@ -239,7 +238,10 @@ export default function PurchaseOrderPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label className="text-xs text-slate-500">Notes</Label><Input className="h-9" value={header.notes} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))} /></div>
+                <div><Label className="text-xs text-slate-500">PO Number</Label><Input data-testid="po-number" className="h-9" value={header.po_number} onChange={e => setHeader(h => ({ ...h, po_number: e.target.value }))} placeholder="Auto if blank" /></div>
+              </div>
+              <div className="mt-3">
+                <Label className="text-xs text-slate-500">Notes</Label><Input className="h-9" value={header.notes} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))} placeholder="Optional notes for this purchase order" />
               </div>
               {header.payment_method === 'cash' && (
                 <p className="text-xs text-amber-600 mt-2 flex items-center gap-1"><DollarSign size={12} /> Total will be deducted from Cashier Drawer on save</p>

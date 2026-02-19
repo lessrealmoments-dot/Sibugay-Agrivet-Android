@@ -14,6 +14,7 @@ import PriceSchemesPage from './pages/PriceSchemesPage';
 import SalesPage from './pages/SalesPage';
 import SalesOrderPage from './pages/SalesOrderPage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
+import SuppliersPage from './pages/SuppliersPage';
 import DailyLogPage from './pages/DailyLogPage';
 import PaymentsPage from './pages/PaymentsPage';
 import FundManagementPage from './pages/FundManagementPage';
@@ -45,6 +46,7 @@ function AppRoutes() {
       <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
       <Route path="/sales-order" element={<ProtectedRoute><SalesOrderPage /></ProtectedRoute>} />
       <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrderPage /></ProtectedRoute>} />
+      <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
       <Route path="/daily-ops" element={<ProtectedRoute><DailyLogPage /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
       <Route path="/fund-management" element={<ProtectedRoute><FundManagementPage /></ProtectedRoute>} />

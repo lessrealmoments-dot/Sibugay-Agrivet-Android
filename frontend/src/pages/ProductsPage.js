@@ -290,6 +290,13 @@ export default function ProductsPage() {
                 ))}
               </div>
             </div>
+            {!editing && (
+              <div>
+                <Label>Starting Inventory ({currentBranch?.name || 'Current Branch'})</Label>
+                <Input data-testid="product-starting-inventory" type="number" value={form.starting_inventory || 0} onChange={e => setForm({ ...form, starting_inventory: parseFloat(e.target.value) || 0 })} placeholder="0" />
+                <p className="text-[11px] text-slate-400 mt-0.5">Leave 0 if no stock yet</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button data-testid="save-product-btn" onClick={handleSave} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save Product</Button>

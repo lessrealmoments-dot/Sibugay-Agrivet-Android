@@ -51,6 +51,7 @@ export default function PurchaseOrderPage() {
   useEffect(() => {
     api.get('/settings/invoice-prefixes').then(r => setPrefixes(r.data)).catch(() => {});
     api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
+    api.get('/purchase-orders/vendors').then(r => setVendors(r.data)).catch(() => {});
     fetchOrders();
   }, [currentBranch]);
 

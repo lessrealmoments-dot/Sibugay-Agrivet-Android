@@ -236,8 +236,10 @@ export default function POSPage() {
               <p className="text-[10px] text-slate-400 mt-1">per {p.unit}</p>
             </button>
           ))}
-          {!products.length && (
-            <div className="col-span-full text-center py-12 text-slate-400 text-sm">No products found</div>
+          {!filteredProducts.length && (
+            <div className="col-span-full text-center py-12 text-slate-400 text-sm">
+              {dataLoaded ? 'No products found' : 'Loading products...'}
+            </div>
           )}
         </div>
       </div>

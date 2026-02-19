@@ -175,9 +175,19 @@ export default function PurchaseOrderPage() {
         <TabsContent value="create" className="mt-4 space-y-4">
           <Card className="border-slate-200">
             <CardContent className="p-5">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <div><Label className="text-xs text-slate-500">Vendor Name</Label><Input data-testid="po-vendor" className="h-9" value={header.vendor} onChange={e => setHeader(h => ({ ...h, vendor: e.target.value }))} placeholder="Supplier name" /></div>
-                <div><Label className="text-xs text-slate-500">Expected Date</Label><Input className="h-9" type="date" value={header.expected_date} onChange={e => setHeader(h => ({ ...h, expected_date: e.target.value }))} /></div>
+                <div><Label className="text-xs text-slate-500">Purchase Date</Label><Input className="h-9" type="date" value={header.purchase_date} onChange={e => setHeader(h => ({ ...h, purchase_date: e.target.value }))} /></div>
+                <div>
+                  <Label className="text-xs text-slate-500">Payment</Label>
+                  <Select value={header.payment_method} onValueChange={v => setHeader(h => ({ ...h, payment_method: v }))}>
+                    <SelectTrigger className="h-9" data-testid="po-payment-method"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Pay in Cash</SelectItem>
+                      <SelectItem value="credit">Purchase on Credit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div>
                   <Label className="text-xs text-slate-500">Status</Label>
                   <Select value={header.status} onValueChange={v => setHeader(h => ({ ...h, status: v }))}>
@@ -190,6 +200,12 @@ export default function PurchaseOrderPage() {
                 </div>
                 <div><Label className="text-xs text-slate-500">Notes</Label><Input className="h-9" value={header.notes} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))} /></div>
               </div>
+              {header.payment_method === 'cash' && (
+                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1"><DollarSign size={12} /> Total will be deducted from Cashier Drawer on save</p>
+              )}
+              {header.payment_method === 'credit' && (
+                <p className="text-xs text-blue-600 mt-2">Payable will be created. Pay later from PO list.</p>
+              )}
             </CardContent>
           </Card>
 

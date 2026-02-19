@@ -27,7 +27,7 @@ export default function DashboardPage() {
   if (loading) return <div className="flex items-center justify-center h-64"><div className="text-slate-400">Loading dashboard...</div></div>;
 
   const kpis = [
-    { label: "Today's Revenue", value: formatPHP(stats?.today_revenue), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: "New Sales Today", value: formatPHP(stats?.today_revenue), icon: DollarSign, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: "Today's Sales", value: stats?.today_sales_count || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: "Today's Expenses", value: formatPHP(stats?.today_expenses), icon: ArrowDown, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Total Products', value: stats?.total_products || 0, icon: Package, color: 'text-slate-600', bg: 'bg-slate-50' },

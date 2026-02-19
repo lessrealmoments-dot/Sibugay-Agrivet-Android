@@ -12,6 +12,9 @@ import POSPage from './pages/POSPage';
 import CustomersPage from './pages/CustomersPage';
 import PriceSchemesPage from './pages/PriceSchemesPage';
 import SalesPage from './pages/SalesPage';
+import SalesOrderPage from './pages/SalesOrderPage';
+import PaymentsPage from './pages/PaymentsPage';
+import FundManagementPage from './pages/FundManagementPage';
 import AccountingPage from './pages/AccountingPage';
 import SettingsPage from './pages/SettingsPage';
 
@@ -38,6 +41,9 @@ function AppRoutes() {
       <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
       <Route path="/price-schemes" element={<ProtectedRoute><PriceSchemesPage /></ProtectedRoute>} />
       <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
+      <Route path="/sales-order" element={<ProtectedRoute><SalesOrderPage /></ProtectedRoute>} />
+      <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+      <Route path="/fund-management" element={<ProtectedRoute><FundManagementPage /></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

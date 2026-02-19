@@ -11,6 +11,7 @@ import {
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
   ChevronDown, LogOut, User, Store
 } from 'lucide-react';
+import OfflineIndicator from './OfflineIndicator';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null },
@@ -94,6 +95,8 @@ export default function Layout({ children }) {
           {filteredNav.map(item => <NavLink key={item.path} item={item} />)}
         </nav>
       </ScrollArea>
+      <Separator className="bg-white/5" />
+      <OfflineIndicator />
       <Separator className="bg-white/5" />
       <div className="p-3">
         <DropdownMenu>

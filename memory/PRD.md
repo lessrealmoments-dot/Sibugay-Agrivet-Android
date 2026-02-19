@@ -143,3 +143,9 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Issue**: Clicking "Add Product" passed click event as `prefillName` arg, rendering `[object Object]` in Product Name field
 - **Fix**: Changed `onClick={openCreate}` to `onClick={() => openCreate()}` in ProductsPage.js line 122
 - **Status**: VERIFIED - Product Name field now starts empty, product creation works correctly
+
+### Feature: Optional SKU (Feb 19, 2026)
+- **Change**: SKU field is now optional when creating products. If left blank, system auto-generates a unique SKU (P-XXXXXXXX format)
+- **Backend**: Skip duplicate check for empty SKUs, auto-generate if not provided
+- **Frontend**: Updated label to "(optional - auto-generated if blank)" with new placeholder
+- **Status**: VERIFIED

@@ -25,7 +25,11 @@ export default function PaymentsPage() {
   const [allocations, setAllocations] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [penaltyRate, setPenaltyRate] = useState(5);
+  const [depositTo, setDepositTo] = useState('cashier');
+  const [wallets, setWallets] = useState([]);
   const [payHistory, setPayHistory] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
 
   useEffect(() => {
     api.get('/customers', { params: { limit: 500 } }).then(r => setCustomers(r.data.customers)).catch(() => {});

@@ -8,10 +8,13 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Package, Plus, Pencil, Trash2, Search, Link2, ChevronRight } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, Link2, ChevronRight, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { formatPHP } from '../lib/utils';
 
 export default function ProductsPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -164,7 +167,7 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell className="text-slate-500">{p.category}</TableCell>
                   <TableCell>{p.unit}</TableCell>
-                  <TableCell className="text-right font-mono">{p.cost_price?.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatPHP(p.cost_price)}</TableCell>
                   <TableCell>
                     {p.is_repack ? (
                       <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">Repack</Badge>
@@ -174,6 +177,9 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" data-testid={`view-product-${p.id}`} onClick={() => navigate(`/products/${p.id}`)} title="View Details">
+                        <Eye size={14} className="text-blue-500" />
+                      </Button>
                       {!p.is_repack && (
                         <Button variant="ghost" size="sm" data-testid={`repack-btn-${p.id}`} onClick={() => openRepack(p)} title="Generate Repack">
                           <Link2 size={14} className="text-amber-600" />

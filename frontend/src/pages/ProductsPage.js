@@ -245,9 +245,25 @@ export default function ProductsPage() {
                 <Input data-testid="product-cost-input" type="number" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>
-            <div>
-              <Label>Barcode</Label>
-              <Input value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })} placeholder="Optional barcode" />
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Type</Label>
+                <Select value={form.product_type || 'stockable'} onValueChange={v => setForm({ ...form, product_type: v })}>
+                  <SelectTrigger data-testid="product-type-select"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stockable">Stockable</SelectItem>
+                    <SelectItem value="service">Service</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Unit of Measurement</Label>
+                <Input data-testid="product-uom-input" value={form.unit_of_measurement} onChange={e => setForm({ ...form, unit_of_measurement: e.target.value })} placeholder="Pack, Box, Bag, Bottle, Kg" />
+              </div>
+              <div>
+                <Label>Barcode</Label>
+                <Input value={form.barcode} onChange={e => setForm({ ...form, barcode: e.target.value })} placeholder="Optional" />
+              </div>
             </div>
             <div>
               <Label className="text-sm font-semibold">Price Schemes</Label>

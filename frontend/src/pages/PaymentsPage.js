@@ -148,9 +148,9 @@ export default function PaymentsPage() {
         <div className="lg:col-span-2 space-y-4">
           {selectedCustomer ? (
             <>
-              {/* Account Summary */}
+              {/* Customer Header + Payment Form */}
               <Card className="border-slate-200">
-                <CardContent className="p-4">
+                <CardContent className="p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{selectedCustomer.name}</h2>
@@ -161,21 +161,79 @@ export default function PaymentsPage() {
                       <p className="text-2xl font-bold text-red-600" style={{ fontFamily: 'Manrope' }}>{formatPHP(totalOpen)}</p>
                     </div>
                   </div>
-                  <Separator className="my-3" />
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={handleGenerateInterest} className="text-amber-600 border-amber-200 hover:bg-amber-50" data-testid="generate-interest-btn">
-                      <Percent size={13} className="mr-1" /> Generate Interest
-                    </Button>
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="outline" onClick={handleGeneratePenalty} className="text-red-600 border-red-200 hover:bg-red-50" data-testid="generate-penalty-btn">
-                        <AlertTriangle size={13} className="mr-1" /> Compute Penalty
+
+                  {invoices.length > 0 && (
+                    <>
+                      <Separator />
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <Label className="text-xs">Amount Received</Label>
+                          <Input data-testid="receive-amount" type="number" value={payAmount}
+                            onChange={e => { setPayAmount(e.target.value); previewAllocation(e.target.value); }}
+                            placeholder="0.00" className="h-11 text-lg font-bold" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Payment Date</Label>
+                          <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="h-11" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Check # / Reference</Label>
+                          <Input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="Check #, ref..." className="h-11" />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Method</Label>
+                          <Select value={payMethod} onValueChange={setPayMethod}>
+                            <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Cash">Cash</SelectItem>
+                              <SelectItem value="Check">Check</SelectItem>
+                              <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                              <SelectItem value="GCash">GCash</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Allocation Preview */}
+                      {allocations.length > 0 && (
+                        <div className="bg-emerald-50/60 rounded-lg border border-emerald-200 p-3 space-y-1">
+                          <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Payment Allocation Preview</p>
+                          {allocations.map((a, i) => (
+                            <div key={i} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <ArrowRight size={12} className="text-emerald-500" />
+                                <span className="font-mono text-xs">{a.invoice}</span>
+                                <Badge className={`text-[9px] ${typeLabel(a.type).cls}`}>{typeLabel(a.type).text}</Badge>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-emerald-600">{formatPHP(a.applied)}</span>
+                                <span className="text-xs text-slate-400 ml-2">bal: {formatPHP(a.balance_after)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <Button data-testid="apply-payment-btn" onClick={handleReceivePayment} disabled={processing || !payAmount}
+                        className="w-full h-11 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                        <Receipt size={16} className="mr-2" /> {processing ? 'Processing...' : `Apply Payment of ${formatPHP(parseFloat(payAmount) || 0)}`}
                       </Button>
-                      <Input type="number" value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-center" />
-                      <span className="text-xs text-slate-400">%</span>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* Interest & Penalty Actions */}
+              <div className="flex gap-2 flex-wrap items-center">
+                <Button size="sm" variant="outline" onClick={handleGenerateInterest} className="text-amber-600 border-amber-200 hover:bg-amber-50" data-testid="generate-interest-btn">
+                  <Percent size={13} className="mr-1" /> Generate Interest
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleGeneratePenalty} className="text-red-600 border-red-200 hover:bg-red-50" data-testid="generate-penalty-btn">
+                  <AlertTriangle size={13} className="mr-1" /> Compute Penalty
+                </Button>
+                <Input type="number" value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-center" />
+                <span className="text-xs text-slate-400">% penalty rate</span>
+              </div>
 
               {/* Invoices Table */}
               <Card className="border-slate-200">
@@ -225,74 +283,6 @@ export default function PaymentsPage() {
                   </Table>
                 </CardContent>
               </Card>
-
-              {/* Payment Form */}
-              {invoices.length > 0 && (
-                <Card className="border-[#1A4D2E]/20 bg-[#1A4D2E]/[0.02]">
-                  <CardContent className="p-5 space-y-4">
-                    <h3 className="font-bold text-sm" style={{ fontFamily: 'Manrope' }}>Apply Payment</h3>
-                    <p className="text-xs text-slate-500">Payment auto-applies: Interest invoices first, then Penalties, then oldest invoice.</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div>
-                        <Label className="text-xs">Amount Received</Label>
-                        <Input data-testid="receive-amount" type="number" value={payAmount}
-                          onChange={e => { setPayAmount(e.target.value); previewAllocation(e.target.value); }}
-                          placeholder="0.00" className="h-11 text-lg font-bold" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Method</Label>
-                        <Select value={payMethod} onValueChange={setPayMethod}>
-                          <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Cash">Cash</SelectItem>
-                            <SelectItem value="Check">Check</SelectItem>
-                            <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-                            <SelectItem value="GCash">GCash</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Reference</Label>
-                        <Input value={payRef} onChange={e => setPayRef(e.target.value)} placeholder="Check #, ref..." className="h-11" />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Date</Label>
-                        <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="h-11" />
-                      </div>
-                    </div>
-
-                    {/* Allocation Preview */}
-                    {allocations.length > 0 && (
-                      <div className="bg-white rounded-lg border border-slate-200 p-3 space-y-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Payment Allocation Preview</p>
-                        {allocations.map((a, i) => (
-                          <div key={i} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <ArrowRight size={12} className="text-emerald-500" />
-                              <span className="font-mono text-xs">{a.invoice}</span>
-                              <Badge className={`text-[9px] ${typeLabel(a.type).cls}`}>{typeLabel(a.type).text}</Badge>
-                            </div>
-                            <div className="text-right">
-                              <span className="font-bold text-emerald-600">{formatPHP(a.applied)}</span>
-                              <span className="text-xs text-slate-400 ml-2">bal: {formatPHP(a.balance_after)}</span>
-                            </div>
-                          </div>
-                        ))}
-                        <Separator className="my-2" />
-                        <div className="flex justify-between font-bold text-sm">
-                          <span>Total Applied</span>
-                          <span className="text-emerald-700">{formatPHP(allocations.reduce((s, a) => s + a.applied, 0))}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    <Button data-testid="apply-payment-btn" onClick={handleReceivePayment} disabled={processing || !payAmount}
-                      className="w-full h-12 bg-[#1A4D2E] hover:bg-[#14532d] text-white text-base">
-                      <Receipt size={18} className="mr-2" /> {processing ? 'Processing...' : `Apply Payment of ${formatPHP(parseFloat(payAmount) || 0)}`}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
             </>
           ) : (
             <div className="flex items-center justify-center h-64 text-slate-400 text-sm">Select a customer to view their account</div>

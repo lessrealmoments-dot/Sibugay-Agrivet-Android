@@ -157,3 +157,18 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Renames**: "Total Sales" → "New Sales Today", "Total Payments Received" → "Credit Collections Today", Dashboard "Today's Revenue" → "New Sales Today"
 - **Key rule**: New Sales Today = revenue/profit. Credit Collections = cash recovery only. Never combined as revenue.
 - **Status**: VERIFIED
+
+
+### Major Feature: Unified Cash Flow System (Feb 19, 2026)
+- **Problem**: Fund Management was disconnected — POS sales, invoice payments, and expenses didn't update wallet balances. Cashier Drawer was only set at Day Close (stale snapshot).
+- **Solution**: Every cash event now updates wallets in real-time:
+  - POS cash sale → Cashier Drawer +
+  - Invoice with payment → Cashier Drawer +
+  - Expense/Farm/Advance → Cashier Drawer -
+  - Credit sale → no wallet change (correct)
+  - Offline sync → Cashier Drawer + (on sync)
+- **Day Close**: Expected Cash = Cashier Drawer wallet balance (real-time). No more computing from sales+payments.
+- **POS → sales_log**: POS sales now logged to sales_log for unified daily reporting.
+- **Auto-create wallet**: Cashier Drawer wallet auto-created on first transaction if missing.
+- **helper**: `update_cashier_wallet(branch_id, amount, reference)` — single function for all cash movements with audit trail via wallet_movements collection.
+- **Status**: VERIFIED — 100% test pass rate (9/9 backend, all frontend)

@@ -435,7 +435,9 @@ export default function PurchaseOrderPage() {
                   {orders.map(po => (
                     <TableRow key={po.id} className="table-row-hover">
                       <TableCell className="font-mono text-xs cursor-pointer text-blue-600 hover:underline" onClick={() => viewDetail(po)}>{po.po_number}</TableCell>
-                      <TableCell className="font-medium">{po.vendor}</TableCell>
+                      <TableCell className="font-medium">
+                        <button onClick={() => openSupplierHistory(po.vendor)} className="hover:text-blue-600 hover:underline">{po.vendor}</button>
+                      </TableCell>
                       <TableCell>{po.items?.length || 0}</TableCell>
                       <TableCell className="text-right font-semibold">{formatPHP(po.subtotal)}</TableCell>
                       <TableCell className="text-xs text-slate-500">{po.purchase_date || po.expected_date || '—'}</TableCell>

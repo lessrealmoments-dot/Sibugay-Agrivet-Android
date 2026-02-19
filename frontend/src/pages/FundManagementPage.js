@@ -23,6 +23,8 @@ export default function FundManagementPage() {
   const [createForm, setCreateForm] = useState({ type: 'cashier', name: '', bank_name: '', account_number: '', balance: 0 });
   const [depositForm, setDepositForm] = useState({ amount: 0, reference: '', date: new Date().toISOString().slice(0, 10) });
   const [transferForm, setTransferForm] = useState({ from_wallet_id: '', to_wallet_id: '', amount: 0, reference: '' });
+  const [movements, setMovements] = useState([]);
+  const [movementWallet, setMovementWallet] = useState(null);
 
   const fetchWallets = async () => {
     try {

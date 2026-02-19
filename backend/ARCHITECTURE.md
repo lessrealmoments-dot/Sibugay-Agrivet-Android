@@ -59,21 +59,20 @@ AgriPOS uses a modular FastAPI architecture with MongoDB for the backend. The re
 | sales.py | 1 | Unified sales endpoint |
 | purchase_orders.py | 8 | PO CRUD, receiving, payments |
 
-## Remaining in server.py (To Extract)
+## Remaining in server.py (Phase 3 - To Extract)
 
-These routes are more complex with interdependencies:
+These routes are lower priority and can be extracted later:
 
 | Route Section | Lines | Priority | Complexity |
 |--------------|-------|----------|------------|
-| Unified Sales | ~230 | P1 | High - complex workflows |
-| Invoices | ~600 | P1 | High - edit history, interest |
-| Purchase Orders | ~150 | P2 | Medium |
 | Fund Management | ~100 | P2 | Medium |
-| Accounting | ~400 | P2 | High - multiple flows |
+| Accounting | ~200 | P2 | Medium |
 | Dashboard | ~100 | P3 | Low |
 | Daily Operations | ~180 | P3 | Medium |
+| Suppliers | ~100 | P3 | Low |
 | Employees | ~110 | P3 | Low |
 | Sync Endpoints | ~90 | P3 | Low |
+| Interest/Penalty | ~250 | P3 | Medium |
 
 ## API Prefix Convention
 All routes use the `/api` prefix:

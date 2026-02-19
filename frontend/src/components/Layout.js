@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { path: '/sales-order', label: 'Sales Order', icon: Receipt, perm: 'pos.view' },
   { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'inventory.adjust' },
   { path: '/pos', label: 'Quick POS', icon: ShoppingCart, perm: 'pos.view' },
+  { path: '/daily-ops', label: 'Daily Operations', icon: Receipt, perm: 'reports.view' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },
   { path: '/payments', label: 'Receive Payments', icon: Tags, perm: 'accounting.view' },
   { path: '/price-schemes', label: 'Price Schemes', icon: Tags, perm: 'price_schemes.view' },

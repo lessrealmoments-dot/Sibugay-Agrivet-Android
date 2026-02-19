@@ -82,7 +82,7 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
         />
       </div>
 
-      {open && results.length > 0 && (
+      {open && (results.length > 0 || noResults) && (
         <div ref={dropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[400px] overflow-y-auto"
           data-testid="search-results-dropdown">
           {results.map((p, i) => (

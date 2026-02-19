@@ -145,11 +145,30 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
               )}
             </div>
           ))}
-          <div className="px-3 py-1.5 bg-slate-50 text-[10px] text-slate-400 flex items-center gap-3 border-t">
-            <span><ArrowUp size={10} className="inline" /><ArrowDown size={10} className="inline" /> navigate</span>
-            <span>Enter to select</span>
-            <span>Esc to close</span>
-          </div>
+          {/* No results - offer to create */}
+          {noResults && query.length >= 2 && (
+            <div className="px-3 py-3 border-t border-slate-100">
+              <p className="text-sm text-slate-500 mb-2">No product found for "<b>{query}</b>"</p>
+              {onCreateNew ? (
+                <button
+                  data-testid="create-product-from-search"
+                  onClick={() => { onCreateNew(query); setOpen(false); setQuery(''); }}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-md bg-[#1A4D2E]/5 hover:bg-[#1A4D2E]/10 text-[#1A4D2E] text-sm font-medium transition-colors"
+                >
+                  <PlusCircle size={16} /> Create "{query}" as new product
+                </button>
+              ) : (
+                <p className="text-xs text-slate-400">Product does not exist in the system</p>
+              )}
+            </div>
+          )}
+          {results.length > 0 && (
+            <div className="px-3 py-1.5 bg-slate-50 text-[10px] text-slate-400 flex items-center gap-3 border-t">
+              <span><ArrowUp size={10} className="inline" /><ArrowDown size={10} className="inline" /> navigate</span>
+              <span>Enter to select</span>
+              <span>Esc to close</span>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -79,19 +79,27 @@ export default function SalesPage() {
             </TableHeader>
             <TableBody>
               {sales.map(s => (
-                <TableRow key={s.id} className="table-row-hover cursor-pointer" onClick={() => viewSale(s)}>
-                  <TableCell className="font-mono text-xs">{s.sale_number}</TableCell>
-                  <TableCell>{s.customer_name}</TableCell>
-                  <TableCell>{s.items?.length || 0}</TableCell>
-                  <TableCell className="text-right font-semibold">{s.total?.toFixed(2)}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{s.payment_method}</Badge></TableCell>
-                  <TableCell className="text-slate-500 text-sm">{s.cashier_name}</TableCell>
+                <TableRow key={s.id} className="table-row-hover">
                   <TableCell>
+                    <button 
+                      className="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      onClick={() => openInvoiceDetail(s)}
+                    >
+                      {s.sale_number || s.invoice_number}
+                      {s.edited && <Edit3 size={10} className="text-orange-500" />}
+                    </button>
+                  </TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer">{s.customer_name}</TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer">{s.items?.length || 0}</TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer text-right font-semibold">{s.total?.toFixed(2)}</TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer"><Badge variant="outline" className="text-[10px]">{s.payment_method}</Badge></TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer text-slate-500 text-sm">{s.cashier_name}</TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer">
                     <Badge className={`text-[10px] ${s.status === 'voided' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                       {s.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-xs text-slate-500">{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer text-xs text-slate-500">{new Date(s.created_at).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
               {!sales.length && (

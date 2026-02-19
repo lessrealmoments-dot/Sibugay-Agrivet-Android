@@ -7,11 +7,12 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Separator } from '../components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import SmartProductSearch from '../components/SmartProductSearch';
-import { FileText, Plus, Trash2, Save } from 'lucide-react';
+import { FileText, Plus, Trash2, Save, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const EMPTY_LINE = { product_id: '', product_name: '', description: '', quantity: 1, rate: 0, discount_type: 'amount', discount_value: 0, is_repack: false };
+const EMPTY_LINE = { product_id: '', product_name: '', description: '', quantity: 1, rate: 0, original_rate: 0, cost_price: 0, discount_type: 'amount', discount_value: 0, is_repack: false, price_scheme: '' };
 
 export default function SalesOrderPage() {
   const { currentBranch, user } = useAuth();

@@ -1,0 +1,89 @@
+# AgriPOS - Multi-Branch Inventory, POS & Accounting System
+
+## Original Problem Statement
+Build an Accounting, Inventory, and POS website for multibranch management, similar to QuickBooks Online and Inflow Inventory Online, with unique features including:
+- Parent Product & Repack system with auto stock deduction
+- Offline POS with auto-sync capability
+- 3000+ SKU support with preset product setup
+- Multiple price schemes (Retail, Wholesale, Special, Government)
+- Granular role-based permissions
+- Advanced accounting (expenses, receivables, payables)
+
+## User Personas
+1. **Admin/Owner** - Full system access, manages all branches, users, and financial data
+2. **Branch Manager** - Manages branch operations, inventory, sales, with configurable permissions
+3. **Cashier** - POS operations, customer service, limited system access
+
+## Architecture
+- **Frontend**: React 19 + Tailwind CSS + shadcn/ui components
+- **Backend**: FastAPI (Python) with JWT authentication
+- **Database**: MongoDB with Motor async driver
+- **Design**: Manrope + IBM Plex Sans fonts, Forest Green (#1A4D2E) primary, dark sidebar layout
+
+## Core Requirements
+- [x] JWT-based authentication with role-based access control
+- [x] Granular toggleable permissions per user (view/create/edit/delete per module)
+- [x] Multi-branch management (CRUD branches)
+- [x] Product management with Parent/Repack system
+- [x] Repack auto-generation from parent products with SKU linking
+- [x] Inventory management per branch with stock adjustments and transfers
+- [x] POS interface with product search, cart, multiple payment methods
+- [x] Auto stock deduction from parent when repack is sold
+- [x] Multiple price schemes (Retail, Wholesale, Special, Government)
+- [x] Customer management with price scheme assignment
+- [x] Accounting: Expenses tracking, Receivables, Payables with payment recording
+- [x] Sales history with void capability (restores inventory)
+- [x] Dashboard with KPIs, recent sales, top products, low stock alerts
+- [x] User management with role assignment and password reset
+
+## What's Been Implemented (Feb 19, 2026)
+### Backend (server.py)
+- Full REST API with 30+ endpoints under /api prefix
+- JWT auth with bcrypt password hashing
+- MongoDB collections: users, branches, products, inventory, customers, price_schemes, sales, expenses, receivables, payables, inventory_logs
+- Parent/Repack system with auto stock deduction logic
+- Database seeding: default admin, main branch, 4 price schemes
+- Database indexing for performance
+
+### Frontend (11 pages)
+- LoginPage: Split layout with warehouse image
+- DashboardPage: 6 KPI cards, receivables widget, top products, recent sales
+- BranchesPage: CRUD table with dialog forms
+- ProductsPage: Product list with search/filter, parent/repack generation dialog
+- InventoryPage: Stock levels per branch, adjust/transfer dialogs, low stock filter
+- POSPage: Full POS interface with product grid, cart, checkout, customer selection
+- CustomersPage: CRUD with price scheme assignment
+- PriceSchemesPage: Price tier management with calculation methods
+- SalesPage: Sales history with detail view and void capability
+- AccountingPage: Tabbed interface for expenses, receivables, payables
+- SettingsPage: User management with granular permission toggles
+
+## Prioritized Backlog
+### P0 (Critical)
+- [ ] Offline POS with IndexedDB + auto-sync when online
+- [ ] Conflict prevention for offline/online data sync
+
+### P1 (High)
+- [ ] Barcode scanning support in POS
+- [ ] Batch product import (CSV for 3000+ SKUs)
+- [ ] Receipt printing (thermal printer support)
+- [ ] Inventory reports and analytics
+- [ ] Sales reports by date range, branch, product
+
+### P2 (Medium)
+- [ ] Auto price calculation from schemes (apply formula to all products)
+- [ ] Purchase orders and supplier management
+- [ ] Stock alerts and notifications
+- [ ] Daily cash register open/close with reconciliation
+- [ ] Product images and categories management
+
+### P3 (Low/Future)
+- [ ] Multi-currency support
+- [ ] API for mobile app
+- [ ] Audit trail / activity logs
+- [ ] Data backup and export
+- [ ] Dashboard charts with Recharts
+
+## Default Credentials
+- Username: admin
+- Password: admin123

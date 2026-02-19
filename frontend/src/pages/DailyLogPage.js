@@ -97,8 +97,8 @@ export default function DailyLogPage() {
   };
 
   const isClosed = closing?.status === 'closed';
-  // Expected cash = cash from invoice payments + POS cash - expenses + previous drawer (NO double-counting)
-  const expectedCash = report ? round2((report.total_cash_from_invoices || 0) - report.total_expenses + (closing?.previous_cashier_balance || 0)) : 0;
+  // Expected cash = cashier wallet balance (real-time, updated by all transactions)
+  const expectedCash = report ? round2(report.cashier_wallet_balance || 0) : 0;
 
   function round2(n) { return Math.round((n || 0) * 100) / 100; }
 

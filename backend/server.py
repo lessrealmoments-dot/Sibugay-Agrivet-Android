@@ -2051,7 +2051,7 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
 @api_router.put("/customers/{customer_id}")
 async def update_customer(customer_id: str, data: dict, user=Depends(get_current_user)):
     check_perm(user, "customers", "edit")
-    allowed = ["name", "phone", "email", "address", "price_scheme", "credit_limit"]
+    allowed = ["name", "phone", "email", "address", "price_scheme", "credit_limit", "interest_rate", "grace_period"]
     update = {k: v for k, v in data.items() if k in allowed}
     update["updated_at"] = now_iso()
     await db.customers.update_one({"id": customer_id}, {"$set": update})

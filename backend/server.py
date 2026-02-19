@@ -1345,6 +1345,9 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
 @api_router.delete("/expenses/{expense_id}")
 async def delete_expense(expense_id: str, user=Depends(get_current_user)):
     check_perm(user, "accounting", "delete")
+    expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
+    if expense:
+        await update_cashier_wallet(expense["branch_id"], expense["amount"], f"Expense deleted: {expense.get('description', '')}")
     await db.expenses.delete_one({"id": expense_id})
     return {"message": "Expense deleted"}
 

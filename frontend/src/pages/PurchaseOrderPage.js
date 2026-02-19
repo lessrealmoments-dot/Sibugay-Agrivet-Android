@@ -34,7 +34,7 @@ export default function PurchaseOrderPage() {
   const [detailDialog, setDetailDialog] = useState(false);
   const [detailPO, setDetailPO] = useState(null);
   const [createProductDialog, setCreateProductDialog] = useState(false);
-  const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
+  const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
   const [schemes, setSchemes] = useState([]);
   const qtyRefs = useRef([]);
 

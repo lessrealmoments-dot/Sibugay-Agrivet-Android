@@ -3502,6 +3502,29 @@ async def get_user_permissions(user_id: str, user=Depends(get_current_user)):
         "branch_id": target_user.get("branch_id"),
     }
 
+@api_router.put("/users/{user_id}/permissions")
+async def update_user_permissions(user_id: str, data: dict, user=Depends(get_current_user)):
+    """Update all permissions for a user at once."""
+    check_perm(user, "settings", "manage_permissions")
+    
+    target_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    permissions = data.get("permissions", {})
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "permissions": permissions,
+            "permission_preset": "custom",
+            "updated_at": now_iso()
+        }}
+    )
+    
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return updated
+
 # ==================== DAILY OPERATIONS ====================
 @api_router.get("/daily-log")
 async def get_daily_log(date: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):

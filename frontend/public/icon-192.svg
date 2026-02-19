@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#1A4D2E"/>
+  <g transform="translate(96,88)" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M-40,-24 L0,-44 L40,-24 V24 H-40 Z"/>
+    <path d="M-40,-24 L0,-4 L40,-24"/>
+    <path d="M0,-4 V24"/>
+    <rect x="-12" y="4" width="24" height="20" rx="3" fill="white" fill-opacity="0.3"/>
+  </g>
+  <text x="96" y="152" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="700" font-size="22">AgriPOS</text>
+</svg>

@@ -1551,23 +1551,17 @@ async def create_sale(data: dict, user=Depends(get_current_user)):
         price = float(item.get("price", 0))
         line_total = qty * price
 
-        # Check stock
-        inv = await db.inventory.find_one({"product_id": item["product_id"], "branch_id": branch_id}, {"_id": 0})
-        current_stock = inv["quantity"] if inv else 0
-        if current_stock < qty:
-            raise HTTPException(status_code=400, detail=f"Insufficient stock for {product['name']}: have {current_stock}, need {qty}")
-
-        # Deduct from product inventory
-        await db.inventory.update_one(
-            {"product_id": item["product_id"], "branch_id": branch_id},
-            {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}}
-        )
-
-        # If repack, also deduct from parent
+        # For repacks: check and deduct from PARENT inventory only
         if product.get("is_repack") and product.get("parent_id"):
             units_per_parent = product.get("units_per_parent", 1)
             parent_deduction = qty / units_per_parent
-            parent_inv = await db.inventory.find_one({"product_id": product["parent_id"], "branch_id": branch_id})
+            parent_inv = await db.inventory.find_one({"product_id": product["parent_id"], "branch_id": branch_id}, {"_id": 0})
+            parent_stock = parent_inv["quantity"] if parent_inv else 0
+            # Check if parent has enough stock (converted to repack units)
+            available_repack_units = parent_stock * units_per_parent
+            if available_repack_units < qty:
+                raise HTTPException(status_code=400, detail=f"Insufficient stock for {product['name']}: have {available_repack_units:.0f}, need {qty:.0f}")
+            # Deduct from parent only
             if parent_inv:
                 await db.inventory.update_one(
                     {"product_id": product["parent_id"], "branch_id": branch_id},
@@ -1578,11 +1572,27 @@ async def create_sale(data: dict, user=Depends(get_current_user)):
                     "id": new_id(), "product_id": product["parent_id"],
                     "branch_id": branch_id, "quantity": -parent_deduction, "updated_at": now_iso()
                 })
+            # Log movement against parent
+            await log_movement(product["parent_id"], branch_id, "sale", -parent_deduction, "", "",
+                              price * units_per_parent, user["id"], user.get("full_name", user["username"]),
+                              f"Sold as repack: {product['name']} x {qty}")
+        else:
+            # Regular product: check and deduct from its own inventory
+            inv = await db.inventory.find_one({"product_id": item["product_id"], "branch_id": branch_id}, {"_id": 0})
+            current_stock = inv["quantity"] if inv else 0
+            if current_stock < qty:
+                raise HTTPException(status_code=400, detail=f"Insufficient stock for {product['name']}: have {current_stock}, need {qty}")
+            await db.inventory.update_one(
+                {"product_id": item["product_id"], "branch_id": branch_id},
+                {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}}
+            )
 
         sale_items.append({
             "product_id": item["product_id"], "product_name": product["name"],
             "sku": product["sku"], "quantity": qty, "price": price,
             "total": line_total, "is_repack": product.get("is_repack", False),
+            "parent_id": product.get("parent_id"),
+            "units_per_parent": product.get("units_per_parent", 1) if product.get("is_repack") else None,
         })
         total += line_total
 

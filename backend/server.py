@@ -292,6 +292,188 @@ async def list_categories(user=Depends(get_current_user)):
     categories = await db.products.distinct("category", {"active": True})
     return categories
 
+# ==================== PRODUCT DETAIL & SUB-ROUTES ====================
+@api_router.get("/products/{product_id}/detail")
+async def get_product_detail(product_id: str, user=Depends(get_current_user)):
+    product = await db.products.find_one({"id": product_id, "active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    inv_records = await db.inventory.find({"product_id": product_id}, {"_id": 0}).to_list(100)
+    on_hand = {}
+    total_on_hand = 0
+    for inv in inv_records:
+        on_hand[inv["branch_id"]] = inv["quantity"]
+        total_on_hand += inv["quantity"]
+    coming_pipeline = [
+        {"$match": {"status": {"$in": ["ordered", "draft"]}}},
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$items.quantity"}}}
+    ]
+    coming_result = await db.purchase_orders.aggregate(coming_pipeline).to_list(1)
+    coming = coming_result[0]["total"] if coming_result else 0
+    reserved_pipeline = [
+        {"$match": {"status": "reserved"}},
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$items.quantity"}}}
+    ]
+    reserved_result = await db.sales.aggregate(reserved_pipeline).to_list(1)
+    reserved = reserved_result[0]["total"] if reserved_result else 0
+    purchase_movements = await db.movements.find(
+        {"product_id": product_id, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
+    ).to_list(10000)
+    total_pqty = sum(m["quantity_change"] for m in purchase_movements)
+    total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in purchase_movements)
+    moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else product.get("cost_price", 0)
+    last_purchase = await db.movements.find_one(
+        {"product_id": product_id, "type": "purchase"}, {"_id": 0}, sort=[("created_at", -1)]
+    )
+    lp_price = last_purchase.get("price_at_time", 0) if last_purchase else 0
+    lp_warning = lp_price < moving_avg if last_purchase and moving_avg > 0 and lp_price > 0 else False
+    repacks = await db.products.find({"parent_id": product_id, "active": True}, {"_id": 0}).to_list(100)
+    vendors = await db.product_vendors.find({"product_id": product_id}, {"_id": 0}).to_list(50)
+    all_branches = await db.branches.find({"active": True}, {"_id": 0}).to_list(100)
+    return {
+        "product": product,
+        "inventory": {"on_hand": on_hand, "total": total_on_hand, "coming": coming, "reserved": reserved},
+        "cost": {"moving_average": moving_avg, "last_purchase": lp_price,
+                 "last_purchase_date": last_purchase.get("created_at", "") if last_purchase else "",
+                 "last_purchase_warning": lp_warning, "method": product.get("capital_method", "manual")},
+        "repacks": repacks, "vendors": vendors, "branches": all_branches,
+    }
+
+@api_router.get("/products/{product_id}/movements")
+async def get_product_movements(product_id: str, user=Depends(get_current_user), skip: int = 0, limit: int = 50):
+    total = await db.movements.count_documents({"product_id": product_id})
+    items = await db.movements.find({"product_id": product_id}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    return {"movements": items, "total": total}
+
+@api_router.get("/products/{product_id}/orders")
+async def get_product_orders(product_id: str, user=Depends(get_current_user), skip: int = 0, limit: int = 50):
+    sale_pipeline = [
+        {"$match": {"status": {"$ne": "voided"}}},
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$project": {"_id": 0, "type": {"$literal": "sale"}, "date": "$created_at",
+                       "reference": "$sale_number", "quantity": "$items.quantity",
+                       "price": "$items.price", "total": "$items.total",
+                       "party": "$customer_name", "status": "$status"}},
+        {"$sort": {"date": -1}}, {"$skip": skip}, {"$limit": limit}
+    ]
+    po_pipeline = [
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$project": {"_id": 0, "type": {"$literal": "purchase"}, "date": "$created_at",
+                       "reference": "$po_number", "quantity": "$items.quantity",
+                       "price": "$items.unit_price", "total": "$items.total",
+                       "party": "$vendor", "status": "$status"}},
+        {"$sort": {"date": -1}}, {"$skip": skip}, {"$limit": limit}
+    ]
+    sales = await db.sales.aggregate(sale_pipeline).to_list(limit)
+    purchases = await db.purchase_orders.aggregate(po_pipeline).to_list(limit)
+    combined = sorted(sales + purchases, key=lambda x: x.get("date", ""), reverse=True)[:limit]
+    return {"orders": combined, "total": len(combined)}
+
+@api_router.get("/products/{product_id}/vendors")
+async def get_product_vendors(product_id: str, user=Depends(get_current_user)):
+    return await db.product_vendors.find({"product_id": product_id}, {"_id": 0}).to_list(50)
+
+@api_router.post("/products/{product_id}/vendors")
+async def add_product_vendor(product_id: str, data: dict, user=Depends(get_current_user)):
+    check_perm(user, "products", "edit")
+    vendor = {
+        "id": new_id(), "product_id": product_id,
+        "vendor_name": data["vendor_name"], "vendor_contact": data.get("vendor_contact", ""),
+        "last_price": float(data.get("last_price", 0)),
+        "last_order_date": data.get("last_order_date", ""),
+        "is_preferred": data.get("is_preferred", False), "created_at": now_iso(),
+    }
+    await db.product_vendors.insert_one(vendor)
+    del vendor["_id"]
+    return vendor
+
+@api_router.delete("/products/{product_id}/vendors/{vendor_id}")
+async def remove_product_vendor(product_id: str, vendor_id: str, user=Depends(get_current_user)):
+    check_perm(user, "products", "edit")
+    await db.product_vendors.delete_one({"id": vendor_id, "product_id": product_id})
+    return {"message": "Vendor removed"}
+
+# ==================== PURCHASE ORDER ROUTES ====================
+@api_router.get("/purchase-orders")
+async def list_purchase_orders(user=Depends(get_current_user), status: Optional[str] = None, skip: int = 0, limit: int = 50):
+    query = {}
+    if status:
+        query["status"] = status
+    total = await db.purchase_orders.count_documents(query)
+    items = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    return {"purchase_orders": items, "total": total}
+
+@api_router.post("/purchase-orders")
+async def create_purchase_order(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "inventory", "adjust")
+    items = data.get("items", [])
+    subtotal = sum(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)) for i in items)
+    po = {
+        "id": new_id(),
+        "po_number": f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
+        "vendor": data["vendor"], "branch_id": data.get("branch_id", ""),
+        "items": [{"product_id": i["product_id"], "product_name": i.get("product_name", ""),
+                    "quantity": float(i["quantity"]), "unit_price": float(i.get("unit_price", 0)),
+                    "total": float(i["quantity"]) * float(i.get("unit_price", 0))} for i in items],
+        "subtotal": subtotal, "status": data.get("status", "ordered"),
+        "expected_date": data.get("expected_date", ""), "received_date": None,
+        "notes": data.get("notes", ""),
+        "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.purchase_orders.insert_one(po)
+    del po["_id"]
+    return po
+
+@api_router.put("/purchase-orders/{po_id}")
+async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current_user)):
+    check_perm(user, "inventory", "adjust")
+    allowed = ["vendor", "items", "expected_date", "notes", "status", "branch_id"]
+    update = {k: v for k, v in data.items() if k in allowed}
+    if "items" in update:
+        update["subtotal"] = sum(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)) for i in update["items"])
+    update["updated_at"] = now_iso()
+    await db.purchase_orders.update_one({"id": po_id}, {"$set": update})
+    return await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+
+@api_router.post("/purchase-orders/{po_id}/receive")
+async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
+    check_perm(user, "inventory", "adjust")
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po["status"] == "received":
+        raise HTTPException(status_code=400, detail="PO already received")
+    branch_id = po.get("branch_id", "")
+    for item in po.get("items", []):
+        pid = item["product_id"]
+        qty = float(item["quantity"])
+        price = float(item.get("unit_price", 0))
+        existing = await db.inventory.find_one({"product_id": pid, "branch_id": branch_id})
+        if existing:
+            await db.inventory.update_one({"product_id": pid, "branch_id": branch_id},
+                                          {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}})
+        else:
+            await db.inventory.insert_one({"id": new_id(), "product_id": pid, "branch_id": branch_id,
+                                           "quantity": qty, "updated_at": now_iso()})
+        await log_movement(pid, branch_id, "purchase", qty, po["id"], po["po_number"],
+                           price, user["id"], user.get("full_name", user["username"]), f"PO received from {po['vendor']}")
+        await db.products.update_one({"id": pid}, {"$set": {"last_vendor": po["vendor"]}})
+    await db.purchase_orders.update_one({"id": po_id}, {"$set": {"status": "received", "received_date": now_iso()}})
+    return {"message": "PO received, inventory updated"}
+
+@api_router.delete("/purchase-orders/{po_id}")
+async def cancel_purchase_order(po_id: str, user=Depends(get_current_user)):
+    check_perm(user, "inventory", "adjust")
+    await db.purchase_orders.update_one({"id": po_id}, {"$set": {"status": "cancelled"}})
+    return {"message": "PO cancelled"}
+
 # ==================== INVENTORY ROUTES ====================
 @api_router.get("/inventory")
 async def list_inventory(

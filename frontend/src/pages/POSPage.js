@@ -145,21 +145,52 @@ export default function POSPage() {
   const handleCheckout = async () => {
     if (!currentBranch) { toast.error('Select a branch first'); return; }
     if (!cart.length) { toast.error('Cart is empty'); return; }
-    try {
-      const saleData = {
-        branch_id: currentBranch.id,
-        customer_id: selectedCustomer?.id,
-        customer_name: selectedCustomer?.name || 'Walk-in',
-        items: cart.map(c => ({ product_id: c.product_id, quantity: c.quantity, price: c.price })),
-        discount,
-        payment_method: paymentMethod,
-        payment_details: paymentMethod === 'Cash' ? { tendered: amountTendered, change: Math.max(0, change) } : {},
-      };
-      const res = await api.post('/sales', saleData);
-      toast.success(`Sale ${res.data.sale_number} completed!`);
-      clearCart();
-      setCheckoutDialog(false);
-    } catch (e) { toast.error(e.response?.data?.detail || 'Sale failed'); }
+
+    const saleId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const saleNumber = `SL-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${saleId.slice(0, 6).toUpperCase()}`;
+
+    const saleData = {
+      id: saleId,
+      sale_number: saleNumber,
+      branch_id: currentBranch.id,
+      customer_id: selectedCustomer?.id || null,
+      customer_name: selectedCustomer?.name || 'Walk-in',
+      items: cart.map(c => ({
+        product_id: c.product_id, product_name: c.product_name, sku: c.sku,
+        quantity: c.quantity, price: c.price, total: c.total, is_repack: c.is_repack || false,
+      })),
+      subtotal,
+      discount,
+      total: grandTotal,
+      payment_method: paymentMethod,
+      payment_details: paymentMethod === 'Cash' ? { tendered: amountTendered, change: Math.max(0, change) } : {},
+      cashier_id: user?.id,
+      cashier_name: user?.full_name || user?.username,
+      status: 'completed',
+      created_at: new Date().toISOString(),
+    };
+
+    if (isOnline) {
+      try {
+        const res = await api.post('/sales', saleData);
+        toast.success(`Sale ${res.data.sale_number} completed!`);
+      } catch (e) {
+        // API failed while online - save offline as fallback
+        await addPendingSale(saleData);
+        const count = await getPendingSaleCount();
+        setPendingCount(count);
+        toast.success(`Sale saved offline (will sync when stable)`);
+      }
+    } else {
+      // Offline: save locally
+      await addPendingSale(saleData);
+      const count = await getPendingSaleCount();
+      setPendingCount(count);
+      toast.success(`Sale ${saleNumber} saved offline!`);
+    }
+
+    clearCart();
+    setCheckoutDialog(false);
   };
 
   return (

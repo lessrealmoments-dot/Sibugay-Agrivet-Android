@@ -150,10 +150,12 @@ New Endpoints:
   - Total: 10 route modules with 62 endpoints
   - All modules tested and working
   - Remaining: Lower priority routes (fund management, accounting, dashboard, etc.)
-- [ ] **Multi-Branch Data Isolation**
-  - Branch-specific: prices, customers, suppliers, capital
-  - Global: product names/SKUs
-  - Owner view: all branches; User view: assigned branch only
+- [x] **Multi-Branch Data Isolation** (COMPLETE - Feb 19, 2026)
+  - Created branch utilities: get_branch_filter, get_user_branches, ensure_branch_access
+  - Updated routes for branch isolation: invoices, purchase_orders, inventory, customers
+  - Added dashboard with multi-branch support: /dashboard/stats, /dashboard/branch-summary
+  - Migrated existing customers to have branch_id
+  - Admin/Owner can view all branches, regular users see only their assigned branch
 
 ### P2 (Medium Priority)
 - [ ] Advanced Reporting Dashboards

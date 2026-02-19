@@ -1010,38 +1010,190 @@ async def get_customer_payment_history(customer_id: str, user=Depends(get_curren
     payments = await db.invoices.aggregate(pipeline).to_list(500)
     return payments
 
-@api_router.post("/customers/{customer_id}/generate-interest")
-async def generate_account_interest(customer_id: str, data: dict = {}, user=Depends(get_current_user)):
-    """Compute interest on all overdue invoices as of a given date and create a single Interest Charge invoice."""
-    check_perm(user, "accounting", "create")
+@api_router.get("/customers/{customer_id}/charges-preview")
+async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] = None, user=Depends(get_current_user)):
+    """
+    Preview interest and penalty charges for a customer WITHOUT creating invoices.
+    Shows breakdown per invoice with days overdue, grace period, and computed amounts.
+    Used for auto-preview when receiving payments.
+    """
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
-    if not customer: raise HTTPException(status_code=404, detail="Customer not found")
-    # Use provided computation date or today
-    comp_date_str = data.get("as_of_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    comp_date_str = as_of_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
+    
+    # Get customer's grace period (default 7 days)
+    grace_period = customer.get("grace_period", 7)
+    default_interest_rate = customer.get("interest_rate", 0)
+    
     invoices = await db.invoices.find(
         {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
     ).to_list(500)
+    
+    interest_preview = []
+    penalty_preview = []
+    total_interest = 0
+    total_penalty = 0
+    total_principal = 0
+    
+    for inv in invoices:
+        if inv.get("sale_type") in ("interest_charge", "penalty_charge"):
+            continue
+        
+        # Use invoice-level interest rate, fallback to customer rate
+        rate = inv.get("interest_rate", default_interest_rate)
+        due_date_str = inv.get("due_date", comp_date_str)
+        due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+        
+        # Grace period: interest starts after due_date + grace_period
+        grace_end_date = due_date + timedelta(days=grace_period)
+        
+        # Days overdue (from due date, not grace end)
+        days_overdue = max(0, (comp_date - due_date).days)
+        
+        # Days for interest calculation (from grace end or last_interest_date)
+        if comp_date <= grace_end_date:
+            # Still within grace period - no interest
+            interest_days = 0
+        else:
+            # Interest starts from grace_end_date or last_interest_date (whichever is later)
+            last_date_str = inv.get("last_interest_date")
+            if last_date_str:
+                last_date = datetime.strptime(last_date_str, "%Y-%m-%d")
+                interest_start = max(grace_end_date, last_date)
+            else:
+                interest_start = grace_end_date
+            interest_days = max(0, (comp_date - interest_start).days)
+        
+        principal = inv.get("balance", 0)  # Use current balance, not grand_total
+        total_principal += principal
+        
+        # Calculate interest (simple daily: rate%/30 per day)
+        if rate > 0 and interest_days > 0:
+            daily_rate = (rate / 100) / 30
+            interest = round(principal * daily_rate * interest_days, 2)
+            if interest > 0:
+                total_interest += interest
+                interest_preview.append({
+                    "invoice_number": inv["invoice_number"],
+                    "invoice_id": inv["id"],
+                    "due_date": due_date_str,
+                    "grace_end_date": grace_end_date.strftime("%Y-%m-%d"),
+                    "days_overdue": days_overdue,
+                    "interest_days": interest_days,
+                    "balance": principal,
+                    "interest_rate": rate,
+                    "computed_interest": interest,
+                    "last_interest_date": inv.get("last_interest_date"),
+                })
+        
+        # Track overdue invoices for potential penalty (if not already penalized)
+        if days_overdue > grace_period and not inv.get("penalty_applied"):
+            penalty_preview.append({
+                "invoice_number": inv["invoice_number"],
+                "invoice_id": inv["id"],
+                "due_date": due_date_str,
+                "days_overdue": days_overdue,
+                "balance": principal,
+            })
+    
+    return {
+        "customer_id": customer_id,
+        "customer_name": customer["name"],
+        "as_of_date": comp_date_str,
+        "grace_period": grace_period,
+        "default_interest_rate": default_interest_rate,
+        "total_principal": total_principal,
+        "total_interest_preview": total_interest,
+        "total_penalty_eligible_invoices": len(penalty_preview),
+        "interest_breakdown": interest_preview,
+        "penalty_eligible": penalty_preview,
+        "summary": {
+            "principal": total_principal,
+            "interest": total_interest,
+            "grand_total": round(total_principal + total_interest, 2),
+        }
+    }
+
+@api_router.post("/customers/{customer_id}/generate-interest")
+async def generate_account_interest(customer_id: str, data: dict = {}, user=Depends(get_current_user)):
+    """
+    Compute interest on all overdue invoices as of a given date and create a single Interest Charge invoice.
+    Respects grace period: Interest only accrues after due_date + grace_period days.
+    Uses simple daily calculation: Balance × (Rate%/30) × Days Past Grace
+    """
+    check_perm(user, "accounting", "create")
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    comp_date_str = data.get("as_of_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
+    
+    # Get customer's grace period (default 7 days)
+    grace_period = customer.get("grace_period", 7)
+    default_interest_rate = customer.get("interest_rate", 0)
+    
+    invoices = await db.invoices.find(
+        {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}, {"_id": 0}
+    ).to_list(500)
+    
     total_interest = 0
     interest_details = []
+    
     for inv in invoices:
-        if inv.get("sale_type") in ("interest_charge", "penalty_charge"): continue
-        rate = inv.get("interest_rate", 0)
-        if rate <= 0: continue
-        due = datetime.strptime(inv["due_date"], "%Y-%m-%d") if inv.get("due_date") else comp_date
-        if comp_date <= due: continue
-        last_date = datetime.strptime(inv["last_interest_date"], "%Y-%m-%d") if inv.get("last_interest_date") else due
-        days = (comp_date - last_date).days
-        if days <= 0: continue
-        principal = inv.get("grand_total", 0)
+        if inv.get("sale_type") in ("interest_charge", "penalty_charge"):
+            continue
+        
+        # Use invoice-level interest rate, fallback to customer rate
+        rate = inv.get("interest_rate", default_interest_rate)
+        if rate <= 0:
+            continue
+        
+        due_date_str = inv.get("due_date", comp_date_str)
+        due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+        
+        # Grace period: interest starts after due_date + grace_period
+        grace_end_date = due_date + timedelta(days=grace_period)
+        
+        if comp_date <= grace_end_date:
+            # Still within grace period - no interest
+            continue
+        
+        # Interest starts from grace_end_date or last_interest_date (whichever is later)
+        last_date_str = inv.get("last_interest_date")
+        if last_date_str:
+            last_date = datetime.strptime(last_date_str, "%Y-%m-%d")
+            interest_start = max(grace_end_date, last_date)
+        else:
+            interest_start = grace_end_date
+        
+        days = (comp_date - interest_start).days
+        if days <= 0:
+            continue
+        
+        principal = inv.get("balance", 0)  # Use current balance
         daily_rate = (rate / 100) / 30
         interest = round(principal * daily_rate * days, 2)
+        
         if interest > 0:
             total_interest += interest
-            interest_details.append({"invoice": inv["invoice_number"], "principal": principal, "days": days, "interest": interest})
-            await db.invoices.update_one({"id": inv["id"]}, {"$set": {"last_interest_date": comp_date_str}})
+            interest_details.append({
+                "invoice": inv["invoice_number"],
+                "principal": principal,
+                "days": days,
+                "rate": rate,
+                "interest": interest
+            })
+            await db.invoices.update_one(
+                {"id": inv["id"]},
+                {"$set": {"last_interest_date": comp_date_str}}
+            )
+    
     if total_interest <= 0:
-        return {"message": "No interest to charge", "total": 0}
+        return {"message": "No interest to charge (invoices may still be within grace period)", "total": 0, "grace_period": grace_period}
     # Create interest charge invoice
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"

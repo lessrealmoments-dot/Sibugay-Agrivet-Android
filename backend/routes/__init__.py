@@ -8,6 +8,9 @@ from .products import router as products_router
 from .customers import router as customers_router
 from .inventory import router as inventory_router
 from .price_schemes import router as price_schemes_router
+from .invoices import router as invoices_router
+from .sales import router as sales_router
+from .purchase_orders import router as purchase_orders_router
 
 __all__ = [
     'auth_router',
@@ -17,4 +20,7 @@ __all__ = [
     'customers_router',
     'inventory_router',
     'price_schemes_router',
+    'invoices_router',
+    'sales_router',
+    'purchase_orders_router',
 ]

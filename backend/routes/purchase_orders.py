@@ -1,12 +1,17 @@
 """
 Purchase Order routes: CRUD, receiving, payments.
+Supports multi-branch data isolation.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone
 import uuid
 from config import db
-from utils import get_current_user, check_perm, now_iso, new_id, log_movement, update_cashier_wallet
+from utils import (
+    get_current_user, check_perm, now_iso, new_id, 
+    log_movement, update_cashier_wallet,
+    get_branch_filter, apply_branch_filter, ensure_branch_access
+)
 
 router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
 
@@ -15,11 +20,17 @@ router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
 async def list_purchase_orders(
     user=Depends(get_current_user),
     status: Optional[str] = None,
+    branch_id: Optional[str] = None,
     skip: int = 0,
     limit: int = 50
 ):
-    """List all purchase orders with optional status filter."""
+    """List all purchase orders with optional status filter. Respects branch isolation."""
     query = {}
+    
+    # Apply branch filter for data isolation
+    branch_filter = await get_branch_filter(user, branch_id)
+    query = apply_branch_filter(query, branch_filter)
+    
     if status:
         query["status"] = status
     

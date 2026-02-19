@@ -53,7 +53,7 @@ export default function ProductsPage() {
 
   const openCreate = (prefillName = '') => {
     setEditing(null);
-    setForm({ sku: '', name: prefillName, category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', starting_inventory: 0 });
+    setForm({ sku: '', name: prefillName, category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', starting_inventory: 0 });
     setDialogOpen(true);
   };
 

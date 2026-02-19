@@ -1632,14 +1632,27 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     farm_expenses = [e for e in expenses if e.get("category") == "Farm Expense"]
     other_expenses = [e for e in expenses if e.get("category") not in ("Employee Cash Advance", "Farm Expense")]
     # Credit collections (payments on existing receivables) - NOT new revenue
-    pay_pipeline = [
+    # Split into: payments on TODAY's invoices (cash from new sales) vs OLD invoices (credit collections)
+    all_payments_pipeline = [
         {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}}},
         {"$unwind": "$payments"}, {"$match": {"payments.date": date}},
         {"$project": {"_id": 0, "invoice_number": 1, "customer_name": 1, "balance": 1,
-                       "interest_accrued": 1, "payment": "$payments"}}
+                       "interest_accrued": 1, "order_date": 1, "payment": "$payments"}}
     ]
-    payments = await db.invoices.aggregate(pay_pipeline).to_list(500)
-    total_credit_collections = sum(p["payment"]["amount"] for p in payments)
+    all_payments_today = await db.invoices.aggregate(all_payments_pipeline).to_list(500)
+    # Separate: credit collections = payments on invoices NOT created today
+    credit_collections = [p for p in all_payments_today if p.get("order_date") != date]
+    total_credit_collections = sum(p["payment"]["amount"] for p in credit_collections)
+    # Cash from invoice payments today (includes initial payments on new invoices + old collections)
+    total_invoice_cash = sum(p["payment"]["amount"] for p in all_payments_today)
+    # POS cash sales (direct POS sales not in invoices)
+    pos_cash_sales = await db.sales.find(
+        {"branch_id": branch_id, "created_at": {"$regex": f"^{date}"}, "status": "completed",
+         "payment_method": {"$ne": "Credit"}}, {"_id": 0, "total": 1}
+    ).to_list(10000)
+    total_pos_cash = sum(s.get("total", 0) for s in pos_cash_sales)
+    # Total cash received = invoice payments + POS cash (no double-counting)
+    total_cash_received = round(total_invoice_cash + total_pos_cash, 2)
     # Fund balances
     wallets = await db.fund_wallets.find({"branch_id": branch_id, "active": True}, {"_id": 0}).to_list(10)
     safe_wallet = next((w for w in wallets if w["type"] == "safe"), None)

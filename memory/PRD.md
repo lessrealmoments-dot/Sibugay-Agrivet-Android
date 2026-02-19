@@ -28,13 +28,41 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - [x] Repack auto-generation from parent products with SKU linking
 - [x] Inventory management per branch with stock adjustments and transfers
 - [x] POS interface with product search, cart, multiple payment methods
-- [x] Auto stock deduction from parent when repack is sold
+- [x] **UPDATED: Derived Repack Inventory** - Repacks don't have their own stock; calculated from parent
 - [x] Multiple price schemes (Retail, Wholesale, Special, Government)
 - [x] Customer management with price scheme assignment
 - [x] Accounting: Expenses tracking, Receivables, Payables with payment recording
 - [x] Sales history with void capability (restores inventory)
 - [x] Dashboard with KPIs, recent sales, top products, low stock alerts
 - [x] User management with role assignment and password reset
+
+## Parent/Repack Inventory System (Feb 19, 2026)
+
+### How It Works:
+1. **Parent products** have real inventory in the `inventory` collection
+2. **Repacks have NO inventory** - their stock is calculated dynamically:
+   - `Repack Available = Parent Stock × units_per_parent`
+3. **When repack is sold**:
+   - Parent inventory is deducted: `parent_deduction = quantity_sold / units_per_parent`
+   - No change to repack inventory (doesn't exist)
+4. **Cannot adjust repack inventory** - must adjust parent instead
+
+### Example:
+```
+Parent: Rice 25kg Bag (Stock: 10 bags, units_per_parent: 25)
+Repack: Rice 1kg Pack
+
+Repack Available = 10 × 25 = 250 packs
+
+Customer buys 5 packs:
+→ Parent Stock: 10 - (5/25) = 9.8 bags
+→ Repack Available: 9.8 × 25 = 245 packs (recalculated)
+```
+
+### UI Display:
+- Inventory page shows "derived" label under repack quantities
+- Shows parent info: "From: Parent Name (X.XX Unit)"
+- Repack badge shows multiplier: "Repack (×10)", "Repack (×50)"
 
 ## What's Been Implemented (Feb 19, 2026)
 
@@ -43,7 +71,7 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - Full REST API with 30+ endpoints under /api prefix
 - JWT auth with bcrypt password hashing
 - MongoDB collections: users, branches, products, inventory, customers, price_schemes, sales, expenses, receivables, payables, inventory_logs
-- Parent/Repack system with auto stock deduction logic
+- **UPDATED:** Parent/Repack system with derived inventory logic
 - Database seeding: default admin, main branch, 4 price schemes
 - Database indexing for performance
 

@@ -444,7 +444,21 @@ export default function SalesOrderPage() {
               <div><Label>Product Name</Label><Input value={newProductForm.name} onChange={e => setNewProductForm(f => ({ ...f, name: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <div><Label>Category</Label><Input value={newProductForm.category} onChange={e => setNewProductForm(f => ({ ...f, category: e.target.value }))} /></div>
+              <div><Label>Category</Label>
+                <Select value={newProductForm.category} onValueChange={v => setNewProductForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Pesticide">Pesticide</SelectItem>
+                    <SelectItem value="Fertilizers">Fertilizers</SelectItem>
+                    <SelectItem value="Seeds">Seeds</SelectItem>
+                    <SelectItem value="Feeds">Feeds</SelectItem>
+                    <SelectItem value="Tools">Tools</SelectItem>
+                    <SelectItem value="Veterinary">Veterinary</SelectItem>
+                    <SelectItem value="Customized">Customized</SelectItem>
+                    <SelectItem value="Others">Others</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label>Unit</Label><Input value={newProductForm.unit} onChange={e => setNewProductForm(f => ({ ...f, unit: e.target.value }))} placeholder="Box, Bag, Pack" /></div>
               <div><Label>Cost Price</Label><Input type="number" value={newProductForm.cost_price} onChange={e => setNewProductForm(f => ({ ...f, cost_price: parseFloat(e.target.value) || 0 }))} /></div>
             </div>

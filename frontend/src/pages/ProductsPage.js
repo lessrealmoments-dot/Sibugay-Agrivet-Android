@@ -15,6 +15,7 @@ import { formatPHP } from '../lib/utils';
 
 export default function ProductsPage() {
   const navigate = useNavigate();
+  const { currentBranch } = useAuth();
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');

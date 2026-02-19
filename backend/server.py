@@ -1919,6 +1919,110 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
         "message": f"Farm expense recorded and Invoice {invoice_number} created for {customer.get('name', '')}"
     }
 
+@api_router.post("/expenses/customer-cashout")
+async def create_customer_cashout(data: dict, user=Depends(get_current_user)):
+    """
+    Create a customer cash out (loan/borrow) and automatically generate an invoice.
+    This is used when customers borrow money from the business.
+    """
+    check_perm(user, "accounting", "create")
+    
+    customer_id = data.get("customer_id")
+    if not customer_id:
+        raise HTTPException(status_code=400, detail="Customer is required for cash out")
+    
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    amount = float(data["amount"])
+    branch_id = data["branch_id"]
+    
+    # Create the expense record
+    expense = {
+        "id": new_id(),
+        "branch_id": branch_id,
+        "category": "Customer Cash Out",
+        "description": data.get("description", "Cash Out / Loan"),
+        "notes": data.get("notes", ""),
+        "amount": amount,
+        "payment_method": data.get("payment_method", "Cash"),
+        "reference_number": data.get("reference_number", ""),
+        "date": data.get("date", now_iso()[:10]),
+        "customer_id": customer_id,
+        "customer_name": customer.get("name", ""),
+        "expense_type": "customer_cashout",
+        "linked_invoice_id": None,
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    
+    # Deduct from cashier wallet (cash goes out to customer)
+    await update_cashier_wallet(branch_id, -amount, f"Customer Cash Out to {customer.get('name', '')}: {data.get('description', 'Loan')}")
+    
+    # Generate invoice number
+    prefix_doc = await db.settings.find_one({"type": "invoice_prefixes"}, {"_id": 0})
+    inv_prefix = prefix_doc.get("invoice", "INV") if prefix_doc else "INV"
+    inv_count = await db.invoices.count_documents({}) + 1
+    invoice_number = f"{inv_prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{inv_count:04d}"
+    
+    # Create the invoice for the customer (they owe us this money)
+    invoice = {
+        "id": new_id(),
+        "invoice_number": invoice_number,
+        "branch_id": branch_id,
+        "customer_id": customer_id,
+        "customer_name": customer.get("name", ""),
+        "type": "Cash Out",
+        "items": [{
+            "product_id": None,
+            "product_name": f"Cash Out / Loan: {data.get('description', 'Cash Advance')}",
+            "description": data.get("notes", ""),
+            "quantity": 1,
+            "price": amount,
+            "discount": 0,
+            "total": amount,
+        }],
+        "subtotal": amount,
+        "discount": 0,
+        "total": amount,
+        "amount_paid": 0,
+        "balance": amount,
+        "payment_method": "credit",
+        "payment_status": "unpaid",
+        "status": "confirmed",
+        "terms": data.get("terms", ""),
+        "due_date": data.get("due_date", ""),
+        "notes": f"Customer Cash Out / Loan. {data.get('notes', '')}",
+        "expense_type": "customer_cashout",
+        "cashout_expense_id": expense["id"],
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.invoices.insert_one(invoice)
+    
+    # Update expense with linked invoice
+    expense["linked_invoice_id"] = invoice["id"]
+    expense["linked_invoice_number"] = invoice_number
+    await db.expenses.insert_one(expense)
+    
+    # Update customer balance (they owe us)
+    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": amount}})
+    
+    del expense["_id"]
+    return {
+        "expense": expense,
+        "invoice": {
+            "id": invoice["id"],
+            "invoice_number": invoice_number,
+            "customer_name": customer.get("name", ""),
+            "total": amount,
+        },
+        "message": f"Cash out recorded and Invoice {invoice_number} created for {customer.get('name', '')}"
+    }
+
 @api_router.delete("/expenses/{expense_id}")
 async def delete_expense(expense_id: str, user=Depends(get_current_user)):
     check_perm(user, "accounting", "delete")

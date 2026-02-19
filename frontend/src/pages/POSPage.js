@@ -202,6 +202,131 @@ export default function POSPage() {
     setCheckoutDialog(false);
   };
 
+  const today = new Date().toISOString().slice(0, 10);
+
+  const loadDailyReport = async () => {
+    if (!currentBranch) return;
+    try {
+      const [reportRes, closeRes] = await Promise.all([
+        api.get('/daily-report', { params: { date: today, branch_id: currentBranch.id } }),
+        api.get(`/daily-close/${today}`, { params: { branch_id: currentBranch.id } }),
+      ]);
+      setDailyReport(reportRes.data);
+      setClosing(closeRes.data);
+    } catch (e) { toast.error('Failed to load report'); }
+  };
+
+  const openReport = async () => { await loadDailyReport(); setReportDialog(true); };
+  const openClose = async () => {
+    await loadDailyReport();
+    const closeRes = await api.get(`/daily-close/${today}`, { params: { branch_id: currentBranch?.id } });
+    if (closeRes.data?.status === 'closed') { setClosingResult(closeRes.data); }
+    else { setClosingResult(null); }
+    setCloseDialog(true);
+  };
+
+  const handleCloseDay = async () => {
+    if (!window.confirm(`Close accounts for ${today}? This locks all transactions.`)) return;
+    try {
+      const res = await api.post('/daily-close', { ...closeForm, date: today, branch_id: currentBranch.id });
+      toast.success(`Day closed! Extra cash: ${formatPHP(res.data.extra_cash)}`);
+      setClosingResult(res.data);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error closing day'); }
+  };
+
+  const PrintableReport = ({ data }) => {
+    if (!data) return null;
+    const r = dailyReport;
+    const walletInfo = data;
+    const expectedCash = Math.round(((r?.total_revenue || 0) + (r?.total_payments || 0) - (r?.total_expenses || 0) + (walletInfo.previous_cashier_balance || 0)) * 100) / 100;
+    return (
+      <div className="space-y-4 text-sm" id="printable-report">
+        <div className="text-center border-b pb-3">
+          <h2 className="text-xl font-bold" style={{ fontFamily: 'Manrope' }}>Daily Closing Report</h2>
+          <p className="text-slate-500">{currentBranch?.name} &middot; {data.date || today}</p>
+          {data.closed_by_name && <p className="text-xs text-slate-400">Closed by {data.closed_by_name} at {new Date(data.closed_at).toLocaleString()}</p>}
+        </div>
+        {/* General Details */}
+        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">General Details</h3>
+          <div className="space-y-1">
+            <div className="flex justify-between"><span>Total Cash in Safe</span><span className="font-bold">{formatPHP(data.safe_balance)}</span></div>
+            <div className="flex justify-between"><span>Total Cash in Bank</span><span className="font-bold">{formatPHP(data.bank_balance)}</span></div>
+            <div className="flex justify-between"><span>Cash Deposited to Safe Today</span><span className="font-bold">{formatPHP(data.cash_deposited_to_safe)}</span></div>
+            <div className="flex justify-between"><span>Previous Cashier Balance</span><span className="font-bold">{formatPHP(data.previous_cashier_balance)}</span></div>
+          </div>
+        </div>
+        <Separator />
+        {/* Sales by Category */}
+        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Sales Today (by Category)</h3>
+          {Object.entries(data.sales_by_category || r?.sales_by_category || {}).map(([cat, val]) => (
+            <div key={cat} className="flex justify-between py-0.5"><span>{cat}</span><span className="font-bold">{formatPHP(typeof val === 'object' ? val.total : val)}</span></div>
+          ))}
+          <div className="flex justify-between pt-1 border-t font-bold"><span>Total Sales</span><span>{formatPHP(data.total_sales || r?.total_revenue)}</span></div>
+        </div>
+        <Separator />
+        {/* Payments Received */}
+        {(data.payments_received?.length > 0 || r?.payments_today?.length > 0) && (
+          <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Payments Received Today</h3>
+            {(data.payments_received || r?.payments_today || []).map((p, i) => (
+              <div key={i} className="p-2 bg-slate-50 rounded mb-1">
+                <div className="flex justify-between font-medium"><span>{p.customer || p.customer_name}</span><span>{formatPHP(p.total_paid || p.payment?.amount)}</span></div>
+                <div className="text-xs text-slate-400 flex gap-3">
+                  <span>Invoice: {p.invoice || p.invoice_number}</span>
+                  {(p.interest_paid > 0 || p.interest) && <span>Interest: {formatPHP(p.interest_paid || p.interest)}</span>}
+                  <span>Open Bal: {formatPHP(p.balance)}</span>
+                </div>
+              </div>
+            ))}
+            <div className="flex justify-between pt-1 border-t font-bold"><span>Total Payments</span><span>{formatPHP(data.total_payments || r?.total_payments)}</span></div>
+          </div>
+        )}
+        <Separator />
+        {/* Expenses */}
+        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Expenses Today</h3>
+          {(data.employee_advances?.length > 0) && (
+            <div className="mb-2"><p className="text-xs font-semibold text-slate-500">Employee Cash Advances</p>
+              {data.employee_advances.map((e, i) => <div key={i} className="flex justify-between py-0.5"><span>{e.description}</span><span className="text-red-600">{formatPHP(e.amount)}</span></div>)}
+            </div>
+          )}
+          {(data.farm_expenses?.length > 0) && (
+            <div className="mb-2"><p className="text-xs font-semibold text-slate-500">Farm Expenses (added to customer balance)</p>
+              {data.farm_expenses.map((e, i) => <div key={i} className="flex justify-between py-0.5"><span>{e.description}</span><span className="text-red-600">{formatPHP(e.amount)}</span></div>)}
+            </div>
+          )}
+          {(data.expenses || r?.expenses || []).filter(e => !['Employee Cash Advance', 'Farm Expense'].includes(e.category)).length > 0 && (
+            <div className="mb-2"><p className="text-xs font-semibold text-slate-500">Other Expenses</p>
+              {(data.expenses || r?.expenses || []).filter(e => !['Employee Cash Advance', 'Farm Expense'].includes(e.category)).map((e, i) => (
+                <div key={i} className="flex justify-between py-0.5"><span>{e.description || e.category}</span><span className="text-red-600">{formatPHP(e.amount)}</span></div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-between pt-1 border-t font-bold"><span>Total Expenses</span><span className="text-red-600">{formatPHP(data.total_expenses || r?.total_expenses)}</span></div>
+        </div>
+        <Separator />
+        {/* Cash Counting */}
+        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">Cash Counting</h3>
+          <div className="space-y-1">
+            <div className="flex justify-between"><span>Expected Cash in Drawer</span><span className="font-bold">{formatPHP(data.expected_cash || expectedCash)}</span></div>
+            <div className="flex justify-between"><span>Actual Cash in Drawer</span><span className="font-bold">{formatPHP(data.actual_cash)}</span></div>
+            <div className="flex justify-between text-slate-400"><span>Bank Checks (ref only)</span><span>{formatPHP(data.bank_checks)}</span></div>
+            <div className="flex justify-between text-slate-400"><span>Other Payments - GCash etc. (ref only)</span><span>{formatPHP(data.other_payment_forms)}</span></div>
+            <Separator />
+            <div className="flex justify-between text-base"><span className="font-bold">Extra Cash</span>
+              <span className={`font-bold ${(data.extra_cash || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatPHP(data.extra_cash)}</span>
+            </div>
+            <p className="text-[10px] text-slate-400 italic">Extra cash may offset missing inventory. If missing inventory exceeds extra cash, cashier is responsible.</p>
+          </div>
+        </div>
+        <Separator />
+        {/* Allocation */}
+        <div><h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">End-of-Day Allocation</h3>
+          <div className="flex justify-between"><span>Cash Remaining in Drawer</span><span className="font-bold">{formatPHP(data.cash_to_drawer)}</span></div>
+          <div className="flex justify-between"><span>Cash Transferred to Safe</span><span className="font-bold">{formatPHP(data.cash_to_safe)}</span></div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="pos-grid -m-4 lg:-m-6" data-testid="pos-page">
       {/* Left: Products */}

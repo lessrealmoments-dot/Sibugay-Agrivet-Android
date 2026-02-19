@@ -1481,6 +1481,21 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
                 }
                 await db.receivables.insert_one(receivable)
             await db.sales.insert_one(sale_doc)
+            # Update cashier wallet for cash sales
+            if sale_doc.get("payment_method") != "Credit":
+                await update_cashier_wallet(branch_id, sale_doc.get("total", 0), f"Synced POS Sale {sale_id[:8]}")
+            # Log to sales_log
+            active_date = await get_active_date(branch_id)
+            sale_items_for_log = sale_doc.get("items", [])
+            for si in sale_items_for_log:
+                if si.get("product_id"):
+                    prod = await db.products.find_one({"id": si["product_id"]}, {"_id": 0, "category": 1})
+                    si["category"] = prod.get("category", "General") if prod else "General"
+            await log_sale_items(branch_id, active_date, sale_items_for_log,
+                                 sale_doc.get("sale_number", sale_id[:8]),
+                                 sale_doc.get("customer_name", "Walk-in"),
+                                 sale_doc.get("payment_method", "Cash"),
+                                 sale_doc.get("cashier_name", "System"))
             results.append({"id": sale_id, "status": "synced"})
         except Exception as e:
             logger.error(f"Sync error for sale {sale_id}: {e}")

@@ -257,9 +257,10 @@ export default function DailyLogPage() {
                 <Separator />
                 <div className="flex justify-between font-bold"><span>New Sales Today</span><span>{formatPHP(closing.new_sales_today)}</span></div>
               </CardContent></Card>
-              {closing.payments_received?.length > 0 && (
+              {closing.credit_collections?.length > 0 && (
                 <Card className="border-slate-200"><CardContent className="p-4 text-sm">
-                  <h3 className="font-bold mb-2" style={{ fontFamily: 'Manrope' }}>Payments Received</h3>
+                  <h3 className="font-bold mb-2" style={{ fontFamily: 'Manrope' }}>Credit Collections Today</h3>
+                  <p className="text-[10px] text-slate-400 mb-2">Payments on previous credit balances (not new revenue)</p>
                   <Table><TableHeader><TableRow>
                     <TableHead className="text-xs">Customer</TableHead><TableHead className="text-xs">Invoice</TableHead>
                     <TableHead className="text-xs text-right">Principal</TableHead><TableHead className="text-xs text-right">Interest</TableHead>

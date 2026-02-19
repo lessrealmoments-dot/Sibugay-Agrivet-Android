@@ -464,25 +464,43 @@ export default function POSPage() {
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
             {cart.map(item => (
-              <div key={item.product_id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 animate-slideIn">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.product_name}</p>
-                  <p className="text-[11px] text-slate-400">₱{item.price.toFixed(2)} x {item.quantity}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="sm" className="h-7 w-7 p-0" data-testid={`cart-minus-${item.product_id}`} onClick={() => updateQty(item.product_id, -1)}>
-                    <Minus size={12} />
-                  </Button>
-                  <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                  <Button variant="outline" size="sm" className="h-7 w-7 p-0" data-testid={`cart-plus-${item.product_id}`} onClick={() => updateQty(item.product_id, 1)}>
-                    <Plus size={12} />
-                  </Button>
-                </div>
-                <div className="text-right w-20">
-                  <p className="text-sm font-bold">₱{item.total.toFixed(2)}</p>
-                  <button onClick={() => removeFromCart(item.product_id)} className="text-red-400 hover:text-red-600">
+              <div key={item.product_id} className="p-3 rounded-lg bg-slate-50 animate-slideIn">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-sm font-medium truncate flex-1">{item.product_name}</p>
+                  <button onClick={() => removeFromCart(item.product_id)} className="text-red-400 hover:text-red-600 ml-2">
                     <Trash2 size={12} />
                   </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" className="h-7 w-7 p-0" data-testid={`cart-minus-${item.product_id}`} onClick={() => updateQty(item.product_id, -1)}>
+                      <Minus size={12} />
+                    </Button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.quantity}
+                      onChange={e => setItemQty(item.product_id, e.target.value)}
+                      className="w-12 h-7 text-center text-sm font-bold border border-slate-200 rounded focus:outline-none focus:border-[#1A4D2E]"
+                      data-testid={`cart-qty-${item.product_id}`}
+                    />
+                    <Button variant="outline" size="sm" className="h-7 w-7 p-0" data-testid={`cart-plus-${item.product_id}`} onClick={() => updateQty(item.product_id, 1)}>
+                      <Plus size={12} />
+                    </Button>
+                  </div>
+                  <span className="text-xs text-slate-400">x</span>
+                  <div className="flex items-center gap-0.5">
+                    <span className="text-xs text-slate-400">₱</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.price}
+                      onChange={e => setItemPrice(item.product_id, e.target.value)}
+                      className="w-20 h-7 text-right text-sm font-semibold border border-slate-200 rounded focus:outline-none focus:border-[#1A4D2E]"
+                      data-testid={`cart-price-${item.product_id}`}
+                    />
+                  </div>
+                  <span className="text-sm font-bold text-right flex-1">₱{item.total.toFixed(2)}</span>
                 </div>
               </div>
             ))}

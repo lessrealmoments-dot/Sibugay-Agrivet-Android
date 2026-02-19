@@ -1838,6 +1838,8 @@ async def create_farm_expense(data: dict, user=Depends(get_current_user)):
         }
         await db.invoices.insert_one(farm_invoice)
         await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": float(data["amount"])}})
+    # Deduct from cashier wallet
+    await update_cashier_wallet(data.get("branch_id", ""), -float(data["amount"]), f"Farm Expense: {tag}")
     del expense["_id"]
     return expense
 
@@ -1855,6 +1857,8 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
         "created_at": now_iso(),
     }
     await db.expenses.insert_one(expense)
+    # Deduct from cashier wallet
+    await update_cashier_wallet(data.get("branch_id", ""), -float(data["amount"]), f"Employee Advance: {emp['name'] if emp else 'Unknown'}")
     del expense["_id"]
     return expense
 

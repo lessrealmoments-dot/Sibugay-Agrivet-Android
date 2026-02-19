@@ -483,8 +483,21 @@ export default function ProductDetailPage() {
               <div><Label>Unit</Label><Input data-testid="repack-unit" value={repackForm.unit} onChange={e => setRepackForm({ ...repackForm, unit: e.target.value })} placeholder="Pack, Sachet, Piece" /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Units per {product.unit}</Label><Input data-testid="repack-per-parent" type="number" value={repackForm.units_per_parent} onChange={e => setRepackForm({ ...repackForm, units_per_parent: parseInt(e.target.value) || 1 })} min={1} /></div>
-              <div><Label>Cost per {repackForm.unit || 'unit'}</Label><Input type="number" value={repackForm.cost_price} onChange={e => setRepackForm({ ...repackForm, cost_price: parseFloat(e.target.value) || 0 })} /></div>
+              <div><Label>Units per {product.unit}</Label><Input data-testid="repack-per-parent" type="number" value={repackForm.units_per_parent} onChange={e => {
+                const units = parseInt(e.target.value) || 1;
+                const autoCost = product.cost_price ? Math.round((product.cost_price / units + (repackForm.add_on_cost || 0)) * 100) / 100 : 0;
+                setRepackForm({ ...repackForm, units_per_parent: units, cost_price: autoCost });
+              }} min={1} /></div>
+              <div><Label>Add-on Cost</Label><Input type="number" value={repackForm.add_on_cost || 0} onChange={e => {
+                const addon = parseFloat(e.target.value) || 0;
+                const autoCost = Math.round((product.cost_price / (repackForm.units_per_parent || 1) + addon) * 100) / 100;
+                setRepackForm({ ...repackForm, add_on_cost: addon, cost_price: autoCost });
+              }} /></div>
+            </div>
+            <div className="p-2 bg-blue-50 rounded border border-blue-200 text-sm">
+              <span className="text-blue-700">Auto Cost: ₱{(product.cost_price / (repackForm.units_per_parent || 1)).toFixed(2)} ÷ {repackForm.units_per_parent}
+              {(repackForm.add_on_cost || 0) > 0 && ` + ₱${repackForm.add_on_cost.toFixed(2)}`}
+              {' '}= <b className="text-emerald-700">₱{repackForm.cost_price.toFixed(2)}</b></span>
             </div>
             <div><Label className="font-semibold">Prices</Label>
               <div className="grid grid-cols-2 gap-3 mt-2">

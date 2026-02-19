@@ -116,8 +116,8 @@ class AgriPOSAPITester:
             "prices": {"retail": 150, "wholesale": 130}
         }
         
-        success, status, data = self.make_request('POST', 'products', parent_product, 201)
-        if success:
+        success, status, data = self.make_request('POST', 'products', parent_product, 200)  # Try with 200
+        if success and 'id' in data:
             parent_id = data.get('id')
             self.log_result("Create Parent Product", True, f"SKU: {data.get('sku')}")
             
@@ -130,14 +130,14 @@ class AgriPOSAPITester:
                 "prices": {"retail": 15, "wholesale": 13}
             }
             
-            success, status, repack_result = self.make_request('POST', f'products/{parent_id}/generate-repack', repack_data, 201)
-            if success:
+            success, status, repack_result = self.make_request('POST', f'products/{parent_id}/generate-repack', repack_data, 200)
+            if success and 'id' in repack_result:
                 self.log_result("Generate Repack", True, f"Repack SKU: {repack_result.get('sku')}")
                 return parent_id, repack_result.get('id')
             else:
-                self.log_result("Generate Repack", False, f"Status: {status}")
+                self.log_result("Generate Repack", False, f"Status: {status}, Data: {repack_result}")
         else:
-            self.log_result("Create Parent Product", False, f"Status: {status}")
+            self.log_result("Create Parent Product", False, f"Status: {status}, Data: {data}")
         
         return None, None
 

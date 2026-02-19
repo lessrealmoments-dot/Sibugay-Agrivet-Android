@@ -91,39 +91,49 @@ New Endpoints:
 - Supplier Management with transaction history
 - Parent/Repack inventory system
 
-## Current File Structure
+## Current File Structure (Modular Architecture)
 ```
 /app
 ├── backend/
-│   ├── server.py        # Main API server (~3800 lines)
-│   ├── config.py        # NEW: Centralized configuration
+│   ├── server.py          # Entry point (imports from main.py)
+│   ├── main.py            # FastAPI app with all routers
+│   ├── config.py          # Centralized configuration
+│   ├── server_legacy.py   # Old monolith (backup)
 │   ├── ARCHITECTURE.md  
 │   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── auth.py      # NEW: Auth utilities
-│   │   └── helpers.py   # NEW: Common helpers
+│   │   ├── __init__.py    # Exports all utilities
+│   │   ├── auth.py        # Auth: JWT, password hashing, permissions
+│   │   ├── helpers.py     # now_iso, new_id, log_movement, etc.
+│   │   └── branch.py      # Multi-branch: get_branch_filter, etc.
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── permissions.py # NEW: Permission definitions
-│   ├── routes/
-│   │   ├── __init__.py
-│   │   ├── auth.py      # NEW: Auth routes
-│   │   ├── branches.py  # NEW: Branch routes
-│   │   └── users.py     # NEW: User/permission routes
+│   │   └── permissions.py # PERMISSION_MODULES, ROLE_PRESETS
+│   ├── routes/            # All API routes (17 modules)
+│   │   ├── __init__.py    # Exports all routers
+│   │   ├── auth.py        # Login, register, PIN verification
+│   │   ├── branches.py    # Branch CRUD
+│   │   ├── users.py       # User management, permissions
+│   │   ├── products.py    # Products, repacks, pricing
+│   │   ├── customers.py   # Customer CRUD with branch support
+│   │   ├── inventory.py   # Stock levels, adjustments, transfers
+│   │   ├── price_schemes.py # Price scheme management
+│   │   ├── invoices.py    # Invoices, payments, interest, editing
+│   │   ├── sales.py       # Unified sales endpoint
+│   │   ├── purchase_orders.py # PO CRUD, receiving, payments
+│   │   ├── dashboard.py   # Stats, branch summary
+│   │   ├── accounting.py  # Fund wallets, expenses, AR/AP
+│   │   ├── daily_operations.py # Daily log, report, close day
+│   │   ├── suppliers.py   # Supplier CRUD
+│   │   ├── employees.py   # Employee management, advances
+│   │   ├── sync.py        # Offline POS data sync
+│   │   └── settings.py    # Invoice prefixes, terms options
 │   ├── tests/
-│   │   └── test_user_permissions.py # NEW: Permission tests
 │   └── .env
 └── frontend/
-    ├── src/
-    │   ├── components/
-    │   │   ├── InvoiceDetailModal.js
-    │   │   └── Layout.js
-    │   ├── pages/
-    │   │   ├── UserPermissionsPage.js  # Full permission UI
-    │   │   ├── UnifiedSalesPage.js
-    │   │   ├── PaymentsPage.js
-    │   │   └── CustomersPage.js
-    │   └── App.js
+    └── src/
+        ├── components/
+        ├── pages/
+        └── App.js
 ```
 
 ## Default Credentials

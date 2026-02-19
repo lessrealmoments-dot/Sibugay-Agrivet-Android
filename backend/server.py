@@ -1042,8 +1042,8 @@ async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] =
         if inv.get("sale_type") in ("interest_charge", "penalty_charge"):
             continue
         
-        # Use invoice-level interest rate, fallback to customer rate
-        rate = inv.get("interest_rate", default_interest_rate)
+        # Use invoice-level interest rate, fallback to customer rate (handle 0 as falsy)
+        rate = inv.get("interest_rate") or default_interest_rate
         due_date_str = inv.get("due_date") or inv.get("order_date") or comp_date_str
         if not due_date_str:
             continue  # Skip invoices without any date
@@ -1149,8 +1149,8 @@ async def generate_account_interest(customer_id: str, data: dict = {}, user=Depe
         if inv.get("sale_type") in ("interest_charge", "penalty_charge"):
             continue
         
-        # Use invoice-level interest rate, fallback to customer rate
-        rate = inv.get("interest_rate", default_interest_rate)
+        # Use invoice-level interest rate, fallback to customer rate (handle 0 as falsy)
+        rate = inv.get("interest_rate") or default_interest_rate
         if rate <= 0:
             continue
         

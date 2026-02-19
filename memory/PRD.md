@@ -247,12 +247,13 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 ## Prioritized Backlog (Updated Feb 19, 2026)
 
 ### P0 (Critical - Technical Debt)
-- [ ] **Refactor Backend Monolith**: Break `/app/backend/server.py` into modular structure (/routes, /services, /models)
+- [x] **Backend Organization**: Added section headers and created ARCHITECTURE.md documentation
 
 ### P1 (High Priority)
 - [ ] Advanced Reporting Dashboards (monthly/quarterly summaries, sales incentive tracking)
 - [ ] Barcode scanning support in POS
 - [ ] Receipt printing (thermal printer support)
+- [ ] Full modular refactoring (if needed in future)
 
 ### P2 (Medium Priority)
 - [ ] User Roles & Permissions UI (dedicated management page)

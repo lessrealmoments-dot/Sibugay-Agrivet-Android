@@ -122,6 +122,15 @@ export default function AccountingPage() {
     setFarmExpenseDialog(true);
   };
 
+  const openCashOut = () => {
+    setCashOutForm({
+      description: '', notes: '', amount: 0, customer_id: '',
+      payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
+      due_date: '', terms: ''
+    });
+    setCashOutDialog(true);
+  };
+
   const handleSaveExpense = async () => {
     if (!expenseForm.amount || expenseForm.amount <= 0) {
       toast.error('Amount must be greater than 0');

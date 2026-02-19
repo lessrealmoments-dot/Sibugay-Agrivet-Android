@@ -245,15 +245,30 @@ export default function SalesOrderPage() {
       <Card className="border-slate-200">
         <CardContent className="p-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
+            <div className="relative">
               <Label className="text-xs text-slate-500">Customer</Label>
-              <Select value={header.customer_id || 'walk-in'} onValueChange={v => v === 'walk-in' ? setHeader(h => ({ ...h, customer_id: '', customer_name: 'Walk-in' })) : selectCustomer(v)}>
-                <SelectTrigger data-testid="invoice-customer" className="h-9"><SelectValue placeholder="Walk-in" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="walk-in">Walk-in Customer</SelectItem>
-                  {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Input data-testid="invoice-customer" className="h-9" value={custSearch} placeholder="Type customer name..."
+                  onChange={e => handleCustInput(e.target.value)}
+                  onFocus={() => { if (custSearch) setCustDropdownOpen(true); }}
+                  onBlur={() => setTimeout(() => setCustDropdownOpen(false), 200)} />
+                {isNewCustomer && !header.customer_id && (
+                  <Button size="sm" variant="outline" className="h-9 text-xs text-blue-600 border-blue-200 shrink-0" onClick={openSaveCustomer}>
+                    <Plus size={12} className="mr-1" /> Save
+                  </Button>
+                )}
+              </div>
+              {custDropdownOpen && filteredCusts.length > 0 && (
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  {filteredCusts.map(c => (
+                    <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50"
+                      onMouseDown={() => selectCustomer(c.id)}>
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-xs text-slate-400 ml-2">{c.phone || ''}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div><Label className="text-xs text-slate-500">Contact</Label><Input className="h-9" value={header.customer_contact} onChange={e => setHeader(h => ({ ...h, customer_contact: e.target.value }))} /></div>
             <div><Label className="text-xs text-slate-500">Phone</Label><Input className="h-9" value={header.customer_phone} onChange={e => setHeader(h => ({ ...h, customer_phone: e.target.value }))} /></div>

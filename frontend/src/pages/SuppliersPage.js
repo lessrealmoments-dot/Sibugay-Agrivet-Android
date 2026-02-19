@@ -497,6 +497,86 @@ export default function SuppliersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* New/Edit Supplier Dialog */}
+      <Dialog open={supplierDialog} onOpenChange={setSupplierDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>{editMode ? 'Edit Supplier' : 'New Supplier'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label className="text-xs text-slate-500">Supplier Name *</Label>
+              <Input
+                value={supplierForm.name}
+                onChange={e => setSupplierForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Enter supplier name"
+                className="h-10"
+                data-testid="supplier-name-input"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-500">Contact Person</Label>
+                <Input
+                  value={supplierForm.contact_person}
+                  onChange={e => setSupplierForm(f => ({ ...f, contact_person: e.target.value }))}
+                  placeholder="Contact name"
+                  className="h-10"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Phone</Label>
+                <Input
+                  value={supplierForm.phone}
+                  onChange={e => setSupplierForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="Phone number"
+                  className="h-10"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Email</Label>
+              <Input
+                value={supplierForm.email}
+                onChange={e => setSupplierForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="Email address"
+                className="h-10"
+                type="email"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Address</Label>
+              <Input
+                value={supplierForm.address}
+                onChange={e => setSupplierForm(f => ({ ...f, address: e.target.value }))}
+                placeholder="Full address"
+                className="h-10"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Notes</Label>
+              <Input
+                value={supplierForm.notes}
+                onChange={e => setSupplierForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Additional notes"
+                className="h-10"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setSupplierDialog(false)}>Cancel</Button>
+              <Button
+                onClick={saveSupplier}
+                disabled={saving}
+                className="bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                data-testid="save-supplier-btn"
+              >
+                {saving ? 'Saving...' : editMode ? 'Update Supplier' : 'Create Supplier'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

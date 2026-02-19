@@ -30,10 +30,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     api.get('/customers', { params: { limit: 500 } }).then(r => setCustomers(r.data.customers)).catch(() => {});
-    if (currentBranch) {
-      api.get('/fund-wallets', { params: { branch_id: currentBranch.id } }).then(r => setWallets(r.data)).catch(() => {});
-    }
-  }, [currentBranch]);
+  }, []);
 
   const loadInvoices = async (custId) => {
     try {

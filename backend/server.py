@@ -747,6 +747,18 @@ async def create_sale(data: dict, user=Depends(get_current_user)):
         }
         await db.receivables.insert_one(receivable)
 
+    # Check if this is a reserved (delivery) sale
+    if data.get("sale_type") == "delivery":
+        sale["status"] = "reserved"
+        sale["sale_type"] = "delivery"
+    else:
+        sale["sale_type"] = "walk_in"
+        # Log movements for completed walk-in sales
+        for si in sale_items:
+            await log_movement(si["product_id"], branch_id, "sale", -si["quantity"],
+                               sale["id"], sale["sale_number"], si["price"],
+                               user["id"], user.get("full_name", user["username"]))
+
     await db.sales.insert_one(sale)
     del sale["_id"]
     return sale

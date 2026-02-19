@@ -802,6 +802,38 @@ async def void_sale(sale_id: str, user=Depends(get_current_user)):
     await db.sales.update_one({"id": sale_id}, {"$set": {"status": "voided", "voided_at": now_iso(), "voided_by": user["id"]}})
     return {"message": "Sale voided"}
 
+@api_router.post("/sales/{sale_id}/release")
+async def release_sale(sale_id: str, user=Depends(get_current_user)):
+    """Release a reserved/delivery sale - deducts inventory"""
+    check_perm(user, "pos", "sell")
+    sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    if sale.get("status") != "reserved":
+        raise HTTPException(status_code=400, detail="Sale is not in reserved status")
+    branch_id = sale["branch_id"]
+    for item in sale.get("items", []):
+        qty = float(item["quantity"])
+        # Deduct inventory
+        await db.inventory.update_one(
+            {"product_id": item["product_id"], "branch_id": branch_id},
+            {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}}
+        )
+        # Handle repack parent deduction
+        if item.get("is_repack"):
+            product = await db.products.find_one({"id": item["product_id"]}, {"_id": 0})
+            if product and product.get("parent_id"):
+                parent_deduction = qty / product.get("units_per_parent", 1)
+                await db.inventory.update_one(
+                    {"product_id": product["parent_id"], "branch_id": branch_id},
+                    {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}}
+                )
+        await log_movement(item["product_id"], branch_id, "sale", -qty,
+                           sale["id"], sale.get("sale_number", ""), item.get("price", 0),
+                           user["id"], user.get("full_name", user["username"]), "Released delivery")
+    await db.sales.update_one({"id": sale_id}, {"$set": {"status": "completed", "released_at": now_iso(), "released_by": user["id"]}})
+    return {"message": "Sale released, inventory deducted"}
+
 # ==================== ACCOUNTING ROUTES ====================
 @api_router.get("/expenses")
 async def list_expenses(user=Depends(get_current_user), branch_id: Optional[str] = None, skip: int = 0, limit: int = 50):

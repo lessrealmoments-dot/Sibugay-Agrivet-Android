@@ -403,7 +403,15 @@ export default function PaymentsPage() {
                         const alloc = allocations.find(a => a.invoice === inv.invoice_number);
                         return (
                           <TableRow key={inv.id} className={`table-row-hover ${alloc ? 'bg-emerald-50/50' : ''}`}>
-                            <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
+                            <TableCell>
+                              <button 
+                                className="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                onClick={() => { setSelectedInvoiceId(inv.id); setInvoiceModalOpen(true); }}
+                              >
+                                {inv.invoice_number}
+                                {inv.edited && <Edit3 size={10} className="text-orange-500" />}
+                              </button>
+                            </TableCell>
                             <TableCell><Badge className={`text-[10px] ${tl.cls}`}>{tl.text}</Badge></TableCell>
                             <TableCell className="text-xs">{inv.order_date}</TableCell>
                             <TableCell className="text-xs">

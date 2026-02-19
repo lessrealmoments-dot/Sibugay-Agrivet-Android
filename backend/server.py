@@ -1374,6 +1374,8 @@ async def record_receivable_payment(rec_id: str, data: dict, user=Depends(get_cu
     await db.receivables.update_one({"id": rec_id}, {"$set": {"paid": new_paid, "balance": max(0, new_balance), "status": status, "updated_at": now_iso()}})
     if rec.get("customer_id"):
         await db.customers.update_one({"id": rec["customer_id"]}, {"$inc": {"balance": -amount}})
+    # Add to cashier wallet
+    await update_cashier_wallet(rec.get("branch_id", ""), amount, f"Receivable payment from {rec.get('customer_name', '')}")
     return {"message": "Payment recorded", "new_balance": max(0, new_balance)}
 
 @api_router.get("/payables")

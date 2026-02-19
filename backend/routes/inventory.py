@@ -126,7 +126,7 @@ async def adjust_inventory(data: dict, user=Depends(get_current_user)):
     if product and product.get("is_repack"):
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot adjust repack inventory directly. Adjust the parent product instead. Repack stock is derived from parent."
+            detail="Cannot adjust repack inventory directly. Adjust the parent product instead. Repack stock is derived from parent."
         )
     
     existing = await db.inventory.find_one(

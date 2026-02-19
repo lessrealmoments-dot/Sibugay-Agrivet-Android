@@ -35,7 +35,7 @@ async def list_fund_wallets(user=Depends(get_current_user), branch_id: Optional[
             lots = await db.safe_lots.find(
                 {"wallet_id": w["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
             ).to_list(500)
-            w["balance"] = sum(l["remaining_amount"] for l in lots)
+            w["balance"] = sum(lot["remaining_amount"] for lot in lots)
             w["lots"] = lots
     return wallets
 
@@ -112,7 +112,7 @@ async def pay_from_wallet(data: dict, user=Depends(get_current_user)):
         lots = await db.safe_lots.find(
             {"wallet_id": wallet_id, "remaining_amount": {"$gt": 0}}, {"_id": 0}
         ).sort("remaining_amount", -1).to_list(500)
-        total_available = sum(l["remaining_amount"] for l in lots)
+        total_available = sum(lot["remaining_amount"] for lot in lots)
         if total_available < amount:
             raise HTTPException(status_code=400, detail="Insufficient Safe balance")
         remaining = amount

@@ -254,6 +254,109 @@ class AgriPOSAPITester:
         
         return success
 
+    def test_purchase_orders_crud(self):
+        """Test Purchase Order CRUD operations"""
+        # Create a purchase order
+        po_data = {
+            "vendor": "Test Supplier Co.",
+            "branch_id": "test_branch_001",
+            "expected_date": datetime.now().strftime("%Y-%m-%d"),
+            "notes": "Test PO for API verification",
+            "status": "ordered",
+            "items": [
+                {
+                    "product_id": "test_product_001",
+                    "product_name": "Test Product",
+                    "quantity": 10,
+                    "unit_price": 25.0
+                },
+                {
+                    "product_id": "test_product_002", 
+                    "product_name": "Another Test Product",
+                    "quantity": 5,
+                    "unit_price": 50.0
+                }
+            ]
+        }
+        
+        success, data, error = self.make_request('POST', 'purchase-orders', po_data)
+        po_id = data.get('id') if data else None
+        po_number = data.get('po_number') if data else None
+        
+        self.log_test("Create Purchase Order", success, 
+                     {"po_id": po_id, "po_number": po_number, "subtotal": data.get('subtotal') if data else None}, error)
+        
+        if not success:
+            return False, None
+            
+        # List purchase orders
+        success, data, error = self.make_request('GET', 'purchase-orders', {'limit': 10})
+        self.log_test("List Purchase Orders", success, 
+                     {"pos_count": len(data.get('purchase_orders', [])) if data else 0}, error)
+        
+        return True, po_id
+
+    def test_purchase_order_receive(self):
+        """Test receiving a Purchase Order (should update inventory)"""
+        # First create a PO
+        po_success, po_id = self.test_purchase_orders_crud()
+        
+        if not po_success or not po_id:
+            return False
+            
+        # Receive the PO
+        success, data, error = self.make_request('POST', f'purchase-orders/{po_id}/receive')
+        self.log_test("Receive Purchase Order", success, data, error)
+        
+        if not success:
+            return False
+        
+        # Verify PO status changed by getting it back
+        success, data, error = self.make_request('GET', 'purchase-orders', {'limit': 50})
+        if success and data:
+            received_po = None
+            for po in data.get('purchase_orders', []):
+                if po.get('id') == po_id:
+                    received_po = po
+                    break
+            
+            status_updated = received_po and received_po.get('status') == 'received'
+            self.log_test("Verify PO status changed to 'received'", status_updated, 
+                         {"po_status": received_po.get('status') if received_po else None})
+        
+        return success
+
+    def test_fund_wallet_payment(self):
+        """Test paying from fund wallet (supplier payment)"""
+        # First ensure we have wallets
+        success, data, error = self.make_request('GET', 'fund-wallets', {'branch_id': 'test_branch_001'})
+        
+        if not success or not data:
+            self.log_test("Get wallets for payment test", False, data, "No wallets available")
+            return False
+            
+        wallet_id = None
+        if isinstance(data, list) and len(data) > 0:
+            wallet_id = data[0].get('id')
+        
+        if not wallet_id:
+            self.log_test("Find wallet for payment", False, None, "No wallet ID found")
+            return False
+            
+        # Test payment from wallet
+        payment_data = {
+            "wallet_id": wallet_id,
+            "amount": 100.0,
+            "reference": "PO-TEST-001",
+            "description": "Test supplier payment",
+            "reference_id": "test_po_id"
+        }
+        
+        success, data, error = self.make_request('POST', 'fund-wallets/pay', payment_data)
+        self.log_test("Pay from fund wallet (supplier payment)", success, data, error)
+        
+        return success
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting AgriPOS Backend API Tests...")

@@ -1,73 +1,66 @@
-<analysis>**original_problem_statement:** 
-The user wants to build a comprehensive Accounting, Inventory, and Point of Sale (POS) web application designed for a multi-branch business. The application should be inspired by QuickBooks Online and inFlow Inventory but tailored with unique business logic.
+<analysis>**original_problem_statement:**
+The user wants to build a comprehensive Accounting, Inventory, and Point of Sale (POS) web application designed for a multi-branch business.
 
 **PRODUCT REQUIREMENTS:**
-- **Offline POS:** The POS must function offline and automatically sync data when an internet connection is available, ensuring no data conflicts or double entries.
-- **Product Management:** The system needs to handle over 3000 SKUs.
-- **Parent/Repack System:** A key feature is the relationship between parent products (sold in bulk, e.g., by the box) and repacks (smaller units from the parent). Selling a repack must automatically and accurately deduct from the parent product's inventory.
-- **Multi-Branch Management:** The system must support multiple business locations.
-- **Advanced Accounting:** Track daily expenses, cash credits, payables, and receivables. This includes a sophisticated fund management system to track cash across a **Cashier Drawer**, a **Safe** (using a date-based lot system), and a **Bank**.
-- **Complex Pricing:** Support multiple pricing tiers (Retail, Wholesale, Special, Government) for different customers.
-- **Sales & Purchasing Workflow:** Excel-style interfaces for creating Sales Orders and Purchase Orders with smart product search and on-the-fly product creation.
-- **Daily Operations:** A sequential sales log, a daily profit report, and a Close Accounts feature to finalize and lock the day's transactions, generating a detailed printable report.
-- **Business Rules:**
-    - Currency should be Philippine Peso (₱).
-    - A hard rule must prevent selling any item below its capital cost.
-    - Receiving a purchase order should automatically update the product's cost price.
-    - The system should ask for confirmation to update a pricing scheme if a price is changed manually during a sale.
+- **Offline POS:** Must function offline and sync data automatically.
+- **Product Management:** Handle over 3000 SKUs with a parent/repack inventory system.
+- **Multi-Branch Management:** Support multiple business locations.
+- **Advanced Accounting:** Track expenses, receivables, and manage funds across a **Cashier Drawer**, **Safe**, and **Bank**.
+- **Complex Pricing:** Support multiple pricing tiers (Retail, Wholesale, etc.).
+- **Sales & Purchasing Workflow:** Excel-style interfaces for Sales Orders and Purchase Orders with smart search and on-the-fly product creation.
+- **Daily Operations:** A sequential sales log, daily profit report, and a Close Accounts feature with a detailed printable report.
+- **Business Rules:** Use Philippine Peso (₱), prevent selling below cost, auto-update cost from POs, and manage complex interest/penalty calculations for credit.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A comprehensive, full-stack application has been developed using a FastAPI backend and a React frontend. The application is feature-complete based on all user requests to date. It includes multi-branch JWT authentication, a sophisticated product/inventory system with parent-repack logic, a PWA-based offline POS, detailed sales/purchase order modules, and an advanced financial tracking system with fund wallets and daily closing reports.
+A feature-rich, full-stack application (FastAPI backend, React frontend, MongoDB) that is functionally complete according to the original and subsequent user requests. The system includes multi-branch JWT authentication, a sophisticated product/inventory system, an offline-capable POS, and detailed sales, purchasing, and financial management modules. Recent work has focused on overhauling core financial workflows to mirror professional accounting software like QuickBooks, unifying the cash flow system, and adding numerous quality-of-life features to the UI.
 
 **Last working item**:
--   **Last item agent was working:** The user reported that the Made with Emergent badge was obstructing UI elements and preventing clicks. The agent identified and removed the CSS responsible for the badge from .
--   **Status:** IN PROGRESS
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** screenshot tool (to visually confirm the badge is gone and elements are accessible).
+-   **Last item agent was working:** The user requested the ability to add a custom **PO Number** when creating a Purchase Order. The agent implemented a  text input on the PO creation form. If the field is left blank, the backend auto-generates a number; otherwise, it uses the user-provided number.
+-   **Status:** USER VERIFICATION PENDING
+-   **Agent Testing Done:** Y
+-   **Which testing method agent to use?** Frontend testing agent to verify the full PO creation flow, both with a custom PO number and with the field left blank to test auto-generation.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Unclickable UI elements due to overlay badge (P0)**
-    -   **Description:** The user was unable to click on some UI features because the Made with Emergent badge was covering them.
-    -   **Attempted fixes:** The agent has removed the CSS for the badge in .
-    -   **Next debug checklist:**
-        1.  Restart the frontend service if not already done.
-        2.  Use the screenshot tool to take a picture of a page where buttons were previously obscured (e.g., the POS page with the Close Day button).
-        3.  Verify that the badge is gone and the underlying UI elements are visible and accessible.
-    -   **Why fix this issue and what will be achieved with the fix?** This is a critical usability bug that prevents the user from accessing core application features. Fixing it will restore full functionality.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** frontend
-    -   **Blocked on other issue:** None
+None. All issues raised during the session have been resolved.
 
 **In progress Task List**:
-None
+None.
 
 **Upcoming and Future Tasks**
-- There are no outstanding feature requests from the user. The next phase will likely involve user acceptance testing, further refinements, or the introduction of new modules based on user feedback. Potential areas for expansion include:
-    - Advanced reporting dashboards (monthly, quarterly, sales incentives).
-    - A dedicated UI for managing user roles and permissions.
-    - CSV-based bulk import/export for products and other data.
+- **Upcoming Tasks:**
+    - **P0: Refactor Backend Monolith:** The  file has become critically large and contains all API routes, business logic, and database operations. It needs to be broken down into a structured format (e.g., routes, services, models) to improve maintainability.
+
+- **Future Tasks:**
+    - **P1: Advanced Reporting:** Develop advanced reporting dashboards (e.g., monthly/quarterly summaries, sales incentive tracking).
+    - **P2: User Roles & Permissions:** Implement a dedicated UI for managing user roles and access controls.
+    - **P2: Bulk Data Import/Export:** Add functionality to import/export data (like products) via CSV files.
 
 **Completed work in this session**
-- **Foundation:** Built a full-stack application with JWT authentication, multi-branch support, and core models.
-- **PWA & Offline POS:** Implemented a Progressive Web App (PWA) with a service worker to enable offline POS operations and automatic data synchronization.
-- **Product & Inventory System:** Designed a comprehensive product management system including the custom parent/repack logic, multiple pricing schemes, and detailed product information tracking.
-- **Sales & Purchasing:** Created Excel-style interfaces for Sales Orders and Purchase Orders, featuring a smart search component that allows for on-the-fly product creation.
-- **Financial Management:** Developed a sophisticated fund management system to track cash across a Cashier, Safe (using a date-based lot system), and Bank. Implemented logic for payments, interest calculation, and payables/receivables.
-- **Daily Operations & Reporting:** Created a sequential sales log, a daily profit report, and a Close Accounts workflow that generates a detailed, printable daily report in a user-specified format.
-- **UX & Business Logic:** Implemented numerous refinements, including:
-    - Setting currency to Philippine Peso (₱).
-    - Enforcing a no selling below cost rule.
-    - Automating cost updates from purchase orders.
-    - Adding editable quantities and prices in the POS cart.
-    - Improving price validation to trigger on  to prevent typing interruptions.
-- **Bug Fix:** Addressed the issue of an overlay badge obstructing UI elements.
+- **Critical Accounting Fix:** Corrected a major bug in the daily closing report that was double-counting revenue by adding new sales and credit collections together for the expected cash calculation.
+- **Unified Cash Flow System:** Refactored all cash-related operations (POS sales, invoice payments, PO payments, expenses) to update a central , creating a single source of truth for cash on hand.
+- **Fund Management Visibility:** Added a transaction history viewer to the Fund Management page, allowing users to trace every movement of money in and out of their wallets (Cashier, Safe, Bank).
+- **QuickBooks-Style Receive Payments Overhaul:**
+    - Completely redesigned the page to be customer-centric, displaying all open invoices for a selected customer.
+    - Implemented pro-rated, incremental interest calculation based on due dates and payment dates.
+    - Implemented smart payment allocation (pays interest first, then oldest invoices).
+    - Added a clear payment history view for each customer, accessible via a dialog.
+- **Purchase Order Workflow Overhaul:**
+    - Added payment options (, ), with cash payments now correctly deducting from the .
+    - Created a Pay Supplier tab to manage and pay off credit POs for specific suppliers.
+    - Implemented a supplier history view showing all POs and payments linked to a supplier.
+    - Added an optional field for a custom .
+- **UI/UX & Feature Enhancements:**
+    - **On-the-fly Customer Creation:** Users can now type a new customer's name directly in the Sales Order form without first creating them.
+    - **Bulk Product Deletion:** Added checkbox multi-select and a bulk delete action to the Products page.
+    - **Preset Product Categories:** Replaced the free-text category field with a predefined dropdown list.
+    - **Bug Fixes:** Resolved a UI-blocking badge, a product creation bug (), and a page crash on .
+    - **SKU Enhancement:** Made the SKU field optional, with the backend auto-generating one if left blank.
 
 **Earlier issues found/mentioned but not fixed**
-None. All identified issues have been addressed.
+None.
 
 **Known issue recurrence from previous fork**
 None.
@@ -81,66 +74,70 @@ None.
 -   **Database:** MongoDB
 -   **Styling:** TailwindCSS
 -   **UI Library:** Shadcn/UI
--   **Offline:** Progressive Web App (PWA) with Service Workers
+-   **Offline:** Progressive Web App (PWA)
 -   **Authentication:** JSON Web Tokens (JWT)
 
 **key DB schema**
--   **products:** Manages all product details, including , , , , ,  ('stockable', 'repack'), and .
--   **inventory:** Tracks stock levels (, , ) per product per branch.
--   **invoices:** Stores sales order details, including customer info, line items, payment status, and totals.
--   **purchase_orders:** Stores purchase order details.
--   **fund_wallets:** Tracks balances for , , and  wallets per branch.
--   **safe_lots:** Manages dated cash batches within the 'safe' wallet for precise cash tracking.
--   **sales_log:** A sequential, item-by-item log of all sales for daily reporting.
--   **daily_closings:** Stores the comprehensive daily closing report data for each day.
+-   **products:** Manages product details.
+-   **invoices:** Stores sales orders. Now includes  and can have a  of 'Interest'.
+-   **purchase_orders:** Stores purchase orders. Schema updated with , , , and .
+-   **fund_wallets:** Tracks balances for , , and .
+-   **wallet_movements:** A log of every transaction in and out of the fund wallets, providing a detailed audit trail.
+-   **customers:** Manages customer information.
 
 **All files of reference**
--   : Contains the entire backend logic, including all API endpoints, database interactions, and business rules.
--   : The main Point of Sale interface.
--   : The interface for creating detailed sales invoices.
--   : The interface for creating purchase orders.
--   : The main product management page.
--   : The detailed view for a single product.
--   : A multi-tab page for viewing the sequential sales log, the daily profit summary, and executing the Close Accounts workflow.
--   : A crucial reusable component for searching products and creating new ones on the fly.
--   : Global stylesheet where the Emergent badge was recently removed.
+-   : Heavily modified; contains the entire backend logic.
+-   : Completely rewritten for a QuickBooks-style workflow.
+-   : Heavily modified with a new Pay Supplier tab and updated PO creation form.
+-   : Modified to include a wallet transaction history viewer.
+-   : Updated to allow on-the-fly customer creation.
+-   : Updated with bulk delete functionality and preset categories.
+-   : Updated to fix accounting logic and reflect the new cash flow system.
 
 **Areas that need refactoring**:
--   The backend in  has become a very large monolithic file. It should be refactored into a more organized structure, separating routes, services, and models into different modules/directories to improve maintainability.
+-   **CRITICAL:** The monolithic  file must be broken down into a modular structure (e.g., , , ) to ensure the project remains maintainable.
+-   Frontend pages like  and  have grown very large and handle multiple complex states and UI views (tabs, dialogs). They should be decomposed into smaller, more focused components.
 
 **key api endpoints**
--   : User authentication.
--   : CRUD for products.
--   : Powers the smart product search.
--   : CRUD for sales invoices.
--   : CRUD for purchase orders.
--   : Endpoint to initiate the end-of-day process.
--   : Fetches data for the daily profit report.
--   : Provides initial data for the offline POS.
--   : Receives and processes sales made offline.
+-   : Calculates and creates a new interest invoice.
+-   : Records a payment and smartly allocates it across open invoices.
+-   : Fetches payment history for a customer.
+-   : Fetches the transaction log for wallets.
+-   : Fetches open POs for a supplier.
+-   : Records a payment for a credit PO.
+-   : Updated to accept  and .
 
 **Critical Info for New Agent**
--   The user has a deep understanding of their business logic and provides very detailed requirements. Pay close attention to these specifics, especially concerning accounting rules (e.g., the safe lot system).
--   The application is functionally complete. The immediate priority is to verify the fix for the UI obstruction issue.
--   The backend is a single, large  file. Be cautious when adding or modifying backend logic to avoid introducing conflicts.
--   The frontend heavily relies on Shadcn UI components and TailwindCSS for styling.
+-   **Unified Cash Flow is King:** All cash transactions now update the central . The  in the daily close is now derived directly from this wallet's balance, not from summing up sales. Visibility is provided via the history viewer in the .
+-   **Backend is a Monolith:** The  file is extremely large. Exercise extreme caution when editing. The highest priority for technical debt is to refactor this file.
+-   **Complex Frontend Pages:** Be aware that pages like  and  contain multiple tabs, dialogs, and complex state management within a single file. Trace the data flow carefully before making changes.
 
 **documents and test reports created in this job**
--   : A product requirements document that has been updated throughout the development process.
+-   
+-   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User Request:** Add starting inventory field to the new product form and allow creating new products on-the-fly from Sales/Purchase order pages if a search yields no results. - **Status: COMPLETED**
-2.  **User Request:** Remove the Made with Emergent badge as it's blocking UI elements. - **Status: IN PROGRESS** (Code has been changed, but the fix is not yet verified).
+1.  **User Request:** Add a custom  field to the Purchase Order form. - **Status: USER VERIFICATION PENDING**
+2.  **User Request:** Create a Pay Supplier section in Purchase Orders with supplier-specific history. - **Status: COMPLETED**
+3.  **User Request:** Use a predefined list of categories for products. - **Status: COMPLETED**
+4.  **User Request:** Add multi-select bulk deletion for products. - **Status: COMPLETED**
+5.  **User Request:** Allow creating new customers on-the-fly from the Sales Order page. - **Status: COMPLETED**
+6.  **User Report:**  page is crashing. - **Status: COMPLETED** (Bug fixed)
+7.  **User Request:** Clarified that payment transaction history should be visible in a central ledger (Fund Management). - **Status: COMPLETED**
+8.  **User Feedback:** Cluttered UI on payment page. - **Status: COMPLETED** (History moved to a dialog).
+9.  **User Request:** Add payment history to the Receive Payments workflow. - **Status: COMPLETED**
+10. **User Request:** Fix interest calculation to be based on the user-entered payment date, not the current date. - **Status: COMPLETED**
 
 **Project Health Check:**
--   **Broken:** Potentially the frontend UI due to the unverified fix for the obstructing badge. Functionality is likely intact, but usability may be impaired.
+-   **Broken:** None.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
 None.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES, consistently.
+-   **Testing agent used after significant changes:** YES
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None manually. The testing agent was used for validation.
 -   **Known regressions:** None.
@@ -150,4 +147,4 @@ None.
 -   **Password:** 
 
 **What agent forgot to execute**
--   The agent has applied a code change to remove the obstructing UI badge but has not yet verified that the fix is successful and that the previously blocked UI elements are now clickable.</analysis>
+- The agent has not yet addressed the critical technical debt of refactoring the monolithic backend file (), which was noted in the initial handoff summary. All efforts were focused on implementing user-requested features.</analysis>

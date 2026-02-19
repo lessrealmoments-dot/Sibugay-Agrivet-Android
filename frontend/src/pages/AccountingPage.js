@@ -283,20 +283,20 @@ export default function AccountingPage() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <Label className="text-xs">Category</Label>
-                    <Select value={filters.category} onValueChange={v => setFilters(f => ({ ...f, category: v }))}>
+                    <Select value={filters.category || "__all__"} onValueChange={v => setFilters(f => ({ ...f, category: v === "__all__" ? "" : v }))}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="All categories" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All categories</SelectItem>
+                        <SelectItem value="__all__">All categories</SelectItem>
                         {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label className="text-xs">Payment Method</Label>
-                    <Select value={filters.payment_method} onValueChange={v => setFilters(f => ({ ...f, payment_method: v }))}>
+                    <Select value={filters.payment_method || "__all__"} onValueChange={v => setFilters(f => ({ ...f, payment_method: v === "__all__" ? "" : v }))}>
                       <SelectTrigger className="h-9"><SelectValue placeholder="All methods" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All methods</SelectItem>
+                        <SelectItem value="__all__">All methods</SelectItem>
                         {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                       </SelectContent>
                     </Select>

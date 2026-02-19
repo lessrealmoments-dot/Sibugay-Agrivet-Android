@@ -1,0 +1,110 @@
+{
+  "summary": "Completed testing of QuickBooks-style invoice viewer/editor feature. Found and FIXED 1 bug where duplicate GET /invoices/{id} endpoints existed - the simpler one was being matched first without edit_history/edit_count fields. All 10 backend tests pass, all frontend UI features verified working.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Invoice Detail Modal",
+        "issues": ["Console warning: DialogContent missing DialogTitle for screen readers - accessibility issue (minor)"]
+      }
+    ]
+  },
+
+  "bugs_fixed": [
+    {
+      "file": "/app/backend/server.py",
+      "issue": "Duplicate GET /invoices/{id} endpoints - simpler one at line 907 was matched first, missing edit_history and edit_count",
+      "root_cause": "Two @api_router.get('/invoices/{inv_id}') routes defined - FastAPI matches first one",
+      "fix": "Updated the first endpoint (line 907) to include edit_history and edit_count from invoice_edits collection, removed duplicate endpoint at line 1793",
+      "lines_changed": [907, "removed 1793-1828"]
+    }
+  ],
+
+  "passed_tests": [
+    "BACKEND TESTS (10/10 passed, 1 skipped):",
+    "- GET /invoices/{id} returns edit_history and edit_count fields",
+    "- New invoice has edit_count of 0",
+    "- GET /invoices/by-number/{number} finds invoice across collections (invoices, sales, purchase_orders)",
+    "- GET /invoices/by-number returns 404 for non-existent invoice",
+    "- PUT /invoices/{id}/edit requires 'reason' field (returns 400 without it)",
+    "- PUT /invoices/{id}/edit succeeds with reason provided",
+    "- Edit creates history record in invoice_edits collection",
+    "- Edited invoice has 'edited' flag, last_edited_at, last_edited_by",
+    "- GET /invoices/{id}/edit-history returns edit history list",
+    "- Editing with reduced quantity returns stock to inventory",
+    "- (SKIPPED) Cannot edit voided invoice test - no voided invoices available",
+    "",
+    "FRONTEND TESTS:",
+    "- Sales History page shows clickable blue invoice numbers",
+    "- Invoice detail modal opens on click with all invoice info",
+    "- Edit button present in modal",
+    "- Edit mode shows editable fields (qty, rate, customer, notes, freight, discount)",
+    "- 'Edit Reason Required' section with textarea visible in edit mode",
+    "- Save Changes button disabled without reason",
+    "- Save Changes button enables after reason entered",
+    "- Cancel button exits edit mode",
+    "- History button shows edit history count (e.g., 'History (2)')",
+    "- Payments page shows clickable blue invoice numbers in Open Invoices table",
+    "- 'Edited' badge with count (e.g., 'Edited (2x)') shown on edited invoices",
+    "- Orange edit pencil icon shown next to edited invoice numbers"
+  ],
+
+  "test_report_links": [
+    "/app/backend/tests/test_invoice_edit.py",
+    "/app/test_reports/pytest/pytest_invoice_edit.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Accessibility: InvoiceDetailModal should include DialogTitle and DialogDescription for screen readers"
+  ],
+
+  "updated_files": [
+    "/app/backend/server.py - Fixed duplicate endpoint, consolidated edit_history/edit_count into main GET /invoices/{id}",
+    "/app/backend/tests/test_invoice_edit.py - Created comprehensive test suite for invoice edit feature"
+  ],
+
+  "success_rate": {
+    "backend": "100% - 10/10 tests passed (1 skipped)",
+    "frontend": "100% - All UI features verified working"
+  },
+
+  "seed_data_creation": "Used existing Test Customer (ID: 38511712-81e6-45ea-ac10-4a3ac6adad04) with invoices. Created test invoices during backend testing.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Invoice edit feature fully tested. Key implementation: 1) GET /invoices/{id} now returns edit_history array and edit_count from invoice_edits collection, 2) GET /invoices/by-number/{number} searches across invoices, sales, purchase_orders collections, 3) PUT /invoices/{id}/edit requires 'reason' field, creates edit history record, adjusts inventory, marks invoice as edited=true, 4) GET /invoices/{id}/edit-history returns full edit history. Frontend: InvoiceDetailModal component handles view/edit modes, PaymentsPage and SalesPage show clickable blue invoice links. Test credentials: admin/admin123. Test file: /app/backend/tests/test_invoice_edit.py.",
+
+  "verified_features": {
+    "get_invoice_with_edit_history": true,
+    "get_invoice_by_number": true,
+    "edit_requires_reason": true,
+    "edit_creates_history": true,
+    "edit_adjusts_inventory": true,
+    "edited_flag_on_invoice": true,
+    "edit_history_endpoint": true,
+    "clickable_invoice_in_payments": true,
+    "clickable_invoice_in_sales": true,
+    "invoice_detail_modal": true,
+    "edit_mode_in_modal": true,
+    "edited_badge": true
+  },
+
+  "feature_implementation_details": {
+    "invoice_detail": "GET /api/invoices/{id} returns invoice with edit_history[] and edit_count",
+    "invoice_by_number": "GET /api/invoices/by-number/{number} searches invoices, sales, purchase_orders collections",
+    "invoice_edit": "PUT /api/invoices/{id}/edit requires {reason, _collection, ...fields}, adjusts inventory, creates invoice_edits record",
+    "edit_history": "GET /api/invoices/{id}/edit-history returns edit records with reason, changes, edited_by, timestamp",
+    "frontend_modal": "InvoiceDetailModal component in /app/frontend/src/components/InvoiceDetailModal.js",
+    "frontend_integration": "PaymentsPage and SalesPage import InvoiceDetailModal, invoice numbers are buttons with text-blue-600 class"
+  }
+}

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import SmartProductSearch from '../components/SmartProductSearch';
-import { FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign } from 'lucide-react';
+import { FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign, Search, History, ArrowRight, Receipt } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMPTY_LINE = { product_id: '', product_name: '', description: '', quantity: 1, unit_price: 0 };
@@ -37,6 +37,16 @@ export default function PurchaseOrderPage() {
   const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
   const [schemes, setSchemes] = useState([]);
   const qtyRefs = useRef([]);
+  // Pay Supplier state
+  const [vendors, setVendors] = useState([]);
+  const [payVendor, setPayVendor] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
+  const [vendorPOs, setVendorPOs] = useState([]);
+  const [paySupForm, setPaySupForm] = useState({ amount: 0, check_number: '', payment_date: new Date().toISOString().slice(0, 10), check_date: '', selected_po: '' });
+  // Supplier History state
+  const [historyDialog, setHistoryDialog] = useState(false);
+  const [historyVendor, setHistoryVendor] = useState('');
+  const [historyPOs, setHistoryPOs] = useState([]);
 
   useEffect(() => {
     api.get('/settings/invoice-prefixes').then(r => setPrefixes(r.data)).catch(() => {});

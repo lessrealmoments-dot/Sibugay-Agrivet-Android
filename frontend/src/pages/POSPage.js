@@ -34,6 +34,12 @@ export default function POSPage() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [reportDialog, setReportDialog] = useState(false);
+  const [closeDialog, setCloseDialog] = useState(false);
+  const [dailyReport, setDailyReport] = useState(null);
+  const [closing, setClosing] = useState(null);
+  const [closeForm, setCloseForm] = useState({ actual_cash: 0, bank_checks: 0, other_payment_forms: 0, cash_to_drawer: 0, cash_to_safe: 0 });
+  const [closingResult, setClosingResult] = useState(null);
   const searchRef = useRef(null);
 
   // Online/Offline detection

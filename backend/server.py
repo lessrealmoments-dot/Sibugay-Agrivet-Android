@@ -1631,7 +1631,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     employee_advances = [e for e in expenses if e.get("category") == "Employee Cash Advance"]
     farm_expenses = [e for e in expenses if e.get("category") == "Farm Expense"]
     other_expenses = [e for e in expenses if e.get("category") not in ("Employee Cash Advance", "Farm Expense")]
-    # Payments received
+    # Credit collections (payments on existing receivables) - NOT new revenue
     pay_pipeline = [
         {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}}},
         {"$unwind": "$payments"}, {"$match": {"payments.date": date}},
@@ -1639,7 +1639,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
                        "interest_accrued": 1, "payment": "$payments"}}
     ]
     payments = await db.invoices.aggregate(pay_pipeline).to_list(500)
-    total_payments = sum(p["payment"]["amount"] for p in payments)
+    total_credit_collections = sum(p["payment"]["amount"] for p in payments)
     # Fund balances
     wallets = await db.fund_wallets.find({"branch_id": branch_id, "active": True}, {"_id": 0}).to_list(10)
     safe_wallet = next((w for w in wallets if w["type"] == "safe"), None)

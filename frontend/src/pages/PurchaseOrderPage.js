@@ -47,13 +47,65 @@ export default function PurchaseOrderPage() {
   const [historyDialog, setHistoryDialog] = useState(false);
   const [historyVendor, setHistoryVendor] = useState('');
   const [historyPOs, setHistoryPOs] = useState([]);
+  // Supplier search state
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [supplierResults, setSupplierResults] = useState([]);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+  const supplierSearchRef = useRef(null);
 
   useEffect(() => {
     api.get('/settings/invoice-prefixes').then(r => setPrefixes(r.data)).catch(() => {});
     api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
     api.get('/purchase-orders/vendors').then(r => setVendors(r.data)).catch(() => {});
+    api.get('/suppliers').then(r => setSuppliers(r.data)).catch(() => {});
     fetchOrders();
   }, [currentBranch]);
+
+  // Supplier search effect
+  useEffect(() => {
+    if (supplierSearch.length > 0) {
+      const allNames = [...new Set([...vendors, ...suppliers.map(s => s.name)])];
+      const filtered = allNames.filter(n => n.toLowerCase().includes(supplierSearch.toLowerCase()));
+      setSupplierResults(filtered.slice(0, 8));
+      setShowSupplierDropdown(true);
+    } else {
+      setSupplierResults([]);
+      setShowSupplierDropdown(false);
+    }
+  }, [supplierSearch, vendors, suppliers]);
+
+  // Click outside handler for supplier dropdown
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (supplierSearchRef.current && !supplierSearchRef.current.contains(e.target)) {
+        setShowSupplierDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const selectSupplier = (name) => {
+    setHeader(h => ({ ...h, vendor: name }));
+    setSupplierSearch(name);
+    setShowSupplierDropdown(false);
+  };
+
+  const quickCreateSupplier = async () => {
+    if (!supplierSearch.trim()) return;
+    try {
+      await api.post('/suppliers', { name: supplierSearch.trim() });
+      toast.success(`Supplier "${supplierSearch}" created`);
+      setHeader(h => ({ ...h, vendor: supplierSearch.trim() }));
+      setShowSupplierDropdown(false);
+      // Refresh suppliers list
+      const res = await api.get('/suppliers');
+      setSuppliers(res.data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to create supplier');
+    }
+  };
 
   const fetchOrders = async () => {
     try {

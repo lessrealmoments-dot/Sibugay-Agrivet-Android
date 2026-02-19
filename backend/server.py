@@ -1503,6 +1503,263 @@ async def reset_user_password(user_id: str, data: dict, user=Depends(get_current
     await db.users.update_one({"id": user_id}, {"$set": {"password_hash": hash_password(data["new_password"])}})
     return {"message": "Password reset"}
 
+# ==================== DAILY OPERATIONS ====================
+@api_router.get("/daily-log")
+async def get_daily_log(date: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    query = {"date": date}
+    if branch_id: query["branch_id"] = branch_id
+    entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
+    return {"entries": entries, "total": len(entries), "date": date}
+
+@api_router.get("/daily-report")
+async def get_daily_report(date: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    check_perm(user, "reports", "view")
+    log_query = {"date": date}
+    if branch_id: log_query["branch_id"] = branch_id
+    # Sales by category
+    cat_pipeline = [
+        {"$match": log_query},
+        {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}, "count": {"$sum": "$quantity"}}}
+    ]
+    cat_results = await db.sales_log.aggregate(cat_pipeline).to_list(100)
+    sales_by_category = {r["_id"] or "Uncategorized": {"total": r["total"], "count": r["count"]} for r in cat_results}
+    total_revenue = sum(r["total"] for r in cat_results)
+    # COGS - get cost prices for all sold products
+    log_entries = await db.sales_log.find(log_query, {"_id": 0}).to_list(10000)
+    total_cogs = 0
+    for entry in log_entries:
+        if entry.get("product_id"):
+            prod = await db.products.find_one({"id": entry["product_id"]}, {"_id": 0, "cost_price": 1})
+            if prod:
+                total_cogs += (prod.get("cost_price", 0) * entry.get("quantity", 0))
+    total_cogs = round(total_cogs, 2)
+    # Expenses
+    exp_query = {"date": date}
+    if branch_id: exp_query["branch_id"] = branch_id
+    expenses = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
+    total_expenses = sum(e.get("amount", 0) for e in expenses)
+    # Payments received today
+    pay_pipeline = [
+        {"$match": {"status": {"$ne": "voided"}}},
+        {"$unwind": "$payments"},
+        {"$match": {"payments.date": date}},
+    ]
+    if branch_id: pay_pipeline[0]["$match"]["branch_id"] = branch_id
+    pay_pipeline.append({"$project": {"_id": 0, "invoice_number": 1, "customer_name": 1, "payment": "$payments"}})
+    payments_today = await db.invoices.aggregate(pay_pipeline).to_list(500)
+    total_payments = sum(p["payment"]["amount"] for p in payments_today)
+    gross_profit = round(total_revenue - total_cogs, 2)
+    net_profit = round(gross_profit - total_expenses, 2)
+    return {
+        "date": date, "total_revenue": total_revenue, "total_cogs": total_cogs,
+        "gross_profit": gross_profit, "total_expenses": total_expenses, "net_profit": net_profit,
+        "sales_by_category": sales_by_category, "expenses": expenses,
+        "payments_today": payments_today, "total_payments": total_payments,
+        "transaction_count": len(log_entries),
+    }
+
+@api_router.get("/daily-close/{date}")
+async def get_daily_close(date: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    query = {"date": date}
+    if branch_id: query["branch_id"] = branch_id
+    closing = await db.daily_closings.find_one(query, {"_id": 0})
+    return closing or {"status": "open", "date": date}
+
+@api_router.post("/daily-close")
+async def close_day(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    date = data["date"]
+    branch_id = data["branch_id"]
+    # Check if already closed
+    existing = await db.daily_closings.find_one({"date": date, "branch_id": branch_id, "status": "closed"}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Day already closed")
+    # Get report data
+    report_query = {"date": date, "branch_id": branch_id}
+    log_entries = await db.sales_log.find(report_query, {"_id": 0}).to_list(10000)
+    total_sales = sum(e.get("line_total", 0) for e in log_entries)
+    # Sales by category
+    cat_map = {}
+    for e in log_entries:
+        cat = e.get("category", "Uncategorized")
+        cat_map[cat] = cat_map.get(cat, 0) + e.get("line_total", 0)
+    # Expenses
+    expenses = await db.expenses.find(report_query, {"_id": 0}).to_list(500)
+    total_expenses = sum(e.get("amount", 0) for e in expenses)
+    employee_advances = [e for e in expenses if e.get("category") == "Employee Cash Advance"]
+    farm_expenses = [e for e in expenses if e.get("category") == "Farm Expense"]
+    other_expenses = [e for e in expenses if e.get("category") not in ("Employee Cash Advance", "Farm Expense")]
+    # Payments received
+    pay_pipeline = [
+        {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}}},
+        {"$unwind": "$payments"}, {"$match": {"payments.date": date}},
+        {"$project": {"_id": 0, "invoice_number": 1, "customer_name": 1, "balance": 1,
+                       "interest_accrued": 1, "payment": "$payments"}}
+    ]
+    payments = await db.invoices.aggregate(pay_pipeline).to_list(500)
+    total_payments = sum(p["payment"]["amount"] for p in payments)
+    # Fund balances
+    wallets = await db.fund_wallets.find({"branch_id": branch_id, "active": True}, {"_id": 0}).to_list(10)
+    safe_wallet = next((w for w in wallets if w["type"] == "safe"), None)
+    bank_wallet = next((w for w in wallets if w["type"] == "bank"), None)
+    cashier_wallet = next((w for w in wallets if w["type"] == "cashier"), None)
+    safe_balance = 0
+    if safe_wallet:
+        lots = await db.safe_lots.find({"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
+        safe_balance = sum(l["remaining_amount"] for l in lots)
+    bank_balance = bank_wallet["balance"] if bank_wallet else 0
+    prev_drawer = cashier_wallet["balance"] if cashier_wallet else 0
+    expected_cash = round(total_sales + total_payments - total_expenses + prev_drawer, 2)
+    actual_cash = float(data.get("actual_cash", 0))
+    bank_checks = float(data.get("bank_checks", 0))
+    other_payment_forms = float(data.get("other_payment_forms", 0))
+    cash_to_drawer = float(data.get("cash_to_drawer", 0))
+    cash_to_safe = float(data.get("cash_to_safe", 0))
+    cash_deposited_today = cash_to_safe
+    extra_cash = round(actual_cash - (expected_cash - bank_checks - other_payment_forms), 2)
+    closing = {
+        "id": new_id(), "branch_id": branch_id, "date": date, "status": "closed",
+        "closed_by": user["id"], "closed_by_name": user.get("full_name", user["username"]),
+        "closed_at": now_iso(),
+        "safe_balance": safe_balance, "bank_balance": bank_balance,
+        "cash_deposited_to_safe": cash_deposited_today, "previous_cashier_balance": prev_drawer,
+        "total_sales": total_sales, "sales_by_category": cat_map,
+        "payments_received": [{"invoice": p["invoice_number"], "customer": p["customer_name"],
+                               "balance": p.get("balance", 0), "interest": p.get("interest_accrued", 0),
+                               "principal_paid": p["payment"].get("applied_to_principal", 0),
+                               "interest_paid": p["payment"].get("applied_to_interest", 0),
+                               "total_paid": p["payment"]["amount"]} for p in payments],
+        "total_payments": total_payments,
+        "expenses": [{"category": e["category"], "description": e.get("description", ""),
+                      "amount": e["amount"]} for e in expenses],
+        "employee_advances": [{"description": e.get("description", ""), "amount": e["amount"]} for e in employee_advances],
+        "farm_expenses": [{"description": e.get("description", ""), "amount": e["amount"]} for e in farm_expenses],
+        "total_expenses": total_expenses,
+        "expected_cash": expected_cash, "actual_cash": actual_cash,
+        "bank_checks": bank_checks, "other_payment_forms": other_payment_forms,
+        "cash_to_drawer": cash_to_drawer, "cash_to_safe": cash_to_safe,
+        "extra_cash": extra_cash,
+    }
+    await db.daily_closings.insert_one(closing)
+    # Update cashier wallet balance
+    if cashier_wallet:
+        await db.fund_wallets.update_one({"id": cashier_wallet["id"]}, {"$set": {"balance": cash_to_drawer}})
+    # Deposit to safe
+    if cash_to_safe > 0 and safe_wallet:
+        await db.safe_lots.insert_one({
+            "id": new_id(), "branch_id": branch_id, "wallet_id": safe_wallet["id"],
+            "date_received": date, "original_amount": cash_to_safe, "remaining_amount": cash_to_safe,
+            "source_reference": f"Daily close deposit - {date}",
+            "created_by": user["id"], "created_at": now_iso()
+        })
+    del closing["_id"]
+    return closing
+
+# ==================== EMPLOYEES ====================
+@api_router.get("/employees")
+async def list_employees(user=Depends(get_current_user), branch_id: Optional[str] = None):
+    query = {"active": True}
+    if branch_id: query["branch_id"] = branch_id
+    employees = await db.employees.find(query, {"_id": 0}).to_list(200)
+    # Get monthly advances for each
+    now = datetime.now(timezone.utc)
+    month_start = now.strftime("%Y-%m-01")
+    for emp in employees:
+        advances = await db.expenses.find({
+            "category": "Employee Cash Advance",
+            "employee_id": emp["id"],
+            "date": {"$gte": month_start}
+        }, {"_id": 0}).to_list(100)
+        emp["monthly_advance_total"] = sum(a.get("amount", 0) for a in advances)
+    return employees
+
+@api_router.post("/employees")
+async def create_employee(data: dict, user=Depends(get_current_user)):
+    emp = {
+        "id": new_id(), "name": data["name"], "branch_id": data.get("branch_id", ""),
+        "position": data.get("position", ""), "phone": data.get("phone", ""),
+        "opening_balance": float(data.get("opening_balance", 0)),
+        "active": True, "created_at": now_iso(),
+    }
+    await db.employees.insert_one(emp)
+    del emp["_id"]
+    return emp
+
+@api_router.put("/employees/{emp_id}")
+async def update_employee(emp_id: str, data: dict, user=Depends(get_current_user)):
+    allowed = ["name", "position", "phone", "branch_id", "opening_balance", "active"]
+    update = {k: v for k, v in data.items() if k in allowed}
+    await db.employees.update_one({"id": emp_id}, {"$set": update})
+    return await db.employees.find_one({"id": emp_id}, {"_id": 0})
+
+@api_router.post("/expenses/farm")
+async def create_farm_expense(data: dict, user=Depends(get_current_user)):
+    """Create farm expense and auto-add to customer's receivable"""
+    check_perm(user, "accounting", "create")
+    customer_id = data.get("customer_id")
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0}) if customer_id else None
+    tag = data.get("tag", "Farm Expense")
+    expense = {
+        "id": new_id(), "branch_id": data.get("branch_id", ""), "category": "Farm Expense",
+        "description": f"Farm Cash Out - {tag} ({customer['name'] if customer else 'Unknown'})",
+        "amount": float(data["amount"]), "date": data.get("date", now_iso()[:10]),
+        "customer_id": customer_id, "tag": tag,
+        "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.expenses.insert_one(expense)
+    # Create receivable for the customer
+    if customer_id:
+        settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
+        prefix = settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI"
+        count = await db.invoices.count_documents({"prefix": prefix})
+        inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+        farm_invoice = {
+            "id": new_id(), "invoice_number": inv_number, "prefix": prefix,
+            "customer_id": customer_id, "customer_name": customer["name"] if customer else "",
+            "customer_contact": "", "customer_phone": "", "customer_address": "",
+            "terms": "Net 30", "terms_days": 30, "customer_po": "",
+            "sales_rep_id": "", "sales_rep_name": "",
+            "branch_id": data.get("branch_id", ""),
+            "order_date": data.get("date", now_iso()[:10]),
+            "invoice_date": data.get("date", now_iso()[:10]),
+            "due_date": data.get("date", now_iso()[:10]),
+            "items": [{"product_id": "", "product_name": f"Farm Cash Out - {tag}",
+                        "description": data.get("description", ""), "quantity": 1,
+                        "rate": float(data["amount"]), "discount_type": "amount",
+                        "discount_value": 0, "discount_amount": 0,
+                        "total": float(data["amount"]), "is_repack": False}],
+            "subtotal": float(data["amount"]), "freight": 0, "overall_discount": 0,
+            "grand_total": float(data["amount"]), "amount_paid": 0,
+            "balance": float(data["amount"]),
+            "interest_rate": 0, "interest_accrued": 0, "penalties": 0,
+            "last_interest_date": None, "sale_type": "farm_expense",
+            "status": "open", "payments": [],
+            "cashier_id": user["id"], "cashier_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        }
+        await db.invoices.insert_one(farm_invoice)
+        await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": float(data["amount"])}})
+    del expense["_id"]
+    return expense
+
+@api_router.post("/expenses/employee-advance")
+async def create_employee_advance(data: dict, user=Depends(get_current_user)):
+    check_perm(user, "accounting", "create")
+    emp = await db.employees.find_one({"id": data["employee_id"]}, {"_id": 0}) if data.get("employee_id") else None
+    expense = {
+        "id": new_id(), "branch_id": data.get("branch_id", ""), "category": "Employee Cash Advance",
+        "description": f"Cash Advance - {emp['name'] if emp else data.get('employee_name', 'Unknown')}",
+        "amount": float(data["amount"]), "date": data.get("date", now_iso()[:10]),
+        "employee_id": data.get("employee_id", ""),
+        "employee_name": emp["name"] if emp else data.get("employee_name", ""),
+        "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.expenses.insert_one(expense)
+    del expense["_id"]
+    return expense
+
 # ==================== STARTUP ====================
 @app.on_event("startup")
 async def startup():

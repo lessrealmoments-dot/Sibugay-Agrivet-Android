@@ -1254,6 +1254,88 @@ async def get_vendor_pos(vendor: str, user=Depends(get_current_user)):
     ).sort("created_at", -1).to_list(500)
     return pos
 
+# =============================================================================
+# SUPPLIER ROUTES
+# =============================================================================
+@api_router.get("/suppliers")
+async def list_suppliers(user=Depends(get_current_user)):
+    """List all suppliers with their details."""
+    suppliers = await db.suppliers.find({"active": True}, {"_id": 0}).sort("name", 1).to_list(500)
+    return suppliers
+
+@api_router.post("/suppliers")
+async def create_supplier(data: dict, user=Depends(get_current_user)):
+    """Create a new supplier."""
+    check_perm(user, "inventory", "adjust")
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Supplier name is required")
+    existing = await db.suppliers.find_one({"name": {"$regex": f"^{name}$", "$options": "i"}, "active": True})
+    if existing:
+        raise HTTPException(status_code=400, detail="Supplier already exists")
+    supplier = {
+        "id": new_id(),
+        "name": name,
+        "contact_person": data.get("contact_person", ""),
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "address": data.get("address", ""),
+        "notes": data.get("notes", ""),
+        "active": True,
+        "created_at": now_iso(),
+        "created_by": user["id"],
+    }
+    await db.suppliers.insert_one(supplier)
+    del supplier["_id"]
+    return supplier
+
+@api_router.put("/suppliers/{supplier_id}")
+async def update_supplier(supplier_id: str, data: dict, user=Depends(get_current_user)):
+    """Update supplier details."""
+    check_perm(user, "inventory", "adjust")
+    allowed = ["name", "contact_person", "phone", "email", "address", "notes"]
+    update = {k: v for k, v in data.items() if k in allowed}
+    update["updated_at"] = now_iso()
+    await db.suppliers.update_one({"id": supplier_id}, {"$set": update})
+    return await db.suppliers.find_one({"id": supplier_id}, {"_id": 0})
+
+@api_router.delete("/suppliers/{supplier_id}")
+async def delete_supplier(supplier_id: str, user=Depends(get_current_user)):
+    """Soft delete a supplier."""
+    check_perm(user, "inventory", "adjust")
+    await db.suppliers.update_one({"id": supplier_id}, {"$set": {"active": False}})
+    return {"message": "Supplier deleted"}
+
+@api_router.get("/suppliers/search")
+async def search_suppliers(q: str = "", user=Depends(get_current_user)):
+    """Search suppliers by name, includes both from suppliers collection and PO vendors."""
+    # Get from suppliers collection
+    suppliers = await db.suppliers.find(
+        {"name": {"$regex": q, "$options": "i"}, "active": True}, {"_id": 0}
+    ).limit(10).to_list(10)
+    supplier_names = [s["name"] for s in suppliers]
+    
+    # Get from PO vendors (legacy)
+    po_vendors = await db.purchase_orders.distinct("vendor", {
+        "vendor": {"$regex": q, "$options": "i"},
+        "status": {"$ne": "cancelled"}
+    })
+    
+    # Combine and deduplicate
+    all_names = list(set(supplier_names + po_vendors))
+    all_names.sort(key=lambda x: x.lower())
+    
+    # Return with details if available
+    results = []
+    for name in all_names[:15]:
+        supplier = next((s for s in suppliers if s["name"].lower() == name.lower()), None)
+        if supplier:
+            results.append(supplier)
+        else:
+            results.append({"name": name, "id": None, "phone": "", "email": "", "address": ""})
+    
+    return results
+
 # ==================== INVENTORY ROUTES ====================
 @api_router.get("/inventory")
 async def list_inventory(

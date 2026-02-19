@@ -480,6 +480,9 @@ class AgriPOSAPITester:
         # Fund wallet payment tests  
         self.test_fund_wallet_payment()
         
+        # Daily Operations API tests (Sales Log, Profit Report, Close Accounts, Employees, Expenses)
+        self.test_daily_operations_apis()
+        
         # Print summary
         print("\n" + "=" * 50)
         print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} passed")

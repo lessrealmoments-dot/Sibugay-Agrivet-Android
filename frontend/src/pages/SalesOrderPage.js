@@ -82,8 +82,39 @@ export default function SalesOrderPage() {
 
   const updateLine = (index, field, value) => {
     const newLines = [...lines];
-    newLines[index] = { ...newLines[index], [field]: value };
+    const line = newLines[index];
+    newLines[index] = { ...line, [field]: value };
+    // Below-cost check when rate changes
+    if (field === 'rate' && line.product_id && line.cost_price > 0) {
+      const newRate = parseFloat(value) || 0;
+      if (newRate > 0 && newRate < line.cost_price) {
+        toast.error(`Cannot sell below capital (₱${line.cost_price.toFixed(2)})`);
+        return; // Block the change
+      }
+      // If price changed from original, ask to update scheme
+      if (newRate !== line.original_rate && newRate > 0 && line.original_rate > 0) {
+        setPriceChangeInfo({ index, product_id: line.product_id, product_name: line.product_name, scheme: line.price_scheme, old_price: line.original_rate, new_price: newRate });
+        setPriceChangeDialog(true);
+      }
+    }
     setLines(newLines);
+  };
+
+  const confirmPriceChange = async (keepChange) => {
+    if (keepChange && priceChangeInfo) {
+      try {
+        await api.put(`/products/${priceChangeInfo.product_id}/update-price`, {
+          scheme: priceChangeInfo.scheme, price: priceChangeInfo.new_price
+        });
+        toast.success(`${priceChangeInfo.scheme} price updated to ${formatPHP(priceChangeInfo.new_price)}`);
+        // Update original_rate so we don't ask again
+        const newLines = [...lines];
+        newLines[priceChangeInfo.index] = { ...newLines[priceChangeInfo.index], original_rate: priceChangeInfo.new_price };
+        setLines(newLines);
+      } catch (e) { toast.error(e.response?.data?.detail || 'Failed to update price'); }
+    }
+    setPriceChangeDialog(false);
+    setPriceChangeInfo(null);
   };
 
   const removeLine = (index) => {

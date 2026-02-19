@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
+import { formatPHP } from '../lib/utils';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
+import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Separator } from '../components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff, RefreshCw, FileText, Lock, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   cacheProducts, getProducts, cacheCustomers, getCustomers,

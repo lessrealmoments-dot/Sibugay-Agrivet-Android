@@ -351,7 +351,9 @@ export default function PurchaseOrderPage() {
                 <div><span className="text-slate-500">PO #:</span> <span className="font-mono">{detailPO.po_number}</span></div>
                 <div><span className="text-slate-500">Vendor:</span> <b>{detailPO.vendor}</b></div>
                 <div><span className="text-slate-500">Status:</span> <Badge className={`${statusColor(detailPO.status)} text-[10px]`}>{detailPO.status}</Badge></div>
-                <div><span className="text-slate-500">Expected:</span> {detailPO.expected_date || '—'}</div>
+                <div><span className="text-slate-500">Purchase Date:</span> {detailPO.purchase_date || detailPO.expected_date || '—'}</div>
+                <div><span className="text-slate-500">Payment:</span> <Badge className={`text-[10px] ${detailPO.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{detailPO.payment_method === 'credit' ? 'Credit' : 'Cash'} · {detailPO.payment_status || 'n/a'}</Badge></div>
+                {detailPO.payment_method === 'credit' && <div><span className="text-slate-500">Balance:</span> <b className="text-red-600">{formatPHP(detailPO.balance)}</b></div>}
               </div>
               <Table>
                 <TableHeader><TableRow>

@@ -483,6 +483,9 @@ class AgriPOSAPITester:
         # Daily Operations API tests (Sales Log, Profit Report, Close Accounts, Employees, Expenses)
         self.test_daily_operations_apis()
         
+        # New POS Today's Report and Close Day API tests
+        self.test_pos_todays_report_and_close_day()
+        
         # Print summary
         print("\n" + "=" * 50)
         print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} passed")

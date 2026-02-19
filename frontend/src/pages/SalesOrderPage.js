@@ -218,6 +218,8 @@ export default function SalesOrderPage() {
       setLines([{ ...EMPTY_LINE }]);
       setFreight(0); setOverallDiscount(0); setAmountPaid(0);
       setHeader(h => ({ ...h, customer_id: '', customer_name: '', customer_contact: '', customer_phone: '', customer_address: '', customer_po: '' }));
+      setCustSearch('');
+      setIsNewCustomer(false);
     } catch (e) { toast.error(e.response?.data?.detail || 'Error creating invoice'); }
     setSaving(false);
   };

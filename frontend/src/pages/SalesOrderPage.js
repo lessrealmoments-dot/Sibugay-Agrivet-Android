@@ -37,6 +37,11 @@ export default function SalesOrderPage() {
   const [createProductDialog, setCreateProductDialog] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductForm, setNewProductForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable', starting_inventory: 0 });
+  const [custSearch, setCustSearch] = useState('');
+  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [saveCustomerDialog, setSaveCustomerDialog] = useState(false);
+  const [newCustForm, setNewCustForm] = useState({ name: '', phone: '', address: '', price_scheme: 'retail', interest_rate: 0 });
   const qtyRefs = useRef([]);
 
   useEffect(() => {

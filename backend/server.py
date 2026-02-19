@@ -907,7 +907,21 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
 @api_router.get("/invoices/{inv_id}")
 async def get_invoice(inv_id: str, user=Depends(get_current_user)):
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        # Try sales collection
+        inv = await db.sales.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        # Try purchase orders
+        inv = await db.purchase_orders.find_one({"id": inv_id}, {"_id": 0})
     if not inv: raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Include edit history and count
+    edit_history = await db.invoice_edits.find(
+        {"invoice_id": inv_id}, {"_id": 0}
+    ).sort("edited_at", -1).to_list(100)
+    inv["edit_history"] = edit_history
+    inv["edit_count"] = len(edit_history)
+    
     return inv
 
 @api_router.post("/invoices/{inv_id}/compute-interest")

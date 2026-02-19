@@ -64,7 +64,9 @@ security = HTTPBearer()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ==================== AUTH HELPERS ====================
+# =============================================================================
+# AUTH HELPERS & PERMISSIONS
+# =============================================================================
 DEFAULT_PERMISSIONS = {
     "admin": {
         "branches": {"view": True, "create": True, "edit": True, "delete": True},

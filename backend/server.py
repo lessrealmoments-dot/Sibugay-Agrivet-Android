@@ -1,3 +1,37 @@
+"""
+================================================================================
+AgriPOS API Server
+================================================================================
+Multi-branch Inventory, POS & Accounting System for Agricultural Retail
+
+ROUTE SECTIONS (search by section name):
+- AUTH HELPERS & ROUTES      (Line ~50)   - Login, register, permissions
+- BRANCH ROUTES              (Line ~210)  - Branch CRUD
+- PRODUCT ROUTES             (Line ~240)  - Products, repacks, pricing
+- PRODUCT SEARCH             (Line ~380)  - Enhanced search with stock info
+- INVOICE / SALES ORDER      (Line ~420)  - Sales orders, invoices
+- CUSTOMER PAYMENTS          (Line ~630)  - Receive payments, interest
+- FUND WALLET SYSTEM         (Line ~840)  - Cashier, Safe, Bank wallets
+- INVOICE SETTINGS           (Line ~950)  - Prefixes, terms
+- PRODUCT DETAIL             (Line ~1000) - Full product info, vendors
+- PURCHASE ORDER ROUTES      (Line ~1080) - PO CRUD, receiving, payments
+- INVENTORY ROUTES           (Line ~1240) - Stock levels, adjustments
+- CUSTOMER ROUTES            (Line ~1360) - Customer CRUD
+- PRICE SCHEME ROUTES        (Line ~1400) - Price tier management
+- SALES / POS ROUTES         (Line ~1440) - POS sales, void, release
+- ACCOUNTING ROUTES          (Line ~1620) - Expenses, receivables, payables
+- SYNC ENDPOINTS             (Line ~1720) - Offline POS sync
+- DASHBOARD ROUTES           (Line ~1810) - Stats, KPIs
+- USER MANAGEMENT            (Line ~1880) - User CRUD, permissions
+- DAILY OPERATIONS           (Line ~1920) - Daily log, close accounts
+- EMPLOYEES                  (Line ~2100) - Employee management, advances
+- STARTUP                    (Line ~2200) - DB seeding, indexes
+
+Author: AgriPOS Team
+Version: 2.0 (Feb 2026)
+================================================================================
+"""
+
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -12,6 +46,9 @@ from datetime import datetime, timezone
 import bcrypt
 import jwt
 
+# =============================================================================
+# CONFIGURATION & DATABASE
+# =============================================================================
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -20,7 +57,7 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'agripos_default_secret')
 
-app = FastAPI(title="AgriPOS API")
+app = FastAPI(title="AgriPOS API", description="Multi-branch Inventory, POS & Accounting System")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
 

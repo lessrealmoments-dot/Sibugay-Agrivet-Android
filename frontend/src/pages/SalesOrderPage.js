@@ -67,10 +67,12 @@ export default function SalesOrderPage() {
   const handleProductSelect = (index, product) => {
     const newLines = [...lines];
     const scheme = customers.find(c => c.id === header.customer_id)?.price_scheme || 'retail';
+    const rate = product.prices?.[scheme] || product.prices?.retail || 0;
     newLines[index] = {
       ...newLines[index],
       product_id: product.id, product_name: product.name,
-      description: product.description || '', rate: product.prices?.[scheme] || product.prices?.retail || 0,
+      description: product.description || '', rate, original_rate: rate,
+      cost_price: product.cost_price || 0, price_scheme: scheme,
       is_repack: product.is_repack || false,
     };
     if (index === lines.length - 1) newLines.push({ ...EMPTY_LINE });

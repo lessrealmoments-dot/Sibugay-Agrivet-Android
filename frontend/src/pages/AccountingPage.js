@@ -614,6 +614,51 @@ export default function AccountingPage() {
               <Label className="text-xs text-slate-500">Description</Label>
               <Input data-testid="expense-description" className="h-10" value={expenseForm.description} onChange={e => setExpenseForm({ ...expenseForm, description: e.target.value })} placeholder="What is this expense for?" />
             </div>
+            {/* Employee CA section — shown when category is Employee Advance */}
+            {expenseForm.category === 'Employee Advance' && !editMode && (
+              <div className="space-y-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div>
+                  <Label className="text-xs text-amber-700 font-medium">Employee *</Label>
+                  <Select value={expenseForm.employee_id || 'none'} onValueChange={v => handleEmployeeSelect(v === 'none' ? '' : v)}>
+                    <SelectTrigger className="h-9 bg-white" data-testid="ca-employee-select"><SelectValue placeholder="Select employee..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Select employee —</SelectItem>
+                      {employees.filter(e => e.active !== false).map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.name} {e.position ? `(${e.position})` : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {caSummary && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-white rounded p-2">
+                        <p className="text-[10px] text-slate-400">This Month</p>
+                        <p className={`text-sm font-bold ${caSummary.is_over_limit ? 'text-red-600' : 'text-amber-600'}`}>{formatPHP(caSummary.this_month_total)}</p>
+                      </div>
+                      <div className="bg-white rounded p-2">
+                        <p className="text-[10px] text-slate-400">Monthly Limit</p>
+                        <p className="text-sm font-bold">{caSummary.monthly_ca_limit > 0 ? formatPHP(caSummary.monthly_ca_limit) : 'None'}</p>
+                      </div>
+                      <div className="bg-white rounded p-2">
+                        <p className="text-[10px] text-slate-400">Unpaid Balance</p>
+                        <p className="text-sm font-bold text-slate-700">{formatPHP(caSummary.total_advance_balance)}</p>
+                      </div>
+                    </div>
+                    {caSummary.is_over_limit && (
+                      <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 rounded p-2">
+                        <AlertTriangle size={13} /> Monthly limit reached — manager PIN required to proceed
+                      </div>
+                    )}
+                    {caSummary.prev_month_overage > 0 && (
+                      <div className="text-xs text-amber-700 bg-amber-100 rounded p-2">
+                        Previous month overage: {formatPHP(caSummary.prev_month_overage)} — deduct from next salary
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <Label className="text-xs text-slate-500">Notes (optional)</Label>
               <Input className="h-10" value={expenseForm.notes} onChange={e => setExpenseForm({ ...expenseForm, notes: e.target.value })} placeholder="Additional details..." />

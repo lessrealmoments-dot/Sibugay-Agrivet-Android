@@ -126,12 +126,13 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res,
   async err => {
-    // Network error (no response) → serve from IndexedDB cache
-    if (!err.response && err.config) {
+    // Only serve from IndexedDB when the device is genuinely offline.
+    // Do NOT intercept when online — backend errors should propagate normally.
+    if (!navigator.onLine && !err.response && err.config) {
       try {
         return await handleOfflineRequest(err.config);
       } catch {
-        // Cache miss — fall through to normal error handling
+        // Cache miss — fall through
       }
     }
     if (err.response?.status === 401) {

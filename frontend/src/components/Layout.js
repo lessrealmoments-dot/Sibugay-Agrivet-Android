@@ -180,9 +180,18 @@ export default function Layout({ children }) {
             <button data-testid="mobile-menu-btn" onClick={() => setSidebarOpen(true)} className="lg:hidden p-1">
               <Menu size={20} />
             </button>
-            <h2 className="text-sm font-semibold text-slate-700" style={{ fontFamily: 'Manrope' }}>
-              {currentBranch?.name || 'AgriPOS'}
-            </h2>
+            <div className="flex items-center gap-2">
+              {isConsolidatedView ? (
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200">
+                  <Building2 size={14} className="text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-700">All Branches</span>
+                </div>
+              ) : (
+                <h2 className="text-sm font-semibold text-slate-700" style={{ fontFamily: 'Manrope' }}>
+                  {viewingBranchName}
+                </h2>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className="hidden sm:inline">{user?.full_name || user?.username}</span>

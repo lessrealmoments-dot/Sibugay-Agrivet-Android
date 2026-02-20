@@ -50,6 +50,8 @@ export default function UnifiedSalesPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [custSearch, setCustSearch] = useState('');
   const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  const [newCustomerDialog, setNewCustomerDialog] = useState(false);
+  const [newCustForm, setNewCustForm] = useState({ name: '', phone: '', address: '', price_scheme: 'retail' });
   
   // Order header
   const [header, setHeader] = useState({

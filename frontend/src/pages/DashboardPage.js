@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { 
   DollarSign, ShoppingCart, Package, Users, AlertTriangle, 
-  TrendingUp, ArrowDown, Building2, Wallet, Receipt, ArrowRight
+  TrendingUp, ArrowDown, Building2, Wallet, Receipt, ArrowRight, Truck, Clock
 } from 'lucide-react';
 import { formatPHP } from '../lib/utils';
 

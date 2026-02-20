@@ -357,6 +357,7 @@ export default function UnifiedSalesPage() {
       setSelectedCustomer(c);
       setCustSearch(c.name);
       setCustDropdownOpen(false);
+      applySchemeChange(c.price_scheme || 'retail'); // Reprice cart for customer's scheme
     }
   };
 

@@ -237,6 +237,32 @@ export default function UnifiedSalesPage() {
     else setSelectedCustomer(null);
   };
 
+  // Create new customer
+  const openNewCustomerDialog = () => {
+    setNewCustForm({ name: custSearch, phone: '', address: '', price_scheme: 'retail' });
+    setCustDropdownOpen(false);
+    setNewCustomerDialog(true);
+  };
+
+  const createNewCustomer = async () => {
+    if (!newCustForm.name.trim()) { toast.error('Customer name is required'); return; }
+    try {
+      const res = await api.post('/customers', {
+        ...newCustForm,
+        branch_id: currentBranch?.id,
+      });
+      // Add to local customers list
+      setCustomers([...customers, res.data]);
+      // Select the new customer
+      setSelectedCustomer(res.data);
+      setCustSearch(res.data.name);
+      setNewCustomerDialog(false);
+      toast.success('Customer created!');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to create customer');
+    }
+  };
+
   // Calculations
   const items = mode === 'quick' ? cart : lines.filter(l => l.product_id);
   const subtotal = mode === 'quick' 

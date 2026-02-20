@@ -265,8 +265,7 @@ export default function UnifiedSalesPage() {
   // Order mode: Handle lines
   const handleProductSelect = (index, product) => {
     const newLines = [...lines];
-    const scheme = selectedCustomer?.price_scheme || defaultScheme;
-    const rate = product.prices?.[scheme] ?? 0;
+    const rate = product.prices?.[activeScheme] ?? 0;
     newLines[index] = {
       ...newLines[index], product_id: product.id, product_name: product.name,
       description: product.description || '', rate, original_rate: rate,

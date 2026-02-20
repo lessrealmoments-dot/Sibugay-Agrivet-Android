@@ -188,7 +188,20 @@ export default function AccountingPage() {
   const handleCaManagerPin = async () => {
     if (!caManagerPin) { toast.error('Enter manager PIN'); return; }
     try {
-      const res = await api.post('/auth/verify-manager-pin', { pin: caManagerPin });
+      const employeeName = caSummary?.employee_name || expenseForm.employee_id || 'employee';
+      const limit = caSummary?.monthly_ca_limit || 0;
+      const res = await api.post('/auth/verify-manager-pin', {
+        pin: caManagerPin,
+        context: {
+          type: 'employee_advance',
+          description: `₱${parseFloat(expenseForm.amount).toFixed(2)} cash advance for ${employeeName} (over ₱${limit.toFixed(2)} monthly limit)`,
+          amount: parseFloat(expenseForm.amount),
+          employee_name: employeeName,
+          monthly_limit: limit,
+          branch_id: currentBranch?.id,
+          branch_name: currentBranch?.name,
+        }
+      });
       if (res.data.valid) {
         toast.success(`Approved by ${res.data.manager_name}`);
         setCaManagerPinDialog(false);

@@ -576,10 +576,17 @@ export default function PurchaseOrderPage() {
                       </TableCell>
                       <TableCell><Badge className={`text-[10px] ${statusColor(po.status)}`}>{po.status}</Badge></TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-wrap">
                           {po.status === 'ordered' && (
                             <Button size="sm" variant="outline" onClick={() => receivePO(po.id)} data-testid={`receive-po-${po.id}`}>
                               <Check size={12} className="mr-1" /> Receive
+                            </Button>
+                          )}
+                          {po.status === 'received' && (
+                            <Button size="sm" variant="outline" onClick={() => reopenPO(po)}
+                              className="text-amber-600 border-amber-200 hover:bg-amber-50 text-[11px]"
+                              data-testid={`reopen-po-${po.id}`}>
+                              ↩ Reopen
                             </Button>
                           )}
                           {po.status !== 'cancelled' && po.status !== 'received' && (

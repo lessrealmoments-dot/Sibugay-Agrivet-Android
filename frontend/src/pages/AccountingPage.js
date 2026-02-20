@@ -507,7 +507,7 @@ export default function AccountingPage() {
                   {receivables.map(r => {
                     const typeConfig = {
                       farm_expense: { label: 'Farm', cls: 'bg-green-100 text-green-700' },
-                      cash_advance: { label: 'Cash Out', cls: 'bg-purple-100 text-purple-700' },
+                      cash_advance: { label: 'Customer Cash Out', cls: 'bg-purple-100 text-purple-700' },
                       interest_charge: { label: 'Interest', cls: 'bg-amber-100 text-amber-700' },
                       penalty_charge: { label: 'Penalty', cls: 'bg-red-100 text-red-700' },
                       walk_in: { label: 'Sale', cls: 'bg-blue-100 text-blue-700' },

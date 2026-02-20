@@ -367,6 +367,26 @@ export default function UnifiedSalesPage() {
   const openCheckout = () => {
     if (items.length === 0) { toast.error('Add items first'); return; }
     if (!currentBranch) { toast.error('Select a branch'); return; }
+
+    // Check for zero-price items (no price set for selected scheme)
+    const zeroPriceItem = mode === 'quick'
+      ? cart.find(c => c.price <= 0)
+      : lines.find(l => l.product_id && l.rate <= 0);
+    if (zeroPriceItem) {
+      toast.error(`"${zeroPriceItem.product_name}" has no price — edit the price directly on the receipt before checkout`);
+      return;
+    }
+
+    // Check for below-capital items
+    const belowCostItem = mode === 'quick'
+      ? cart.find(c => c.cost_price > 0 && c.price < c.cost_price)
+      : lines.find(l => l.product_id && l.cost_price > 0 && l.rate < l.cost_price);
+    if (belowCostItem) {
+      const p = belowCostItem.price ?? belowCostItem.rate;
+      toast.error(`Cannot sell "${belowCostItem.product_name}" at ₱${p.toFixed(2)} — below capital ₱${belowCostItem.cost_price.toFixed(2)}`);
+      return;
+    }
+
     setPaymentType('cash');
     setAmountTendered(grandTotal);
     setPartialPayment(0);

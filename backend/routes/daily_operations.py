@@ -434,3 +434,41 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     return close_record
 
 
+@router.get("/daily-variance-history")
+async def get_variance_history(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    limit: int = 60,
+    skip: int = 0
+):
+    """
+    Historical record of daily over/short (cash variances) for audit purposes.
+    Positive over_short = extra cash (possible unrecorded sales).
+    Negative over_short = cash short (possible theft, unrecorded expense, or error).
+    """
+    check_perm(user, "reports", "view")
+
+    query = {"status": "closed"}
+    if branch_id:
+        query["branch_id"] = branch_id
+
+    total = await db.daily_closings.count_documents(query)
+    records = await db.daily_closings.find(
+        query,
+        {"_id": 0, "id": 1, "date": 1, "branch_id": 1,
+         "expected_counter": 1, "actual_cash": 1, "over_short": 1,
+         "variance_notes": 1, "closed_by_name": 1, "closed_at": 1,
+         "total_cash_sales": 1, "total_ar_received": 1, "total_expenses": 1,
+         "starting_float": 1}
+    ).sort("date", -1).skip(skip).limit(limit).to_list(limit)
+
+    # Attach branch name
+    branch_names = {}
+    for r in records:
+        bid = r.get("branch_id")
+        if bid and bid not in branch_names:
+            b = await db.branches.find_one({"id": bid}, {"_id": 0, "name": 1})
+            branch_names[bid] = b["name"] if b else bid
+        r["branch_name"] = branch_names.get(bid, "")
+
+    return {"records": records, "total": total}

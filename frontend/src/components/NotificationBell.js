@@ -32,23 +32,24 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
 
-  // Only show for admin/owner
-  if (!user || user.role !== 'admin') return null;
+  const isAdmin = user?.role === 'admin';
 
   const fetchNotifications = useCallback(async () => {
+    if (!isAdmin) return;
     try {
       const res = await api.get('/notifications', { params: { limit: 20 } });
       setNotifications(res.data.notifications || []);
       setUnreadCount(res.data.unread_count || 0);
     } catch { /* silent */ }
-  }, []);
+  }, [isAdmin]);
 
   // Initial load + auto-poll every 30s
   useEffect(() => {
+    if (!isAdmin) return;
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  }, [fetchNotifications, isAdmin]);
 
   // Close on outside click
   useEffect(() => {
@@ -57,6 +58,9 @@ export default function NotificationBell() {
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, [open]);
+
+  // Only render for admin/owner
+  if (!isAdmin) return null;
 
   const markRead = async (id) => {
     await api.put(`/notifications/${id}/read`);

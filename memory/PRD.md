@@ -24,6 +24,26 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Dec 2025)
 
+### Company Setup Wizard - COMPLETE ✅ (Dec 20, 2025)
+First-time setup wizard that walks new users through:
+- **Step 1: Company Info** - Name, address, phone, email, tax ID, currency
+- **Step 2: First Branch** - Branch name and location details
+- **Step 3: Admin Account** - Username, password, manager PIN
+- **Step 4: Opening Balances** - Cashier drawer, safe, and bank account starting balances
+
+Key Features:
+- Auto-detects fresh installation (no users/branches)
+- Redirects to setup wizard if system is uninitialized
+- Creates fund wallets with opening balances
+- Sets up safe lots for accurate cash tracking
+- System reset endpoint for testing
+
+New Endpoints:
+- `GET /api/setup/status` - Check if setup is needed
+- `POST /api/setup/initialize` - Complete system setup
+- `POST /api/setup/reset` - Reset all data (dangerous)
+- `GET /api/setup/defaults` - Get default options
+
 ### Multi-Branch Frontend Integration - COMPLETE ✅ (Dec 20, 2025)
 - **Owner Dashboard**: Consolidated view showing all branches with KPIs
   - Total Sales Today, Total Cash Position, Total Receivables, Low Stock Alerts

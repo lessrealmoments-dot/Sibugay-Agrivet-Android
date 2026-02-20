@@ -839,7 +839,7 @@ export default function UnifiedSalesPage() {
                                 </div>
                                 <button
                                   onClick={() => clearLine(i)}
-                                  className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                  className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
                                   title="Remove product"
                                 >
                                   <X size={13} />

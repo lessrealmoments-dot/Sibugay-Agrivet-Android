@@ -123,6 +123,7 @@ export async function refreshPOSCache(branchId = null) {
       products: products.length,
       customers: customers.length,
       inventory: inventory.length,
+      branch_prices: branch_prices.length,
     });
 
     notifyListeners({

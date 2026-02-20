@@ -156,6 +156,11 @@ export default function AccountingPage() {
       toast.error('Amount must be greater than 0');
       return;
     }
+    // Branch required for all expenses
+    if (!currentBranch?.id) {
+      toast.error('Please select a specific branch from the sidebar before recording expenses');
+      return;
+    }
     // Employee Advance CA limit check
     if (expenseForm.category === 'Employee Advance' && expenseForm.employee_id && caSummary && !editMode) {
       const limit = caSummary.monthly_ca_limit || 0;

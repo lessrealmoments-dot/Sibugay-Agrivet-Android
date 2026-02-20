@@ -1,0 +1,83 @@
+{
+  "summary": "Comprehensive testing of AgriPOS Sales page (UnifiedSalesPage at /sales-new). Tested all 14 feature areas from the review request. All core features are working correctly: Quick mode with editable qty/price inputs, Price Save Dialog, zero-price/below-capital checkout blocking, Order mode product search with fixed dropdown (position:fixed), product name display after selection, X button to clear line, and rate change dialog in order mode.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Order mode table (UnifiedSalesPage.js:829)",
+        "issues": [
+          "Console warning: '<span> cannot be a child of <tbody>' - React hydration warning from dev environment visual editor injecting span wrappers. Not a production blocker, but indicates invalid HTML structure in development mode. In production, this manifests as tbody > span > tr which is technically invalid HTML."
+        ]
+      },
+      {
+        "screen": "Order mode - X/Clear button",
+        "issues": [
+          "The X button to clear a selected product has opacity-0 and only appears on hover (group-hover:opacity-100). While functional, users may not discover it without hovering. Consider showing a small clear icon always visible when a product is selected."
+        ]
+      }
+    ]
+  },
+
+  "passed_tests": [
+    "TEST 1: Login with owner/secure123 - PASS",
+    "TEST 2: Navigate to /sales-new (UnifiedSalesPage) - PASS",
+    "TEST 3: Quick mode - Price scheme selector 'Retail' visible when no customer selected - PASS",
+    "TEST 4: Quick mode - Search 'r vit', found R VITMIN PRO POWDER, added to cart - PASS",
+    "TEST 5: Quick mode - Quantity number input editable (set to 5) - PASS",
+    "TEST 6: Quick mode - Price number input editable (step=0.01, set to 25.00) - PASS",
+    "TEST 7: Quick mode - Price Save Dialog appears after changing price from 0 to 15 and blurring (shows old/new price, scheme badge, Yes/No buttons) - PASS",
+    "TEST 8: Checkout - Zero-price item (₱0.00) blocks checkout with error: 'VITMIN PRO POWDER has no price — edit the price directly on the receipt before checkout' - PASS",
+    "TEST 9: Checkout - Below-capital price (₱5.00 < capital ₱310.40) blocks checkout with error: 'Cannot sell VITMIN PRO POWDER at ₱5.00 — below capital ₱310.40' - PASS",
+    "TEST 10: Order mode - Table visible with # PRODUCT QTY RATE DISCOUNT AMOUNT columns - PASS",
+    "TEST 11: Order mode - SmartProductSearch dropdown appears (position:fixed, shows 2 results for 'vit') - PASS",
+    "TEST 12: Order mode - Select product via mousedown → product name 'VITMIN PRO POWDER (1 X 20)' shown in row, new empty row auto-added - PASS",
+    "TEST 13: Order mode - X button (title='Remove product') clears selected product, restores SmartProductSearch to that row - PASS",
+    "TEST 14: Order mode - Change rate from 20 to 25, Tab to blur → Price Save Dialog appears ('Save ₱25.00 as the new Retail price?') - PASS"
+  ],
+
+  "test_report_links": [],
+
+  "action_items": [
+    "CREDENTIALS: The review request specified 'admin/admin123' but only user 'owner/secure123' exists in MongoDB. Either update documentation or create the admin/admin123 user. All testing was done with owner/secure123.",
+    "MINOR: The <span> cannot be a child of <tbody> hydration warning in Order mode table - this is from the development environment's visual editor injecting span wrappers. Review if this affects SSR/hydration in production.",
+    "MINOR: Order mode X button (clear product) has opacity:0 until hover - consider making it always visible or adding a more discoverable UX for clearing a selected product."
+  ],
+
+  "critical_code_review_comments": [
+    "UnifiedSalesPage.js line 829: tbody > {lines.map(...)} renders as tbody > tr which is correct HTML, but the dev environment's visual editor wraps the map output in a span causing the React hydration warning. In production build this should be fine.",
+    "triggerPriceSaveDialog() at line 219-225: correctly skips dialog when newPrice <= 0. This means changing price from 0 to 0 (no change) doesn't trigger dialog. Good guard.",
+    "openCheckout() at line 367-394: Check order is correct - branch check first, then zero-price, then below-capital. Appropriate priority.",
+    "SmartProductSearch.js uses onMouseDown instead of onClick on results to prevent blur event from firing before the click is registered - this is the correct fix for the dropdown interaction issue."
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "100% - All 14 tested features working correctly"
+  },
+
+  "test_credentials": {
+    "working": "owner / secure123",
+    "not_working": "admin / admin123 (user does not exist in DB)"
+  },
+
+  "seed_data_creation": "None",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "All 7 reported bug fixes in UnifiedSalesPage.js have been verified working: 1) Order mode SmartProductSearch dropdown uses position:fixed and correctly appears/closes, 2) Pricing consistent between Quick and Order modes (both use getPriceForCustomer), 3) Zero-price items block checkout with clear error, 4) Below-capital price blocks checkout with clear error, 5) Quick mode cart has editable qty and price number inputs, 6) Price Save Dialog appears after editing prices in both Quick and Order modes, 7) Order mode shows product name text with X button after selection. Note: Working credentials are owner/secure123, not admin/admin123. The /sales-new route is UnifiedSalesPage (the fixes page), /sales is the old SalesHistory page.",
+
+  "rca_of_issues": {
+    "dropdown_fix": "The Order mode SmartProductSearch dropdown was clipped by overflow:hidden on the table container. Fix: position:fixed with getBoundingClientRect() coordinates. Verified working - dropdown renders outside overflow context.",
+    "credential_mismatch": "Review request specifies admin/admin123 but setup wizard credentials were never run or DB was seeded with owner/secure123. Only one user 'owner' (role: admin) exists in the database."
+  }
+}

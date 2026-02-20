@@ -24,21 +24,27 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Dec 2025)
 
+### Multi-Branch Frontend Integration - COMPLETE ✅ (Dec 20, 2025)
+- **Owner Dashboard**: Consolidated view showing all branches with KPIs
+  - Total Sales Today, Total Cash Position, Total Receivables, Low Stock Alerts
+  - Branch Performance Grid with individual branch stats
+  - Top Performing branches ranked, Alerts per branch
+- **Branch Selector**: Admin can switch between "All Branches" and specific branch
+- **Auto Branch Filtering**: API calls auto-append branch_id via axios interceptor
+- **Branch-Locked Users**: Cashiers see only their assigned branch (locked selector)
+
 ### Count Sheets Feature - COMPLETE ✅ (Dec 20, 2025)
 Inflow-style inventory verification and adjustment system:
 - **Snapshot**: Captures system inventory at point in time
-- **Counting**: Enter actual counts, auto-calculate variance and loss
+- **Split Counting**: Displays/inputs as "9 boxes + 50 tablets" for fractional qty
 - **Category Grouping**: Items sorted alphabetically by category
 - **Strict Mode**: All items must be counted before completion
 - **One Active**: Only one count sheet per branch at a time
 - **Adjustments**: Apply variances to inventory with full audit trail
-- **Printable**: Print-optimized layout for physical counting
-- **Permissions**: Separate permissions for view/create/count/complete/adjust
 
 ### Backend Modular Refactor - COMPLETE ✅
 - Migrated from 3800-line monolith to 18 modular route files
 - Entry: `server.py` → `main.py` (all routers)
-- 43/43 backend regression tests passed
 - Multi-branch data isolation verified
 
 ## What's Been Implemented

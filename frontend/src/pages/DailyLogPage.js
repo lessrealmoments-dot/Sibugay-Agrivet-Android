@@ -555,6 +555,28 @@ export default function DailyLogPage() {
                         </div>
                       )}
 
+                      {/* Variance notes — shown when there IS a discrepancy */}
+                      {actualCash !== '' && overShort !== null && overShort !== 0 && (
+                        <div>
+                          <Label className="mb-1.5 block font-semibold">
+                            {overShort > 0
+                              ? 'Explain the extra cash (for audit trail)'
+                              : 'Explain the shortage (for audit trail)'}
+                            {' '}<span className="text-slate-400 font-normal text-xs">— stored permanently</span>
+                          </Label>
+                          <Textarea
+                            value={varianceNotes}
+                            onChange={e => setVarianceNotes(e.target.value)}
+                            placeholder={overShort > 0
+                              ? 'e.g. "Unrecorded walk-in sale of pesticide" or "Customer rounded up payment"'
+                              : 'e.g. "Gave change for large bill" or "Cashier error on item #12"'}
+                            className="text-sm resize-none"
+                            rows={2}
+                            data-testid="variance-notes-input"
+                          />
+                        </div>
+                      )}
+
                       <Separator />
                       <div className="text-sm font-semibold text-slate-700">Distribution of Actual Cash</div>
                       <div className="grid grid-cols-2 gap-4">

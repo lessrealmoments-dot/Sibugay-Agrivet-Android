@@ -50,6 +50,16 @@ export default function ProductDetailPage() {
     setLoading(false);
   }, [id, navigate, currentBranch]);
 
+  const fetchBranchOverrides = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await api.get('/branch-prices', { params: { product_id: id } });
+      const map = {};
+      (res.data || []).forEach(o => { map[o.branch_id] = o; });
+      setBranchOverrides(map);
+    } catch { /* silent */ }
+  }, [id, isAdmin]);
+
   const fetchMovements = useCallback(async () => {
     try { const res = await api.get(`/products/${id}/movements`, { params: { limit: 50 } }); setMovements(res.data.movements); }
     catch { }

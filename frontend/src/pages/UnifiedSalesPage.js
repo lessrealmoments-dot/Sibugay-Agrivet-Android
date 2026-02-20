@@ -552,6 +552,23 @@ export default function UnifiedSalesPage() {
                 </div>
               )}
 
+              {/* Price scheme selector (for walk-in when no customer selected) */}
+              {!selectedCustomer && (
+                <div className="w-32">
+                  <Label className="text-xs text-slate-500">Price Scheme</Label>
+                  <Select value={defaultScheme} onValueChange={setDefaultScheme}>
+                    <SelectTrigger className="h-9" data-testid="price-scheme-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {schemes.map(s => (
+                        <SelectItem key={s.key} value={s.key}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {mode === 'order' && (
                 <>
                   <div className="w-32">

@@ -190,7 +190,10 @@ export default function DailyLogPage() {
     if (!currentBranch) return;
     try {
       const res = await api.get('/daily-log', { params: { date, branch_id: currentBranch.id } });
-      setLogEntries(res.data.entries);
+      setLogEntries(res.data.entries || []);
+      setCashEntries(res.data.cash_entries || []);
+      setCreditInvoices(res.data.credit_invoices || []);
+      setLogSummary(res.data.summary || null);
     } catch {}
   }, [date, currentBranch]);
 

@@ -830,14 +830,28 @@ export default function UnifiedSalesPage() {
                       {lines.map((line, i) => (
                         <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/50">
                           <td className="px-3 py-1 text-xs text-slate-400">{i + 1}</td>
-                          <td className="px-3 py-1">
-                            <SmartProductSearch
-                              branchId={currentBranch?.id}
-                              value={line.product_name}
-                              onSelect={(p) => handleProductSelect(i, p)}
-                              onCreateNew={() => {}}
-                              placeholder="Search product..."
-                            />
+                          <td className="px-3 py-1 min-w-[280px]">
+                            {line.product_id ? (
+                              <div className="flex items-center gap-2 group">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{line.product_name}</p>
+                                  {line.description && <p className="text-[11px] text-slate-400 truncate">{line.description}</p>}
+                                </div>
+                                <button
+                                  onClick={() => clearLine(i)}
+                                  className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                  title="Remove product"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            ) : (
+                              <SmartProductSearch
+                                branchId={currentBranch?.id}
+                                onSelect={(p) => handleProductSelect(i, p)}
+                                onCreateNew={() => {}}
+                              />
+                            )}
                           </td>
                           <td className="px-3 py-1">
                             <Input

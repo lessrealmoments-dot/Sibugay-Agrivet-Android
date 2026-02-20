@@ -253,7 +253,7 @@ class TestGeneratePenalty:
             "order_date": today,
             "due_date": today,
             "items": [{"product_id": test_product["id"], "product_name": test_product["name"],
-                       "quantity": 1, "rate": 500}]
+                       "quantity": 1, "rate": 1500}]
         })
         assert inv_res.status_code in [200, 201]
 

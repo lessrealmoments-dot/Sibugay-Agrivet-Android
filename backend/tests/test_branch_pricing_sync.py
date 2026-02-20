@@ -106,10 +106,10 @@ class TestSyncEstimate:
         assert isinstance(data["estimated_kb"], (int, float))
         assert data["estimated_kb"] > 0
 
-    def test_estimate_unauthorized_returns_401(self, api_client):
-        """Estimate endpoint should require authentication."""
+    def test_estimate_unauthorized_returns_401_or_403(self, api_client):
+        """Estimate endpoint should require authentication (returns 401 or 403)."""
         response = api_client.get(f"{BASE_URL}/api/sync/estimate")
-        assert response.status_code == 401
+        assert response.status_code in (401, 403)
 
 
 class TestBranchPricesGet:

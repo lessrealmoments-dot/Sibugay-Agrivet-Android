@@ -522,8 +522,8 @@ export default function CountSheetsPage() {
                     <TableRow>
                       <TableHead className="text-xs">Product</TableHead>
                       <TableHead className="text-xs w-20">Unit</TableHead>
-                      <TableHead className="text-xs w-24 text-right">System</TableHead>
-                      <TableHead className="text-xs w-28 text-right print:w-40">Actual</TableHead>
+                      <TableHead className="text-xs w-32 text-right">System</TableHead>
+                      <TableHead className="text-xs w-44 text-right print:w-48">Actual</TableHead>
                       <TableHead className="text-xs w-24 text-right">Diff</TableHead>
                       <TableHead className="text-xs w-28 text-right print:hidden">Capital</TableHead>
                       <TableHead className="text-xs w-28 text-right print:hidden">Retail</TableHead>
@@ -531,52 +531,120 @@ export default function CountSheetsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map(item => (
-                      <TableRow key={item.product_id} className={!item.counted ? 'bg-amber-50/50' : ''}>
-                        <TableCell>
-                          <div className="font-medium">{item.product_name}</div>
-                          <div className="text-xs text-slate-400 font-mono">{item.sku}</div>
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-500">{item.unit}</TableCell>
-                        <TableCell className="text-right font-mono">{item.system_quantity}</TableCell>
-                        <TableCell className="text-right">
-                          {selectedSheet?.status === 'in_progress' ? (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              className="w-24 h-8 text-right font-mono"
-                              value={item.actual_quantity ?? ''}
-                              onChange={e => {
-                                const val = e.target.value;
-                                if (val === '') return;
-                                handleUpdateCount(item.product_id, parseFloat(val));
-                              }}
-                              onBlur={e => {
-                                if (e.target.value === '' && !item.counted) return;
-                                handleUpdateCount(item.product_id, parseFloat(e.target.value) || 0);
-                              }}
-                              data-testid={`actual-input-${item.product_id}`}
-                            />
-                          ) : (
-                            <span className="font-mono">{item.actual_quantity ?? '--'}</span>
-                          )}
-                          {/* Print line */}
-                          <span className="hidden print:inline-block w-24 border-b border-slate-300 ml-2"></span>
-                        </TableCell>
-                        <TableCell className={`text-right font-mono ${
-                          item.variance > 0 ? 'text-emerald-600' : item.variance < 0 ? 'text-red-600' : ''
-                        }`}>
-                          {item.variance !== null ? (item.variance > 0 ? '+' : '') + item.variance : '--'}
-                        </TableCell>
-                        <TableCell className="text-right text-sm print:hidden">{formatPHP(item.capital_price)}</TableCell>
-                        <TableCell className="text-right text-sm print:hidden">{formatPHP(item.retail_price)}</TableCell>
-                        <TableCell className={`text-right font-medium print:hidden ${
-                          (item.loss_capital || 0) > 0 ? 'text-emerald-600' : (item.loss_capital || 0) < 0 ? 'text-red-600' : ''
-                        }`}>
-                          {item.loss_capital !== null ? formatPHP(item.loss_capital) : '--'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {items.map(item => {
+                      const hasRepack = item.has_repack && item.units_per_parent > 1;
+                      const repackUnit = item.repack_unit || 'pcs';
+                      
+                      // Format system quantity display
+                      const formatSplitQty = (whole, loose, unit, repackUnit) => {
+                        if (loose > 0) {
+                          return <span>{whole} <span className="text-slate-400">{unit}</span> + {loose} <span className="text-slate-400 text-xs">{repackUnit}</span></span>;
+                        }
+                        return <span>{whole} <span className="text-slate-400">{unit}</span></span>;
+                      };
+                      
+                      return (
+                        <TableRow key={item.product_id} className={!item.counted ? 'bg-amber-50/50' : ''}>
+                          <TableCell>
+                            <div className="font-medium">{item.product_name}</div>
+                            <div className="text-xs text-slate-400 font-mono">{item.sku}</div>
+                            {hasRepack && (
+                              <div className="text-xs text-blue-500">1 {item.unit} = {item.units_per_parent} {repackUnit}</div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-slate-500">{item.unit}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {hasRepack ? (
+                              formatSplitQty(item.system_whole, item.system_loose, item.unit, repackUnit)
+                            ) : (
+                              item.system_quantity
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {selectedSheet?.status === 'in_progress' ? (
+                              hasRepack ? (
+                                // Split input: whole + loose
+                                <div className="flex items-center gap-1 justify-end">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    className="w-16 h-8 text-right font-mono"
+                                    placeholder={String(item.system_whole)}
+                                    value={item.actual_whole ?? ''}
+                                    onChange={e => {
+                                      const whole = e.target.value === '' ? null : parseInt(e.target.value) || 0;
+                                      const loose = item.actual_loose ?? 0;
+                                      if (whole !== null) {
+                                        handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
+                                      }
+                                    }}
+                                    data-testid={`actual-whole-${item.product_id}`}
+                                  />
+                                  <span className="text-xs text-slate-400">{item.unit}</span>
+                                  <span className="text-slate-300">+</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max={item.units_per_parent - 1}
+                                    step="1"
+                                    className="w-14 h-8 text-right font-mono"
+                                    placeholder="0"
+                                    value={item.actual_loose ?? ''}
+                                    onChange={e => {
+                                      const loose = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+                                      const whole = item.actual_whole ?? item.system_whole ?? 0;
+                                      handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
+                                    }}
+                                    data-testid={`actual-loose-${item.product_id}`}
+                                  />
+                                  <span className="text-xs text-slate-400">{repackUnit}</span>
+                                </div>
+                              ) : (
+                                // Simple decimal input
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  className="w-24 h-8 text-right font-mono"
+                                  value={item.actual_quantity ?? ''}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    if (val === '') return;
+                                    handleUpdateCount(item.product_id, { actual_quantity: parseFloat(val) });
+                                  }}
+                                  onBlur={e => {
+                                    if (e.target.value === '' && !item.counted) return;
+                                    handleUpdateCount(item.product_id, { actual_quantity: parseFloat(e.target.value) || 0 });
+                                  }}
+                                  data-testid={`actual-input-${item.product_id}`}
+                                />
+                              )
+                            ) : (
+                              // Read-only display
+                              <span className="font-mono">
+                                {item.actual_quantity !== null ? (
+                                  hasRepack ? formatSplitQty(item.actual_whole, item.actual_loose, item.unit, repackUnit) : item.actual_quantity
+                                ) : '--'}
+                              </span>
+                            )}
+                            {/* Print line */}
+                            <span className="hidden print:inline-block w-24 border-b border-slate-300 ml-2"></span>
+                          </TableCell>
+                          <TableCell className={`text-right font-mono ${
+                            item.variance > 0 ? 'text-emerald-600' : item.variance < 0 ? 'text-red-600' : ''
+                          }`}>
+                            {item.variance !== null ? (item.variance > 0 ? '+' : '') + parseFloat(item.variance).toFixed(2) : '--'}
+                          </TableCell>
+                          <TableCell className="text-right text-sm print:hidden">{formatPHP(item.capital_price)}</TableCell>
+                          <TableCell className="text-right text-sm print:hidden">{formatPHP(item.retail_price)}</TableCell>
+                          <TableCell className={`text-right font-medium print:hidden ${
+                            (item.loss_capital || 0) > 0 ? 'text-emerald-600' : (item.loss_capital || 0) < 0 ? 'text-red-600' : ''
+                          }`}>
+                            {item.loss_capital !== null ? formatPHP(item.loss_capital) : '--'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </CardContent>

@@ -65,6 +65,14 @@ export default function DailyLogPage() {
     } catch {}
   }, [date, currentBranch]);
 
+  const fetchPreview = useCallback(async () => {
+    if (!currentBranch) return;
+    try {
+      const res = await api.get('/daily-close-preview', { params: { date, branch_id: currentBranch.id } });
+      setPreview(res.data);
+    } catch {}
+  }, [date, currentBranch]);
+
   const fetchClosing = useCallback(async () => {
     if (!currentBranch) return;
     try {
@@ -73,7 +81,7 @@ export default function DailyLogPage() {
     } catch {}
   }, [date, currentBranch]);
 
-  useEffect(() => { fetchLog(); fetchReport(); fetchClosing(); }, [fetchLog, fetchReport, fetchClosing]);
+  useEffect(() => { fetchLog(); fetchReport(); fetchClosing(); fetchPreview(); }, [fetchLog, fetchReport, fetchClosing, fetchPreview]);
   useEffect(() => {
     api.get('/customers', { params: { limit: 500 } }).then(r => setCustomers(r.data.customers)).catch(() => {});
     if (currentBranch) api.get('/employees', { params: { branch_id: currentBranch.id } }).then(r => setEmployees(r.data)).catch(() => {});

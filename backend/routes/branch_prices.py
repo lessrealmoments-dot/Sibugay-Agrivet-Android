@@ -110,3 +110,164 @@ async def delete_branch_price(
         raise HTTPException(status_code=404, detail="No override found for this product/branch")
 
     return {"message": "Override removed — product now uses global default prices"}
+
+
+
+@router.get("/capital-summary")
+async def get_capital_summary(source_branch_id: str, user=Depends(get_current_user)):
+    """
+    Return per-category capital stats from the source branch (for reference display only).
+    Effective cost per product = branch override if set, else product.cost_price.
+    """
+    products = await db.products.find(
+        {"active": True, "is_repack": {"$ne": True}},
+        {"_id": 0, "id": 1, "category": 1, "cost_price": 1}
+    ).to_list(10000)
+
+    overrides = await db.branch_prices.find(
+        {"branch_id": source_branch_id},
+        {"_id": 0, "product_id": 1, "cost_price": 1}
+    ).to_list(10000)
+    override_map = {o["product_id"]: o["cost_price"] for o in overrides if o.get("cost_price") is not None}
+
+    categories = {}
+    for p in products:
+        cat = p.get("category", "General")
+        cost = float(override_map.get(p["id"], p.get("cost_price") or 0))
+        if cat not in categories:
+            categories[cat] = {"category": cat, "count": 0, "costs": []}
+        categories[cat]["count"] += 1
+        if cost > 0:
+            categories[cat]["costs"].append(cost)
+
+    result = []
+    for cat, d in sorted(categories.items()):
+        costs = d["costs"]
+        result.append({
+            "category": cat,
+            "product_count": d["count"],
+            "min_cost": round(min(costs), 2) if costs else 0,
+            "max_cost": round(max(costs), 2) if costs else 0,
+            "avg_cost": round(sum(costs) / len(costs), 2) if costs else 0,
+        })
+    return result
+
+
+@router.post("/quick-fill")
+async def quick_fill_branch_capital(data: dict, user=Depends(get_current_user)):
+    """
+    Bulk-set cost_price for a target branch.
+
+    For each selected category:
+      new_cost = source_product_cost + add_on  (flat or percent)
+
+    source_product_cost = branch_prices.cost_price at source_branch (if override exists)
+                          else product.cost_price (global)
+
+    Rules:
+      - Skip products that already have a cost_price override at the target branch.
+      - Return skipped items in report so user can review.
+    """
+    check_perm(user, "products", "edit")
+
+    source_branch_id = data.get("source_branch_id")
+    target_branch_id = data.get("target_branch_id")
+    rules_raw = data.get("category_rules", [])
+
+    if not source_branch_id or not target_branch_id:
+        raise HTTPException(status_code=400, detail="source_branch_id and target_branch_id required")
+    if source_branch_id == target_branch_id:
+        raise HTTPException(status_code=400, detail="Source and target must be different branches")
+
+    # Only process selected categories
+    category_rules = {
+        r["category"]: r
+        for r in rules_raw
+        if r.get("selected") and r.get("add_on_value") is not None
+    }
+    if not category_rules:
+        raise HTTPException(status_code=400, detail="No categories selected")
+
+    # Load all parent products in selected categories
+    products = await db.products.find(
+        {"active": True, "is_repack": {"$ne": True}, "category": {"$in": list(category_rules.keys())}},
+        {"_id": 0, "id": 1, "name": 1, "sku": 1, "category": 1, "cost_price": 1}
+    ).to_list(10000)
+
+    # Source branch cost overrides (for effective capital at source)
+    src_overrides = await db.branch_prices.find(
+        {"branch_id": source_branch_id}, {"_id": 0, "product_id": 1, "cost_price": 1}
+    ).to_list(10000)
+    src_cost_map = {o["product_id"]: o["cost_price"] for o in src_overrides if o.get("cost_price") is not None}
+
+    # Target branch existing cost overrides (products to SKIP)
+    tgt_overrides = await db.branch_prices.find(
+        {"branch_id": target_branch_id}, {"_id": 0, "product_id": 1, "cost_price": 1}
+    ).to_list(10000)
+    tgt_has_cost = {o["product_id"]: o["cost_price"] for o in tgt_overrides if o.get("cost_price") is not None}
+
+    applied = []
+    skipped = []
+
+    for p in products:
+        cat = p.get("category", "General")
+        rule = category_rules.get(cat)
+        if not rule:
+            continue
+
+        # Effective source cost: branch override first, then global product cost
+        source_cost = float(src_cost_map.get(p["id"]) if p["id"] in src_cost_map else (p.get("cost_price") or 0))
+
+        # Skip if target already has a manual cost override for this product
+        if p["id"] in tgt_has_cost:
+            skipped.append({
+                "name": p["name"], "sku": p.get("sku", ""), "category": cat,
+                "source_cost": source_cost,
+                "existing_cost": tgt_has_cost[p["id"]],
+                "reason": "Already has custom cost — not overwritten",
+            })
+            continue
+
+        # Compute new cost: per-product source cost + category add-on
+        add_on_type = rule.get("add_on_type", "flat")
+        add_on_value = float(rule.get("add_on_value", 0))
+        if add_on_type == "percent":
+            new_cost = round(source_cost * (1 + add_on_value / 100), 2)
+            add_on_display = f"+{add_on_value}%"
+        else:
+            new_cost = round(source_cost + add_on_value, 2)
+            add_on_display = f"+₱{add_on_value:.2f}"
+
+        # Upsert: create record or update existing (which only had prices{}, not cost_price)
+        existing_tgt = await db.branch_prices.find_one(
+            {"product_id": p["id"], "branch_id": target_branch_id}, {"_id": 0}
+        )
+        if existing_tgt:
+            await db.branch_prices.update_one(
+                {"product_id": p["id"], "branch_id": target_branch_id},
+                {"$set": {"cost_price": new_cost, "updated_at": now_iso(),
+                           "updated_by_name": user.get("full_name", user["username"])}}
+            )
+        else:
+            await db.branch_prices.insert_one({
+                "id": new_id(), "product_id": p["id"], "branch_id": target_branch_id,
+                "prices": {}, "cost_price": new_cost,
+                "created_at": now_iso(), "updated_at": now_iso(),
+                "updated_by_id": user["id"],
+                "updated_by_name": user.get("full_name", user["username"]),
+            })
+
+        applied.append({
+            "name": p["name"], "sku": p.get("sku", ""), "category": cat,
+            "source_cost": source_cost,
+            "add_on": add_on_display,
+            "new_cost": new_cost,
+        })
+
+    return {
+        "applied": len(applied),
+        "skipped": len(skipped),
+        "applied_items": applied,
+        "skipped_items": skipped,
+        "summary": f"Set capital for {len(applied)} products. Skipped {len(skipped)} (already had custom prices).",
+    }

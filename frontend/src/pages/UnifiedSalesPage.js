@@ -685,10 +685,11 @@ export default function UnifiedSalesPage() {
               
               {selectedCustomer && (
                 <div className="flex items-center gap-4 text-sm">
-                  <div>
-                    <span className="text-xs text-slate-500">Scheme:</span>
-                    <Badge variant="outline" className="ml-1 capitalize">{selectedCustomer.price_scheme}</Badge>
-                  </div>
+                  {selectedCustomer.price_scheme !== activeScheme && (
+                    <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300 bg-amber-50 font-medium">
+                      Override
+                    </Badge>
+                  )}
                   <div>
                     <span className="text-xs text-slate-500">Balance:</span>
                     <span className={`ml-1 font-medium ${selectedCustomer.balance > 0 ? 'text-red-600' : ''}`}>
@@ -702,22 +703,22 @@ export default function UnifiedSalesPage() {
                 </div>
               )}
 
-              {/* Price scheme selector (for walk-in when no customer selected) */}
-              {!selectedCustomer && (
-                <div className="w-32">
-                  <Label className="text-xs text-slate-500">Price Scheme</Label>
-                  <Select value={defaultScheme} onValueChange={setDefaultScheme}>
-                    <SelectTrigger className="h-9" data-testid="price-scheme-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schemes.map(s => (
-                        <SelectItem key={s.key} value={s.key}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Price Scheme — always visible for both customer and walk-in */}
+              <div className="w-36">
+                <Label className="text-xs text-slate-500">
+                  Price Scheme{selectedCustomer ? ` (default: ${selectedCustomer.price_scheme})` : ''}
+                </Label>
+                <Select value={activeScheme} onValueChange={handleSchemeChange}>
+                  <SelectTrigger className="h-9" data-testid="price-scheme-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schemes.map(s => (
+                      <SelectItem key={s.key} value={s.key}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {mode === 'order' && (
                 <>

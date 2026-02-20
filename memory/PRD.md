@@ -22,7 +22,17 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Database**: MongoDB with Motor async driver
 - **Design**: Manrope + IBM Plex Sans fonts, Forest Green (#1A4D2E) primary, dark sidebar layout
 
-## Latest Update (Dec 2025)
+## Latest Update (Feb 2026)
+
+### Sales Page Bug Fixes & Enhancements - COMPLETE ✅ (Feb 2026)
+- **Order mode product click fixed**: SmartProductSearch dropdown now uses `position:fixed` + `onMouseDown` to escape `overflow:hidden` table container clipping
+- **Order mode UX improved**: Shows product name as text after selection (not empty search box), X button to clear the line
+- **Pricing consistency**: Both Quick and Order modes use the same price logic (`defaultScheme` for walk-in)
+- **Zero-price protection**: If selected price scheme has no price for a product, shows ₱0.00 with warning; checkout is blocked until price is manually set
+- **Below-capital protection**: Checkout blocked if any item's price < cost price (frontend validation mirrors backend)
+- **Editable quantity in Quick mode**: Number input instead of just +/- buttons
+- **Editable price in Quick mode**: Price is a direct number input; color-coded warnings for zero/below-cost prices
+- **Price Save Dialog**: When price is changed in either mode, a dialog offers to permanently save the new price to the product's scheme (`PUT /api/products/{id}/update-price`)
 
 ### Company Setup Wizard - COMPLETE ✅ (Dec 20, 2025)
 First-time setup wizard that walks new users through:

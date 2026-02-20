@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck, Shield
+  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { path: '/branches', label: 'Branches', icon: Building2, perm: 'branches.view' },
   { path: '/products', label: 'Products', icon: Package, perm: 'products.view' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, perm: 'inventory.view' },
+  { path: '/count-sheets', label: 'Count Sheets', icon: ClipboardList, perm: 'count_sheets.view' },
   { path: '/sales-new', label: 'Sales', icon: ShoppingCart, perm: 'sales.view' },
   { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'purchase_orders.view' },
   { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view' },

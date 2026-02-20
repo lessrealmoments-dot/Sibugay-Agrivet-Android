@@ -83,6 +83,9 @@ api_router.include_router(branch_prices_router)
 # Import Center
 api_router.include_router(import_router)
 
+# Notifications
+api_router.include_router(notifications_router)
+
 # Setup Wizard (no auth required)
 api_router.include_router(setup_router)
 

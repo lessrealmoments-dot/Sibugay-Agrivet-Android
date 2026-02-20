@@ -651,9 +651,109 @@ export default function DailyLogPage() {
             </div>
           )}
         </TabsContent>
-      </Tabs>
 
-      {/* Expense Dialog */}
+        {/* ═══ VARIANCE LOG ════════════════════════════════════════════ */}
+        <TabsContent value="variance" className="mt-4 space-y-4" data-testid="variance-tab">
+          <div>
+            <h2 className="text-base font-semibold" style={{ fontFamily: 'Manrope' }}>Cash Variance Log</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Permanent record of daily over/short. Extra cash may indicate unrecorded sales.
+              Short cash may indicate errors or missing expense records. Used during stock audits.
+            </p>
+          </div>
+
+          <Card className="border-slate-200">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Branch</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500 text-right">Expected</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500 text-right">Actual</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500 text-right">Over / Short</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Notes</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Closed By</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {varianceHistory.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-10 text-slate-400">
+                        <FileWarning size={32} className="mx-auto mb-2 opacity-30" />
+                        No closed days yet. Variance records will appear here after each day close.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {varianceHistory.map((r, i) => {
+                    const os = r.over_short || 0;
+                    return (
+                      <TableRow key={r.id || i} className={os !== 0 ? (os > 0 ? 'bg-emerald-50/30' : 'bg-red-50/30') : ''}>
+                        <TableCell className="font-mono text-sm font-medium">{r.date}</TableCell>
+                        <TableCell className="text-sm text-slate-500">{r.branch_name}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatPHP(r.expected_counter)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{formatPHP(r.actual_cash)}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={`font-mono font-bold text-sm ${os > 0 ? 'text-emerald-600' : os < 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                            {os > 0 ? '+' : ''}{formatPHP(os)}
+                          </span>
+                          {os !== 0 && (
+                            <Badge className={`ml-2 text-[9px] border-0 ${os > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                              {os > 0 ? 'OVER' : 'SHORT'}
+                            </Badge>
+                          )}
+                          {os === 0 && <span className="text-slate-300 text-xs ml-1">Balanced</span>}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600 italic max-w-[200px] truncate">
+                          {r.variance_notes || <span className="text-slate-300">—</span>}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-500">{r.closed_by_name}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Summary stats */}
+          {varianceHistory.length > 0 && (
+            <div className="grid grid-cols-3 gap-4">
+              {(() => {
+                const overDays = varianceHistory.filter(r => (r.over_short || 0) > 0);
+                const shortDays = varianceHistory.filter(r => (r.over_short || 0) < 0);
+                const totalOver = overDays.reduce((s, r) => s + (r.over_short || 0), 0);
+                const totalShort = shortDays.reduce((s, r) => s + (r.over_short || 0), 0);
+                return (<>
+                  <Card className="border-emerald-200 bg-emerald-50">
+                    <CardContent className="p-3">
+                      <div className="text-xs text-emerald-600 font-medium">Days Over</div>
+                      <div className="text-xl font-bold text-emerald-700">{overDays.length}</div>
+                      <div className="text-xs text-emerald-500">Total +{formatPHP(totalOver)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-red-200 bg-red-50">
+                    <CardContent className="p-3">
+                      <div className="text-xs text-red-600 font-medium">Days Short</div>
+                      <div className="text-xl font-bold text-red-700">{shortDays.length}</div>
+                      <div className="text-xs text-red-500">Total {formatPHP(totalShort)}</div>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-slate-200">
+                    <CardContent className="p-3">
+                      <div className="text-xs text-slate-500 font-medium">Net Variance</div>
+                      <div className={`text-xl font-bold ${(totalOver + totalShort) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                        {formatPHP(totalOver + totalShort)}
+                      </div>
+                      <div className="text-xs text-slate-400">Across {varianceHistory.length} closed days</div>
+                    </CardContent>
+                  </Card>
+                </>);
+              })()}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
       <Dialog open={expenseDialog} onOpenChange={setExpenseDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>

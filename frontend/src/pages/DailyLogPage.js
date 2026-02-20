@@ -299,47 +299,219 @@ export default function DailyLogPage() {
           <TabsTrigger value="variance" data-testid="tab-variance"><FileWarning size={14} className="mr-1" /> Variance Log</TabsTrigger>
         </TabsList>
 
-        {/* SEQUENTIAL SALES LOG */}
-        <TabsContent value="log" className="mt-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-slate-500">{logEntries.length} entries</p>
-            <Button variant="outline" size="sm" onClick={() => window.print()} data-testid="print-log"><Printer size={14} className="mr-1" /> Print</Button>
+        {/* ═══ SEQUENTIAL SALES LOG — Notebook Style ═══════════════ */}
+        <TabsContent value="log" className="mt-4 space-y-0 print:mt-0" data-testid="sales-log-tab">
+          {/* Header bar */}
+          <div className="flex items-center justify-between mb-4 print:hidden">
+            <div>
+              <p className="text-sm text-slate-500">
+                <span className="font-medium text-slate-700">{cashEntries.length}</span> cash sales
+                {creditInvoices.length > 0 && <> · <span className="font-medium text-amber-600">{creditInvoices.length}</span> credit</>}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => window.print()} data-testid="print-log">
+              <Printer size={14} className="mr-1" /> Print
+            </Button>
           </div>
-          <Card className="border-slate-200">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader><TableRow className="bg-slate-50">
-                  <TableHead className="text-xs uppercase text-slate-500 w-12">#</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 w-20">Time</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500">Product</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500">Customer</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500">Invoice</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 text-right">Qty</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 text-right">Price</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 text-right">Discount</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 text-right">Total</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 text-right">Running</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {logEntries.map(e => (
-                    <TableRow key={e.id} className="table-row-hover text-sm">
-                      <TableCell className="font-mono text-xs text-slate-400">{e.sequence}</TableCell>
-                      <TableCell className="font-mono text-xs">{e.time}</TableCell>
-                      <TableCell className="font-medium">{e.product_name}</TableCell>
-                      <TableCell className="text-slate-500 text-xs">{e.customer_name}</TableCell>
-                      <TableCell className="font-mono text-xs text-slate-400">{e.invoice_number}</TableCell>
-                      <TableCell className="text-right">{e.quantity}</TableCell>
-                      <TableCell className="text-right">{formatPHP(e.unit_price)}</TableCell>
-                      <TableCell className="text-right">{e.discount > 0 ? formatPHP(e.discount) : '—'}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatPHP(e.line_total)}</TableCell>
-                      <TableCell className="text-right font-bold text-[#1A4D2E]">{formatPHP(e.running_total)}</TableCell>
-                    </TableRow>
+
+          {/* ── SECTION 1: CASH SALES ──────────────────────────────── */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden print:border-black print:rounded-none">
+            {/* Section header */}
+            <div className="bg-[#1A4D2E] text-white px-4 py-2.5 flex items-center justify-between print:bg-black">
+              <div>
+                <span className="font-bold text-sm tracking-wide uppercase">Cash Sales</span>
+                <span className="text-emerald-200 text-xs ml-3">{currentBranch?.name} · {date}</span>
+              </div>
+              {logSummary && (
+                <span className="font-mono font-bold text-emerald-200 text-sm">
+                  {cashEntries.length} transactions
+                </span>
+              )}
+            </div>
+
+            {/* Cash sales table */}
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wide">
+                  <th className="px-3 py-2 text-center w-10 font-semibold">#</th>
+                  <th className="px-3 py-2 text-left w-16 font-semibold">Time</th>
+                  <th className="px-3 py-2 text-left font-semibold">Product</th>
+                  <th className="px-3 py-2 text-left font-semibold">Customer</th>
+                  <th className="px-3 py-2 text-left font-semibold">Invoice</th>
+                  <th className="px-3 py-2 text-right w-12 font-semibold">Qty</th>
+                  <th className="px-3 py-2 text-right w-24 font-semibold">Unit Price</th>
+                  <th className="px-3 py-2 text-right w-20 font-semibold">Disc</th>
+                  <th className="px-3 py-2 text-right w-24 font-semibold">Total</th>
+                  <th className="px-3 py-2 text-right w-28 font-semibold text-[#1A4D2E]">Running Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashEntries.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="text-center py-10 text-slate-400 italic">
+                      No cash sales recorded for {date}
+                    </td>
+                  </tr>
+                )}
+                {cashEntries.map((e, idx) => (
+                  <tr key={e.id || idx}
+                    className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
+                    <td className="px-3 py-2 text-center font-mono text-xs text-slate-400 font-medium">{e.sequence}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-500">{e.time}</td>
+                    <td className="px-3 py-2 font-medium text-slate-800">{e.product_name}</td>
+                    <td className="px-3 py-2 text-slate-500 text-xs">{e.customer_name || 'Walk-in'}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-400">{e.invoice_number}</td>
+                    <td className="px-3 py-2 text-right text-slate-600">{e.quantity} <span className="text-slate-400 text-xs">{e.unit || ''}</span></td>
+                    <td className="px-3 py-2 text-right font-mono">{formatPHP(e.unit_price)}</td>
+                    <td className="px-3 py-2 text-right text-slate-400 text-xs">{e.discount > 0 ? formatPHP(e.discount) : '—'}</td>
+                    <td className="px-3 py-2 text-right font-semibold font-mono">{formatPHP(e.line_total)}</td>
+                    <td className="px-3 py-2 text-right font-bold font-mono text-[#1A4D2E]">{formatPHP(e.cash_running_total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Cash subtotals by category + grand total */}
+            {logSummary && cashEntries.length > 0 && (
+              <div className="border-t-2 border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="flex flex-wrap gap-x-6 gap-y-1 mb-2">
+                  {Object.entries(logSummary.cash_by_category || {}).map(([cat, total]) => (
+                    <div key={cat} className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-500">{cat}:</span>
+                      <span className="font-semibold font-mono">{formatPHP(total)}</span>
+                    </div>
                   ))}
-                  {!logEntries.length && <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">No sales logged for {date}</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                  <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Total Cash Sales</span>
+                  <span className="font-mono font-bold text-lg text-[#1A4D2E]">{formatPHP(logSummary.total_cash)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── SECTION 2: ACCOUNTS RECEIVABLE ─────────────────────── */}
+          {creditInvoices.length > 0 && (
+            <div className="border border-amber-200 rounded-xl overflow-hidden mt-4 print:border-black print:rounded-none print:mt-6">
+              {/* AR section header */}
+              <div className="bg-amber-600 text-white px-4 py-2.5 flex items-center justify-between print:bg-black">
+                <div>
+                  <span className="font-bold text-sm tracking-wide uppercase">Accounts Receivable — New Credit Today</span>
+                  <span className="text-amber-100 text-xs ml-3">{creditInvoices.length} customer{creditInvoices.length !== 1 ? 's' : ''}</span>
+                </div>
+                <span className="font-mono font-bold text-amber-100 text-sm">
+                  {formatPHP(logSummary?.total_credit || 0)}
+                </span>
+              </div>
+
+              {/* Per-customer credit details */}
+              <div className="divide-y divide-amber-100">
+                {creditInvoices.map((inv, ci) => {
+                  const items = inv.items || [];
+                  const invoiceTotal = parseFloat(inv.grand_total || 0);
+                  const amountPaid = parseFloat(inv.amount_paid || 0);
+                  const balance = parseFloat(inv.balance || invoiceTotal - amountPaid);
+                  return (
+                    <div key={inv.id || ci} className="p-4">
+                      {/* Customer header */}
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <span className="font-bold text-slate-800 text-base">{inv.customer_name || 'Unknown Customer'}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono text-xs text-slate-400">{inv.invoice_number}</span>
+                            <Badge className={`text-[9px] border-0 ${inv.payment_type === 'partial' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {inv.payment_type === 'partial' ? 'PARTIAL PAYMENT' : 'FULL CREDIT'}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono font-bold text-slate-800">{formatPHP(invoiceTotal)}</div>
+                          {amountPaid > 0 && (
+                            <div className="text-xs text-slate-500">Paid: {formatPHP(amountPaid)} · Balance: <span className="text-red-600 font-semibold">{formatPHP(balance)}</span></div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Items list — notebook style */}
+                      <div className="ml-2">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-xs text-slate-400 border-b border-slate-100">
+                              <th className="pb-1 text-left w-6 font-normal">#</th>
+                              <th className="pb-1 text-left font-normal">Product</th>
+                              <th className="pb-1 text-right w-16 font-normal">Qty</th>
+                              <th className="pb-1 text-right w-24 font-normal">Unit Price</th>
+                              <th className="pb-1 text-right w-20 font-normal">Disc</th>
+                              <th className="pb-1 text-right w-24 font-normal">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {items.map((item, ii) => (
+                              <tr key={ii} className="border-b border-slate-50 last:border-0">
+                                <td className="py-1 text-slate-300 text-xs">{ii + 1}.</td>
+                                <td className="py-1 font-medium text-slate-700">{item.product_name}</td>
+                                <td className="py-1 text-right text-slate-600">{item.quantity}</td>
+                                <td className="py-1 text-right font-mono">{formatPHP(item.rate || item.price || 0)}</td>
+                                <td className="py-1 text-right text-slate-400 text-xs">
+                                  {parseFloat(item.discount_amount || 0) > 0 ? formatPHP(item.discount_amount) : '—'}
+                                </td>
+                                <td className="py-1 text-right font-semibold font-mono">{formatPHP(item.total)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t border-amber-200 bg-amber-50/50">
+                              <td colSpan={5} className="pt-1.5 text-sm font-semibold text-amber-800">
+                                Total Credit — {inv.customer_name}
+                              </td>
+                              <td className="pt-1.5 text-right font-bold font-mono text-amber-800">{formatPHP(invoiceTotal)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* AR grand total */}
+              <div className="border-t-2 border-amber-200 bg-amber-50 px-4 py-3 flex justify-between items-center">
+                <span className="text-sm font-bold text-amber-800 uppercase tracking-wide">Total New Credit Today</span>
+                <span className="font-mono font-bold text-lg text-amber-700">{formatPHP(logSummary?.total_credit || 0)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── SUMMARY STRIP ──────────────────────────────────────── */}
+          {logSummary && (cashEntries.length > 0 || creditInvoices.length > 0) && (
+            <div className="mt-4 bg-slate-800 text-white rounded-xl px-5 py-4 flex flex-wrap gap-6 items-center justify-between print:bg-black">
+              <div className="flex gap-6">
+                <div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Cash Sales</div>
+                  <div className="font-mono font-bold text-emerald-400">{formatPHP(logSummary.total_cash)}</div>
+                </div>
+                {logSummary.total_credit > 0 && (
+                  <div>
+                    <div className="text-xs text-slate-400 uppercase tracking-wide">New Credit</div>
+                    <div className="font-mono font-bold text-amber-400">{formatPHP(logSummary.total_credit)}</div>
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-400 uppercase tracking-wide">Total Sales Today</div>
+                <div className="font-mono font-bold text-xl">{formatPHP(logSummary.grand_total)}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {cashEntries.length === 0 && creditInvoices.length === 0 && (
+            <div className="text-center py-16 text-slate-400">
+              <ClipboardList size={40} className="mx-auto mb-3 opacity-30" />
+              <p>No sales recorded for {date}</p>
+              <p className="text-xs mt-1">Sales will appear here as they are made</p>
+            </div>
+          )}
         </TabsContent>
 
         {/* DAILY PROFIT */}

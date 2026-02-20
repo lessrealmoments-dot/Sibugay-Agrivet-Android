@@ -125,7 +125,15 @@ api.interceptors.request.use(config => {
 
 api.interceptors.response.use(
   res => res,
-  err => {
+  async err => {
+    // Network error (no response) → serve from IndexedDB cache
+    if (!err.response && err.config) {
+      try {
+        return await handleOfflineRequest(err.config);
+      } catch {
+        // Cache miss — fall through to normal error handling
+      }
+    }
     if (err.response?.status === 401) {
       localStorage.removeItem('agripos_token');
       localStorage.removeItem('agripos_user');

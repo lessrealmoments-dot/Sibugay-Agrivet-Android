@@ -193,6 +193,20 @@ export default function UnifiedSalesPage() {
     }).filter(Boolean));
   };
 
+  const setCartQty = (productId, qty) => {
+    const newQty = Math.max(0, parseFloat(qty) || 0);
+    if (newQty === 0) {
+      setCart(cart.filter(c => c.product_id !== productId));
+    } else {
+      setCart(cart.map(c => c.product_id !== productId ? c : { ...c, quantity: newQty, total: newQty * c.price }));
+    }
+  };
+
+  const updateCartPrice = (productId, newPrice) => {
+    const price = parseFloat(newPrice) || 0;
+    setCart(cart.map(c => c.product_id !== productId ? c : { ...c, price, total: price * c.quantity }));
+  };
+
   const removeFromCart = (productId) => setCart(cart.filter(c => c.product_id !== productId));
   const clearCart = () => { setCart([]); setLines([{ ...EMPTY_LINE }]); setSelectedCustomer(null); setCustSearch(''); };
 

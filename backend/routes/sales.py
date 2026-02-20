@@ -74,11 +74,12 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         qty = float(item.get("quantity", 0))
         rate = float(item.get("rate", item.get("price", 0)))
         
-        # Check capital rule
-        if rate > 0 and rate < product.get("cost_price", 0):
+        # Check capital rule using branch-specific cost (falls back to global cost)
+        branch_cost = await get_branch_cost(product, branch_id)
+        if rate > 0 and rate < branch_cost:
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot sell '{product['name']}' at ₱{rate:.2f} — below capital ₱{product['cost_price']:.2f}"
+                detail=f"Cannot sell '{product['name']}' at ₱{rate:.2f} — below capital ₱{branch_cost:.2f}"
             )
         
         disc_type = item.get("discount_type", "amount")

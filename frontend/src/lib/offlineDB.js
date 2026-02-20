@@ -144,3 +144,22 @@ export async function getMeta(key) {
     request.onerror = () => { db.close(); reject(request.error); };
   });
 }
+
+// Inventory cache (keyed by product_id — one branch at a time)
+export async function cacheInventory(items) {
+  await clearAndPut(STORES.INVENTORY, items);
+}
+
+export async function getInventory() {
+  return getAll(STORES.INVENTORY);
+}
+
+export async function getInventoryItem(productId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.INVENTORY, 'readonly');
+    const request = tx.objectStore(STORES.INVENTORY).get(productId);
+    request.onsuccess = () => { db.close(); resolve(request.result || null); };
+    request.onerror = () => { db.close(); reject(request.error); };
+  });
+}

@@ -9,6 +9,7 @@ Schema per document:
 
 Fallback chain: branch_prices → product.prices (global)
 """
+import math
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from config import db

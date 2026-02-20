@@ -105,6 +105,33 @@ export default function ProductDetailPage() {
     catch { toast.error('Error'); }
   };
 
+  const handleSaveBranchPrice = async () => {
+    if (!branchPriceEdit) return;
+    setSavingBranchPrice(true);
+    try {
+      await api.put(`/branch-prices/${id}`, {
+        branch_id: branchPriceEdit.branch_id,
+        prices: branchPriceEdit.prices,
+        cost_price: branchPriceEdit.cost_price || null,
+      });
+      toast.success('Branch prices saved');
+      setBranchPriceEdit(null);
+      fetchBranchOverrides();
+      fetchDetail();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error saving'); }
+    setSavingBranchPrice(false);
+  };
+
+  const handleRemoveBranchOverride = async (branchId) => {
+    try {
+      await api.delete(`/branch-prices/${id}`, { params: { branch_id: branchId } });
+      toast.success('Override removed — now using global prices');
+      setBranchPriceEdit(null);
+      fetchBranchOverrides();
+      fetchDetail();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+  };
+
   const updatePrice = (key, val) => setEditForm({ ...editForm, prices: { ...editForm.prices, [key]: parseFloat(val) || 0 } });
   const updateRepackPrice = (key, val) => setRepackForm({ ...repackForm, prices: { ...repackForm.prices, [key]: parseFloat(val) || 0 } });
 

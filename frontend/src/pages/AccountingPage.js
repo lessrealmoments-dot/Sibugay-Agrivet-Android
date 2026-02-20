@@ -71,24 +71,24 @@ export default function AccountingPage() {
   const fetchAll = useCallback(async () => {
     try {
       const params = currentBranch ? { branch_id: currentBranch.id, limit: 100 } : { limit: 100 };
-      // Add filters
       if (filters.category) params.category = filters.category;
       if (filters.payment_method) params.payment_method = filters.payment_method;
       if (filters.date_from) params.date_from = filters.date_from;
       if (filters.date_to) params.date_to = filters.date_to;
       if (filters.search) params.search = filters.search;
       
-      const [expRes, recRes, payRes, custRes] = await Promise.all([
+      const [expRes, recRes, payRes, custRes, empRes] = await Promise.all([
         api.get('/expenses', { params }),
         api.get('/receivables', { params: { limit: 100 } }),
         api.get('/payables', { params: { limit: 100 } }),
         api.get('/customers', { params: { limit: 500 } }),
+        api.get('/employees').catch(() => ({ data: [] })),
       ]);
       setExpenses(expRes.data.expenses || []);
-      // receivables and payables return arrays directly, not wrapped objects
       setReceivables(Array.isArray(recRes.data) ? recRes.data : (recRes.data.receivables || []));
       setPayables(Array.isArray(payRes.data) ? payRes.data : (payRes.data.payables || []));
       setCustomers(custRes.data.customers || []);
+      setEmployees(empRes.data || []);
     } catch { toast.error('Failed to load accounting data'); }
   }, [currentBranch, filters]);
 

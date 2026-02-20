@@ -548,114 +548,200 @@ export default function ProductsPage() {
           )}
         </DialogContent>
       </Dialog>
-      {/* Quick Repack Generator */}
+      {/* ── Batch Quick Repack Generator ─────────────────────────────── */}
       <Dialog open={qrOpen} onOpenChange={setQrOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-[96vw] w-[1100px] max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
               <Zap size={18} className="text-amber-500" /> Quick Repack Generator
+              <span className="text-sm font-normal text-slate-500 ml-1">— fill each row, then Generate All</span>
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-1">
-            {/* Step 1: Parent search */}
-            <div className="relative">
-              <Label className="mb-1.5 block">Parent Product <span className="text-red-500">*</span></Label>
-              <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <Input
-                  className="pl-9"
-                  placeholder="Search parent product name..."
-                  value={qrSearch}
-                  onChange={e => { setQrSearch(e.target.value); setQrParent(null); }}
-                  data-testid="qr-parent-search"
-                  autoFocus
-                />
+
+          {/* ── Results view (after generation) ── */}
+          {qrResults ? (
+            <div className="flex-1 overflow-auto space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-center">
+                  <div className="text-2xl font-bold text-emerald-700">{qrResults.filter(r => r.status === 'ok').length}</div>
+                  <div className="text-xs text-emerald-600">Repacks Created</div>
+                </div>
+                <div className={`p-3 rounded-lg border text-center ${qrResults.filter(r => r.status === 'error').length > 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`text-2xl font-bold ${qrResults.filter(r => r.status === 'error').length > 0 ? 'text-red-700' : 'text-slate-400'}`}>{qrResults.filter(r => r.status === 'error').length}</div>
+                  <div className="text-xs text-slate-500">Failed</div>
+                </div>
               </div>
-              {qrMatches.length > 0 && !qrParent && (
-                <div className="absolute z-20 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
-                  {qrMatches.map(p => (
-                    <button key={p.id} onMouseDown={() => selectQrParent(p)}
-                      className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm border-b border-slate-100 last:border-0">
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-xs text-slate-400">{p.sku} · {p.unit} · Cost: ₱{p.cost_price}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {qrParent && (
-                <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
-                  <span className="font-semibold text-emerald-800">{qrParent.name}</span>
-                  <span className="text-emerald-600 text-xs ml-2">{qrParent.unit} · Cost ₱{qrParent.cost_price}</span>
-                </div>
-              )}
+              <div className="border rounded-lg overflow-hidden">
+                {qrResults.map((r, i) => (
+                  <div key={i} className={`flex items-center gap-3 px-4 py-2.5 text-sm border-b last:border-0 ${r.status === 'ok' ? 'bg-emerald-50/50' : 'bg-red-50/50'}`}>
+                    {r.status === 'ok' ? <CheckCircle size={15} className="text-emerald-600 shrink-0" /> : <XCircle size={15} className="text-red-500 shrink-0" />}
+                    <span className="font-medium flex-1">{r.name}</span>
+                    {r.status === 'ok' ? <span className="text-xs text-emerald-600">Created</span> : <span className="text-xs text-red-500">{r.error}</span>}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => { setQrRows([newRow()]); setQrResults(null); }}>
+                  <Zap size={14} className="mr-1.5 text-amber-500" /> Generate More
+                </Button>
+                <Button onClick={() => setQrOpen(false)} className="bg-[#1A4D2E] text-white">Done</Button>
+              </div>
             </div>
+          ) : (
+            /* ── Spreadsheet table ── */
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="overflow-auto flex-1">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b-2 border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                      <th className="px-2 py-2 text-left font-semibold" style={{minWidth:'220px'}}>Parent Product <span className="text-red-400">*</span></th>
+                      <th className="px-2 py-2 text-left font-semibold" style={{minWidth:'180px'}}>Repack Name <span className="text-red-400">*</span></th>
+                      <th className="px-2 py-2 text-left font-semibold" style={{minWidth:'90px'}}>Unit</th>
+                      <th className="px-2 py-2 text-center font-semibold" style={{minWidth:'90px'}}>Qty / Box</th>
+                      <th className="px-2 py-2 text-center font-semibold" style={{minWidth:'90px'}}>Add-on</th>
+                      <th className="px-2 py-2 text-center font-semibold" style={{minWidth:'100px'}}>Capital <span className="text-[10px] normal-case tracking-normal font-normal text-slate-400">(auto)</span></th>
+                      <th className="px-2 py-2 text-center font-semibold" style={{minWidth:'115px'}}>Retail Price <span className="text-red-400">*</span></th>
+                      <th className="px-2 py-2 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {qrRows.map((row) => {
+                      const hasErr = !!row.rowError;
+                      return (
+                        <tr key={row.id} className={`border-b border-slate-100 transition-colors ${hasErr ? 'bg-red-50' : 'hover:bg-slate-50/50'}`}>
 
-            {qrParent && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="mb-1.5 block">Repack Name</Label>
-                    <Input value={qrForm.name} onChange={e => setQrForm(f => ({ ...f, name: e.target.value }))}
-                      placeholder={`R ${qrParent.name}`} data-testid="qr-name" />
-                  </div>
-                  <div>
-                    <Label className="mb-1.5 block">Repack Unit</Label>
-                    <Input value={qrForm.unit} onChange={e => setQrForm(f => ({ ...f, unit: e.target.value }))}
-                      placeholder="Pack, Sachet, Piece" data-testid="qr-unit" />
-                  </div>
-                </div>
+                          {/* Parent search / selected */}
+                          <td className="px-2 py-1.5 relative" style={{minWidth:'220px'}}>
+                            {row.parent ? (
+                              <div className={`flex items-center gap-1.5 h-8 px-2 rounded border ${hasErr && !row.parent ? 'border-red-400' : 'border-emerald-300 bg-emerald-50'}`}>
+                                <span className="text-sm text-emerald-800 truncate flex-1 font-medium">{row.parent.name}</span>
+                                <button onClick={() => updateRow(row.id, { parent: null, parentSearch: '', capital: 0, repackName: '', retailPrice: '', retailError: null })}
+                                  className="text-slate-400 hover:text-red-500 shrink-0">
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="relative">
+                                <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <Input value={row.parentSearch} placeholder="Search parent..."
+                                  onChange={e => searchParent(row.id, e.target.value)}
+                                  className={`h-8 pl-7 text-sm ${hasErr ? 'border-red-400 bg-red-50/50' : ''}`}
+                                  data-testid={`qr-parent-${row.id}`} />
+                                {row.parentMatches.length > 0 && (
+                                  <div className="absolute top-full mt-0.5 z-50 w-64 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-44 overflow-y-auto">
+                                    {row.parentMatches.map(p => (
+                                      <button key={p.id} onMouseDown={() => selectParent(row.id, p)}
+                                        className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                        <div className="font-medium text-sm truncate">{p.name}</div>
+                                        <div className="text-xs text-slate-400">{p.unit} · Cost ₱{p.cost_price}</div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {hasErr && !row.parent && <p className="text-[10px] text-red-500 mt-0.5 leading-none">{row.rowError}</p>}
+                          </td>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="mb-1.5 block">Qty per {qrParent.unit} <span className="text-red-500">*</span></Label>
-                    <Input type="number" min={1} value={qrForm.units_per_parent}
-                      onChange={e => setQrForm(f => ({ ...f, units_per_parent: parseInt(e.target.value) || 1 }))}
-                      data-testid="qr-units-per-parent" />
-                    <p className="text-[10px] text-slate-400 mt-0.5">How many {qrForm.unit || 'pcs'} in 1 {qrParent.unit}</p>
-                  </div>
-                  <div>
-                    <Label className="mb-1.5 block">Add-on Cost</Label>
-                    <Input type="number" min={0} step="0.01" value={qrForm.add_on_cost}
-                      onChange={e => setQrForm(f => ({ ...f, add_on_cost: parseFloat(e.target.value) || 0 }))}
-                      data-testid="qr-addon-cost" placeholder="0.00" />
-                    <p className="text-[10px] text-slate-400 mt-0.5">Packaging, labor, etc.</p>
-                  </div>
-                </div>
+                          {/* Repack Name */}
+                          <td className="px-2 py-1.5" style={{minWidth:'180px'}}>
+                            <Input value={row.repackName} placeholder="R Product Name"
+                              onChange={e => updateRow(row.id, { repackName: e.target.value })}
+                              className={`h-8 text-sm ${hasErr && !row.repackName.trim() ? 'border-red-400 bg-red-50/50' : ''}`}
+                              data-testid={`qr-name-${row.id}`} />
+                          </td>
 
-                {/* Auto cost preview */}
-                <div className="flex items-center gap-2 text-sm p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
-                  <span className="text-blue-600">Auto cost:</span>
-                  <span className="font-bold text-blue-800">
-                    ₱{((qrParent.cost_price / (qrForm.units_per_parent || 1)) + (qrForm.add_on_cost || 0)).toFixed(2)}
-                  </span>
-                  <span className="text-blue-500 text-xs">(₱{qrParent.cost_price} ÷ {qrForm.units_per_parent}{qrForm.add_on_cost > 0 ? ` + ₱${qrForm.add_on_cost}` : ''})</span>
-                </div>
+                          {/* Unit */}
+                          <td className="px-2 py-1.5" style={{minWidth:'90px'}}>
+                            <Input value={row.unit} placeholder="Pack"
+                              onChange={e => updateRow(row.id, { unit: e.target.value })}
+                              className="h-8 text-sm" data-testid={`qr-unit-${row.id}`} />
+                          </td>
 
-                <div>
-                  <Label className="mb-1.5 block">
-                    Retail Price <span className="text-red-500">*</span>
-                    <span className="text-xs font-normal text-slate-500 ml-2">— applied to ALL price schemes</span>
-                  </Label>
-                  <Input type="number" min={0} step="0.01" value={qrForm.retail_price}
-                    onChange={e => setQrForm(f => ({ ...f, retail_price: parseFloat(e.target.value) || 0 }))}
-                    className="text-lg font-bold"
-                    data-testid="qr-retail-price" placeholder="0.00" />
-                  {schemes.length > 0 && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Will set: {schemes.map(s => s.name).join(', ')} → all to ₱{qrForm.retail_price}
-                    </p>
-                  )}
-                </div>
+                          {/* Qty per parent */}
+                          <td className="px-2 py-1.5" style={{minWidth:'90px'}}>
+                            <Input type="number" min={1} value={row.unitsPerParent}
+                              onChange={e => {
+                                const v = parseInt(e.target.value) || 1;
+                                updateRow(row.id, { unitsPerParent: v, capital: computeCapital(row.parent, v, row.addOnCost) });
+                              }}
+                              className="h-8 text-sm text-right font-mono"
+                              data-testid={`qr-units-${row.id}`} />
+                          </td>
 
-                <div className="flex justify-end gap-2 pt-1">
+                          {/* Add-on cost */}
+                          <td className="px-2 py-1.5" style={{minWidth:'90px'}}>
+                            <Input type="number" min={0} step="0.01" value={row.addOnCost}
+                              onChange={e => {
+                                const v = parseFloat(e.target.value) || 0;
+                                updateRow(row.id, { addOnCost: v, capital: computeCapital(row.parent, row.unitsPerParent, v) });
+                              }}
+                              className="h-8 text-sm text-right font-mono"
+                              data-testid={`qr-addon-${row.id}`} />
+                          </td>
+
+                          {/* Capital — read-only computed */}
+                          <td className="px-2 py-1.5" style={{minWidth:'100px'}}>
+                            <div className={`h-8 px-2 flex items-center justify-center text-sm font-mono rounded border ${row.capital > 0 ? 'bg-blue-50 border-blue-200 text-blue-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                              {row.capital > 0 ? `₱${row.capital.toFixed(2)}` : '—'}
+                            </div>
+                          </td>
+
+                          {/* Retail price — blank, validated on blur */}
+                          <td className="px-2 py-1.5" style={{minWidth:'115px'}}>
+                            <Input type="number" min={0} step="0.01" value={row.retailPrice}
+                              placeholder="0.00"
+                              onChange={e => updateRow(row.id, { retailPrice: e.target.value, retailError: null })}
+                              onBlur={e => handleRetailBlur(row.id, e.target.value)}
+                              className={`h-8 text-sm text-right font-mono font-bold ${
+                                (hasErr && !row.retailPrice) || row.retailError ? 'border-red-400 bg-red-50/50 text-red-700' : ''
+                              }`}
+                              data-testid={`qr-retail-${row.id}`} />
+                            {row.retailError && (
+                              <p className="text-[10px] text-red-500 mt-0.5 leading-none whitespace-nowrap">{row.retailError}</p>
+                            )}
+                            {hasErr && !row.retailPrice && !row.retailError && (
+                              <p className="text-[10px] text-red-500 mt-0.5 leading-none">Required</p>
+                            )}
+                          </td>
+
+                          {/* Delete row */}
+                          <td className="px-1 py-1.5 w-8">
+                            {qrRows.length > 1 && (
+                              <button onClick={() => removeRow(row.id)}
+                                className="p-1 text-slate-300 hover:text-red-500 transition-colors rounded">
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer actions */}
+              <div className="shrink-0 flex items-center justify-between pt-3 border-t border-slate-200 mt-3">
+                <Button variant="outline" size="sm" onClick={() => setQrRows(r => [...r, newRow()])} data-testid="qr-add-row">
+                  <Plus size={14} className="mr-1.5" /> Add Row
+                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">{qrRows.length} row{qrRows.length !== 1 ? 's' : ''}</span>
                   <Button variant="outline" onClick={() => setQrOpen(false)}>Cancel</Button>
-                  <Button onClick={handleQuickRepack} className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="qr-generate-btn">
-                    <Zap size={14} className="mr-1.5" /> Generate Repack
+                  <Button onClick={handleBatchGenerate} disabled={qrGenerating}
+                    className="bg-amber-600 hover:bg-amber-700 text-white min-w-36"
+                    data-testid="qr-generate-all-btn">
+                    {qrGenerating ? (
+                      <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />Generating...</>
+                    ) : (
+                      <><Zap size={15} className="mr-1.5" />Generate {qrRows.length} Repack{qrRows.length !== 1 ? 's' : ''}</>
+                    )}
                   </Button>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

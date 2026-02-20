@@ -146,6 +146,9 @@ export default function DailyLogPage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [tab, setTab] = useState('log');
   const [logEntries, setLogEntries] = useState([]);
+  const [cashEntries, setCashEntries] = useState([]);
+  const [creditInvoices, setCreditInvoices] = useState([]);
+  const [logSummary, setLogSummary] = useState(null);
   const [report, setReport] = useState(null);
   const [closing, setClosing] = useState(null);
   const [preview, setPreview] = useState(null);  // Z-Report preview

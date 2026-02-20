@@ -583,42 +583,47 @@ export default function CountSheetsPage() {
                           <TableCell className="text-right">
                             {selectedSheet?.status === 'in_progress' ? (
                               hasRepack ? (
-                                // Split input: whole + loose
-                                <div className="flex items-center gap-1 justify-end">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    className="w-16 h-8 text-right font-mono"
-                                    placeholder={String(item.system_whole)}
-                                    value={item.actual_whole ?? ''}
-                                    onChange={e => {
-                                      const whole = e.target.value === '' ? null : parseInt(e.target.value) || 0;
-                                      const loose = item.actual_loose ?? 0;
-                                      if (whole !== null) {
+                                // Split input: whole + loose with live total preview
+                                <div className="flex flex-col items-end gap-1">
+                                  <div className="flex items-center gap-1 justify-end">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      className="w-16 h-8 text-right font-mono"
+                                      placeholder={String(item.system_whole)}
+                                      value={item.actual_whole ?? ''}
+                                      onChange={e => {
+                                        const whole = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+                                        const loose = item.actual_loose ?? 0;
                                         handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
-                                      }
-                                    }}
-                                    data-testid={`actual-whole-${item.product_id}`}
-                                  />
-                                  <span className="text-xs text-slate-400">{item.unit}</span>
-                                  <span className="text-slate-300">+</span>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    max={item.units_per_parent - 1}
-                                    step="1"
-                                    className="w-14 h-8 text-right font-mono"
-                                    placeholder="0"
-                                    value={item.actual_loose ?? ''}
-                                    onChange={e => {
-                                      const loose = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
-                                      const whole = item.actual_whole ?? item.system_whole ?? 0;
-                                      handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
-                                    }}
-                                    data-testid={`actual-loose-${item.product_id}`}
-                                  />
-                                  <span className="text-xs text-slate-400">{repackUnit}</span>
+                                      }}
+                                      data-testid={`actual-whole-${item.product_id}`}
+                                    />
+                                    <span className="text-xs text-slate-400">{item.unit}</span>
+                                    <span className="text-slate-300">+</span>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="1"
+                                      className="w-16 h-8 text-right font-mono"
+                                      placeholder="0"
+                                      value={item.actual_loose ?? ''}
+                                      onChange={e => {
+                                        const loose = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
+                                        const whole = item.actual_whole ?? item.system_whole ?? 0;
+                                        handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
+                                      }}
+                                      data-testid={`actual-loose-${item.product_id}`}
+                                    />
+                                    <span className="text-xs text-slate-400">{repackUnit}</span>
+                                  </div>
+                                  {/* Live total preview */}
+                                  {item.counted && item.actual_quantity !== undefined && (
+                                    <div className="text-[11px] text-emerald-600 font-medium">
+                                      = {item.actual_quantity?.toFixed(4)} {item.unit}
+                                    </div>
+                                  )}
                                 </div>
                               ) : (
                                 // Simple decimal input

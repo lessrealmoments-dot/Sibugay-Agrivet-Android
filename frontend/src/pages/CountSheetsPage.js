@@ -139,7 +139,6 @@ export default function CountSheetsPage() {
             const whole = parseFloat(updateData.actual_whole ?? item.actual_whole ?? 0) || 0;
             const loose = parseFloat(updateData.actual_loose ?? item.actual_loose ?? 0) || 0;
             const upp = item.units_per_parent || 1;
-            // Auto-carry: if loose >= upp, roll over into whole
             const carryOver = Math.floor(loose / upp);
             const normalizedLoose = loose % upp;
             const normalizedWhole = whole + carryOver;
@@ -171,24 +170,22 @@ export default function CountSheetsPage() {
     });
   };
 
-  // Debounced API save — fires 600ms after user stops typing
-  const scheduleSave = (productId, updateData) => {
-    clearTimeout(debounceTimers.current[productId]);
-    debounceTimers.current[productId] = setTimeout(async () => {
-      if (!selectedSheet) return;
-      try {
-        await api.put(`/count-sheets/${selectedSheet.id}/items`, {
-          items: [{ product_id: productId, ...updateData }]
-        });
-      } catch (err) {
-        toast.error('Failed to save count — please re-enter the value');
-      }
-    }, 600);
+  // Save to API — called on blur (tab / click outside)
+  const saveToServer = async (productId, updateData) => {
+    if (!selectedSheet) return;
+    try {
+      await api.put(`/count-sheets/${selectedSheet.id}/items`, {
+        items: [{ product_id: productId, ...updateData }]
+      });
+    } catch (err) {
+      toast.error('Failed to save count — please re-enter the value');
+    }
   };
 
-  const handleUpdateCount = async (productId, updateData) => {
+  // onChange: update display only (no API call)
+  // onBlur: save to server
+  const handleUpdateCount = (productId, updateData) => {
     updateLocalState(productId, updateData);
-    scheduleSave(productId, updateData);
   };
 
   const handleComplete = async () => {

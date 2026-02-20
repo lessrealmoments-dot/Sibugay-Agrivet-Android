@@ -41,6 +41,7 @@ from routes import (
     settings_router,
     count_sheets_router,
     setup_router,
+    branch_prices_router,
 )
 
 # =============================================================================

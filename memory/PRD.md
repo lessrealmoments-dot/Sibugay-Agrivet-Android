@@ -24,6 +24,15 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Feb 2026)
 
+### Full Routing Audit + Receivables Fix - COMPLETE ✅ (Feb 2026)
+
+**Critical bugs found & fixed:**
+1. **Accounting Receivables Tab showed zero** — `GET /receivables` read from legacy empty `receivables` collection. Fixed to read from `invoices` collection (the real AR system). Now shows: farm expenses, credit sales, interest charges, cash outs — all with type badges.
+2. **Payment on receivables was broken** — `POST /receivables/{id}/payment` now applies to invoices, updates customer balance and cashier wallet.
+3. **Products category filter broken** — Fixed `/products/categories/list` → `/products/categories`.
+
+**Audit result:** 32 frontend routes verified working. No other broken routes found.
+
 ### Purchase Order Overhaul + Pay Supplier + Statement of Account - COMPLETE ✅ (Feb 2026)
 
 **PO Improvements:**

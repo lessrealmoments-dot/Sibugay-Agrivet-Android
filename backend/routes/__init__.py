@@ -20,6 +20,7 @@ from .employees import router as employees_router
 from .settings import router as settings_router
 from .count_sheets import router as count_sheets_router
 from .setup import router as setup_router
+from .branch_prices import router as branch_prices_router
 
 __all__ = [
     'auth_router',
@@ -41,4 +42,5 @@ __all__ = [
     'settings_router',
     'count_sheets_router',
     'setup_router',
+    'branch_prices_router',
 ]

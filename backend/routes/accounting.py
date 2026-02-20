@@ -533,33 +533,101 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
 # ==================== RECEIVABLES ====================
 @router.get("/receivables")
 async def list_receivables(user=Depends(get_current_user), branch_id: Optional[str] = None, status: Optional[str] = None):
-    """List receivables (legacy AR system)."""
-    query = {}
+    """
+    List all outstanding receivables — reads from invoices collection (the live AR system).
+    Includes farm expenses, cash advances, credit sales, and partial payments.
+    Legacy 'receivables' collection is no longer used.
+    """
+    query = {"customer_id": {"$ne": None}, "balance": {"$gt": 0}, "status": {"$nin": ["voided", "paid"]}}
     if branch_id:
         query["branch_id"] = branch_id
     if status:
         query["status"] = status
-    receivables = await db.receivables.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
-    return receivables
+
+    invoices = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+    TYPE_LABELS = {
+        "farm_expense": "Farm Expense",
+        "cash_advance": "Customer Cash Out",
+        "interest_charge": "Interest Charge",
+        "penalty_charge": "Penalty Charge",
+        "walk_in": "Credit Sale",
+    }
+
+    result = []
+    for inv in invoices:
+        sale_type = inv.get("sale_type", "walk_in")
+        type_label = TYPE_LABELS.get(sale_type, "Invoice")
+        items_preview = ", ".join(i.get("product_name", "Service") for i in inv.get("items", [])[:2])
+        description = f"{type_label}: {items_preview}" if items_preview else type_label
+
+        result.append({
+            "id": inv["id"],
+            "invoice_id": inv["id"],
+            "invoice_number": inv.get("invoice_number", ""),
+            "customer_id": inv.get("customer_id"),
+            "customer_name": inv.get("customer_name", ""),
+            "description": description,
+            "amount": inv.get("grand_total", 0),
+            "paid": inv.get("amount_paid", 0),
+            "balance": inv.get("balance", 0),
+            "status": inv.get("status", "open"),
+            "due_date": inv.get("due_date", ""),
+            "sale_type": sale_type,
+            "created_at": inv.get("created_at", ""),
+        })
+
+    return result
 
 
 @router.post("/receivables/{rec_id}/payment")
 async def pay_receivable(rec_id: str, data: dict, user=Depends(get_current_user)):
-    """Record payment on a receivable."""
+    """
+    Record payment on a receivable (invoice). Updates invoice, customer balance, and cashier wallet.
+    rec_id is an invoice ID — the legacy receivables collection is no longer used.
+    """
     check_perm(user, "accounting", "receive_payment")
-    rec = await db.receivables.find_one({"id": rec_id}, {"_id": 0})
-    if not rec:
-        raise HTTPException(status_code=404, detail="Receivable not found")
-    
+
+    inv = await db.invoices.find_one({"id": rec_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice/Receivable not found")
+    if inv.get("balance", 0) <= 0:
+        raise HTTPException(status_code=400, detail="Already fully paid")
+
     amount = float(data["amount"])
-    new_balance = max(0, round(rec["balance"] - amount, 2))
-    new_paid = rec.get("paid", 0) + amount
-    
-    await db.receivables.update_one({"id": rec_id}, {
-        "$set": {"balance": new_balance, "paid": new_paid, "status": "paid" if new_balance <= 0 else "partial"}
+    amount = min(amount, inv["balance"])  # Cap at balance
+    new_balance = max(0, round(inv["balance"] - amount, 2))
+    new_paid = round(inv.get("amount_paid", 0) + amount, 2)
+    new_status = "paid" if new_balance <= 0 else "partial"
+
+    payment_record = {
+        "id": new_id(),
+        "amount": amount,
+        "date": data.get("date", now_iso()[:10]),
+        "method": data.get("method", "Cash"),
+        "reference": data.get("reference", ""),
+        "fund_source": "cashier",
+        "applied_to_interest": 0,
+        "applied_to_principal": amount,
+        "recorded_by": user.get("full_name", user["username"]),
+        "recorded_at": now_iso(),
+    }
+
+    await db.invoices.update_one({"id": rec_id}, {
+        "$set": {"balance": new_balance, "amount_paid": new_paid, "status": new_status},
+        "$push": {"payments": payment_record}
     })
-    
-    return {"message": "Payment recorded", "new_balance": new_balance}
+
+    # Update customer balance
+    if inv.get("customer_id"):
+        await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": {"balance": -amount}})
+
+    # Update cashier wallet
+    branch_id = inv.get("branch_id", "")
+    if branch_id:
+        await update_cashier_wallet(branch_id, amount, f"Receivable payment {inv.get('invoice_number', '')} — {inv.get('customer_name', '')}")
+
+    return {"message": "Payment recorded", "new_balance": new_balance, "status": new_status}
 
 
 # ==================== PAYABLES ====================

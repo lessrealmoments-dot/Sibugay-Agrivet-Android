@@ -197,7 +197,7 @@ async def branch_summary(user=Depends(get_current_user)):
     """
     user_branches = await get_user_branches(user)
     if not user_branches:
-        return {"branches": []}
+        return {"branches": [], "totals": {}}
     
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     summaries = []
@@ -213,6 +213,7 @@ async def branch_summary(user=Depends(get_current_user)):
             {"_id": 0, "grand_total": 1}
         ).to_list(10000)
         today_revenue = sum(inv.get("grand_total", 0) for inv in today_invoices)
+        today_sales_count = len(today_invoices)
         
         # Outstanding receivables for this branch
         rec_result = await db.invoices.aggregate([
@@ -228,26 +229,85 @@ async def branch_summary(user=Depends(get_current_user)):
         ]).to_list(1)
         expenses = exp_result[0]["total"] if exp_result else 0
         
+        # Cashier wallet balance
+        wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True},
+            {"_id": 0, "balance": 1}
+        )
+        cashier_balance = wallet.get("balance", 0) if wallet else 0
+        
+        # Safe balance
+        safe = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True},
+            {"_id": 0, "id": 1}
+        )
+        safe_balance = 0
+        if safe:
+            lots = await db.safe_lots.find(
+                {"wallet_id": safe["id"], "remaining_amount": {"$gt": 0}},
+                {"_id": 0, "remaining_amount": 1}
+            ).to_list(500)
+            safe_balance = sum(l.get("remaining_amount", 0) for l in lots)
+        
+        # Low stock count for this branch
+        low_stock_pipeline = [
+            {"$match": {"active": True, "is_repack": {"$ne": True}}},
+            {"$lookup": {
+                "from": "inventory",
+                "let": {"product_id": "$id"},
+                "pipeline": [
+                    {"$match": {
+                        "$expr": {"$eq": ["$product_id", "$$product_id"]},
+                        "branch_id": branch_id
+                    }}
+                ],
+                "as": "inv"
+            }},
+            {"$addFields": {"stock": {"$ifNull": [{"$arrayElemAt": ["$inv.quantity", 0]}, 0]}}},
+            {"$match": {"stock": {"$lte": 10}, "stock": {"$gte": 0}}},
+            {"$count": "total"}
+        ]
+        low_stock_result = await db.products.aggregate(low_stock_pipeline).to_list(1)
+        low_stock_count = low_stock_result[0]["total"] if low_stock_result else 0
+        
+        # Determine status
+        status = "good"
+        if low_stock_count > 10:
+            status = "warning"
+        if low_stock_count > 20:
+            status = "critical"
+        
         summaries.append({
-            "branch_id": branch_id,
-            "branch_name": branch.get("name", ""),
+            "id": branch_id,
+            "name": branch.get("name", ""),
             "today_revenue": today_revenue,
+            "today_sales_count": today_sales_count,
             "receivables": receivables,
             "today_expenses": expenses,
             "net_today": today_revenue - expenses,
+            "cashier_balance": cashier_balance,
+            "safe_balance": safe_balance,
+            "total_cash": cashier_balance + safe_balance,
+            "low_stock_count": low_stock_count,
+            "status": status,
         })
     
     # Calculate totals
     total_revenue = sum(s["today_revenue"] for s in summaries)
     total_receivables = sum(s["receivables"] for s in summaries)
     total_expenses = sum(s["today_expenses"] for s in summaries)
+    total_cash = sum(s["total_cash"] for s in summaries)
+    total_low_stock = sum(s["low_stock_count"] for s in summaries)
     
     return {
         "branches": summaries,
         "totals": {
             "today_revenue": total_revenue,
-            "receivables": total_receivables,
+            "total_receivables": total_receivables,
             "today_expenses": total_expenses,
             "net_today": total_revenue - total_expenses,
+            "total_cash": total_cash,
+            "low_stock_count": total_low_stock,
+            "branch_count": len(summaries),
         }
     }

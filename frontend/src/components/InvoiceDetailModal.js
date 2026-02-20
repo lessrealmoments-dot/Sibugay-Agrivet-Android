@@ -151,6 +151,7 @@ export default function InvoiceDetailModal({
       case 'interest_charge': return { label: 'Interest Charge', color: 'bg-amber-100 text-amber-700' };
       case 'penalty_charge': return { label: 'Penalty Charge', color: 'bg-red-100 text-red-700' };
       case 'farm_expense': return { label: 'Farm Expense', color: 'bg-green-100 text-green-700' };
+      case 'cash_advance': return { label: 'Customer Cash Out', color: 'bg-purple-100 text-purple-700' };
       case 'purchase_orders': return { label: 'Purchase Order', color: 'bg-purple-100 text-purple-700' };
       case 'sales': return { label: 'POS Sale', color: 'bg-blue-100 text-blue-700' };
       default: return { label: 'Sales Invoice', color: 'bg-blue-100 text-blue-700' };

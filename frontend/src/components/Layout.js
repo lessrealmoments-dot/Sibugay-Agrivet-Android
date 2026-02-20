@@ -34,7 +34,10 @@ const NAV_ITEMS = [
 ];
 
 export default function Layout({ children }) {
-  const { user, logout, currentBranch, branches, switchBranch, hasPerm } = useAuth();
+  const { 
+    user, logout, branches, switchBranch, hasPerm,
+    selectedBranchId, canViewAllBranches, viewingBranchName, isConsolidatedView
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -77,25 +80,41 @@ export default function Layout({ children }) {
       </div>
       <Separator className="bg-white/5" />
       <div className="px-3 py-3">
-        <Select
-          value={currentBranch?.id || ''}
-          onValueChange={(val) => {
-            const b = branches.find(br => br.id === val);
-            if (b) switchBranch(b);
-          }}
-        >
-          <SelectTrigger
-            data-testid="branch-selector"
-            className="bg-white/5 border-white/10 text-white text-xs h-9"
+        {canViewAllBranches ? (
+          <Select
+            value={selectedBranchId}
+            onValueChange={(val) => switchBranch(val)}
           >
-            <SelectValue placeholder="Select Branch" />
-          </SelectTrigger>
-          <SelectContent>
-            {branches.map(b => (
-              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger
+              data-testid="branch-selector"
+              className="bg-white/5 border-white/10 text-white text-xs h-9"
+            >
+              <div className="flex items-center gap-2">
+                {isConsolidatedView && <Building2 size={14} className="text-emerald-400" />}
+                <SelectValue placeholder="Select Branch">{viewingBranchName}</SelectValue>
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <Building2 size={14} className="text-emerald-500" />
+                  <span className="font-medium">All Branches</span>
+                  <span className="text-xs text-slate-400">(Consolidated)</span>
+                </div>
+              </SelectItem>
+              <Separator className="my-1" />
+              {branches.map(b => (
+                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="bg-white/5 border border-white/10 rounded-md px-3 py-2 text-xs text-white flex items-center gap-2">
+            <Building2 size={14} className="text-slate-400" />
+            <span>{viewingBranchName}</span>
+            <span className="ml-auto text-slate-500">🔒</span>
+          </div>
+        )}
       </div>
       <ScrollArea className="flex-1 px-3">
         <nav className="space-y-1 py-2">

@@ -180,6 +180,7 @@ export default function UnifiedSalesPage() {
         product_id: product.id, product_name: product.name, sku: product.sku,
         price, quantity: 1, total: price, unit: product.unit, is_repack: product.is_repack,
         cost_price: product.cost_price || 0,
+        original_price: price,
       }]);
     }
   };

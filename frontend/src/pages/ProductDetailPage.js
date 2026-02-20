@@ -472,7 +472,7 @@ export default function ProductDetailPage() {
                 <Table>
                   <TableHeader><TableRow><TableHead className="text-xs">Branch</TableHead><TableHead className="text-xs text-right">On Hand</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {(detail.branches || []).map(b => (
+                    {branches.map(b => (
                       <TableRow key={b.id} className={b.id === currentBranch?.id ? 'bg-emerald-50' : ''}>
                         <TableCell className="text-sm">{b.name} {b.id === currentBranch?.id && <Badge className="ml-1 text-[9px] bg-emerald-100 text-emerald-700">Current</Badge>}</TableCell>
                         <TableCell className="text-right font-mono font-semibold">{(inventory.on_hand[b.id] || 0).toFixed(2)}</TableCell>

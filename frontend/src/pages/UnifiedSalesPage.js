@@ -811,8 +811,8 @@ export default function UnifiedSalesPage() {
         ) : (
           // ORDER MODE: Excel-style line items
           <div className="flex-1 flex flex-col min-w-0">
-            <Card className="flex-1 flex flex-col border-slate-200 overflow-hidden">
-              <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+            <Card className="flex-1 flex flex-col border-slate-200 min-h-0">
+              <CardContent className="flex-1 flex flex-col p-0 min-h-0">
                 <div className="overflow-auto flex-1">
                   <table className="w-full text-sm" data-testid="order-lines-table">
                     <thead className="sticky top-0 bg-slate-50 z-10">

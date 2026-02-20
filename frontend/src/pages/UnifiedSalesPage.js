@@ -739,23 +739,53 @@ export default function UnifiedSalesPage() {
                   ) : (
                     <div className="space-y-2">
                       {cart.map(item => (
-                        <div key={item.product_id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{item.product_name}</p>
-                            <p className="text-xs text-slate-500">{formatPHP(item.price)} × {item.quantity}</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateQty(item.product_id, -1)}>
-                              <Minus size={12} />
-                            </Button>
-                            <span className="text-sm w-6 text-center">{item.quantity}</span>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => updateQty(item.product_id, 1)}>
-                              <Plus size={12} />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500" onClick={() => removeFromCart(item.product_id)}>
-                              <Trash2 size={12} />
+                        <div key={item.product_id} className="p-2 rounded-lg bg-slate-50 space-y-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium truncate flex-1">{item.product_name}</p>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-400 flex-shrink-0" onClick={() => removeFromCart(item.product_id)}>
+                              <Trash2 size={11} />
                             </Button>
                           </div>
+                          <div className="flex items-center gap-1.5">
+                            {/* Quantity controls */}
+                            <div className="flex items-center border border-slate-200 rounded overflow-hidden flex-shrink-0">
+                              <button className="px-1.5 py-1 text-slate-400 hover:bg-slate-100 h-7" onClick={() => updateQty(item.product_id, -1)}><Minus size={11} /></button>
+                              <input
+                                type="number"
+                                className="w-10 text-center text-sm h-7 border-0 focus:outline-none"
+                                value={item.quantity}
+                                onChange={e => setCartQty(item.product_id, e.target.value)}
+                                onFocus={e => e.target.select()}
+                                min="1"
+                              />
+                              <button className="px-1.5 py-1 text-slate-400 hover:bg-slate-100 h-7" onClick={() => updateQty(item.product_id, 1)}><Plus size={11} /></button>
+                            </div>
+                            <span className="text-xs text-slate-400">×</span>
+                            {/* Price (editable) */}
+                            <input
+                              type="number"
+                              className={`w-24 h-7 text-sm text-right px-2 border rounded focus:outline-none focus:ring-1 focus:ring-[#1A4D2E]/30 ${
+                                item.price <= 0 ? 'border-amber-400 bg-amber-50 text-amber-700'
+                                : item.cost_price > 0 && item.price < item.cost_price ? 'border-red-300 bg-red-50 text-red-600'
+                                : 'border-slate-200'
+                              }`}
+                              value={item.price}
+                              onChange={e => updateCartPrice(item.product_id, e.target.value)}
+                              onBlur={() => {
+                                const ci = cart.find(c => c.product_id === item.product_id);
+                                if (ci) triggerPriceSaveDialog(ci.product_id, ci.product_name, ci.original_price ?? ci.price, ci.price);
+                              }}
+                              onFocus={e => e.target.select()}
+                              min="0" step="0.01"
+                            />
+                            <span className="text-xs font-semibold text-[#1A4D2E] text-right flex-1">{formatPHP(item.total)}</span>
+                          </div>
+                          {item.price <= 0 && (
+                            <p className="text-[10px] text-amber-600 flex items-center gap-1"><AlertTriangle size={9}/> Set price before checkout</p>
+                          )}
+                          {item.price > 0 && item.cost_price > 0 && item.price < item.cost_price && (
+                            <p className="text-[10px] text-red-600 flex items-center gap-1"><AlertTriangle size={9}/> Below capital ₱{item.cost_price.toFixed(2)}</p>
+                          )}
                         </div>
                       ))}
                     </div>

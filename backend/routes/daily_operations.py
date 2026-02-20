@@ -181,17 +181,64 @@ async def get_daily_close_preview(
         "expected_counter": expected_counter,
     }
 
+
+@router.get("/daily-log")
 async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str] = None, date: Optional[str] = None):
-    """Get sequential sales log for a date."""
+    """
+    Get daily sales log split into:
+      - cash_entries: sequential cash sales with cash-only running total
+      - credit_invoices: today's credit/partial invoices with full item details (for AR section)
+      - summary: totals by section and category
+    """
     if not date:
         date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    
+
     query = {"date": date}
     if branch_id:
         query["branch_id"] = branch_id
-    
-    entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
-    return {"entries": entries, "date": date, "count": len(entries)}
+
+    all_entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
+
+    # Separate cash vs credit entries
+    cash_entries = [e for e in all_entries if (e.get("payment_method") or "cash") == "cash"]
+
+    # Compute cash-only running total
+    cash_running = 0.0
+    for e in cash_entries:
+        cash_running += float(e.get("line_total", 0))
+        e["cash_running_total"] = round(cash_running, 2)
+
+    # Cash by category
+    cash_by_category = {}
+    for e in cash_entries:
+        cat = e.get("category") or "General"
+        cash_by_category[cat] = round(cash_by_category.get(cat, 0.0) + float(e.get("line_total", 0)), 2)
+    cash_by_category = dict(sorted(cash_by_category.items(), key=lambda x: -x[1]))
+
+    # Credit/partial invoices with full item details
+    inv_query = {"order_date": date, "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}}
+    if branch_id:
+        inv_query["branch_id"] = branch_id
+    credit_invoices = await db.invoices.find(inv_query, {"_id": 0}).sort("created_at", 1).to_list(500)
+
+    total_cash = round(sum(float(e.get("line_total", 0)) for e in cash_entries), 2)
+    total_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices), 2)
+
+    return {
+        "entries": all_entries,
+        "cash_entries": cash_entries,
+        "credit_invoices": credit_invoices,
+        "date": date,
+        "count": len(all_entries),
+        "summary": {
+            "total_cash": total_cash,
+            "total_credit": total_credit,
+            "grand_total": round(total_cash + total_credit, 2),
+            "cash_count": len(cash_entries),
+            "credit_invoice_count": len(credit_invoices),
+            "cash_by_category": cash_by_category,
+        },
+    }
 
 
 @router.get("/daily-report")

@@ -832,7 +832,7 @@ export default function UnifiedSalesPage() {
                           <td className="px-3 py-1 text-xs text-slate-400">{i + 1}</td>
                           <td className="px-3 py-1 min-w-[280px]">
                             {line.product_id ? (
-                              <div className="flex items-center gap-2 group">
+                              <div className="flex items-center gap-2">
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate">{line.product_name}</p>
                                   {line.description && <p className="text-[11px] text-slate-400 truncate">{line.description}</p>}

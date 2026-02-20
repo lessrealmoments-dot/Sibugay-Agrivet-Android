@@ -353,6 +353,12 @@ export default function CustomersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <CustomerStatementModal
+        open={statementDialog}
+        onOpenChange={setStatementDialog}
+        customer={statementCustomer}
+      />
     </div>
   );
 }

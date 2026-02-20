@@ -169,9 +169,8 @@ export default function UnifiedSalesPage() {
     : [];
 
   const getPriceForCustomer = (product) => {
-    const scheme = selectedCustomer?.price_scheme || defaultScheme;
-    // Return 0 if scheme has no price — do NOT fall back to retail or cost
-    return product.prices?.[scheme] ?? 0;
+    // Use activeScheme — unified for both customer and walk-in
+    return product.prices?.[activeScheme] ?? 0;
   };
 
   // Quick mode: Add to cart

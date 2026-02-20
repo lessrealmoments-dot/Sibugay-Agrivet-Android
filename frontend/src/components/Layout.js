@@ -21,6 +21,7 @@ const NAV_ITEMS = [
   { path: '/count-sheets', label: 'Count Sheets', icon: ClipboardList, perm: 'count_sheets.view' },
   { path: '/sales-new', label: 'Sales', icon: ShoppingCart, perm: 'sales.view' },
   { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'purchase_orders.view' },
+  { path: '/pay-supplier', label: 'Pay Supplier', icon: Building2, perm: 'purchase_orders.view' },
   { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view' },
   { path: '/daily-ops', label: 'Daily Operations', icon: Receipt, perm: 'reports.view' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },

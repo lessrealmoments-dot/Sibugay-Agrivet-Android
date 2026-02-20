@@ -238,14 +238,34 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
         # Get retail price (first price scheme or manual)
         retail_price = float(product.get("prices", {}).get("retail", product.get("cost_price", 0) * 1.3))
         
+        # Check if this parent has a repack (for split display)
+        repack = await db.products.find_one(
+            {"parent_id": product["id"], "is_repack": True, "active": True},
+            {"_id": 0, "name": 1, "unit": 1, "units_per_parent": 1}
+        )
+        
+        # Calculate split display if there's a repack and fractional quantity
+        has_repack = repack is not None
+        units_per_parent = repack.get("units_per_parent", 1) if repack else 1
+        repack_unit = repack.get("unit", "pcs") if repack else "pcs"
+        
+        # Split the quantity into whole + loose
+        whole_qty = int(system_qty)
+        fractional = system_qty - whole_qty
+        loose_qty = round(fractional * units_per_parent) if has_repack else 0
+        
         items.append({
             "product_id": product["id"],
             "product_name": product["name"],
             "sku": product.get("sku", ""),
             "category": product.get("category", "General"),
             "unit": product.get("unit", "Piece"),
-            "system_quantity": round(system_qty, 2),
+            "system_quantity": round(system_qty, 4),  # Keep precision for calculations
+            "system_whole": whole_qty,
+            "system_loose": loose_qty,
             "actual_quantity": None,
+            "actual_whole": None,
+            "actual_loose": None,
             "variance": None,
             "capital_price": round(capital_price, 2),
             "retail_price": round(retail_price, 2),

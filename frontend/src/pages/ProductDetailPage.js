@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentBranch, branches } = useAuth();
+  const { currentBranch, branches, user } = useAuth();
   const [detail, setDetail] = useState(null);
   const [movements, setMovements] = useState([]);
   const [orders, setOrders] = useState([]);
@@ -32,6 +32,13 @@ export default function ProductDetailPage() {
   const [schemes, setSchemes] = useState([]);
   const [repackForm, setRepackForm] = useState({ name: '', unit: 'Pack', units_per_parent: 1, cost_price: 0, add_on_cost: 0, prices: {} });
   const [vendorForm, setVendorForm] = useState({ vendor_name: '', vendor_contact: '', last_price: 0, is_preferred: false });
+
+  // Branch pricing state
+  const [branchOverrides, setBranchOverrides] = useState({}); // { branch_id: override_doc }
+  const [branchPriceEdit, setBranchPriceEdit] = useState(null); // { branch_id, prices: {}, cost_price }
+  const [savingBranchPrice, setSavingBranchPrice] = useState(false);
+
+  const isAdmin = user?.role === 'admin';
 
   const fetchDetail = useCallback(async () => {
     try {

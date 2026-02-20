@@ -178,6 +178,7 @@ async def startup():
     await db.branches.create_index("id", unique=True)
     await db.movements.create_index([("product_id", 1), ("branch_id", 1)])
     await db.movements.create_index("created_at")
+    await db.branch_prices.create_index([("product_id", 1), ("branch_id", 1)], unique=True)
     logger.info("Database indexes created")
 
 

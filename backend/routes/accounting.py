@@ -807,7 +807,7 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
         apply = round(float(alloc.get("amount", 0)), 2)
         if apply <= 0:
             continue
-        inv = await db.invoices.find_one({"id": alloc["invoice_id"]}, {"_id": 0})
+        inv = await db.invoices.find_one({"id": alloc["invoice_id"], "customer_id": customer_id}, {"_id": 0})
         if not inv or inv.get("balance", 0) <= 0:
             continue
         apply = min(apply, inv["balance"])

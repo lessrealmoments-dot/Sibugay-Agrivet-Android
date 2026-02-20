@@ -74,62 +74,108 @@ async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = Non
 
 @router.post("/sales/sync")
 async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
-    """Sync offline sales to server."""
+    """
+    Sync offline sales to server.
+    Fixes applied vs original:
+      - Calls log_movement after each inventory deduction (populates movement history)
+      - Calls log_sale_items after invoice creation (populates daily sales log)
+      - Warns (does not crash) when stock would go negative, but still processes sale
+        so offline work isn't lost; adds a flag to the synced record for review.
+    """
     sales = data.get("sales", [])
     synced = []
     errors = []
-    
+
     for sale in sales:
         try:
             sale_id = sale.get("id", new_id())
             branch_id = sale.get("branch_id", "")
-            
-            # Check if already synced
+
+            # Idempotency — skip if already synced
             existing = await db.invoices.find_one({"id": sale_id}, {"_id": 0})
             if existing:
-                synced.append({"id": sale_id, "status": "already_synced"})
+                synced.append({"id": sale_id, "status": "duplicate"})
                 continue
-            
-            # Process items
+
             items = sale.get("items", [])
             subtotal = 0
-            
+            sale_date = sale.get("date", now_iso()[:10])
+            inv_number = sale.get("invoice_number", f"SYNC-{sale_id[:8]}")
+            stock_warnings = []
+
             for item in items:
                 qty = float(item.get("quantity", 0))
                 rate = float(item.get("rate", item.get("price", 0)))
                 line_total = round(qty * rate, 2)
                 item["total"] = line_total
                 subtotal += line_total
-                
-                # Deduct inventory
+
                 product = await db.products.find_one({"id": item.get("product_id")}, {"_id": 0})
-                if product:
-                    if product.get("is_repack") and product.get("parent_id"):
-                        units_per_parent = product.get("units_per_parent", 1)
-                        parent_deduction = qty / units_per_parent
-                        await db.inventory.update_one(
-                            {"product_id": product["parent_id"], "branch_id": branch_id},
-                            {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
-                            upsert=True
+                if not product:
+                    continue
+
+                if product.get("is_repack") and product.get("parent_id"):
+                    units_per_parent = product.get("units_per_parent", 1)
+                    parent_deduction = qty / units_per_parent
+
+                    # Check stock — warn if would go negative but don't block (offline work must not be lost)
+                    parent_inv = await db.inventory.find_one(
+                        {"product_id": product["parent_id"], "branch_id": branch_id}, {"_id": 0}
+                    )
+                    current_stock = float(parent_inv["quantity"]) if parent_inv else 0.0
+                    if current_stock < parent_deduction:
+                        stock_warnings.append(
+                            f"{product['name']}: need {parent_deduction:.4f} boxes, "
+                            f"have {current_stock:.4f} — inventory will go negative"
                         )
-                    else:
-                        await db.inventory.update_one(
-                            {"product_id": item.get("product_id"), "branch_id": branch_id},
-                            {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
-                            upsert=True
+
+                    await db.inventory.update_one(
+                        {"product_id": product["parent_id"], "branch_id": branch_id},
+                        {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
+                        upsert=True
+                    )
+                    # ── FIX: log movement (was missing) ──────────────────────────
+                    await log_movement(
+                        product["parent_id"], branch_id, "sale", -parent_deduction,
+                        sale_id, inv_number, rate * units_per_parent,
+                        user["id"], user.get("full_name", user["username"]),
+                        f"Offline sale (synced): {product['name']} x {qty}"
+                    )
+                else:
+                    # Regular product
+                    inv = await db.inventory.find_one(
+                        {"product_id": item.get("product_id"), "branch_id": branch_id}, {"_id": 0}
+                    )
+                    current_stock = float(inv["quantity"]) if inv else 0.0
+                    if current_stock < qty:
+                        stock_warnings.append(
+                            f"{product['name']}: need {qty}, have {current_stock:.2f} — inventory will go negative"
                         )
-            
+
+                    await db.inventory.update_one(
+                        {"product_id": item.get("product_id"), "branch_id": branch_id},
+                        {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
+                        upsert=True
+                    )
+                    # ── FIX: log movement (was missing) ──────────────────────────
+                    await log_movement(
+                        item.get("product_id"), branch_id, "sale", -qty,
+                        sale_id, inv_number, rate,
+                        user["id"], user.get("full_name", user["username"]),
+                        f"Offline sale (synced)"
+                    )
+
             # Create invoice
             invoice = {
                 "id": sale_id,
-                "invoice_number": sale.get("invoice_number", f"SYNC-{sale_id[:8]}"),
+                "invoice_number": inv_number,
                 "prefix": sale.get("prefix", "SYNC"),
                 "customer_id": sale.get("customer_id"),
                 "customer_name": sale.get("customer_name", "Walk-in"),
                 "branch_id": branch_id,
-                "order_date": sale.get("date", now_iso()[:10]),
-                "invoice_date": sale.get("date", now_iso()[:10]),
-                "due_date": sale.get("date", now_iso()[:10]),
+                "order_date": sale_date,
+                "invoice_date": sale_date,
+                "due_date": sale_date,
                 "items": items,
                 "subtotal": subtotal,
                 "freight": float(sale.get("freight", 0)),
@@ -144,30 +190,48 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
                 "cashier_name": user.get("full_name", user["username"]),
                 "synced_from_offline": True,
                 "offline_timestamp": sale.get("timestamp", ""),
+                "stock_warnings": stock_warnings,   # attached for audit review
                 "created_at": now_iso(),
             }
-            
+
             await db.invoices.insert_one(invoice)
             del invoice["_id"]
-            
-            # Update cashier wallet
+
             if invoice["amount_paid"] > 0:
-                await update_cashier_wallet(branch_id, invoice["amount_paid"], f"Synced sale {invoice['invoice_number']}")
-            
-            # Update customer balance
+                await update_cashier_wallet(branch_id, invoice["amount_paid"], f"Synced sale {inv_number}")
+
             if invoice.get("customer_id") and invoice["balance"] > 0:
                 await db.customers.update_one(
                     {"id": invoice["customer_id"]},
                     {"$inc": {"balance": invoice["balance"]}}
                 )
-            
-            synced.append({"id": sale_id, "status": "synced", "invoice_number": invoice["invoice_number"]})
+
+            # ── FIX: log to daily sales log (was missing) ────────────────────
+            active_date = await get_active_date(branch_id)
+            enriched = []
+            for item in items:
+                prod = await db.products.find_one({"id": item.get("product_id")}, {"_id": 0, "category": 1})
+                enriched.append({**item, "category": prod.get("category", "General") if prod else "General"})
+
+            payment_method = sale.get("payment_method", "cash" if invoice["payment_type"] == "cash" else "credit")
+            await log_sale_items(
+                branch_id, active_date, enriched, inv_number,
+                invoice["customer_name"], payment_method,
+                user.get("full_name", user["username"])
+            )
+
+            result = {"id": sale_id, "status": "synced", "invoice_number": inv_number}
+            if stock_warnings:
+                result["stock_warnings"] = stock_warnings
+            synced.append(result)
+
         except Exception as e:
             errors.append({"id": sale.get("id"), "error": str(e)})
-    
+
     return {
         "synced": synced,
         "errors": errors,
-        "total_synced": len(synced),
+        "total_synced": len([s for s in synced if s.get("status") == "synced"]),
         "total_errors": len(errors),
+        "results": synced,
     }

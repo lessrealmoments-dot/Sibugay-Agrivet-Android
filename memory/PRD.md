@@ -51,6 +51,19 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - `COST ()` header showed blank method — changed `cost.method` to `cost.capital_method`
 - Moving Average / Last Purchase showed ₱0 — backend now computes both from PO history and returns them in cost dict
 
+**7. Offline Sync Enhancement — branch_prices cached**
+- `/sync/pos-data` now returns `branch_prices` for the branch; IndexedDB DB v4 stores them keyed by product_id
+
+**8. Import Center (`/import`)**
+- .xlsx/.xls/.csv upload with drag-and-drop; QuickBooks auto-column detection
+- Column mapper with presets; preview; results with skipped-duplicates checklist
+- Inventory Seed (branch + admin PIN): sets initial quantities by product name match
+- Downloadable CSV templates for both import types
+
+**9. Quick Repack Generator (Products page header)**
+- Live parent search autocomplete; single retail price → applied to ALL schemes
+- Tab-friendly: Name → Unit → Qty per box → Add-on cost → Retail price → Generate
+
 ## Previous Updates (Feb 2026)
 
 ### Full Routing Audit + Receivables Fix - COMPLETE ✅ (Feb 2026)

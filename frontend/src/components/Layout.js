@@ -29,7 +29,9 @@ const NAV_ITEMS = [
   { path: '/fund-management', label: 'Fund Mgmt', icon: Calculator, perm: 'accounting.manage_funds' },
   { path: '/sales', label: 'Sales History', icon: Receipt, perm: 'reports.view' },
   { path: '/accounting', label: 'Accounting', icon: Calculator, perm: 'accounting.view' },
-  { path: '/user-permissions', label: 'User Permissions', icon: Shield, perm: 'settings.manage_permissions' },
+  { path: '/employees', label: 'Employees', icon: Briefcase, perm: 'settings.manage_users' },
+  { path: '/accounts', label: 'Accounts', icon: UserCog, perm: 'settings.manage_users' },
+  { path: '/user-permissions', label: 'Permissions', icon: Shield, perm: 'settings.manage_permissions' },
   { path: '/settings', label: 'Settings', icon: Settings, perm: 'settings.view' },
 ];
 

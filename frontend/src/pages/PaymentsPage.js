@@ -340,20 +340,33 @@ export default function PaymentsPage() {
                     <div className="flex-1 min-w-[200px]">
                       <p className="text-xs text-slate-500 mb-1">
                         Grace period: <strong>{selectedCustomer.grace_period || 7} days</strong>
-                        {selectedCustomer.interest_rate > 0 && <> · Interest rate: <strong>{selectedCustomer.interest_rate}%/month</strong></>}
                       </p>
-                      <p className="text-xs text-slate-400">Clicking "Generate" creates a new charge invoice. Rule: Penalty first → Interest → Invoice.</p>
+                      {selectedCustomer.interest_rate > 0 ? (
+                        <p className="text-xs text-slate-500">
+                          Customer interest rate: <strong className="text-amber-600">{selectedCustomer.interest_rate}%/month</strong>
+                          {' '}— click "Generate Interest" to create an INT- invoice
+                        </p>
+                      ) : (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 flex items-center gap-1">
+                          <AlertTriangle size={11} /> No interest rate on this customer's profile.
+                          Go to <strong>Customers → Edit</strong> and set an interest rate to use this feature.
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Button size="sm" variant="outline" onClick={handleGenerateInterest} disabled={!!generatingCharge}
-                        className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1" data-testid="generate-interest-btn">
+                      <Button size="sm" variant="outline" onClick={handleGenerateInterest}
+                        disabled={!!generatingCharge || !selectedCustomer.interest_rate}
+                        className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 disabled:opacity-40" data-testid="generate-interest-btn">
                         <Percent size={13} /> {generatingCharge === 'interest' ? 'Generating...' : 'Generate Interest'}
                       </Button>
                       <Separator orientation="vertical" className="h-7" />
-                      <div className="flex items-center gap-1 bg-slate-100 rounded-md px-2 py-1.5">
-                        <Input type="number" value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value) || 0)}
-                          className="w-12 h-6 text-xs text-center border-0 bg-transparent p-0" />
-                        <span className="text-xs text-slate-500">%</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-slate-500 whitespace-nowrap">Penalty %:</span>
+                        <div className="flex items-center gap-0.5 bg-slate-100 rounded-md px-2 py-1.5">
+                          <Input type="number" value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value) || 0)}
+                            className="w-12 h-6 text-xs text-center border-0 bg-transparent p-0" />
+                          <span className="text-xs text-slate-500">%</span>
+                        </div>
                       </div>
                       <Button size="sm" variant="outline" onClick={handleGeneratePenalty} disabled={!!generatingCharge}
                         className="text-red-600 border-red-200 hover:bg-red-50 gap-1" data-testid="generate-penalty-btn">

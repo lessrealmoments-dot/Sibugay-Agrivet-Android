@@ -99,7 +99,34 @@ async def get_product_detail(product_id: str, user=Depends(get_current_user)):
     repacks = await db.products.find({"parent_id": product_id, "active": True}, {"_id": 0}).to_list(100)
     
     # Get inventory across all branches
-    inventory = await db.inventory.find({"product_id": product_id}, {"_id": 0}).to_list(100)
+    inv_records = await db.inventory.find({"product_id": product_id}, {"_id": 0}).to_list(100)
+    
+    # Build on_hand map by branch
+    on_hand = {}
+    total_qty = 0
+    for inv in inv_records:
+        branch_id = inv.get("branch_id")
+        qty = inv.get("quantity", 0)
+        on_hand[branch_id] = qty
+        total_qty += qty
+    
+    # Calculate coming (from purchase orders)
+    coming_r = await db.purchase_orders.aggregate([
+        {"$match": {"status": {"$in": ["ordered", "draft"]}}},
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+    ]).to_list(1)
+    coming = coming_r[0]["t"] if coming_r else 0
+    
+    # Calculate reserved (from pending sales)
+    reserved_r = await db.sales.aggregate([
+        {"$match": {"status": "reserved"}},
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+    ]).to_list(1)
+    reserved = reserved_r[0]["t"] if reserved_r else 0
     
     # Get vendors
     vendors = await db.product_vendors.find({"product_id": product_id}, {"_id": 0}).to_list(50)
@@ -109,10 +136,22 @@ async def get_product_detail(product_id: str, user=Depends(get_current_user)):
     if product.get("parent_id"):
         parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
     
+    # Get cost info
+    cost = {
+        "cost_price": product.get("cost_price", 0),
+        "capital_method": product.get("capital_method", "manual"),
+    }
+    
     return {
         "product": product,
         "repacks": repacks,
-        "inventory": inventory,
+        "inventory": {
+            "on_hand": on_hand,
+            "total": total_qty,
+            "coming": coming,
+            "reserved": reserved
+        },
+        "cost": cost,
         "vendors": vendors,
         "parent": parent
     }

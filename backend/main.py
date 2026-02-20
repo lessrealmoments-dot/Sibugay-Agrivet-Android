@@ -99,40 +99,13 @@ api_router.include_router(setup_router)
 # =============================================================================
 @app.on_event("startup")
 async def startup():
-    """Initialize database with default data and indexes."""
-    # Create default admin user
-    admin = await db.users.find_one({"username": "admin"}, {"_id": 0})
-    if not admin:
-        admin_user = {
-            "id": new_id(),
-            "username": "admin",
-            "full_name": "Administrator",
-            "email": "admin@agripos.com",
-            "password_hash": hash_password("admin123"),
-            "role": "admin",
-            "branch_id": None,
-            "permissions": DEFAULT_PERMISSIONS["admin"],
-            "active": True,
-            "created_at": now_iso(),
-        }
-        await db.users.insert_one(admin_user)
-        logger.info("Default admin user created (admin/admin123)")
-
-    # Create default branch
-    branch = await db.branches.find_one({"active": True}, {"_id": 0})
-    if not branch:
-        main_branch = {
-            "id": new_id(),
-            "name": "Main Branch",
-            "address": "",
-            "phone": "",
-            "active": True,
-            "created_at": now_iso()
-        }
-        await db.branches.insert_one(main_branch)
-        logger.info("Default branch created")
-
-    # Create default price schemes
+    """Initialize database indexes. User/branch creation moved to setup wizard."""
+    # Check if setup is needed (no auto-creation of users)
+    user_count = await db.users.count_documents({})
+    if user_count == 0:
+        logger.info("No users found - system needs setup via /api/setup/initialize")
+    
+    # Create default price schemes if none exist
     schemes = await db.price_schemes.count_documents({})
     if schemes == 0:
         default_schemes = [
@@ -183,26 +156,6 @@ async def startup():
         ]
         await db.price_schemes.insert_many(default_schemes)
         logger.info("Default price schemes created")
-
-    # Create default cashier user for testing
-    cashier = await db.users.find_one({"username": "cashier"}, {"_id": 0})
-    if not cashier:
-        # Get first branch ID
-        first_branch = await db.branches.find_one({"active": True}, {"_id": 0, "id": 1})
-        cashier_user = {
-            "id": new_id(),
-            "username": "cashier",
-            "full_name": "Test Cashier",
-            "email": "cashier@agripos.com",
-            "password_hash": hash_password("password"),
-            "role": "cashier",
-            "branch_id": first_branch["id"] if first_branch else None,
-            "permissions": DEFAULT_PERMISSIONS["cashier"],
-            "active": True,
-            "created_at": now_iso(),
-        }
-        await db.users.insert_one(cashier_user)
-        logger.info("Default cashier user created (cashier/password)")
 
     # Create indexes
     await db.users.create_index("username", unique=True)

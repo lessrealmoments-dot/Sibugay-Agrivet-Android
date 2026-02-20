@@ -82,8 +82,37 @@ async def update_user(user_id: str, data: dict, user=Depends(get_current_user)):
 async def delete_user(user_id: str, user=Depends(get_current_user)):
     """Soft delete a user."""
     check_perm(user, "settings", "manage_users")
+    if user["id"] == user_id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
     await db.users.update_one({"id": user_id}, {"$set": {"active": False}})
     return {"message": "User deleted"}
+
+
+@router.put("/users/{user_id}/pin")
+async def admin_set_user_pin(user_id: str, data: dict, user=Depends(get_current_user)):
+    """Admin sets or clears a manager PIN for any user (with audit trail)."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can set user PINs")
+    
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    pin = data.get("pin", "")
+    if pin and len(str(pin)) < 4:
+        raise HTTPException(status_code=400, detail="PIN must be at least 4 digits")
+    
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {
+            "manager_pin": str(pin) if pin else None,
+            "pin_set_by": user["id"],
+            "pin_set_by_name": user.get("full_name", user["username"]),
+            "pin_set_at": now_iso(),
+            "updated_at": now_iso(),
+        }}
+    )
+    return {"message": f"PIN {'set' if pin else 'cleared'} for {target['username']}"}
 
 
 # ==================== PERMISSIONS ====================

@@ -442,13 +442,13 @@ class TestPaymentHistory:
         history_before = before_res.json() if before_res.status_code == 200 else []
         count_before = len(history_before)
 
-        # Create invoice and pay it
+        # Create invoice and pay it (rate >= cost_price=1000)
         inv_res = api_client.post(f"{BASE_URL}/api/invoices", json={
             "customer_id": customer_id,
             "customer_name": test_customer["name"],
             "branch_id": branch_id,
             "items": [{"product_id": test_product["id"], "product_name": test_product["name"],
-                       "quantity": 1, "rate": 750}]
+                       "quantity": 1, "rate": 1500}]
         })
         assert inv_res.status_code in [200, 201]
         inv = inv_res.json()

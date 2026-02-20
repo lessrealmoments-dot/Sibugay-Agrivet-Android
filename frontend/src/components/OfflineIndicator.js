@@ -1,67 +1,157 @@
-import { useState, useEffect } from 'react';
-import { getPendingSaleCount } from '../lib/offlineDB';
-import { syncPendingSales, onSyncUpdate } from '../lib/syncManager';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Wifi, WifiOff, RefreshCw, CloudOff, Download } from 'lucide-react';
+/**
+ * OfflineIndicator
+ * Shows the "Ready for offline" download progress in the sidebar.
+ *
+ * States:
+ *  never-synced  → "Download offline data" button (auto-triggers on first load)
+ *  syncing       → animated progress bar with step name + percentage
+ *  ready         → green "Ready for offline" + last-synced time + counts
+ *  stale         → amber "Update recommended" (> 4 hours since last sync)
+ *  offline       → shows offline badge only
+ */
+
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { Progress } from './ui/progress';
+import { getMeta, getPendingSaleCount } from '../lib/offlineDB';
+import { refreshPOSCache, syncPendingSales, onSyncUpdate } from '../lib/syncManager';
+import {
+  Wifi, WifiOff, RefreshCw, CheckCircle, AlertTriangle,
+  CloudDownload, CloudOff,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
+const STALE_HOURS = 4;
+
+function timeAgo(isoStr) {
+  if (!isoStr) return null;
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m ago`;
+  return new Date(isoStr).toLocaleDateString();
+}
+
 export default function OfflineIndicator() {
+  const { effectiveBranchId, currentBranch } = useAuth();
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Sync state
   const [syncing, setSyncing] = useState(false);
+  const [syncPct, setSyncPct] = useState(0);
+  const [stepLabel, setStepLabel] = useState('');
+
+  // Cache state
+  const [lastSync, setLastSync] = useState(null);
+  const [syncCounts, setSyncCounts] = useState(null);
+
+  const prevBranchRef = useRef(effectiveBranchId);
   const [installPrompt, setInstallPrompt] = useState(null);
 
+  // Computed states
+  const isStale = lastSync
+    ? (Date.now() - new Date(lastSync).getTime()) > STALE_HOURS * 3600 * 1000
+    : false;
+  const isReady = !!lastSync && !isStale && !syncing;
+  const isNeverSynced = !lastSync && !syncing;
+  const canSync = isOnline && effectiveBranchId && effectiveBranchId !== 'all';
+
+  const loadCacheInfo = useCallback(async () => {
+    const ts = await getMeta('last_sync');
+    const counts = await getMeta('last_sync_counts');
+    setLastSync(ts);
+    setSyncCounts(counts);
+    const pending = await getPendingSaleCount();
+    setPendingCount(pending);
+  }, []);
+
+  const startSync = useCallback(async () => {
+    if (syncing || !navigator.onLine) return;
+    setSyncing(true);
+    setSyncPct(5);
+    setStepLabel('Starting...');
+    const branchId = effectiveBranchId !== 'all' ? effectiveBranchId : null;
+    const ok = await refreshPOSCache(branchId);
+    if (!ok) toast.error('Data download failed. Check your connection.');
+    setSyncing(false);
+    setSyncPct(0);
+    await loadCacheInfo();
+  }, [syncing, effectiveBranchId, loadCacheInfo]);
+
+  // Initial load + auto-sync when never synced
   useEffect(() => {
-    const updateOnline = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', updateOnline);
-    window.addEventListener('offline', updateOnline);
-
-    // Listen for install prompt
-    const handleInstallPrompt = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleInstallPrompt);
-
-    // Load pending count
-    getPendingSaleCount().then(setPendingCount);
-
-    // Listen for sync updates
-    const unsub = onSyncUpdate((data) => {
-      if (data.type === 'sync_start') setSyncing(true);
-      if (data.type === 'sync_complete') {
-        setSyncing(false);
-        setPendingCount(data.remaining || 0);
+    loadCacheInfo().then(async () => {
+      const ts = await getMeta('last_sync');
+      if (!ts && navigator.onLine && effectiveBranchId && effectiveBranchId !== 'all') {
+        // Auto-start download after a short delay so the page loads first
+        setTimeout(startSync, 1800);
       }
-      if (data.type === 'sync_error') setSyncing(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // Poll pending count every 5s
-    const countInterval = setInterval(() => {
-      getPendingSaleCount().then(setPendingCount);
-    }, 5000);
+  // Re-sync when branch changes
+  useEffect(() => {
+    if (prevBranchRef.current !== effectiveBranchId) {
+      prevBranchRef.current = effectiveBranchId;
+      if (navigator.onLine && effectiveBranchId && effectiveBranchId !== 'all') {
+        startSync();
+      }
+    }
+  }, [effectiveBranchId, startSync]);
+
+  // Listen for sync progress events
+  useEffect(() => {
+    const unsub = onSyncUpdate((data) => {
+      if (data.type === 'sync_step') {
+        setSyncPct(data.pct);
+        setStepLabel(data.stepLabel);
+      }
+      if (data.type === 'cache_refreshed') {
+        setSyncPct(100);
+        setStepLabel('Done!');
+        loadCacheInfo();
+      }
+      if (data.type === 'sync_error') {
+        setSyncing(false);
+        setSyncPct(0);
+      }
+      if (data.type === 'sync_complete') {
+        loadCacheInfo();
+      }
+    });
+    return unsub;
+  }, [loadCacheInfo]);
+
+  // Online/offline events
+  useEffect(() => {
+    const setOnline = () => setIsOnline(true);
+    const setOffline = () => setIsOnline(false);
+    window.addEventListener('online', setOnline);
+    window.addEventListener('offline', setOffline);
+
+    const handleInstall = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handleInstall);
+
+    const interval = setInterval(() => getPendingSaleCount().then(setPendingCount), 8000);
 
     return () => {
-      window.removeEventListener('online', updateOnline);
-      window.removeEventListener('offline', updateOnline);
-      window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
-      unsub();
-      clearInterval(countInterval);
+      window.removeEventListener('online', setOnline);
+      window.removeEventListener('offline', setOffline);
+      window.removeEventListener('beforeinstallprompt', handleInstall);
+      clearInterval(interval);
     };
   }, []);
 
   const handleManualSync = async () => {
-    if (!navigator.onLine) {
-      toast.error('Cannot sync while offline');
-      return;
-    }
-    setSyncing(true);
-    const result = await syncPendingSales();
-    setSyncing(false);
-    if (result) {
-      toast.success(`Synced ${result.synced} sale(s)`);
-      setPendingCount(0);
+    if (pendingCount > 0 && navigator.onLine) {
+      await syncPendingSales();
+      await loadCacheInfo();
+      toast.success('Pending sales synced');
     }
   };
 
@@ -69,54 +159,152 @@ export default function OfflineIndicator() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      toast.success('AgriPOS installed!');
-    }
+    if (outcome === 'accepted') toast.success('AgriPOS installed!');
     setInstallPrompt(null);
   };
 
   return (
-    <div className="space-y-2 px-3 py-2">
-      {/* Online/Offline Status */}
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium ${
-        isOnline ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+    <div className="px-3 py-2 space-y-2">
+
+      {/* ── Online / Offline badge ─────────────────── */}
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium ${
+        isOnline ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
       }`}>
-        {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-        <span>{isOnline ? 'Online' : 'Offline Mode'}</span>
-        {!isOnline && <CloudOff size={12} className="ml-auto opacity-60" />}
+        {isOnline ? <Wifi size={13} /> : <WifiOff size={13} />}
+        <span>{isOnline ? 'Online' : 'Offline'}</span>
+        {!isOnline && <CloudOff size={11} className="ml-auto opacity-60" />}
       </div>
 
-      {/* Pending Sales */}
+      {/* ── Sync / Download section ────────────────── */}
+      {canSync || (!isOnline && lastSync) ? (
+        <div className={`rounded-md px-3 py-2 text-xs border ${
+          syncing
+            ? 'bg-blue-500/10 border-blue-500/20'
+            : isReady
+              ? 'bg-emerald-500/10 border-emerald-500/20'
+              : isStale
+                ? 'bg-amber-500/10 border-amber-500/20'
+                : isNeverSynced
+                  ? 'bg-slate-700/50 border-white/10'
+                  : 'bg-slate-700/50 border-white/10'
+        }`}>
+
+          {/* SYNCING state */}
+          {syncing && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-blue-300">
+                <RefreshCw size={12} className="animate-spin shrink-0" />
+                <span className="truncate">{stepLabel || 'Downloading...'}</span>
+              </div>
+              <Progress
+                value={syncPct}
+                className="h-1.5 bg-blue-500/20"
+              />
+              <div className="text-[10px] text-blue-400/70 text-right">{syncPct}%</div>
+            </div>
+          )}
+
+          {/* READY state */}
+          {isReady && !syncing && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <CheckCircle size={13} />
+                <span>Ready for offline</span>
+              </div>
+              <div className="text-[10px] text-slate-400">
+                Synced {timeAgo(lastSync)}
+                {currentBranch && ` · ${currentBranch.name}`}
+              </div>
+              {syncCounts && (
+                <div className="text-[10px] text-slate-500">
+                  {syncCounts.products} products · {syncCounts.customers} customers
+                  {syncCounts.inventory > 0 && ` · ${syncCounts.inventory} stock records`}
+                </div>
+              )}
+              <button
+                onClick={startSync}
+                disabled={!isOnline}
+                className="mt-1 text-[10px] text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors disabled:opacity-30"
+              >
+                Re-sync
+              </button>
+            </div>
+          )}
+
+          {/* STALE state */}
+          {isStale && !syncing && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-amber-400">
+                <AlertTriangle size={12} />
+                <span className="font-medium">Update recommended</span>
+              </div>
+              <div className="text-[10px] text-slate-400">Last synced {timeAgo(lastSync)}</div>
+              <button
+                onClick={startSync}
+                disabled={!isOnline}
+                className="w-full mt-1 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-medium transition-colors disabled:opacity-30"
+              >
+                Sync Now
+              </button>
+            </div>
+          )}
+
+          {/* NEVER SYNCED state */}
+          {isNeverSynced && !syncing && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-300">
+                <CloudDownload size={13} />
+                <span className="font-medium">Offline data: Not ready</span>
+              </div>
+              <div className="text-[10px] text-slate-500">
+                Download data for {currentBranch?.name || 'this branch'} to work offline
+              </div>
+              <button
+                onClick={startSync}
+                disabled={!isOnline}
+                data-testid="download-offline-btn"
+                className="w-full mt-1 py-1.5 rounded bg-white/10 hover:bg-white/15 text-white text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors disabled:opacity-30"
+              >
+                <CloudDownload size={11} />
+                Download offline data
+              </button>
+            </div>
+          )}
+        </div>
+      ) : effectiveBranchId === 'all' && isOnline ? (
+        <div className="px-3 py-1.5 rounded-md bg-slate-700/30 border border-white/5 text-[10px] text-slate-500">
+          Select a branch to enable offline mode
+        </div>
+      ) : null}
+
+      {/* ── Pending sales to sync ─────────────────── */}
       {pendingCount > 0 && (
-        <div className="flex items-center justify-between px-3 py-2 rounded-md bg-amber-500/10">
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
           <div className="flex items-center gap-2 text-xs text-amber-400">
-            <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} />
+            <RefreshCw size={11} />
             <span>{pendingCount} pending sale{pendingCount > 1 ? 's' : ''}</span>
           </div>
           {isOnline && (
             <button
               data-testid="manual-sync-btn"
               onClick={handleManualSync}
-              disabled={syncing}
               className="text-[10px] text-amber-300 hover:text-amber-200 underline"
             >
-              {syncing ? 'Syncing...' : 'Sync now'}
+              Push now
             </button>
           )}
         </div>
       )}
 
-      {/* Install PWA Button */}
+      {/* ── Install PWA button ─────────────────────── */}
       {installPrompt && (
-        <Button
+        <button
           data-testid="install-pwa-btn"
           onClick={handleInstall}
-          variant="outline"
-          size="sm"
-          className="w-full h-8 text-xs border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+          className="w-full flex items-center justify-center gap-2 py-1.5 rounded-md border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-xs transition-colors"
         >
-          <Download size={12} className="mr-2" /> Install App
-        </Button>
+          <CloudDownload size={12} /> Install App
+        </button>
       )}
     </div>
   );

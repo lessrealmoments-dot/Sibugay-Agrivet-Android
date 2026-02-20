@@ -295,7 +295,7 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
 
 @router.put("/{sheet_id}/items")
 async def update_counts(sheet_id: str, data: dict, user=Depends(get_current_user)):
-    """Update actual counts for items."""
+    """Update actual counts for items. Supports both decimal and split (whole + loose) input."""
     check_perm(user, "count_sheets", "count")
     
     sheet = await db.count_sheets.find_one({"id": sheet_id}, {"_id": 0})
@@ -305,21 +305,42 @@ async def update_counts(sheet_id: str, data: dict, user=Depends(get_current_user
     if sheet["status"] != "in_progress":
         raise HTTPException(status_code=400, detail="Can only update counts for in-progress count sheets")
     
-    updates = data.get("items", [])  # [{product_id, actual_quantity, notes?}]
+    updates = data.get("items", [])
+    # Each update can have:
+    # - product_id (required)
+    # - actual_quantity (decimal) OR actual_whole + actual_loose (split)
+    # - notes (optional)
     
     items = sheet["items"]
     for update in updates:
         product_id = update.get("product_id")
-        actual_qty = update.get("actual_quantity")
         notes = update.get("notes", "")
         
         for item in items:
             if item["product_id"] == product_id:
+                actual_qty = None
+                
+                # Check if split input is provided
+                if update.get("actual_whole") is not None or update.get("actual_loose") is not None:
+                    whole = float(update.get("actual_whole", 0) or 0)
+                    loose = float(update.get("actual_loose", 0) or 0)
+                    units_per_parent = item.get("units_per_parent", 1) or 1
+                    
+                    # Convert split to decimal: whole + (loose / units_per_parent)
+                    actual_qty = whole + (loose / units_per_parent)
+                    item["actual_whole"] = int(whole)
+                    item["actual_loose"] = int(loose)
+                elif update.get("actual_quantity") is not None:
+                    actual_qty = float(update.get("actual_quantity"))
+                    # Also calculate the split for display
+                    units_per_parent = item.get("units_per_parent", 1) or 1
+                    item["actual_whole"] = int(actual_qty)
+                    item["actual_loose"] = round((actual_qty - int(actual_qty)) * units_per_parent)
+                
                 if actual_qty is not None:
-                    actual_qty = float(actual_qty)
-                    item["actual_quantity"] = actual_qty
+                    item["actual_quantity"] = round(actual_qty, 4)
                     item["counted"] = True
-                    item["variance"] = round(actual_qty - item["system_quantity"], 2)
+                    item["variance"] = round(actual_qty - item["system_quantity"], 4)
                     
                     # Calculate losses (negative variance = loss, positive = gain)
                     if item["variance"] != 0:

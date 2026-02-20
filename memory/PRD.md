@@ -22,7 +22,31 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - **Database**: MongoDB with Motor async driver
 - **Design**: Manrope + IBM Plex Sans fonts, Forest Green (#1A4D2E) primary, dark sidebar layout
 
-## Latest Update (Feb 2026)
+## Latest Updates (Feb 2026)
+
+### Offline Download Progress Bar + Branch Isolation Fixes - COMPLETE ✅ (Feb 2026)
+
+**1. Offline Data Pre-Download Widget (OfflineIndicator rewrite)**
+- Step-by-step sync with progress bar: Connecting → Products → Inventory → Customers → Price Schemes
+- 4 states: Never Synced (download button), Syncing (animated bar + %), Ready (green), Stale >4h (amber)
+- Auto-triggers on login and on branch switch (inventory is branch-specific)
+- Shows: last-synced time, branch name, product/customer/stock record counts
+
+**2. IndexedDB Inventory Store (offlineDB.js DB v3)**
+- Added `inventory` store keyed by `product_id`; new exports: `cacheInventory`, `getInventory`, `getInventoryItem`
+
+**3. syncManager.js step-by-step progress**
+- `refreshPOSCache(branchId)` emits named step events with pct 0-100
+
+**4. Product Detail Page inventory bug fix**
+- "Available" was using total across all branches → showing other branch's stock. Fixed to use current branch only.
+- Backend `/products/{id}/detail` now accepts `branch_id` and filters coming/reserved per branch
+
+**5. Count Sheet race condition + layout**
+- `onBlur` on cases input skips save if focus moves to paired packs input (same product)
+- Split input redesigned to single-row with unit labels above inputs
+
+## Previous Updates (Feb 2026)
 
 ### Full Routing Audit + Receivables Fix - COMPLETE ✅ (Feb 2026)
 

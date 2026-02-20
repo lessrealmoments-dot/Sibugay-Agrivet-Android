@@ -4,7 +4,7 @@ Sync routes: Offline POS data sync.
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timezone
 from config import db
-from utils import get_current_user, now_iso, new_id, log_movement, log_sale_items, update_cashier_wallet
+from utils import get_current_user, now_iso, new_id, log_movement, log_sale_items, update_cashier_wallet, get_active_date
 
 router = APIRouter(tags=["Sync"])
 

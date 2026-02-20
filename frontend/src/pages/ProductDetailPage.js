@@ -318,8 +318,8 @@ export default function ProductDetailPage() {
                   <p className="text-[11px] text-amber-500">From sales not yet released</p>
                 </div>
                 <div className="p-3 rounded-lg border border-slate-200">
-                  <p className="text-xs text-slate-500 font-medium">Available (On Hand - Reserved)</p>
-                  <p className="text-2xl font-bold">{Math.max(0, inventory.total - inventory.reserved).toFixed(2)} <span className="text-sm font-normal">{product.unit}</span></p>
+                  <p className="text-xs text-slate-500 font-medium">Available ({currentBranch?.name || 'Total'} — On Hand minus Reserved)</p>
+                  <p className="text-2xl font-bold">{Math.max(0, branchStock - inventory.reserved).toFixed(2)} <span className="text-sm font-normal">{product.unit}</span></p>
                 </div>
               </div>
             </div>

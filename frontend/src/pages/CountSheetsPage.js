@@ -537,7 +537,7 @@ export default function CountSheetsPage() {
                       <TableHead className="text-xs">Product</TableHead>
                       <TableHead className="text-xs w-20">Unit</TableHead>
                       <TableHead className="text-xs w-32 text-right">System</TableHead>
-                      <TableHead className="text-xs w-44 text-right print:w-48">Actual</TableHead>
+                      <TableHead className="text-xs text-right">Actual Count</TableHead>
                       <TableHead className="text-xs w-24 text-right">Diff</TableHead>
                       <TableHead className="text-xs w-28 text-right print:hidden">Capital</TableHead>
                       <TableHead className="text-xs w-28 text-right print:hidden">Retail</TableHead>

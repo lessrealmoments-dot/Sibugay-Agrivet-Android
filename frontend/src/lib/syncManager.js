@@ -7,7 +7,7 @@
 import { api } from '../contexts/AuthContext';
 import {
   getPendingSales, removePendingSale,
-  cacheProducts, cacheCustomers, cachePriceSchemes, cacheInventory,
+  cacheProducts, cacheCustomers, cachePriceSchemes, cacheInventory, cacheBranchPrices,
   setMeta, getPendingSaleCount,
 } from './offlineDB';
 

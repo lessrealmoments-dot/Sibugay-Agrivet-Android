@@ -123,6 +123,17 @@ PERMISSION_MODULES = {
             "manage_permissions": "Manage Permissions",
         }
     },
+    "count_sheets": {
+        "label": "Count Sheets",
+        "actions": {
+            "view": "View Count Sheets",
+            "create": "Create Count Sheet",
+            "count": "Enter Actual Counts",
+            "complete": "Complete Count Sheet",
+            "cancel": "Cancel Count Sheet",
+            "adjust": "Apply Inventory Adjustments",
+        }
+    },
 }
 
 # Preset role templates

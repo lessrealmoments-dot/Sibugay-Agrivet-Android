@@ -1172,6 +1172,43 @@ export default function UnifiedSalesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Price Save Dialog */}
+      <Dialog open={priceSaveDialog} onOpenChange={(o) => { if (!o) dismissPriceSaveDialog(); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Save Price Change?</DialogTitle>
+            <DialogDescription>Choose whether to update the price scheme permanently</DialogDescription>
+          </DialogHeader>
+          {pendingPriceChange && (
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-lg p-3 space-y-1">
+                <p className="font-medium text-sm">{pendingPriceChange.product_name}</p>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-slate-400 line-through">{formatPHP(pendingPriceChange.old_price)}</span>
+                  <span className="text-[#1A4D2E] font-bold">{formatPHP(pendingPriceChange.new_price)}</span>
+                  <Badge variant="outline" className="capitalize text-[10px]">{pendingPriceChange.scheme_name}</Badge>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600">
+                Save <strong>{formatPHP(pendingPriceChange.new_price)}</strong> as the new <strong>{pendingPriceChange.scheme_name}</strong> price for this product?
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={dismissPriceSaveDialog}>
+                  No, this sale only
+                </Button>
+                <Button
+                  data-testid="save-price-to-scheme"
+                  className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                  onClick={savePriceToScheme}
+                >
+                  Yes, update price
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

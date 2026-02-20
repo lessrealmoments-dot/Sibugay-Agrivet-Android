@@ -38,10 +38,37 @@ function ProtectedRoute({ children }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex items-center justify-center h-screen bg-[#F5F5F0]"><div className="text-slate-400 text-sm">Loading...</div></div>;
+  const [setupNeeded, setSetupNeeded] = useState(null);
+  
+  useEffect(() => {
+    const checkSetup = async () => {
+      try {
+        const res = await axios.get(`${BACKEND_URL}/api/setup/status`);
+        setSetupNeeded(!res.data.setup_completed);
+      } catch {
+        setSetupNeeded(false); // If check fails, assume setup is done
+      }
+    };
+    checkSetup();
+  }, []);
+
+  if (loading || setupNeeded === null) {
+    return <div className="flex items-center justify-center h-screen bg-[#F5F5F0]"><div className="text-slate-400 text-sm">Loading...</div></div>;
+  }
+
+  // If setup is needed, show setup wizard
+  if (setupNeeded && !user) {
+    return (
+      <Routes>
+        <Route path="/setup" element={<SetupWizardPage />} />
+        <Route path="*" element={<Navigate to="/setup" replace />} />
+      </Routes>
+    );
+  }
 
   return (
     <Routes>
+      <Route path="/setup" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />

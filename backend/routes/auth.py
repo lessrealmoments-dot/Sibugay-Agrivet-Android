@@ -75,39 +75,41 @@ async def change_password(data: dict, user=Depends(get_current_user)):
 
 @router.post("/verify-manager-pin")
 async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
-    """Verify manager/admin PIN for credit sale approval.
-    
-    Optionally pass `context` to create a notification for admin users:
-      context = { type, description, branch_id, branch_name, amount, ... }
+    """
+    Verify a PIN with optional role level requirement.
+    required_level: "manager" (default) = any manager/admin PIN
+                    "admin"              = only admin/owner PIN
     """
     from routes.notifications import create_pin_notification
 
     pin = data.get("pin", "")
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
-    
-    # Find managers/admins with matching PIN
+
+    required_level = data.get("required_level", "manager")
+    allowed_roles = ["admin"] if required_level == "admin" else ["admin", "manager"]
+
     managers = await db.users.find(
-        {"role": {"$in": ["admin", "manager"]}, "active": True},
-        {"_id": 0}
+        {"role": {"$in": allowed_roles}, "active": True}, {"_id": 0}
     ).to_list(100)
-    
+
     for mgr in managers:
         mgr_pin = mgr.get("manager_pin", "")
         if not mgr_pin:
             mgr_pin = mgr.get("password_hash", "")[-4:]
         if mgr_pin and pin == mgr_pin:
-            # If context provided, create notification for admins
             context = data.get("context")
             if context:
                 await create_pin_notification(context, mgr["id"], mgr.get("full_name", mgr["username"]))
-
             return {
                 "valid": True,
                 "manager_id": mgr["id"],
-                "manager_name": mgr.get("full_name", mgr["username"])
+                "manager_name": mgr.get("full_name", mgr["username"]),
+                "role": mgr["role"],
             }
-    
+
+    if required_level == "admin":
+        return {"valid": False, "error": "Invalid — only admin PIN accepted for this action"}
     return {"valid": False}
 
 

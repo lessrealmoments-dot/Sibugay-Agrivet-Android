@@ -227,6 +227,15 @@ export default function PurchaseOrderPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };
 
+  const reopenPO = async (po) => {
+    if (!window.confirm(`Reopen PO ${po.po_number}? This will reverse the inventory addition (stock will temporarily go negative until you receive again). Continue?`)) return;
+    try {
+      const res = await api.post(`/purchase-orders/${po.id}/reopen`);
+      toast.success(res.data.message);
+      fetchOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+  };
+
   const openPay = (po) => {
     setSelectedPO(po);
     setPayForm({ amount: po.balance || po.subtotal, reference: '' });

@@ -460,15 +460,20 @@ export default function UnifiedSalesPage() {
     // Check credit limit first
     const creditCheck = await checkCreditLimit();
     setCreditCheckResult(creditCheck);
-    
+
     if (!creditCheck.allowed || paymentType !== 'cash') {
-      // Requires manager approval
+      // Admin and managers auto-approve — no PIN needed
+      if (user?.role === 'admin' || user?.role === 'manager') {
+        await processSale(user.full_name || user.username);
+        return;
+      }
+      // Regular cashier: requires manager approval
       setPendingCreditSale({ paymentType, partialPayment, amountTendered });
       setCheckoutDialog(false);
       setCreditApprovalDialog(true);
       return;
     }
-    
+
     // Direct cash sale - proceed
     await processSale();
   };

@@ -24,7 +24,31 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Feb 2026)
 
-### Sales Price Scheme Override - COMPLETE ✅ (Feb 2026)
+### Account Section + Employee System + Admin PIN Fix - COMPLETE ✅ (Feb 2026)
+
+**Accounts Page (`/accounts`) — Admin Only**
+- Full user management table: create, edit, activate/deactivate users
+- Role badges: Admin, Branch Manager, Cashier, Inventory Clerk
+- Branch assignment per user (locked selector for non-admins)
+- **Manager PIN management**: Admin can set/clear 4-6 digit PIN for any user via `PUT /users/{id}/pin` (with audit trail)
+- Stats cards by role, search filter
+
+**Enhanced Employee Section (`/employees`)**
+- Full profile: position, employment type (regular/contractual/daily/probationary), branch, hire date, salary, daily rate
+- Government IDs: SSS, PhilHealth, Pag-IBIG, TIN
+- Emergency contact
+- **Monthly CA Limit** per employee with enforcement + rollover tracking
+- **Employee detail modal**: Profile tab + Cash Advances tab
+  - CA tab: this-month total, monthly limit, remaining, progress bar, previous-month overage note
+  - Salary deduction recording reduces `advance_balance`
+
+**Employee Advance → Accounting Integration**
+- Selecting "Employee Advance" in expense form reveals employee picker + CA summary panel
+- If `this_month_total + new_amount > monthly_ca_limit` → requires **manager PIN** (same flow as credit sale approval)
+- Saves `employee_id`, `employee_name` to expense; auto-updates `advance_balance`
+
+**Admin/Manager PIN Bypass (Sales)**
+- Credit and partial sales by admin/manager users no longer show the PIN dialog — auto-approved
 - **Scheme selector always visible**: Not locked to customer's stored scheme — can override per transaction
 - **Walk-in**: Scheme selector changes `defaultScheme` (session memory) + reprices cart immediately
 - **With customer**: Scheme selector defaults to customer's stored scheme; changing it triggers "Update Customer Scheme?" dialog

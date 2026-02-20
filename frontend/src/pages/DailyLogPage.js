@@ -164,6 +164,15 @@ export default function DailyLogPage() {
   const [adminPin, setAdminPin] = useState('');
   const [varianceNotes, setVarianceNotes] = useState('');
   const [closing_loading, setClosingLoading] = useState(false);
+  const [varianceHistory, setVarianceHistory] = useState([]);
+
+  const fetchVarianceHistory = useCallback(async () => {
+    if (!currentBranch) return;
+    try {
+      const res = await api.get('/daily-variance-history', { params: { branch_id: currentBranch.id, limit: 60 } });
+      setVarianceHistory(res.data.records || []);
+    } catch {}
+  }, [currentBranch]);
 
   function r2(n) { return Math.round((parseFloat(n) || 0) * 100) / 100; }
 

@@ -300,7 +300,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Receivables */}
         <Card className="border-slate-200">
           <CardHeader className="pb-3">
@@ -313,6 +313,55 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-500 mt-1">Total unpaid customer credit</p>
           </CardContent>
         </Card>
+
+        {/* Unpaid POs */}
+        <Card className="border-slate-200 lg:col-span-2">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                <Truck size={16} className="text-red-600" /> Unpaid Purchase Orders
+              </CardTitle>
+              {poSummary?.total_unpaid > 0 && (
+                <span className="text-sm font-bold text-red-600">{formatPHP(poSummary.total_unpaid)}</span>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!poSummary || poSummary.total_count === 0 ? (
+              <p className="text-sm text-slate-400">All POs paid up to date</p>
+            ) : (
+              <div className="space-y-2">
+                {[
+                  { items: poSummary.overdue, label: 'Overdue', cls: 'bg-red-100 text-red-700 border-red-200' },
+                  { items: poSummary.due_soon, label: 'Due This Week', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+                  { items: poSummary.later, label: 'Upcoming', cls: 'bg-slate-100 text-slate-600' },
+                ].filter(g => g.items?.length > 0).slice(0, 2).map(group => (
+                  <div key={group.label}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className={`text-[10px] ${group.cls}`}>{group.label}</Badge>
+                      <span className="text-xs text-slate-400">{group.items.length} PO{group.items.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {group.items.slice(0, 3).map(po => (
+                        <div key={po.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-blue-600">{po.po_number}</span>
+                            <span className="text-slate-500 truncate max-w-[120px]">{po.vendor}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {po.due_date && <span className={`${po.due_date < new Date().toISOString().slice(0,10) ? 'text-red-500' : 'text-slate-400'}`}>{po.due_date}</span>}
+                            <span className="font-bold text-red-600">{formatPHP(po.balance)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
         {/* Top Products */}
         <Card className="border-slate-200">

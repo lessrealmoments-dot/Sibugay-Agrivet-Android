@@ -948,6 +948,73 @@ export default function UnifiedSalesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* New Customer Dialog */}
+      <Dialog open={newCustomerDialog} onOpenChange={setNewCustomerDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Create New Customer</DialogTitle>
+            <DialogDescription>Add a new customer to use in this sale</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label>Customer Name *</Label>
+              <Input
+                data-testid="new-cust-name"
+                value={newCustForm.name}
+                onChange={e => setNewCustForm({ ...newCustForm, name: e.target.value })}
+                placeholder="Enter customer name"
+                className="h-10"
+                autoFocus
+              />
+            </div>
+            <div>
+              <Label>Phone Number</Label>
+              <Input
+                data-testid="new-cust-phone"
+                value={newCustForm.phone}
+                onChange={e => setNewCustForm({ ...newCustForm, phone: e.target.value })}
+                placeholder="09xx xxx xxxx"
+              />
+            </div>
+            <div>
+              <Label>Address</Label>
+              <Input
+                value={newCustForm.address}
+                onChange={e => setNewCustForm({ ...newCustForm, address: e.target.value })}
+                placeholder="Customer address"
+              />
+            </div>
+            <div>
+              <Label>Price Scheme</Label>
+              <Select value={newCustForm.price_scheme} onValueChange={v => setNewCustForm({ ...newCustForm, price_scheme: v })}>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {schemes.map(s => (
+                    <SelectItem key={s.key} value={s.key}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setNewCustomerDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                data-testid="save-new-customer"
+                className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                onClick={createNewCustomer}
+              >
+                <Plus size={16} className="mr-2" /> Create Customer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

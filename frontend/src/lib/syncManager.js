@@ -79,7 +79,7 @@ export async function refreshPOSCache(branchId = null) {
     const params = {};
     if (branchId) params.branch_id = branchId;
     const response = await api.get('/sync/pos-data', { params });
-    const { products = [], customers = [], price_schemes = [], inventory = [], sync_time } = response.data;
+    const { products = [], customers = [], price_schemes = [], inventory = [], branch_prices = [], sync_time } = response.data;
 
     // Step 1: Cache products
     notifyListeners({ type: 'sync_step', stepLabel: `Saving ${products.length} products...`, pct: 25 });

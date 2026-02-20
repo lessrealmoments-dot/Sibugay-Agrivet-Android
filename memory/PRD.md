@@ -24,7 +24,14 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Feb 2026)
 
-### Sales Page Bug Fixes & Enhancements - COMPLETE ✅ (Feb 2026)
+### Sales Price Scheme Override - COMPLETE ✅ (Feb 2026)
+- **Scheme selector always visible**: Not locked to customer's stored scheme — can override per transaction
+- **Walk-in**: Scheme selector changes `defaultScheme` (session memory) + reprices cart immediately
+- **With customer**: Scheme selector defaults to customer's stored scheme; changing it triggers "Update Customer Scheme?" dialog
+  - "No, this sale only" — applies override for this transaction; shows "Override" badge next to balance/limit
+  - "Yes, update customer" — persists via `PUT /api/customers/{id}` with toast confirmation
+- **Auto-repricing**: Switching scheme reprices all open cart items (Quick) and line items (Order) instantly
+- **New customer**: Created from sales page with chosen scheme → applies immediately
 - **Order mode product click fixed**: SmartProductSearch dropdown now uses `position:fixed` + `onMouseDown` to escape `overflow:hidden` table container clipping
 - **Order mode UX improved**: Shows product name as text after selection (not empty search box), X button to clear the line
 - **Pricing consistency**: Both Quick and Order modes use the same price logic (`defaultScheme` for walk-in)

@@ -151,22 +151,48 @@ export default function AccountingPage() {
     setCashOutDialog(true);
   };
 
-  const handleSaveExpense = async () => {
+  const handleSaveExpense = async (approvedBy = '') => {
     if (!expenseForm.amount || expenseForm.amount <= 0) {
       toast.error('Amount must be greater than 0');
       return;
     }
+    // Employee Advance CA limit check
+    if (expenseForm.category === 'Employee Advance' && expenseForm.employee_id && caSummary && !editMode) {
+      const limit = caSummary.monthly_ca_limit || 0;
+      if (limit > 0 && (caSummary.this_month_total + parseFloat(expenseForm.amount)) > limit && !approvedBy) {
+        setCaManagerPinDialog(true);
+        return;
+      }
+    }
     try {
+      const payload = { ...expenseForm, branch_id: currentBranch?.id };
+      if (approvedBy) payload.manager_approved_by = approvedBy;
       if (editMode && expenseForm.id) {
-        await api.put(`/expenses/${expenseForm.id}`, expenseForm);
+        await api.put(`/expenses/${expenseForm.id}`, payload);
         toast.success('Expense updated');
       } else {
-        await api.post('/expenses', { ...expenseForm, branch_id: currentBranch?.id });
+        await api.post('/expenses', payload);
         toast.success('Expense recorded');
       }
       setExpenseDialog(false);
+      setCaSummary(null);
       fetchAll();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error saving expense'); }
+  };
+
+  const handleCaManagerPin = async () => {
+    if (!caManagerPin) { toast.error('Enter manager PIN'); return; }
+    try {
+      const res = await api.post('/auth/verify-manager-pin', { pin: caManagerPin });
+      if (res.data.valid) {
+        toast.success(`Approved by ${res.data.manager_name}`);
+        setCaManagerPinDialog(false);
+        setCaManagerPin('');
+        await handleSaveExpense(res.data.manager_name);
+      } else {
+        toast.error('Invalid PIN');
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Verification failed'); }
   };
 
   const handleCreateFarmExpense = async () => {

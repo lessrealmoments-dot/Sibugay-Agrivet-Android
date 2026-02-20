@@ -29,6 +29,10 @@ export default function AccountingPage() {
   const [receivables, setReceivables] = useState([]);
   const [payables, setPayables] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [caSummary, setCaSummary] = useState(null);
+  const [caManagerPin, setCaManagerPin] = useState('');
+  const [caManagerPinDialog, setCaManagerPinDialog] = useState(false);
   
   // Dialog states
   const [expenseDialog, setExpenseDialog] = useState(false);

@@ -328,6 +328,136 @@ export default function ProductDetailPage() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* Branch Pricing — Admin/Owner only */}
+        {isAdmin && (
+          <AccordionItem value="branch-pricing" className="border border-slate-200 rounded-lg bg-white">
+            <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-branch-pricing">
+              <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+                <Tags size={18} className="text-violet-600" strokeWidth={1.5} />
+                Branch Pricing
+                <span className="text-xs font-normal text-slate-400 ml-1">
+                  ({Object.keys(branchOverrides).length} custom / {branches.length} branches)
+                </span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-5 pb-5">
+              <p className="text-xs text-slate-500 mb-3">
+                Set branch-specific prices. Branches without an override use the global default prices above.
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead className="text-xs">Branch</TableHead>
+                    {schemes.map(s => (
+                      <TableHead key={s.id} className="text-xs text-right">{s.name}</TableHead>
+                    ))}
+                    <TableHead className="text-xs text-right">Cost (Landed)</TableHead>
+                    <TableHead className="text-xs w-24">Override</TableHead>
+                    <TableHead className="w-20"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {branches.map(b => {
+                    const override = branchOverrides[b.id];
+                    const isEditing = branchPriceEdit?.branch_id === b.id;
+                    return (
+                      <TableRow key={b.id} className={override ? 'bg-violet-50/50' : ''}>
+                        <TableCell className="font-medium text-sm">
+                          {b.name}
+                          {b.id === currentBranch?.id && (
+                            <Badge className="ml-2 text-[9px] bg-emerald-100 text-emerald-700">Current</Badge>
+                          )}
+                        </TableCell>
+                        {schemes.map(s => (
+                          <TableCell key={s.id} className="text-right">
+                            {isEditing ? (
+                              <Input
+                                type="number"
+                                className="w-24 h-7 text-right text-xs"
+                                value={branchPriceEdit.prices[s.key] ?? ''}
+                                onChange={e => setBranchPriceEdit(prev => ({
+                                  ...prev,
+                                  prices: { ...prev.prices, [s.key]: parseFloat(e.target.value) || 0 }
+                                }))}
+                                data-testid={`branch-price-${b.id}-${s.key}`}
+                              />
+                            ) : (
+                              <span className={`font-mono text-sm ${override?.prices?.[s.key] !== undefined ? 'text-violet-700 font-semibold' : 'text-slate-400'}`}>
+                                {override?.prices?.[s.key] !== undefined
+                                  ? formatPHP(override.prices[s.key])
+                                  : formatPHP(product.prices?.[s.key])}
+                              </span>
+                            )}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              className="w-24 h-7 text-right text-xs"
+                              placeholder="Global"
+                              value={branchPriceEdit.cost_price ?? ''}
+                              onChange={e => setBranchPriceEdit(prev => ({
+                                ...prev, cost_price: parseFloat(e.target.value) || null
+                              }))}
+                            />
+                          ) : (
+                            <span className={`font-mono text-sm ${override?.cost_price !== undefined ? 'text-violet-700 font-semibold' : 'text-slate-400'}`}>
+                              {override?.cost_price !== undefined ? formatPHP(override.cost_price) : '—'}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {override ? (
+                            <Badge className="text-[9px] bg-violet-100 text-violet-700 border-0">Custom</Badge>
+                          ) : (
+                            <Badge className="text-[9px] bg-slate-100 text-slate-500 border-0">Default</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-7 px-2 text-xs bg-[#1A4D2E]" onClick={handleSaveBranchPrice} disabled={savingBranchPrice}>
+                                Save
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setBranchPriceEdit(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm" variant="ghost" className="h-7 px-2 text-xs text-violet-600 hover:text-violet-700"
+                                onClick={() => setBranchPriceEdit({
+                                  branch_id: b.id,
+                                  prices: { ...(override?.prices || product.prices || {}) },
+                                  cost_price: override?.cost_price ?? null,
+                                })}
+                                data-testid={`edit-branch-price-${b.id}`}
+                              >
+                                <Pencil size={11} />
+                              </Button>
+                              {override && (
+                                <Button
+                                  size="sm" variant="ghost" className="h-7 px-2 text-xs text-red-500 hover:text-red-600"
+                                  onClick={() => handleRemoveBranchOverride(b.id)}
+                                  title="Remove override — revert to global"
+                                >
+                                  <Trash2 size={11} />
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
         {/* Inventory */}
         <AccordionItem value="inventory" className="border border-slate-200 rounded-lg bg-white">
           <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-inventory">

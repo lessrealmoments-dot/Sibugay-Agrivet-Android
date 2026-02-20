@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -6,9 +6,26 @@ const AuthContext = createContext(null);
 
 export const api = axios.create({ baseURL: `${BACKEND_URL}/api` });
 
+// Branch filter state - will be set by AuthProvider
+let currentBranchFilter = null;
+let isMultiBranchUser = false;
+
+// Request interceptor: Add auth token and branch filter
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('agripos_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  
+  // Auto-append branch_id for GET requests (data filtering)
+  // Skip if already has branch_id, or if it's a "global" endpoint
+  if (config.method === 'get' && currentBranchFilter && currentBranchFilter !== 'all') {
+    const globalEndpoints = ['/branches', '/products', '/price-schemes', '/permissions', '/auth'];
+    const isGlobal = globalEndpoints.some(ep => config.url?.startsWith(ep));
+    
+    if (!isGlobal && !config.params?.branch_id) {
+      config.params = { ...config.params, branch_id: currentBranchFilter };
+    }
+  }
+  
   return config;
 });
 
@@ -28,23 +45,61 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('agripos_token'));
   const [loading, setLoading] = useState(true);
-  const [currentBranch, setCurrentBranch] = useState(null);
   const [branches, setBranches] = useState([]);
+  
+  // Branch selection: 'all' for consolidated view, or specific branch ID
+  const [selectedBranchId, setSelectedBranchId] = useState(() => {
+    return localStorage.getItem('agripos_selected_branch') || 'all';
+  });
+
+  // Determine if user can view multiple branches
+  const canViewAllBranches = useMemo(() => {
+    if (!user) return false;
+    // Admin/owner with no branch_id restriction can view all
+    return user.role === 'admin' || user.branch_id === null;
+  }, [user]);
+
+  // Get the current branch object (or null if viewing all)
+  const currentBranch = useMemo(() => {
+    if (selectedBranchId === 'all') return null;
+    return branches.find(b => b.id === selectedBranchId) || null;
+  }, [selectedBranchId, branches]);
+
+  // Effective branch ID for API calls
+  const effectiveBranchId = useMemo(() => {
+    // If user is restricted to a branch, always use that
+    if (user?.branch_id) return user.branch_id;
+    // Otherwise use selected (could be 'all' or specific ID)
+    return selectedBranchId;
+  }, [user, selectedBranchId]);
+
+  // Update the interceptor's branch filter
+  useEffect(() => {
+    currentBranchFilter = effectiveBranchId;
+    isMultiBranchUser = canViewAllBranches;
+  }, [effectiveBranchId, canViewAllBranches]);
 
   const fetchUser = useCallback(async () => {
     if (!token) { setLoading(false); return; }
     try {
       const res = await api.get('/auth/me');
       setUser(res.data);
+      
       const branchRes = await api.get('/branches');
       setBranches(branchRes.data);
-      const savedBranch = localStorage.getItem('agripos_branch');
-      if (savedBranch) {
-        const found = branchRes.data.find(b => b.id === savedBranch);
-        if (found) setCurrentBranch(found);
-        else if (branchRes.data.length) setCurrentBranch(branchRes.data[0]);
-      } else if (branchRes.data.length) {
-        setCurrentBranch(branchRes.data[0]);
+      
+      // If user is branch-restricted, force that branch
+      if (res.data.branch_id) {
+        setSelectedBranchId(res.data.branch_id);
+        localStorage.setItem('agripos_selected_branch', res.data.branch_id);
+      } else {
+        // Admin/owner: use saved preference or default to 'all'
+        const saved = localStorage.getItem('agripos_selected_branch');
+        if (saved && (saved === 'all' || branchRes.data.some(b => b.id === saved))) {
+          setSelectedBranchId(saved);
+        } else {
+          setSelectedBranchId('all');
+        }
       }
     } catch {
       localStorage.removeItem('agripos_token');
@@ -60,21 +115,35 @@ export function AuthProvider({ children }) {
     localStorage.setItem('agripos_token', res.data.token);
     setToken(res.data.token);
     setUser(res.data.user);
+    
+    // Set branch based on user's access
+    if (res.data.user.branch_id) {
+      setSelectedBranchId(res.data.user.branch_id);
+      localStorage.setItem('agripos_selected_branch', res.data.user.branch_id);
+    } else {
+      setSelectedBranchId('all');
+      localStorage.setItem('agripos_selected_branch', 'all');
+    }
+    
     return res.data;
   };
 
   const logout = () => {
     localStorage.removeItem('agripos_token');
     localStorage.removeItem('agripos_user');
-    localStorage.removeItem('agripos_branch');
+    localStorage.removeItem('agripos_selected_branch');
     setToken(null);
     setUser(null);
-    setCurrentBranch(null);
+    setBranches([]);
+    setSelectedBranchId('all');
   };
 
-  const switchBranch = (branch) => {
-    setCurrentBranch(branch);
-    localStorage.setItem('agripos_branch', branch.id);
+  const switchBranch = (branchId) => {
+    // Only allow switching if user can view all branches
+    if (!canViewAllBranches && branchId !== user?.branch_id) return;
+    
+    setSelectedBranchId(branchId);
+    localStorage.setItem('agripos_selected_branch', branchId);
   };
 
   const hasPerm = (module, action) => {
@@ -83,8 +152,30 @@ export function AuthProvider({ children }) {
     return user.permissions?.[module]?.[action] || false;
   };
 
+  // View mode helpers
+  const isConsolidatedView = selectedBranchId === 'all' && canViewAllBranches;
+  const viewingBranchName = currentBranch?.name || (isConsolidatedView ? 'All Branches' : 'Unknown');
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, currentBranch, branches, switchBranch, hasPerm, refreshUser: fetchUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      loading, 
+      login, 
+      logout, 
+      // Branch management
+      branches,
+      currentBranch,           // Current branch object (null if viewing all)
+      selectedBranchId,        // 'all' or specific branch ID
+      effectiveBranchId,       // What to use for API calls
+      canViewAllBranches,      // Whether user can switch branches
+      isConsolidatedView,      // true if viewing all branches
+      viewingBranchName,       // Display name for current view
+      switchBranch,
+      // Permissions
+      hasPerm, 
+      refreshUser: fetchUser 
+    }}>
       {children}
     </AuthContext.Provider>
   );

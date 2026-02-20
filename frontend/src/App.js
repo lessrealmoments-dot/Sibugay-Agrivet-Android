@@ -94,6 +94,7 @@ function AppRoutes() {
       <Route path="/user-permissions" element={<ProtectedRoute><UserPermissionsPage /></ProtectedRoute>} />
       <Route path="/accounts" element={<ProtectedRoute><AccountsPage /></ProtectedRoute>} />
       <Route path="/employees" element={<ProtectedRoute><EmployeesPage /></ProtectedRoute>} />
+      <Route path="/pay-supplier" element={<ProtectedRoute><PaySupplierPage /></ProtectedRoute>} />
       <Route path="/count-sheets" element={<ProtectedRoute><CountSheetsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

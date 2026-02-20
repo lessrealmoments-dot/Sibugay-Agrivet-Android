@@ -33,12 +33,118 @@ export default function ProductsPage() {
   const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', unit_of_measurement: 'Box' });
   const [repackForm, setRepackForm] = useState({ name: '', unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
 
-  // Quick Repack Generator
+  // ── Batch Quick Repack ──────────────────────────────────────────────────────
   const [qrOpen, setQrOpen] = useState(false);
-  const [qrSearch, setQrSearch] = useState('');
-  const [qrMatches, setQrMatches] = useState([]);
-  const [qrParent, setQrParent] = useState(null);
-  const [qrForm, setQrForm] = useState({ name: '', unit: 'Pack', units_per_parent: 1, add_on_cost: 0, retail_price: 0 });
+  const [qrRows, setQrRows] = useState([]);
+  const [qrGenerating, setQrGenerating] = useState(false);
+  const [qrResults, setQrResults] = useState(null); // null = not yet generated
+  const searchTimers = useRef({});
+
+  const computeCapital = (parent, unitsPerParent, addOnCost) => {
+    if (!parent) return 0;
+    return Math.round((parent.cost_price / (unitsPerParent || 1) + (parseFloat(addOnCost) || 0)) * 100) / 100;
+  };
+
+  const newRow = () => ({
+    id: Math.random().toString(36).slice(2),
+    parentSearch: '', parentMatches: [], parent: null,
+    repackName: '', unit: 'Pack',
+    unitsPerParent: 1, addOnCost: 0,
+    capital: 0,
+    retailPrice: '',
+    retailError: null, rowError: null,
+  });
+
+  const updateRow = (id, updates) =>
+    setQrRows(rows => rows.map(r => r.id === id ? { ...r, ...updates } : r));
+
+  const removeRow = (id) =>
+    setQrRows(rows => rows.filter(r => r.id !== id));
+
+  const searchParent = (rowId, query) => {
+    updateRow(rowId, { parentSearch: query, parent: null, capital: 0, rowError: null });
+    if (searchTimers.current[rowId]) clearTimeout(searchTimers.current[rowId]);
+    if (!query || query.length < 2) { updateRow(rowId, { parentMatches: [] }); return; }
+    searchTimers.current[rowId] = setTimeout(async () => {
+      try {
+        const res = await api.get('/products', { params: { search: query, is_repack: false, limit: 8 } });
+        updateRow(rowId, { parentMatches: res.data.products || [] });
+      } catch {}
+    }, 250);
+  };
+
+  const selectParent = (rowId, p) => {
+    const capital = computeCapital(p, 1, 0);
+    updateRow(rowId, {
+      parent: p, parentSearch: p.name, parentMatches: [],
+      repackName: `R ${p.name}`,
+      unitsPerParent: 1, addOnCost: 0, capital,
+      retailPrice: '', retailError: null, rowError: null,
+    });
+  };
+
+  // onBlur validation for retail price — check against capital
+  const handleRetailBlur = (rowId, value) => {
+    const row = qrRows.find(r => r.id === rowId);
+    if (!row || !value) return;
+    const retail = parseFloat(value);
+    if (isNaN(retail) || retail <= 0) return;
+    if (row.capital > 0 && retail <= row.capital) {
+      updateRow(rowId, { retailError: `Below capital ₱${row.capital.toFixed(2)}` });
+    } else {
+      updateRow(rowId, { retailError: null });
+    }
+  };
+
+  const openQrModal = () => {
+    setQrRows([newRow()]);
+    setQrResults(null);
+    setQrOpen(true);
+  };
+
+  const handleBatchGenerate = async () => {
+    // Validate all rows — mark errors, block if any invalid
+    let hasErrors = false;
+    const validated = qrRows.map(row => {
+      let rowError = null;
+      let retailError = row.retailError;
+      if (!row.parent) { rowError = 'Select a parent product'; hasErrors = true; }
+      else if (!row.repackName.trim()) { rowError = 'Repack name required'; hasErrors = true; }
+      else if (!row.retailPrice || parseFloat(row.retailPrice) <= 0) { rowError = 'Retail price required'; hasErrors = true; }
+      else if (row.capital > 0 && parseFloat(row.retailPrice) <= row.capital) {
+        retailError = `Below capital ₱${row.capital.toFixed(2)}`; rowError = 'Fix retail price'; hasErrors = true;
+      }
+      return { ...row, rowError, retailError };
+    });
+
+    if (hasErrors) {
+      setQrRows(validated);
+      toast.error('Fix the highlighted rows before generating');
+      return;
+    }
+
+    setQrGenerating(true);
+    const results = [];
+    for (const row of qrRows) {
+      try {
+        const allPrices = {};
+        schemes.forEach(s => { allPrices[s.key] = parseFloat(row.retailPrice); });
+        await api.post(`/products/${row.parent.id}/generate-repack`, {
+          name: row.repackName, unit: row.unit,
+          units_per_parent: row.unitsPerParent,
+          add_on_cost: row.addOnCost || 0,
+          cost_price: row.capital,
+          prices: allPrices,
+        });
+        results.push({ name: row.repackName, status: 'ok' });
+      } catch (e) {
+        results.push({ name: row.repackName, status: 'error', error: e.response?.data?.detail || 'Error' });
+      }
+    }
+    setQrGenerating(false);
+    setQrResults(results);
+    fetchProducts();
+  };
 
   const fetchProducts = useCallback(async () => {
     try {

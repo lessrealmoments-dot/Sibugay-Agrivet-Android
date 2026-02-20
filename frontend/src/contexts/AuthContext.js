@@ -11,6 +11,95 @@ const AuthContext = createContext(null);
 
 export const api = axios.create({ baseURL: `${BACKEND_URL}/api` });
 
+// ── Offline fallback handler ─────────────────────────────────────────────────
+async function handleOfflineRequest(config) {
+  const path = config.url || '';
+  const params = config.params || {};
+  const method = (config.method || 'get').toLowerCase();
+
+  if (method === 'get') {
+    // Products list / search
+    if (path === '/products' || path.startsWith('/products?')) {
+      let products = await getProducts();
+      const q = (params.search || '').toLowerCase();
+      if (q) products = products.filter(p =>
+        (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q));
+      if (params.is_repack !== undefined) {
+        const wantRepack = params.is_repack === true || params.is_repack === 'true';
+        products = products.filter(p => !!p.is_repack === wantRepack);
+      }
+      const skip = parseInt(params.skip) || 0;
+      const limit = parseInt(params.limit) || 50;
+      return { data: { products: products.slice(skip, skip + limit), total: products.length } };
+    }
+
+    // Product search-detail (POS search with branch prices + inventory)
+    if (path === '/products/search-detail') {
+      const q = (params.q || '').toLowerCase();
+      const branchId = params.branch_id;
+      let products = await getProducts();
+      const filtered = products.filter(p =>
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.barcode || '').includes(params.q || '')
+      ).slice(0, 10);
+
+      const enriched = await Promise.all(filtered.map(async p => {
+        const inv = await getInventoryItem(p.id);
+        const bp = branchId ? await getBranchPrice(p.id) : null;
+        const prices = bp?.prices ? { ...(p.prices || {}), ...bp.prices } : (p.prices || {});
+        const cost = bp?.cost_price ?? p.cost_price;
+        return { ...p, prices, cost_price: cost, available: inv?.quantity ?? 0, reserved: 0, coming: 0 };
+      }));
+      return { data: enriched };
+    }
+
+    // Customers
+    if (path === '/customers' || path.startsWith('/customers?')) {
+      let customers = await getCustomers();
+      const q = (params.search || '').toLowerCase();
+      if (q) customers = customers.filter(c => (c.name || '').toLowerCase().includes(q));
+      const skip = parseInt(params.skip) || 0;
+      const limit = parseInt(params.limit) || 50;
+      return { data: { customers: customers.slice(skip, skip + limit), total: customers.length } };
+    }
+
+    // Price schemes
+    if (path === '/price-schemes') {
+      const schemes = await getPriceSchemes();
+      return { data: schemes };
+    }
+
+    // Inventory
+    if (path === '/inventory' || path.startsWith('/inventory?')) {
+      const inventory = await getInventory();
+      return { data: { items: inventory, total: inventory.length } };
+    }
+  }
+
+  // Offline sale → queue to pending_sales
+  if (method === 'post' && path === '/unified-sale') {
+    const sale = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+    sale.id = sale.id || `offline-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    sale.offline = true;
+    sale.timestamp = new Date().toISOString();
+    await addPendingSale(sale);
+    return {
+      data: {
+        id: sale.id,
+        invoice_number: `OFFLINE-${sale.id.toString().slice(-8).toUpperCase()}`,
+        offline: true,
+        status: 'queued',
+        grand_total: sale.grand_total || 0,
+        message: 'Sale saved offline — will sync when connected.',
+      }
+    };
+  }
+
+  // Can't serve from cache — propagate original error
+  return Promise.reject(new Error('Network unavailable'));
+}
+
 // Branch filter state - will be set by AuthProvider
 let currentBranchFilter = null;
 let isMultiBranchUser = false;

@@ -213,18 +213,103 @@ export default function ProductDetailPage() {
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {schemes.map(s => (
-                <div key={s.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50">
-                  <p className="text-xs text-slate-500 font-medium mb-1">{s.name}</p>
-                  {editMode ? (
-                    <Input type="number" value={editForm.prices?.[s.key] || ''} onChange={e => updatePrice(s.key, e.target.value)}
-                      className="h-9 text-lg font-bold" data-testid={`edit-price-${s.key}`} />
-                  ) : (
-                    <p className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(product.prices?.[s.key])}</p>
+            {/* Capital reference bar — shown in edit mode */}
+            {editMode && (cost.moving_average > 0 || cost.last_purchase > 0) && (
+              <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 flex flex-wrap gap-5 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">Moving Avg</span>
+                  <span className="font-bold text-blue-800 font-mono">{formatPHP(cost.moving_average)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">Last PO</span>
+                  <span className="font-bold text-blue-800 font-mono">{formatPHP(cost.last_purchase)}</span>
+                  {cost.last_purchase_warning && (
+                    <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                      <AlertTriangle size={11} /> Cheaper than avg
+                    </span>
                   )}
                 </div>
-              ))}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">Manual Cost</span>
+                  <span className="font-bold text-blue-800 font-mono">{formatPHP(cost.cost_price)}</span>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {schemes.map(s => {
+                const currentPrice = parseFloat(editForm.prices?.[s.key]) || 0;
+                const refCost = cost.moving_average || cost.last_purchase || cost.cost_price || 0;
+                const markup = refCost > 0 && currentPrice > 0
+                  ? ((currentPrice - refCost) / refCost * 100)
+                  : null;
+                const isBelowCost = currentPrice > 0 && currentPrice < refCost;
+                return (
+                  <div key={s.id} className={`p-3 rounded-lg border ${editMode && isBelowCost ? 'border-red-300 bg-red-50' : 'border-slate-100 bg-slate-50'}`}>
+                    <p className="text-xs text-slate-500 font-medium mb-1">{s.name}</p>
+                    {editMode ? (
+                      <div>
+                        <Input
+                          type="number"
+                          value={editForm.prices?.[s.key] || ''}
+                          onChange={e => updatePrice(s.key, e.target.value)}
+                          className={`h-9 text-lg font-bold ${isBelowCost ? 'border-red-400 text-red-700' : ''}`}
+                          data-testid={`edit-price-${s.key}`}
+                        />
+                        {/* Reference indicators below input */}
+                        <div className="mt-2 space-y-1 border-t border-slate-200 pt-2">
+                          {cost.moving_average > 0 && (
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-slate-400">vs Moving Avg</span>
+                              <span className={`font-semibold ${currentPrice < cost.moving_average ? 'text-red-500' : 'text-slate-500'}`}>
+                                {formatPHP(cost.moving_average)}
+                              </span>
+                            </div>
+                          )}
+                          {cost.last_purchase > 0 && cost.last_purchase !== cost.moving_average && (
+                            <div className="flex justify-between text-[11px]">
+                              <span className="text-slate-400">vs Last PO</span>
+                              <span className={`font-semibold ${currentPrice < cost.last_purchase ? 'text-red-500' : 'text-slate-500'}`}>
+                                {formatPHP(cost.last_purchase)}
+                              </span>
+                            </div>
+                          )}
+                          {markup !== null && (
+                            <div className="flex justify-between text-[11px] border-t border-slate-100 pt-1">
+                              <span className="text-slate-400">Markup</span>
+                              <span className={`font-bold ${markup < 0 ? 'text-red-600' : markup < 5 ? 'text-amber-500' : 'text-emerald-600'}`}>
+                                {markup >= 0 ? '+' : ''}{markup.toFixed(1)}%
+                              </span>
+                            </div>
+                          )}
+                          {isBelowCost && (
+                            <p className="text-[10px] text-red-500 flex items-center gap-0.5 pt-0.5">
+                              <AlertTriangle size={10} /> Below capital
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(product.prices?.[s.key])}</p>
+                        {/* Show markup in view mode too, as a small hint */}
+                        {(() => {
+                          const p = parseFloat(product.prices?.[s.key]) || 0;
+                          const c = cost.moving_average || cost.cost_price || 0;
+                          if (p > 0 && c > 0) {
+                            const m = (p - c) / c * 100;
+                            return (
+                              <p className={`text-[10px] mt-0.5 font-medium ${m < 0 ? 'text-red-500' : m < 5 ? 'text-amber-500' : 'text-slate-400'}`}>
+                                {m >= 0 ? '+' : ''}{m.toFixed(1)}% markup
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {editMode && (
               <div className="grid grid-cols-3 gap-4 mt-4">

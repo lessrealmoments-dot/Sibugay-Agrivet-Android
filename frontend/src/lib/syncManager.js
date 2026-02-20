@@ -24,7 +24,8 @@ function notifyListeners(data) {
 }
 
 /**
- * Sync all pending offline sales to the server
+ * Sync all pending offline sales to the server.
+ * After the server processes them (as 'synced' or 'duplicate'), removes from IndexedDB.
  */
 export async function syncPendingSales() {
   if (syncInProgress || !navigator.onLine) return null;
@@ -40,25 +41,57 @@ export async function syncPendingSales() {
     notifyListeners({ type: 'sync_start', count: pendingSales.length });
 
     const response = await api.post('/sales/sync', { sales: pendingSales });
-    const results = response.data;
+    const data = response.data;
 
-    for (const result of results.results || []) {
+    // Server returns results array (each item has id + status)
+    // Support both response shapes for backward compat
+    const resultList = data.results || data.synced || [];
+
+    let removedCount = 0;
+    for (const result of resultList) {
       if (result.status === 'synced' || result.status === 'duplicate') {
         await removePendingSale(result.id);
+        removedCount++;
       }
     }
 
     const remaining = await getPendingSaleCount();
-    notifyListeners({ type: 'sync_complete', synced: results.total_synced || 0, remaining });
+    notifyListeners({ type: 'sync_complete', synced: removedCount, remaining });
 
     syncInProgress = false;
-    return results;
+    return { synced: removedCount, remaining };
   } catch (error) {
     console.error('Sync failed:', error);
     notifyListeners({ type: 'sync_error', error: error.message });
     syncInProgress = false;
     return null;
   }
+}
+
+/**
+ * Force-clear pending sales that are already on the server (duplicate).
+ * Used when the UI shows pending sales but they've already been processed.
+ */
+export async function clearAlreadySyncedSales() {
+  if (!navigator.onLine) return 0;
+  const pendingSales = await getPendingSales();
+  if (!pendingSales.length) return 0;
+
+  let cleared = 0;
+  for (const sale of pendingSales) {
+    // Check if this sale ID already exists on the server
+    try {
+      const res = await api.get('/invoices', { params: { search: sale.id, limit: 1 } });
+      const exists = (res.data.invoices || []).some(inv => inv.id === sale.id);
+      if (exists) {
+        await removePendingSale(sale.id);
+        cleared++;
+      }
+    } catch {
+      // If check fails, leave it for regular sync
+    }
+  }
+  return cleared;
 }
 
 /**

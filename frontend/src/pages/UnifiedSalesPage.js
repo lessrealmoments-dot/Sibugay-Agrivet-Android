@@ -63,6 +63,11 @@ export default function UnifiedSalesPage() {
   
   // Default price scheme for walk-in customers
   const [defaultScheme, setDefaultScheme] = useState('retail');
+  // Active scheme for the current transaction (may differ from customer's stored scheme)
+  const [activeScheme, setActiveScheme] = useState('retail');
+  // Scheme save dialog (when customer's scheme is overridden during a sale)
+  const [schemeSaveDialog, setSchemeSaveDialog] = useState(false);
+  const [pendingSchemeChange, setPendingSchemeChange] = useState(null);
 
   // Price save dialog
   const [priceSaveDialog, setPriceSaveDialog] = useState(false);

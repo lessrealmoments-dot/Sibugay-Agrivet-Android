@@ -197,7 +197,7 @@ export default function ProductDetailPage() {
           <p className="text-2xl font-bold text-amber-600" style={{ fontFamily: 'Manrope' }}>{inventory.reserved}</p>
         </CardContent></Card>
         <Card className="border-slate-200"><CardContent className="p-4">
-          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Cost ({cost.method})</p>
+          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Cost ({cost.capital_method || 'manual'})</p>
           <p className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(cost.moving_average)}</p>
           {cost.last_purchase_warning && <p className="text-[11px] text-amber-600 flex items-center gap-1"><AlertTriangle size={10} /> Last purchase was cheaper</p>}
         </CardContent></Card>

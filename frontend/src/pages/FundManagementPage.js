@@ -28,19 +28,22 @@ export default function FundManagementPage() {
 
   const fetchWallets = async () => {
     try {
-      const res = await api.get('/fund-wallets', { params: { branch_id: currentBranch?.id } });
+      // When viewing all branches (currentBranch is null), don't filter by branch_id
+      const params = currentBranch?.id ? { branch_id: currentBranch.id } : {};
+      const res = await api.get('/fund-wallets', { params });
       setWallets(res.data);
     } catch { toast.error('Failed to load wallets'); }
   };
 
   const fetchSafeLots = async () => {
     try {
-      const res = await api.get('/safe-lots', { params: { branch_id: currentBranch?.id } });
+      const params = currentBranch?.id ? { branch_id: currentBranch.id } : {};
+      const res = await api.get('/safe-lots', { params });
       setSafeLots(res.data);
     } catch {}
   };
 
-  useEffect(() => { if (currentBranch) { fetchWallets(); fetchSafeLots(); } }, [currentBranch]);
+  useEffect(() => { fetchWallets(); fetchSafeLots(); }, [currentBranch]);
 
   const handleCreate = async () => {
     try {

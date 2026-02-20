@@ -28,6 +28,8 @@ export default function CustomersPage() {
   
   // Transaction history
   const [historyDialog, setHistoryDialog] = useState(false);
+  const [statementDialog, setStatementDialog] = useState(false);
+  const [statementCustomer, setStatementCustomer] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);

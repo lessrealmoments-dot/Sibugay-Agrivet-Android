@@ -9,6 +9,35 @@ from utils import get_current_user, now_iso, new_id, log_movement, log_sale_item
 router = APIRouter(tags=["Sync"])
 
 
+@router.get("/sync/estimate")
+async def get_sync_estimate(user=Depends(get_current_user), branch_id: str = None):
+    """
+    Quick pre-download count estimate — no heavy data fetching.
+    Used by the frontend to show: "~2.4 MB · 3,241 products · 152 customers"
+    before the user clicks Download.
+    """
+    product_count = await db.products.count_documents({"active": True})
+
+    customer_q = {"active": True}
+    if branch_id:
+        customer_q["branch_id"] = branch_id
+    customer_count = await db.customers.count_documents(customer_q)
+
+    inventory_count = 0
+    if branch_id:
+        inventory_count = await db.inventory.count_documents({"branch_id": branch_id})
+
+    # Rough KB estimate: products ~1.5KB, customers ~0.5KB, inventory ~0.1KB
+    estimated_kb = round(product_count * 1.5 + customer_count * 0.5 + inventory_count * 0.1)
+
+    return {
+        "products": product_count,
+        "customers": customer_count,
+        "inventory": inventory_count,
+        "estimated_kb": estimated_kb,
+    }
+
+
 @router.get("/sync/pos-data")
 async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = None, last_sync: str = None):
     """Get data for offline POS sync."""

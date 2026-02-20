@@ -15,6 +15,20 @@ import { Users, Plus, Pencil, Trash2, Search, FileText, Eye, X, Printer } from '
 import { toast } from 'sonner';
 import CustomerStatementModal from '../components/CustomerStatementModal';
 
+const SALE_TYPE_LABELS = {
+  farm_expense: { label: 'Farm Expense', cls: 'bg-green-100 text-green-700' },
+  cash_advance: { label: 'Customer Cash Out', cls: 'bg-purple-100 text-purple-700' },
+  interest_charge: { label: 'Interest Charge', cls: 'bg-amber-100 text-amber-700' },
+  penalty_charge: { label: 'Penalty Charge', cls: 'bg-red-100 text-red-700' },
+  walk_in: { label: 'Sale', cls: 'bg-blue-100 text-blue-700' },
+  credit: { label: 'Credit Sale', cls: 'bg-blue-100 text-blue-700' },
+};
+const getSaleTypeBadge = (inv) => {
+  const key = inv.sale_type || inv.payment_type || 'walk_in';
+  const cfg = SALE_TYPE_LABELS[key] || { label: key, cls: 'bg-slate-100 text-slate-600' };
+  return <Badge variant="outline" className={`text-[10px] ${cfg.cls}`}>{cfg.label}</Badge>;
+};
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
   const [total, setTotal] = useState(0);

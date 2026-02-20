@@ -48,7 +48,7 @@ export default function ProductsPage() {
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
   useEffect(() => {
     api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
-    api.get('/products/categories/list').then(r => setCategories(r.data)).catch(() => {});
+    api.get('/products/categories').then(r => setCategories(r.data)).catch(() => {});
   }, []);
 
   const openCreate = (prefillName = '') => {

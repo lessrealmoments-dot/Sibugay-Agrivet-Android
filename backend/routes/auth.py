@@ -75,7 +75,13 @@ async def change_password(data: dict, user=Depends(get_current_user)):
 
 @router.post("/verify-manager-pin")
 async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
-    """Verify manager/admin PIN for credit sale approval."""
+    """Verify manager/admin PIN for credit sale approval.
+    
+    Optionally pass `context` to create a notification for admin users:
+      context = { type, description, branch_id, branch_name, amount, ... }
+    """
+    from routes.notifications import create_pin_notification
+
     pin = data.get("pin", "")
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
@@ -87,12 +93,15 @@ async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
     ).to_list(100)
     
     for mgr in managers:
-        # Check if PIN matches
         mgr_pin = mgr.get("manager_pin", "")
         if not mgr_pin:
-            # Fallback: use last 4 chars of password hash as PIN
             mgr_pin = mgr.get("password_hash", "")[-4:]
         if mgr_pin and pin == mgr_pin:
+            # If context provided, create notification for admins
+            context = data.get("context")
+            if context:
+                await create_pin_notification(context, mgr["id"], mgr.get("full_name", mgr["username"]))
+
             return {
                 "valid": True,
                 "manager_id": mgr["id"],

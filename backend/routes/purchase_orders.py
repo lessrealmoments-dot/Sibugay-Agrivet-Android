@@ -49,6 +49,16 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     payment_method = data.get("payment_method", "cash")
     branch_id = data.get("branch_id", "")
     
+    # Compute due_date from purchase_date + terms_days
+    purchase_date = data.get("purchase_date", now_iso()[:10])
+    terms_days = int(data.get("terms_days", 0))
+    if terms_days > 0:
+        from datetime import timedelta
+        pd = datetime.strptime(purchase_date, "%Y-%m-%d")
+        due_date = (pd + timedelta(days=terms_days)).strftime("%Y-%m-%d")
+    else:
+        due_date = data.get("due_date", "")
+
     po = {
         "id": new_id(),
         "po_number": data.get("po_number", "").strip() or f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
@@ -63,7 +73,9 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         } for i in items],
         "subtotal": subtotal,
         "status": data.get("status", "ordered"),
-        "purchase_date": data.get("purchase_date", now_iso()[:10]),
+        "purchase_date": purchase_date,
+        "due_date": due_date,
+        "terms_days": terms_days,
         "payment_method": payment_method,
         "payment_status": "paid" if payment_method == "cash" else "unpaid",
         "amount_paid": subtotal if payment_method == "cash" else 0,
@@ -78,9 +90,21 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     await db.purchase_orders.insert_one(po)
     del po["_id"]
     
-    # Cash payment: deduct from cashier drawer
+    # Cash payment: deduct from cashier drawer + create expense record
     if payment_method == "cash" and subtotal > 0:
         await update_cashier_wallet(branch_id, -subtotal, f"PO Payment {po['po_number']} - {data['vendor']}")
+        await db.expenses.insert_one({
+            "id": new_id(), "branch_id": branch_id,
+            "category": "Purchase Payment",
+            "description": f"PO {po['po_number']} — {data['vendor']}",
+            "notes": data.get("notes", ""),
+            "amount": subtotal, "payment_method": "Cash",
+            "reference_number": po["po_number"],
+            "date": purchase_date,
+            "po_id": po["id"], "po_number": po["po_number"], "vendor": data["vendor"],
+            "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        })
     
     # Credit: create payable
     if payment_method == "credit" and subtotal > 0:
@@ -93,7 +117,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
             "amount": subtotal,
             "paid": 0,
             "balance": subtotal,
-            "due_date": data.get("due_date", ""),
+            "due_date": due_date,
             "status": "pending",
             "created_at": now_iso(),
         })

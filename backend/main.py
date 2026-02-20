@@ -22,26 +22,12 @@ from models import DEFAULT_PERMISSIONS
 
 # Import all route modules
 from routes import (
-    auth_router,
-    branches_router,
-    users_router,
-    products_router,
-    customers_router,
-    inventory_router,
-    price_schemes_router,
-    invoices_router,
-    sales_router,
-    purchase_orders_router,
-    dashboard_router,
-    accounting_router,
-    daily_ops_router,
-    suppliers_router,
-    sync_router,
-    employees_router,
-    settings_router,
-    count_sheets_router,
-    setup_router,
-    branch_prices_router,
+    auth_router, branches_router, users_router, products_router,
+    customers_router, inventory_router, price_schemes_router, invoices_router,
+    sales_router, purchase_orders_router, dashboard_router, accounting_router,
+    daily_ops_router, suppliers_router, sync_router, employees_router,
+    settings_router, count_sheets_router, setup_router, branch_prices_router,
+    import_router,
 )
 
 # =============================================================================

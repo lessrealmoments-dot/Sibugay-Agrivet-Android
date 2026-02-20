@@ -40,28 +40,34 @@ async def get_sync_estimate(user=Depends(get_current_user), branch_id: str = Non
 
 @router.get("/sync/pos-data")
 async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = None, last_sync: str = None):
-    """Get data for offline POS sync."""
+    """Get data for offline POS sync — includes branch-specific prices."""
     query = {"active": True}
     
-    # Products with current stock
+    # Products catalog (global)
     products = await db.products.find(query, {"_id": 0}).to_list(10000)
     
-    # Customers
+    # Customers (branch-scoped)
     customers = await db.customers.find({"active": True}, {"_id": 0}).to_list(5000)
     
-    # Price schemes
+    # Price schemes (global)
     schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
     
-    # Inventory for branch
+    # Inventory quantities for branch
     inventory = []
     if branch_id:
         inventory = await db.inventory.find({"branch_id": branch_id}, {"_id": 0}).to_list(10000)
+    
+    # Branch price overrides — so cashiers sell at correct branch price offline
+    branch_prices = []
+    if branch_id:
+        branch_prices = await db.branch_prices.find({"branch_id": branch_id}, {"_id": 0}).to_list(10000)
     
     return {
         "products": products,
         "customers": customers,
         "price_schemes": schemes,
         "inventory": inventory,
+        "branch_prices": branch_prices,
         "sync_time": now_iso(),
     }
 

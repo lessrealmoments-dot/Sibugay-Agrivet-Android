@@ -279,9 +279,9 @@ export default function UnifiedSalesPage() {
 
   const triggerPriceSaveDialog = (productId, productName, oldPrice, newPrice) => {
     if (!productId || newPrice === oldPrice || newPrice <= 0) return;
-    const scheme = selectedCustomer?.price_scheme || defaultScheme;
-    const schemeName = schemes.find(s => s.key === scheme)?.name || scheme;
-    setPendingPriceChange({ product_id: productId, product_name: productName, old_price: oldPrice, new_price: newPrice, scheme_key: scheme, scheme_name: schemeName });
+    // Use activeScheme — this respects any override the user has applied this sale
+    const schemeName = schemes.find(s => s.key === activeScheme)?.name || activeScheme;
+    setPendingPriceChange({ product_id: productId, product_name: productName, old_price: oldPrice, new_price: newPrice, scheme_key: activeScheme, scheme_name: schemeName });
     setPriceSaveDialog(true);
   };
 

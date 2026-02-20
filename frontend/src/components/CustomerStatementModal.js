@@ -79,7 +79,7 @@ export default function CustomerStatementModal({ open, onOpenChange, customer })
               <p className="text-lg">{customer?.name}</p>
               {customer?.address && <p>{customer.address}</p>}
               <p className="text-sm text-slate-500 mt-1">
-                {statement.date_from ? `${statement.date_from} to ${statement.dateTo}` : `As of ${statement.statement_date}`}
+                {statement.date_from ? `${statement.date_from} to ${statement.date_to}` : `As of ${statement.statement_date}`}
               </p>
             </div>
 

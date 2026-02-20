@@ -492,40 +492,53 @@ export default function AccountingPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50">
+                    <TableHead className="text-xs uppercase tracking-wider text-slate-500">Invoice #</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider text-slate-500">Customer</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wider text-slate-500">Type</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider text-slate-500">Description</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Amount</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Paid</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Balance</TableHead>
                     <TableHead className="text-xs uppercase tracking-wider text-slate-500">Status</TableHead>
-                    <TableHead className="w-28"></TableHead>
+                    <TableHead className="w-32"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {receivables.map(r => (
-                    <TableRow key={r.id} className="table-row-hover">
-                      <TableCell className="font-medium">{r.customer_name}</TableCell>
-                      <TableCell className="text-sm text-slate-600">{r.description || '-'}</TableCell>
-                      <TableCell className="text-right">{formatPHP(r.amount)}</TableCell>
-                      <TableCell className="text-right text-emerald-600">{formatPHP(r.paid)}</TableCell>
-                      <TableCell className="text-right font-semibold text-amber-600">{formatPHP(r.balance)}</TableCell>
-                      <TableCell>
-                        <Badge className={`text-[10px] ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : r.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                          {r.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {r.status !== 'paid' && (
-                          <Button size="sm" variant="outline" onClick={() => openPayment(r, 'receivable')}>
-                            Record Payment
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {receivables.map(r => {
+                    const typeConfig = {
+                      farm_expense: { label: 'Farm', cls: 'bg-green-100 text-green-700' },
+                      cash_advance: { label: 'Cash Out', cls: 'bg-purple-100 text-purple-700' },
+                      interest_charge: { label: 'Interest', cls: 'bg-amber-100 text-amber-700' },
+                      penalty_charge: { label: 'Penalty', cls: 'bg-red-100 text-red-700' },
+                      walk_in: { label: 'Sale', cls: 'bg-blue-100 text-blue-700' },
+                    }[r.sale_type] || { label: 'Invoice', cls: 'bg-slate-100 text-slate-700' };
+                    return (
+                      <TableRow key={r.id} className="table-row-hover">
+                        <TableCell className="font-mono text-xs text-blue-600">{r.invoice_number || '—'}</TableCell>
+                        <TableCell className="font-medium">{r.customer_name}</TableCell>
+                        <TableCell><Badge className={`text-[9px] ${typeConfig.cls}`}>{typeConfig.label}</Badge></TableCell>
+                        <TableCell className="text-sm text-slate-600">{r.description || '-'}</TableCell>
+                        <TableCell className="text-right">{formatPHP(r.amount)}</TableCell>
+                        <TableCell className="text-right text-emerald-600">{formatPHP(r.paid)}</TableCell>
+                        <TableCell className="text-right font-semibold text-amber-600">{formatPHP(r.balance)}</TableCell>
+                        <TableCell>
+                          <Badge className={`text-[10px] ${r.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : r.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                            {r.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {r.status !== 'paid' && (
+                            <Button size="sm" variant="outline" onClick={() => openPayment(r, 'receivable')}>
+                              Record Payment
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                   {!receivables.length && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-400">No receivables</TableCell>
+                      <TableCell colSpan={9} className="text-center py-8 text-slate-400">No outstanding receivables</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

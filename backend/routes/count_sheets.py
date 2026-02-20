@@ -272,7 +272,11 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
             "loss_capital": None,
             "loss_retail": None,
             "notes": "",
-            "counted": False
+            "counted": False,
+            # Repack info for split counting
+            "has_repack": has_repack,
+            "units_per_parent": units_per_parent,
+            "repack_unit": repack_unit,
         })
     
     # Update count sheet

@@ -161,6 +161,7 @@ export default function DailyLogPage() {
   const [cashToSafe, setCashToSafe] = useState('');
   const [cashToDrawer, setCashToDrawer] = useState('');
   const [adminPin, setAdminPin] = useState('');
+  const [varianceNotes, setVarianceNotes] = useState('');
   const [closing_loading, setClosingLoading] = useState(false);
 
   function r2(n) { return Math.round((parseFloat(n) || 0) * 100) / 100; }

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   ClipboardList, TrendingUp, Lock, Printer, Calendar,
-  DollarSign, ArrowDown, ArrowUp, AlertTriangle, Plus
+  DollarSign, ArrowDown, ArrowUp, AlertTriangle, Plus, CheckCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 

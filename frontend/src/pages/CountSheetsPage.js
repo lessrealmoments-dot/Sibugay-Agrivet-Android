@@ -633,7 +633,7 @@ export default function CountSheetsPage() {
                                   )}
                                 </div>
                               ) : (
-                                // Simple decimal input
+                                // Simple decimal input — display updates on change, saves on blur
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -646,7 +646,7 @@ export default function CountSheetsPage() {
                                   }}
                                   onBlur={e => {
                                     if (e.target.value === '' && !item.counted) return;
-                                    handleUpdateCount(item.product_id, { actual_quantity: parseFloat(e.target.value) || 0 });
+                                    saveToServer(item.product_id, { actual_quantity: parseFloat(e.target.value) || 0 });
                                   }}
                                   data-testid={`actual-input-${item.product_id}`}
                                 />

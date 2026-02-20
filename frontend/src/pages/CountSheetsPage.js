@@ -577,14 +577,15 @@ export default function CountSheetsPage() {
                           <TableCell className="text-right">
                             {selectedSheet?.status === 'in_progress' ? (
                               hasRepack ? (
-                                // Split input: whole + loose with live total preview
-                                <div className="flex flex-col items-end gap-1">
-                                  <div className="flex items-center gap-1 justify-end">
+                                // Split input: whole + loose — save only when leaving the pair
+                                <div className="flex items-center gap-1.5 justify-end flex-nowrap">
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="text-[10px] text-slate-400 leading-none">{item.unit}</span>
                                     <Input
                                       type="number"
                                       min="0"
                                       step="1"
-                                      className="w-16 h-8 text-right font-mono"
+                                      className="w-16 h-8 text-center font-mono text-sm"
                                       placeholder={String(item.system_whole)}
                                       value={item.actual_whole ?? ''}
                                       onChange={e => {
@@ -593,19 +594,23 @@ export default function CountSheetsPage() {
                                         handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
                                       }}
                                       onBlur={e => {
+                                        // Skip save if focus is moving to the paired loose input
+                                        if (e.relatedTarget?.getAttribute('data-testid') === `actual-loose-${item.product_id}`) return;
                                         const whole = parseInt(e.target.value) || 0;
                                         const loose = item.actual_loose ?? 0;
                                         saveToServer(item.product_id, { actual_whole: whole, actual_loose: loose });
                                       }}
                                       data-testid={`actual-whole-${item.product_id}`}
                                     />
-                                    <span className="text-xs text-slate-400">{item.unit}</span>
-                                    <span className="text-slate-300">+</span>
+                                  </div>
+                                  <span className="text-slate-300 text-sm mt-3">+</span>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="text-[10px] text-slate-400 leading-none">{repackUnit}</span>
                                     <Input
                                       type="number"
                                       min="0"
                                       step="1"
-                                      className="w-16 h-8 text-right font-mono"
+                                      className="w-14 h-8 text-center font-mono text-sm"
                                       placeholder="0"
                                       value={item.actual_loose ?? ''}
                                       onChange={e => {
@@ -614,19 +619,19 @@ export default function CountSheetsPage() {
                                         handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
                                       }}
                                       onBlur={e => {
+                                        // Skip save if focus is moving to the paired whole input
+                                        if (e.relatedTarget?.getAttribute('data-testid') === `actual-whole-${item.product_id}`) return;
                                         const loose = parseInt(e.target.value) || 0;
                                         const whole = item.actual_whole ?? item.system_whole ?? 0;
                                         saveToServer(item.product_id, { actual_whole: whole, actual_loose: loose });
                                       }}
                                       data-testid={`actual-loose-${item.product_id}`}
                                     />
-                                    <span className="text-xs text-slate-400">{repackUnit}</span>
                                   </div>
-                                  {/* Live total preview */}
                                   {item.counted && item.actual_quantity !== undefined && (
-                                    <div className="text-[11px] text-emerald-600 font-medium">
-                                      = {item.actual_quantity?.toFixed(4)} {item.unit}
-                                    </div>
+                                    <span className="text-[10px] text-emerald-600 font-medium whitespace-nowrap mt-3">
+                                      ={item.actual_quantity?.toFixed(2)}
+                                    </span>
                                   )}
                                 </div>
                               ) : (

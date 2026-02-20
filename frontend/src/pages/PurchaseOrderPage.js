@@ -594,7 +594,7 @@ export default function PurchaseOrderPage() {
                               <X size={12} />
                             </Button>
                           )}
-                          {po.payment_status !== 'paid' && po.payment_method === 'credit' && (
+                          {po.payment_status !== 'paid' && po.payment_method === 'credit' && po.status !== 'cancelled' && (
                             <Button size="sm" variant="outline" onClick={() => openPay(po)} data-testid={`pay-po-${po.id}`}>
                               <DollarSign size={12} className="mr-1" /> Pay
                             </Button>

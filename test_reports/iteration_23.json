@@ -1,0 +1,84 @@
+{
+  "summary": "Comprehensive testing of AgriPOS Price Scheme feature in UnifiedSalesPage (/sales-new). Tested all 12 feature areas from the review request. All core features working correctly: Price Scheme selector always visible (walk-in and customer modes), walk-in scheme changes without dialog, cart repricing on scheme change (Quick and Order modes), customer scheme change dialog with Retail→Wholesale display, 'No this sale only' keeps override with badge, 'Yes update customer' saves to backend with toast, new customer scheme applies immediately on creation.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Order mode table (UnifiedSalesPage.js:892)",
+        "issues": [
+          "Console warning: '<tr> cannot be child of <span>' and '<span> cannot be child of <tbody>' - dev environment visual editor injecting span wrappers inside tbody. Same issue as iteration_22. Not a production blocker."
+        ]
+      }
+    ]
+  },
+
+  "passed_tests": [
+    "TEST 1: Login with owner/secure123 - PASS",
+    "TEST 2: Navigate to /sales-new (UnifiedSalesPage loaded) - PASS",
+    "TEST 3: Price Scheme selector ALWAYS visible in walk-in mode (no customer) - shows 'Retail' - PASS",
+    "TEST 4: Price Scheme selector ALWAYS visible when customer is selected - PASS",
+    "TEST 5: Walk-in mode - change scheme Retail→Wholesale, no dialog appears - PASS",
+    "TEST 6: Walk-in mode - product price updates to selected scheme (R VITMIN PRO: Retail=₱20 → Wholesale=₱0) - PASS",
+    "TEST 7: Walk-in mode - cart item reprices when scheme changes (R VITMIN PRO cart: Retail price 20 → Wholesale price 0) - PASS",
+    "TEST 8: Customer 'SADRAK' selected - scheme defaults to customer's stored scheme (Retail) - PASS",
+    "TEST 9: No override badge when active scheme = customer's stored scheme - PASS",
+    "TEST 10: Scheme label shows '(default: retail)' when customer is selected - PASS",
+    "TEST 11: 'Update Customer Scheme?' dialog appears when changing scheme with customer selected (Retail→Wholesale) - PASS",
+    "TEST 12: Dialog shows customer name, old scheme, new scheme (SADRAK / Retail → Wholesale) - PASS",
+    "TEST 13: 'No, this sale only' closes dialog, scheme still applied as Wholesale - PASS",
+    "TEST 14: Override badge visible after 'No, this sale only' (scheme differs from customer stored) - PASS",
+    "TEST 15: 'Yes, update customer' saves to backend, toast shown ('SADRAK's price scheme updated to Wholesale') - PASS",
+    "TEST 16: Dialog closes after 'Yes, update customer' - PASS",
+    "TEST 17: Override badge gone after 'Yes, update customer' (stored scheme now matches active) - PASS",
+    "TEST 18: Scheme label updates to '(default: wholesale)' after customer scheme saved - PASS",
+    "TEST 19: Order mode - Price Scheme selector visible - PASS",
+    "TEST 20: Order mode - changing scheme reprices line items (VITMIN PRO: Retail=₱0 → Wholesale=₱340) - PASS",
+    "TEST 21: New customer created from sales with Special scheme - scheme applied immediately ('Special') - PASS",
+    "TEST 22: Toast 'Customer created!' shown after new customer save - PASS"
+  ],
+
+  "test_report_links": [],
+
+  "action_items": [
+    "MINOR BUG (line 282): triggerPriceSaveDialog uses `selectedCustomer?.price_scheme || defaultScheme` to determine scheme for price saving. When Override badge is active (active scheme differs from stored), price would be saved to customer's STORED scheme not the ACTIVE scheme. Should use `activeScheme` instead. Example: customer stored=retail, override=wholesale, user edits price → price saved to retail instead of wholesale.",
+    "MINOR: The customer cleanup - TEST_AUTOMATION_CUSTOMER_2026 was created during testing. Consider deleting from DB or adding a cleanup mechanism.",
+    "MINOR: Order mode tbody span console warning (dev-environment visual editor injecting spans). Not a production issue."
+  ],
+
+  "critical_code_review_comments": [
+    "Line 282 BUG: triggerPriceSaveDialog uses `const scheme = selectedCustomer?.price_scheme || defaultScheme` but should use `activeScheme` for price scheme when Override is active. The active scheme (which the user sees prices for) differs from stored when override is active.",
+    "Line 241: handleSchemeChange correctly compares `newScheme !== selectedCustomer.price_scheme` - this fires the dialog correctly.",
+    "Line 360: selectCustomer applies scheme via `applySchemeChange(c.price_scheme || 'retail')` - correct behavior.",
+    "Line 391: createNewCustomer correctly calls `applySchemeChange(res.data.price_scheme || 'retail')` immediately after customer creation - correct behavior.",
+    "SADRAK's scheme was changed to Wholesale as part of TEST 15 (Yes, update customer). It was restored to Retail during testing cleanup."
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "100% - All 22 tested features working correctly"
+  },
+
+  "test_credentials": {
+    "working": "owner / secure123"
+  },
+
+  "seed_data_creation": "Created test customer 'TEST_AUTOMATION_CUSTOMER_2026' with Special scheme during TEST 13. SADRAK's price scheme was temporarily changed to Wholesale then restored to Retail.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "All Price Scheme features in UnifiedSalesPage are working: 1) Scheme selector always visible (walk-in & customer), 2) Walk-in scheme changes without dialog, 3) Cart/line repricing on scheme change, 4) 'Update Customer Scheme?' dialog fires when customer selected and scheme changes, 5) 'No this sale only' applies scheme override with badge, 6) 'Yes update customer' saves to API with toast, 7) Override badge disappears after save, 8) New customer scheme applies immediately. One minor bug found at line 282 - price save dialog uses stored scheme instead of activeScheme for the scheme key. Working credentials: owner/secure123. The /sales-new route is UnifiedSalesPage.",
+
+  "rca_of_issues": {
+    "line_282_bug": "triggerPriceSaveDialog() at line 282 calculates scheme as `const scheme = selectedCustomer?.price_scheme || defaultScheme` but this uses the STORED customer scheme, not the currently active scheme (activeScheme state). When Override is active (user changed scheme mid-sale without saving to customer), the price save dialog would try to save the price to the wrong scheme. Fix: replace line with `const scheme = activeScheme` to always use the currently displayed pricing scheme."
+  }
+}

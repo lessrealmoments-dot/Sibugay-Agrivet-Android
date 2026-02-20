@@ -59,30 +59,30 @@ async def get_product_capital_price(product: dict, source: str, branch_id: str) 
         return float(product.get("cost_price", 0))
     
     elif source == "last_purchase":
-        # Find most recent PO with this product
         po = await db.purchase_orders.find_one(
-            {
-                "items.product_id": product["id"],
-                "status": {"$in": ["received", "partial"]}
-            },
+            {"items.product_id": product["id"], "status": {"$in": ["received", "partial"]}},
             {"items": 1},
             sort=[("created_at", -1)]
         )
         if po:
             for item in po.get("items", []):
                 if item.get("product_id") == product["id"]:
-                    return float(item.get("cost", item.get("unit_cost", product.get("cost_price", 0))))
+                    # PO items use unit_price; fall back to cost/unit_cost for old records
+                    price = item.get("unit_price") or item.get("cost") or item.get("unit_cost")
+                    return float(price or product.get("cost_price", 0))
         return float(product.get("cost_price", 0))
     
     elif source == "moving_average":
-        # Calculate weighted average from all POs
         pipeline = [
             {"$match": {"items.product_id": product["id"], "status": {"$in": ["received", "partial"]}}},
             {"$unwind": "$items"},
             {"$match": {"items.product_id": product["id"]}},
             {"$group": {
                 "_id": None,
-                "total_cost": {"$sum": {"$multiply": ["$items.quantity", "$items.cost"]}},
+                "total_cost": {"$sum": {"$multiply": [
+                    "$items.quantity",
+                    {"$ifNull": ["$items.unit_price", {"$ifNull": ["$items.cost", 0]}]}
+                ]}},
                 "total_qty": {"$sum": "$items.quantity"}
             }}
         ]

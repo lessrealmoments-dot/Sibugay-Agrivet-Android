@@ -27,6 +27,8 @@ import SettingsPage from './pages/SettingsPage';
 import UserPermissionsPage from './pages/UserPermissionsPage';
 import CountSheetsPage from './pages/CountSheetsPage';
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex items-center justify-center h-screen bg-[#F5F5F0]"><div className="text-slate-400 text-sm">Loading...</div></div>;

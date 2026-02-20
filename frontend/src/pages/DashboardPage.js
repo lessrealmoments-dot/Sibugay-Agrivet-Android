@@ -55,6 +55,7 @@ export default function DashboardPage() {
   const { isConsolidatedView, switchBranch, selectedBranchId } = useAuth();
   const [stats, setStats] = useState(null);
   const [branchSummary, setBranchSummary] = useState(null);
+  const [poSummary, setPoSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,17 +63,21 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         if (isConsolidatedView) {
-          // Fetch consolidated summary for owner view
-          const [summaryRes, statsRes] = await Promise.all([
+          const [summaryRes, statsRes, poRes] = await Promise.all([
             api.get('/dashboard/branch-summary'),
-            api.get('/dashboard/stats')  // This returns aggregated when no branch_id
+            api.get('/dashboard/stats'),
+            api.get('/purchase-orders/unpaid-summary').catch(() => ({ data: null })),
           ]);
           setBranchSummary(summaryRes.data);
           setStats(statsRes.data);
+          setPoSummary(poRes.data);
         } else {
-          // Fetch single branch stats (branch_id auto-added by interceptor)
-          const res = await api.get('/dashboard/stats');
+          const [res, poRes] = await Promise.all([
+            api.get('/dashboard/stats'),
+            api.get('/purchase-orders/unpaid-summary').catch(() => ({ data: null })),
+          ]);
           setStats(res.data);
+          setPoSummary(poRes.data);
           setBranchSummary(null);
         }
       } catch (err) {

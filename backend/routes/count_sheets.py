@@ -236,8 +236,11 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
         # Get capital price based on source
         capital_price = await get_product_capital_price(product, capital_source, branch_id)
         
-        # Get retail price (first price scheme or manual)
-        retail_price = float(product.get("prices", {}).get("retail", product.get("cost_price", 0) * 1.3))
+        # Get retail price — use branch override if set, else fall back to global
+        retail_price = await get_product_price(product, branch_id, "retail")
+        if retail_price == 0:
+            # If no retail price set at all, estimate from cost
+            retail_price = float(product.get("cost_price", 0) * 1.3)
         
         # Check if this parent has a repack (for split display)
         repack = await db.products.find_one(

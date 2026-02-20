@@ -1272,6 +1272,47 @@ export default function UnifiedSalesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Scheme Save Dialog */}
+      <Dialog open={schemeSaveDialog} onOpenChange={(o) => { if (!o) { setSchemeSaveDialog(false); setPendingSchemeChange(null); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Update Customer Scheme?</DialogTitle>
+            <DialogDescription>
+              Save this price scheme for {selectedCustomer?.name}?
+            </DialogDescription>
+          </DialogHeader>
+          {pendingSchemeChange && (
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-lg p-3 space-y-1">
+                <p className="font-medium text-sm">{selectedCustomer?.name}</p>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-slate-400 capitalize">{schemes.find(s => s.key === selectedCustomer?.price_scheme)?.name || selectedCustomer?.price_scheme}</span>
+                  <span className="text-slate-300">→</span>
+                  <span className="text-[#1A4D2E] font-bold capitalize">
+                    {schemes.find(s => s.key === pendingSchemeChange.newScheme)?.name || pendingSchemeChange.newScheme}
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600">
+                Save <strong>{schemes.find(s => s.key === pendingSchemeChange.newScheme)?.name || pendingSchemeChange.newScheme}</strong> as {selectedCustomer?.name}'s default price scheme?
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setSchemeSaveDialog(false); setPendingSchemeChange(null); }}>
+                  No, this sale only
+                </Button>
+                <Button
+                  data-testid="save-scheme-to-customer"
+                  className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                  onClick={saveSchemeToCustomer}
+                >
+                  Yes, update customer
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -71,6 +71,7 @@ export default function ProductDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchDetail(); api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, [fetchDetail]);
+  useEffect(() => { fetchBranchOverrides(); }, [fetchBranchOverrides]);
 
   const handleSave = async () => {
     try {

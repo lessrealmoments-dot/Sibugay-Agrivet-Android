@@ -627,8 +627,10 @@ async def get_customer_open_invoices(customer_id: str, user=Depends(get_current_
 
     def sort_key(inv):
         t = inv.get("sale_type", "regular")
-        if t == "penalty_charge": return (0, inv.get("order_date", ""))
-        if t == "interest_charge": return (1, inv.get("order_date", ""))
+        if t == "penalty_charge":
+            return (0, inv.get("order_date", ""))
+        if t == "interest_charge":
+            return (1, inv.get("order_date", ""))
         return (2, inv.get("order_date", ""))
 
     invoices.sort(key=sort_key)

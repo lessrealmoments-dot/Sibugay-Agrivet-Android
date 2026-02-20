@@ -219,7 +219,7 @@ async def get_expense_categories(user=Depends(get_current_user)):
 
 @router.post("/expenses")
 async def create_expense(data: dict, user=Depends(get_current_user)):
-    """Create a new expense."""
+    """Create a new expense. If category is 'Employee Advance', updates employee's advance balance."""
     check_perm(user, "accounting", "create_expense")
     expense = {
         "id": new_id(),
@@ -231,17 +231,30 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
         "payment_method": data.get("payment_method", "Cash"),
         "reference_number": data.get("reference_number", ""),
         "date": data.get("date", now_iso()[:10]),
+        # Employee CA fields
+        "employee_id": data.get("employee_id", ""),
+        "employee_name": data.get("employee_name", ""),
+        "manager_approved_by": data.get("manager_approved_by", ""),
         "created_by": user["id"],
         "created_by_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),
     }
     await db.expenses.insert_one(expense)
-    
+
+    # If Employee Advance: update employee's advance balance
+    if expense["category"] == "Employee Advance" and expense.get("employee_id"):
+        await db.employees.update_one(
+            {"id": expense["employee_id"]},
+            {"$inc": {"advance_balance": expense["amount"]}, "$set": {"updated_at": now_iso()}}
+        )
+
     ref_text = f"Expense: {data.get('category', 'General')} - {data.get('description', '')}"
     if data.get("reference_number"):
         ref_text += f" (Ref: {data['reference_number']})"
+    if data.get("employee_name"):
+        ref_text += f" [{data['employee_name']}]"
     await update_cashier_wallet(data["branch_id"], -float(data["amount"]), ref_text)
-    
+
     del expense["_id"]
     return expense
 

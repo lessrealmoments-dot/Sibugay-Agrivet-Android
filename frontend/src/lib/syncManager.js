@@ -102,9 +102,19 @@ export async function refreshPOSCache(branchId = null) {
     notifyListeners({ type: 'sync_step', stepLabel: `Saving ${customers.length} customers...`, pct: 75 });
     await cacheCustomers(customers);
 
-    // Step 4: Cache price schemes + finalise
-    notifyListeners({ type: 'sync_step', stepLabel: 'Saving price schemes...', pct: 92 });
+    // Step 4: Cache price schemes + branch prices
+    notifyListeners({ type: 'sync_step', stepLabel: 'Saving price schemes & branch prices...', pct: 92 });
     await cachePriceSchemes(price_schemes);
+    if (branch_prices && branch_prices.length) {
+      // Normalize to product_id key
+      const bpForDB = branch_prices.map(bp => ({
+        product_id: bp.product_id,
+        prices: bp.prices || {},
+        cost_price: bp.cost_price ?? null,
+        branch_id: bp.branch_id,
+      }));
+      await cacheBranchPrices(bpForDB);
+    }
 
     const timestamp = sync_time || new Date().toISOString();
     await setMeta('last_sync', timestamp);

@@ -702,6 +702,14 @@ export default function ProductsPage() {
                               placeholder="0.00"
                               onChange={e => updateRow(row.id, { retailPrice: e.target.value, retailError: null })}
                               onBlur={e => handleRetailBlur(row.id, e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Tab' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  const next = newRow();
+                                  pendingFocusRowId.current = next.id;
+                                  setQrRows(rows => [...rows, next]);
+                                }
+                              }}
                               className={`h-8 text-sm text-right font-mono font-bold ${
                                 (hasErr && !row.retailPrice) || row.retailError ? 'border-red-400 bg-red-50/50 text-red-700' : ''
                               }`}

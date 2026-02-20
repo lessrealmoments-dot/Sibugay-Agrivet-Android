@@ -24,7 +24,9 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Feb 2026)
 
-### QuickBooks-style Receive Payments - COMPLETE ✅ (Feb 2026)
+### Bug Fixes (Feb 2026) ✅
+- **Employee Advance Expense**: Fixed `KeyError` when `branch_id` is missing (admin in "All Branches" view). Backend now returns clear 400 error. Frontend validates branch is selected before saving.
+- **Interest Rate UI**: Clarified distinction between penalty rate (one-time %) and customer interest rate (stored in profile). Generate Interest button now disabled with explanation when customer has no interest rate set.
 
 **What was built (QB-style payment page revamp):**
 - **5 new backend endpoints** — all were previously missing:

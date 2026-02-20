@@ -548,7 +548,7 @@ async def list_receivables(user=Depends(get_current_user), branch_id: Optional[s
 
     TYPE_LABELS = {
         "farm_expense": "Farm Expense",
-        "cash_advance": "Customer Cash Out",
+        "cash_advance": "Customer Cash Out",  # Never "Cash Advance" — reserved for employee advances
         "interest_charge": "Interest Charge",
         "penalty_charge": "Penalty Charge",
         "walk_in": "Credit Sale",

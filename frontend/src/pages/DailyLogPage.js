@@ -258,10 +258,6 @@ export default function DailyLogPage() {
   };
 
   const isClosed = closing?.status === 'closed';
-  // Expected cash = cashier wallet balance (real-time, updated by all transactions)
-  const expectedCash = report ? round2(report.cashier_wallet_balance || 0) : 0;
-
-  function round2(n) { return Math.round((n || 0) * 100) / 100; }
 
   return (
     <div className="space-y-5 animate-fadeIn" data-testid="daily-log-page">

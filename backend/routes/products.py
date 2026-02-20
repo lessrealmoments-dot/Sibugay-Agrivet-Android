@@ -88,6 +88,36 @@ async def get_product(product_id: str, user=Depends(get_current_user)):
     return product
 
 
+@router.get("/{product_id}/detail")
+async def get_product_detail(product_id: str, user=Depends(get_current_user)):
+    """Get comprehensive product details including repacks, inventory, and vendors."""
+    product = await db.products.find_one({"id": product_id, "active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Get repacks
+    repacks = await db.products.find({"parent_id": product_id, "active": True}, {"_id": 0}).to_list(100)
+    
+    # Get inventory across all branches
+    inventory = await db.inventory.find({"product_id": product_id}, {"_id": 0}).to_list(100)
+    
+    # Get vendors
+    vendors = await db.product_vendors.find({"product_id": product_id}, {"_id": 0}).to_list(50)
+    
+    # Get parent product if this is a repack
+    parent = None
+    if product.get("parent_id"):
+        parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
+    
+    return {
+        "product": product,
+        "repacks": repacks,
+        "inventory": inventory,
+        "vendors": vendors,
+        "parent": parent
+    }
+
+
 @router.put("/{product_id}")
 async def update_product(product_id: str, data: dict, user=Depends(get_current_user)):
     """Update product details."""

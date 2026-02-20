@@ -147,8 +147,20 @@ export async function getMeta(key) {
   });
 }
 
-// Inventory cache (keyed by product_id — one branch at a time)
-export async function cacheInventory(items) {
+// Branch price overrides cache (keyed by product_id — one branch at a time)
+export async function cacheBranchPrices(items) {
+  await clearAndPut(STORES.BRANCH_PRICES, items);
+}
+
+export async function getBranchPrice(productId) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.BRANCH_PRICES, 'readonly');
+    const request = tx.objectStore(STORES.BRANCH_PRICES).get(productId);
+    request.onsuccess = () => { db.close(); resolve(request.result || null); };
+    request.onerror = () => { db.close(); reject(request.error); };
+  });
+}
   await clearAndPut(STORES.INVENTORY, items);
 }
 

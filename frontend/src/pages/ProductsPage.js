@@ -252,7 +252,7 @@ export default function ProductsPage() {
           <Button variant="outline" size="sm" onClick={() => navigate('/import')} data-testid="go-to-import-btn">
             <Upload size={15} className="mr-1.5" /> Import
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setQrOpen(true); setQrParent(null); setQrSearch(''); setQrForm({ name: '', unit: 'Pack', units_per_parent: 1, add_on_cost: 0, retail_price: 0 }); }} data-testid="quick-repack-btn">
+          <Button variant="outline" size="sm" onClick={openQrModal} data-testid="quick-repack-btn">
             <Zap size={15} className="mr-1.5 text-amber-500" /> Quick Repack
           </Button>
           <Button data-testid="create-product-btn" onClick={() => openCreate()} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">

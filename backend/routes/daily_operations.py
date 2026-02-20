@@ -3,14 +3,184 @@ Daily operations routes: Sales log, daily reports, close accounts.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from config import db
 from utils import get_current_user, check_perm, now_iso, new_id, get_branch_filter, apply_branch_filter
 
 router = APIRouter(tags=["Daily Operations"])
 
 
-@router.get("/daily-log")
+@router.get("/daily-close-preview")
+async def get_daily_close_preview(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    date: Optional[str] = None
+):
+    """
+    Full Z-Report preview data for day close.
+    Returns all sections needed for the cash reconciliation form.
+    """
+    check_perm(user, "reports", "view")
+    if not date:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if not branch_id:
+        branch_id = user.get("branch_id")
+
+    month_prefix = date[:7]  # "YYYY-MM"
+
+    # ── Starting float: yesterday's cash_to_drawer ───────────────────────────
+    yesterday = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_close = await db.daily_closings.find_one(
+        {"date": yesterday, "branch_id": branch_id}, {"_id": 0}
+    )
+    if prev_close:
+        starting_float = float(prev_close.get("cash_to_drawer", 0))
+    else:
+        wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+        )
+        starting_float = float(wallet["balance"]) if wallet else 0.0
+
+    # ── Safe balance (informational) ─────────────────────────────────────────
+    safe = await db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+    )
+    safe_balance = 0.0
+    if safe:
+        lots = await db.safe_lots.find(
+            {"wallet_id": safe["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).to_list(500)
+        safe_balance = sum(l["remaining_amount"] for l in lots)
+
+    # ── Cash sales today (payment_type=cash, by category) ────────────────────
+    cash_sales_pipeline = [
+        {"$match": {"branch_id": branch_id, "date": date, "payment_method": "cash"}},
+        {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}, "qty": {"$sum": "$quantity"}}},
+        {"$sort": {"total": -1}},
+    ]
+    cat_results = await db.sales_log.aggregate(cash_sales_pipeline).to_list(100)
+    cash_sales_by_category = [
+        {"category": r["_id"] or "General", "total": round(r["total"], 2), "qty": r["qty"]}
+        for r in cat_results
+    ]
+    total_cash_sales = round(sum(c["total"] for c in cash_sales_by_category), 2)
+
+    # Also include partial-sale cash received today (amount_paid from partial invoices)
+    partial_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "payment_type": "partial", "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "amount_paid": 1, "grand_total": 1}
+    ).to_list(500)
+    total_partial_cash = round(sum(float(inv.get("amount_paid", 0)) for inv in partial_invoices), 2)
+
+    # ── New credit sales today (info only — not cash) ─────────────────────────
+    credit_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "payment_type": "credit", "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "balance": 1}
+    ).to_list(500)
+    credit_sales_today = [
+        {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],
+         "grand_total": inv.get("grand_total", 0), "balance": inv.get("balance", 0)}
+        for inv in credit_invoices
+    ]
+    total_credit_today = round(sum(c["grand_total"] for c in credit_sales_today), 2)
+
+    # ── AR payments received today (on OLDER invoices) ───────────────────────
+    ar_pipeline = [
+        {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"},
+                    "order_date": {"$ne": date}}},
+        {"$unwind": "$payments"},
+        {"$match": {"payments.date": date}},
+        {"$project": {
+            "_id": 0,
+            "customer_name": 1, "invoice_number": 1,
+            "balance": 1,  # current balance after all payments
+            "payment": "$payments"
+        }}
+    ]
+    ar_payments_raw = await db.invoices.aggregate(ar_pipeline).to_list(500)
+    ar_payments = []
+    for p in ar_payments_raw:
+        pmt = p.get("payment", {})
+        amount = float(pmt.get("amount", 0))
+        interest_paid = float(pmt.get("applied_to_interest", 0))
+        penalty_paid = float(pmt.get("applied_to_penalty", 0))
+        principal_paid = float(pmt.get("applied_to_principal", amount - interest_paid - penalty_paid))
+        current_bal = float(p.get("balance", 0))
+        ar_payments.append({
+            "customer_name": p.get("customer_name", ""),
+            "invoice_number": p.get("invoice_number", ""),
+            "balance_before": round(current_bal + amount, 2),  # approx before this payment
+            "interest_paid": round(interest_paid, 2),
+            "penalty_paid": round(penalty_paid, 2),
+            "principal_paid": round(principal_paid, 2),
+            "amount_paid": round(amount, 2),
+            "remaining_balance": round(current_bal, 2),
+        })
+    total_ar_received = round(sum(p["amount_paid"] for p in ar_payments), 2)
+
+    # ── Expenses today (all = cash outflows) ─────────────────────────────────
+    expenses_raw = await db.expenses.find(
+        {"branch_id": branch_id, "date": date}, {"_id": 0}
+    ).to_list(500)
+
+    # For Employee Advance expenses: add monthly running total
+    expenses = []
+    for e in expenses_raw:
+        exp = dict(e)
+        if e.get("category") == "Employee Advance" and e.get("employee_id"):
+            month_total_pipeline = [
+                {"$match": {
+                    "branch_id": branch_id,
+                    "category": "Employee Advance",
+                    "employee_id": e["employee_id"],
+                    "date": {"$gte": f"{month_prefix}-01", "$lte": f"{month_prefix}-31"}
+                }},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]
+            month_res = await db.expenses.aggregate(month_total_pipeline).to_list(1)
+            exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+        expenses.append(exp)
+
+    total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
+
+    # ── Expected counter ──────────────────────────────────────────────────────
+    # starting_float + all_cash_received_today - cash_expenses
+    total_cash_in = total_cash_sales + total_partial_cash + total_ar_received
+    expected_counter = round(starting_float + total_cash_in - total_expenses, 2)
+
+    return {
+        "date": date,
+        "branch_id": branch_id,
+        # Opening
+        "starting_float": starting_float,
+        "safe_balance": round(safe_balance, 2),
+        # Cash inflows
+        "cash_sales_by_category": cash_sales_by_category,
+        "total_cash_sales": total_cash_sales,
+        "partial_invoices": [
+            {"customer_name": inv["customer_name"],
+             "invoice_number": inv["invoice_number"],
+             "amount_paid": round(float(inv.get("amount_paid", 0)), 2),
+             "grand_total": round(float(inv.get("grand_total", 0)), 2)}
+            for inv in partial_invoices
+        ],
+        "total_partial_cash": total_partial_cash,
+        # AR collections
+        "ar_payments": ar_payments,
+        "total_ar_received": total_ar_received,
+        # Credit today (info)
+        "credit_sales_today": credit_sales_today,
+        "total_credit_today": total_credit_today,
+        # Expenses
+        "expenses": expenses,
+        "total_expenses": total_expenses,
+        # Summary
+        "total_cash_in": round(total_cash_in, 2),
+        "expected_counter": expected_counter,
+    }
+
 async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str] = None, date: Optional[str] = None):
     """Get sequential sales log for a date."""
     if not date:

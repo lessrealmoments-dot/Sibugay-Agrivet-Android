@@ -137,6 +137,13 @@ export default function BranchesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Branch Capital Quick-Fill Wizard */}
+      <BranchCapitalWizard
+        open={!!wizardBranch}
+        onClose={() => setWizardBranch(null)}
+        targetBranch={wizardBranch}
+      />
     </div>
   );
 }

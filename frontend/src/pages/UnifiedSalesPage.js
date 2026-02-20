@@ -61,6 +61,9 @@ export default function UnifiedSalesPage() {
   const [freight, setFreight] = useState(0);
   const [overallDiscount, setOverallDiscount] = useState(0);
   
+  // Default price scheme for walk-in customers
+  const [defaultScheme, setDefaultScheme] = useState('retail');
+  
   // Checkout
   const [checkoutDialog, setCheckoutDialog] = useState(false);
   const [paymentType, setPaymentType] = useState('cash'); // cash, partial, credit

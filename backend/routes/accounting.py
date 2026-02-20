@@ -916,3 +916,74 @@ async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] =
         "total_interest": round(total_interest, 2),
         "interest_preview": interest_preview,
     }
+
+
+# ==================== CUSTOMER STATEMENT OF ACCOUNT ====================
+@router.get("/customers/{customer_id}/statement")
+async def get_customer_statement(
+    customer_id: str,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=Depends(get_current_user)
+):
+    """Full statement of account for a customer: all charges, payments, with running balance."""
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    query = {"customer_id": customer_id}
+    if date_from:
+        query["order_date"] = {"$gte": date_from}
+    if date_to:
+        query.setdefault("order_date", {})["$lte"] = date_to
+
+    invoices = await db.invoices.find(query, {"_id": 0}).sort("order_date", 1).to_list(1000)
+
+    TYPE_LABELS = {
+        "interest_charge": "Interest Charge",
+        "penalty_charge": "Penalty Charge",
+        "farm_expense": "Farm Expense",
+        "cash_advance": "Cash Advance",
+    }
+
+    transactions = []
+    for inv in invoices:
+        label = TYPE_LABELS.get(inv.get("sale_type", ""), "Invoice")
+        items_preview = ", ".join(
+            i.get("product_name", "Service") for i in inv.get("items", [])[:2]
+        )
+        transactions.append({
+            "date": inv.get("order_date", ""),
+            "reference": inv.get("invoice_number", ""),
+            "description": f"{label}: {items_preview}" if items_preview else label,
+            "debit": inv.get("grand_total", 0),
+            "credit": 0,
+            "type": "charge",
+            "invoice_id": inv["id"],
+        })
+        for p in inv.get("payments", []):
+            transactions.append({
+                "date": p.get("date", ""),
+                "reference": inv.get("invoice_number", ""),
+                "description": f"Payment — {p.get('method', 'Cash')}{' Ref:' + p['reference'] if p.get('reference') else ''}",
+                "debit": 0,
+                "credit": p.get("amount", 0),
+                "type": "payment",
+            })
+
+    transactions.sort(key=lambda x: (x.get("date", ""), 0 if x["type"] == "charge" else 1))
+
+    running = 0.0
+    for t in transactions:
+        running = round(running + t["debit"] - t["credit"], 2)
+        t["running_balance"] = running
+
+    return {
+        "customer": customer,
+        "transactions": transactions,
+        "closing_balance": running,
+        "statement_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "date_from": date_from,
+        "date_to": date_to,
+    }
+

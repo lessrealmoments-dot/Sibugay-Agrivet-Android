@@ -33,6 +33,13 @@ export default function ProductsPage() {
   const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', unit_of_measurement: 'Box' });
   const [repackForm, setRepackForm] = useState({ name: '', unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
 
+  // Quick Repack Generator
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrSearch, setQrSearch] = useState('');
+  const [qrMatches, setQrMatches] = useState([]);
+  const [qrParent, setQrParent] = useState(null);
+  const [qrForm, setQrForm] = useState({ name: '', unit: 'Pack', units_per_parent: 1, add_on_cost: 0, retail_price: 0 });
+
   const fetchProducts = useCallback(async () => {
     try {
       const params = { skip: page * LIMIT, limit: LIMIT };

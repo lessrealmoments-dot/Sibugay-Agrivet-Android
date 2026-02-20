@@ -9,72 +9,74 @@ The user wants to build a comprehensive Accounting, Inventory, and Point of Sale
 - **Complex Pricing & Credit:** Support multiple pricing tiers and implement a sophisticated interest/penalty system for credit sales with per-customer grace periods and rates.
 - **Sales & Purchasing Workflow:** Unified, Excel-style interfaces for Sales and Purchasing.
 - **Daily Operations:** Sequential sales log, daily profit report, and a Close Accounts feature.
-- **Granular Permissions:** An Inflow-Cloud-style system to control user access to specific features (e.g., view, edit, add) on a per-module basis.
-- **Editable Invoices:** Ability to edit posted invoices (with an audit trail) similar to QuickBooks functionality.
-- **Inventory Count Sheets:** A feature to perform physical inventory counts, record variances, and adjust system stock with a full audit trail.
+- **Granular Permissions:** An Inflow-Cloud-style system to control user access to specific features.
+- **Editable Invoices & POs:** Ability to edit posted invoices (with an audit trail) and a Reopen PO feature to reverse inventory, allow edits, and re-receive stock.
+- **Inventory Count Sheets:** A feature to perform physical inventory counts and record variances.
+- **Employee & User Management:** Create and manage user accounts with PINs. Track employee cash advances with manager approval workflows.
+- **Supplier Payments:** A dedicated section to pay suppliers for Purchase Orders.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application now features a Company Setup Wizard that runs on a fresh instance. It allows the user to configure company details, the first branch, an admin user, and crucial opening balances for funds (Cashier, Safe, Bank). This wizard seeds the initial data, replacing the previous hardcoded startup data. The database can be reset on demand. Several critical bugs in the Product Management and Sales/POS modules have also been resolved, restoring functionality for viewing product details, adding products with correct pricing, creating customers from the sales page, and using product search in order mode.
+The application has undergone significant development, focusing on core accounting and inventory workflows. Key additions include:
+- **Accounts & Employee Management:** New sections to create/manage user accounts (with PINs) and employees. The employee module tracks cash advances with a manager PIN override system for exceeding limits.
+- **Receivables & Payments Overhaul:** The Receive Payments page was completely rebuilt in a QuickBooks style. The backend now correctly handles payment allocation (Penalty -> Interest -> Principal) and supports multi-invoice payments. A full system audit fixed a critical bug where the receivables page was pointing to an obsolete database collection; it now correctly sources data from the  collection.
+- **Purchase Order & Payables Workflow:** A new Pay Supplier page was created. The PO system was enhanced with due dates and a Reopen PO feature that reverses inventory to allow edits. PO payments now check fund balances and automatically generate an expense record. An Unpaid POs widget was added to the dashboard.
+- **Sales Page Enhancements:** The sales page now has editable quantity/price fields, a unified price scheme selector, and logic to save a chosen scheme to a customer's profile.
+- **Bug Fixes:** A race condition in the Inventory Count Sheet was resolved by changing the save trigger to . Additionally, several labeling inconsistencies (e.g., Customer Cash Out vs. Employee Cash Advance) were standardized across the UI.
 
 **Last working item**:
--   **Last item agent was working:** Fixing a batch of user-reported bugs on the Sales/POS and Product pages. This included:
-    1.  Inability to select a price scheme for walk-in customers.
-    2.  Missing functionality to create a new customer from the sales page.
-    3.  Broken product search and no price scheme selection in Order mode.
-    4.  Failed to load error when viewing a product's detail page.
+-   **Last item agent was working:** The agent was fixing a bug in the Inventory Count Sheet where rapid typing in the quantity fields caused a race condition, leading to incorrect data being saved. The user suggested changing the save trigger from every keystroke to  (when the user clicks or tabs away from the input field). The agent implemented this change.
 -   **Status:** USER VERIFICATION PENDING
--   **Agent Testing Done:** Y (The  was called and successfully verified that all three sales-related bugs were fixed.)
--   **Which testing method agent to use?** Manual testing by the user is the next step. If new issues arise, use  for regression.
+-   **Agent Testing Done:** Y (Agent confirmed the new  logic works as expected and explained it to the user).
+-   **Which testing method agent to use?** Manual testing by the user. The user should navigate to the Count Sheets page, edit quantities for a product, and confirm the data saves correctly only after leaving the input field.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-The following issues were reported by the user and have been addressed by the agent. They are pending user verification.
-
--   **Issue 1:** Pricing in Quick Sale mode was not using selectable price schemes. (PRIORITY: P0)
--   **Issue 2:** Users could not create a new customer from the . (PRIORITY: P0)
--   **Issue 3:** In Order mode on the sales page, product search was broken and price schemes couldn't be selected. (PRIORITY: P0)
--   **Issue 4:** Product detail page was failing to load data. (PRIORITY: P0)
+-   **Issue 1:** The  save mechanism in the Inventory Count Sheet needs to be verified by the user. (PRIORITY: P0)
 
 **Issues Detail:**
--   **Issue 1, 2, 3, 4:**
-    -   **Attempted fixes:**
-        -   **Product Detail (Issue 4):** The agent identified that the  endpoint was missing. It was added, along with associated , , and  endpoints. The backend response for  was then updated to match the structure expected by the frontend.
-        -   **Sales Page Bugs (Issues 1, 2, 3):**
-            -   The product search issue was traced to incorrect route ordering in . The  route was being captured by the generic  route. This was fixed by moving the specific route before the dynamic one.
-            -   A Create New Customer feature was added to , including a new dialog and state management.
-            -   A price scheme selector was added for walk-in customers, along with the logic to apply the selected scheme's price.
+-   **Issue 1:**
+    -   **Attempted fixes:** The initial implementation used a debounced API call on every keystroke, which led to a race condition where an earlier API call could overwrite a later one. The fix was to remove the debouncing and trigger a single API call via the  event when the user finishes editing a field.
+    -   **Next debug checklist:** User to test the Count Sheet page. If the issue persists, check the browser's network tab to ensure only one API call is made per field exit. Review  to confirm the  event handler is correctly implemented on the quantity inputs.
+    -   **Why fix this issue and what will be achieved with the fix?** This fix ensures data integrity during inventory counts, preventing user frustration and incorrect stock levels.
     -   **Status:** USER VERIFICATION PENDING
     -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Both have been tested by the agent. Awaiting user confirmation.
+    -   **Should Test frontend/backend/both after fix?** Frontend.
+    -   **Blocked on other issue:** None.
 
 **In progress Task List**:
 None.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P1: Robust Offline Sync:** Based on the user's vision document, implement a more resilient offline sync mechanism. This includes creating a Transaction Envelope (with , ), building an idempotent sync endpoint to handle transaction pushes, and designing a conflict resolution strategy.
+    - **P1: Owner Notifications:** Implement a notification system to alert the owner when a manager uses their PIN to approve an employee cash advance that exceeds the monthly limit.
 - **Future Tasks:**
-    - **P2: Comprehensive Audit System:** Create an audit trail for all sensitive operations (e.g., price overrides, inventory adjustments, invoice edits). This involves creating an  collection and an audit viewer for the owner.
-    - **P2: Real-Time Owner Visibility Enhancements:** Implement a background job to pre-compute daily summaries for faster dashboard loading. Explore adding WebSockets for live updates on the owner dashboard.
-    - **P2: User Roles & Presets:** Enhance the permissions system to allow creating, customizing, and assigning reusable roles (e.g., Branch Manager).
-    - **P2: Advanced Reporting:** Develop advanced reporting dashboards (e.g., monthly/quarterly summaries, sales incentive tracking).
-    - **P2: Bulk Data Import/Export:** Add functionality to import/export data (like products) via CSV files.
+    - **P2: Robust Offline Sync:** Implement a resilient offline sync mechanism using a Transaction Envelope and an idempotent sync endpoint.
+    - **P2: Comprehensive Audit System:** Create an audit trail for all sensitive operations (e.g., price overrides, inventory adjustments, invoice edits).
+    - **P2: Real-Time Owner Visibility Enhancements:** Implement background jobs and/or WebSockets for live updates on the owner dashboard.
+    - **P2: User Roles & Presets:** Enhance the permissions system to allow creating and assigning reusable roles.
+    - **P2: Advanced Reporting:** Develop advanced reporting dashboards.
+    - **P2: Bulk Data Import/Export:** Add functionality to import/export data via CSV files.
 
 **Completed work in this session**
-- **Database Reset Functionality (DONE):** Implemented a function to clear all collections in the database upon user request.
-- **Company Setup Wizard (DONE):**
-    - Created a full-stack multi-step wizard () that runs when the application is uninitialized.
-    - The wizard collects company info, first branch details, an admin user, and opening balances for Cashier, Safe, and Bank accounts.
-    - The backend startup logic was modified to prevent auto-seeding data, making the wizard the sole source of initial data.
-- **Fund Management Bug Fix (DONE):** Resolved an issue where the Fund Management page appeared empty in the All Branches view by correcting the data-fetching logic.
-- **Product & Sales Page Bug Fixes (DONE - Pending User Verification):**
-    - Fixed multiple critical bugs preventing users from viewing product details, adding products with correct pricing, creating customers, and using the product search in the sales Order mode. This involved backend route fixes and significant frontend updates to .
-- **Full Regression Test (DONE):** Ran the testing agent, which passed with 100% and applied minor fixes to  and .
+- **Accounts & Employee Management (DONE):** Created dedicated pages for user/employee management, including PINs, cash advance tracking, and manager overrides.
+- **Receive Payments Rework (DONE):** Rebuilt the page with a QuickBooks-style UI and correct backend logic for interest/penalty/principal allocation.
+- **Purchase Order & Payables Workflow (DONE):** Created a Pay Supplier page, added a Reopen PO feature with inventory reversal, and an Unpaid POs dashboard widget.
+- **System-Wide Audit & Bug Fixes (DONE):**
+    - Fixed the broken receivables page by rerouting it to the correct  collection.
+    - Standardized Customer Cash Out labeling across five different UI components to avoid confusion.
+    - Resolved a race condition in Inventory Count Sheets by changing the save trigger to .
+    - Fixed bugs related to Employee Advance creation and interest rate generation.
+- **Password Reset (DONE):** Reset the  account password to .
+- **Comprehensive Testing Checklist (DONE):** Created a  file.
 
 **Earlier issues found/mentioned but not fixed**
-None.
+-   **Issue 1: Owner Notifications for CA Overrides:**
+    -   **Debug checklist:** The manager PIN approval flow is in  () and  (). A notification system needs to be designed. This could be a new collection in MongoDB (e.g., ) and a widget on the owner's dashboard.
+    -   **Why to solve this issue and what will be achieved with this?** This provides the business owner with critical oversight on financial exceptions, fulfilling a user requirement.
+    -   **Should Test frontend/backend/both after fix:** Both.
+    -   **Is recurring issue?** N
 
 **Known issue recurrence from previous fork**
 None.
@@ -83,76 +85,92 @@ None.
 
 
 **Key Technical Concepts**
-- **Backend:** FastAPI, Python, Modular Architecture (APIRouter)
-- **Frontend:** React, JavaScript, Vite, 
-- **Database:** MongoDB
-- **State Management:** React Context API
-- **API Communication:** Axios
-- **Application State:** The application now has a defined uninitialized vs. initialized state, managed via a backend status check.
+- **Frontend:** React,  event handling for efficient API calls, complex state management, conditional UI rendering based on user roles and data state.
+- **Backend:** FastAPI, implementing complex business logic for accounting (receivables, payables, interest), inventory control (reversal transactions), and user permissions (PINs).
+- **Database:** MongoDB. The  collection is now the single source of truth for all customer receivables.
+- **Debugging:** Performed a comprehensive system audit by cross-referencing frontend API calls with backend routes and database schemas to identify and fix data flow inconsistencies.
 
 **key DB schema**
-- No new collections were added. The  process now populates , , , , and .
+-   **invoices**: Now the canonical source for all receivables. Contains fields like  ('credit_sale', 'farm_service', 'cash_advance'), , , .
+-   **purchase_orders**: Enhanced with . Its  is critical for inventory and payables logic.
+-   **users**: Now includes a  field for manager accounts.
+-   **employees**: Includes  to track employee debts.
+-   **expenses**: For Employee Advance category, it now stores an .
 
 **changes in tech stack**
 None.
 
 **All files of reference**
 - **New Files:**
-  - : Backend API for the company setup wizard.
-  - : Frontend UI for the multi-step setup wizard.
-  - : Component to handle routing based on setup completion status.
-- **Heavily Modified Files:**
-  - : Startup event logic was changed to conditionally seed data, deferring to the setup wizard.
-  - : Reordered routes to fix a search bug and added several new endpoints for fetching product details.
-  - : Updated to use  to direct users to the setup wizard if necessary.
-  - : Major changes to add a customer creation dialog, a price scheme selector, and associated state logic.
-  - : Corrected API call from  to the newly created endpoint.
+  - 
+  - 
+  - 
+  - 
+- **Heavily Modified:**
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
 
 **Areas that need refactoring**:
-- : This file is becoming large and complex. The manual reordering of routes to fix a bug indicates it's fragile. It could be broken down further for better maintainability.
+-    has become a monolith, handling receivables, payments, expenses, interest generation, and statements. It should be considered for splitting into smaller, domain-focused files (e.g., , ).
 
 **key api endpoints**
 - **New:**
-  - : Checks if the initial company setup has been completed.
-  - : Submits the data from the setup wizard to initialize the application.
-  - : Fetches comprehensive details for a single product.
-  - : Placeholder for inventory movements.
-  - : Placeholder for related purchase/sales orders.
-- **Fixed:**
-  - : Now works correctly after fixing backend route order.
+  - , 
+  - 
+  -  (New logic)
+  - 
+  - 
+  - 
+  - 
+  - 
+- **Fixed/Overhauled:**
+  - , : Rerouted to use the  collection.
+  - : Now supports  for cash advances.
 
 **Critical Info for New Agent**
-- **Setup Wizard is Mandatory:** On a fresh instance, the application is not usable until the setup wizard at  is completed. The old default users (/) no longer exist by default.
-- **Database Reset:** The user requested and the agent implemented a way to clear the database. Be aware that this will trigger the setup wizard flow again.
-- **Session Expiration:** The previous agent noted that frequent backend restarts (due to hot-reloading on file changes) were causing JWTs to be invalidated, leading to rapid session expirations during development. This is expected behavior but something to be mindful of.
+- **Receivables Source of Truth:** The  collection is obsolete. All logic for customer debts (credit sales, farm services, cash outs) now uses the  collection. This was a major fix resulting from a full system audit.
+- **Inventory Count Sheet UX:** Saving quantities is now triggered by the  event (when a user clicks or tabs away from an input) to prevent race conditions from rapid typing.
+- **Admin vs. Manager PIN:** The 'owner' role is the admin and bypasses PIN checks for price overrides. Other user roles with manager permissions may require a PIN for actions like approving excess employee cash advances.
+- **Credentials:** The password for the  user has been reset to .
 
 **documents and test reports created in this job**
+- 
+-  (multiple reports created by the testing agent)
 -  (updated)
-- 
-- 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** On retail, Quick it seems that pricing is based on capital and we can't choose the price scheme we need. ALSO CAN'T CREATE CUSTOMER ON SALES. ON Order section, product search is not viewing, also no price scheme to choose from. - **Status:** COMPLETED (Fixes implemented, pending user verification).
-2.  **User:** New product error. NEW PRODUCT ADD PRICING. Price Schemes not Visible. PRODUCT VIEWING (FAILED TO LOAD). - **Status:** COMPLETED (Fixes implemented, pending user verification).
-3.  **User:** clear all the data inside tight now, I wanna start fresh and check bugs. reset everything. Also when setting up a company maybe the system should ask me how much currently in the cashier, how much is in the safe, etc. - **Status:** COMPLETED (Data was cleared and setup wizard was implemented).
-4.  **User:** runn full regression. - **Status:** COMPLETED.
+10. **User:** Why does my customer's 10,000 cash out show as cash advance? This is confusing. **Status:** COMPLETED. Agent identified 5 different places with inconsistent labels and standardized them all to Customer Cash Out.
+9. **User:** On the count sheet, I entered 10 cases + 12 packs, but it shows as 10.04 instead of 10.5. **Status:** IN PROGRESS (at the time). Agent started investigating.
+8. **Agent:** Found the math was using incorrect data ( not ) due to a race condition. **Status:** IN PROGRESS.
+7. **Agent:** Explained the race condition and proposed a fix using a debounced API call. **Status:** IN PROGRESS.
+6. **Agent:** Implemented the debounced fix. **Status:** IN PROGRESS.
+5. **User:** How about you call the API only when I move to a different section or press tab/click outside? **Status:** PENDING. This is a new request/suggestion for improvement.
+4. **Agent:** Agreed  is a cleaner approach and proceeded to implement it. **Status:** IN PROGRESS.
+3. **Agent:** Replaced the debounce logic with  event handlers. **Status:** IN PROGRESS.
+2. **Agent:** Removed now-unused code from the previous debounce implementation. **Status:** IN PROGRESS.
+1. **Agent:** Confirmed the  implementation is complete and explained the new, more robust workflow to the user. **Status:** COMPLETED (Pending user verification).
 
 **Project Health Check:**
--   **Broken:** None. All known issues have been addressed.
+-   **Broken:** None. All user-reported issues have been addressed.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
 None.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. Used twice in this session: once for a full regression test and once to verify the final batch of bug fixes.
+-   **Testing agent used after significant changes:** YES. The agent used  multiple times to validate large feature sets like the accounting/employee updates and the receivables rework, achieving 100% pass rates.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None
+-   **Test files created:** None.
 -   **Known regressions:** None.
 
 **Credentials to test flow:**
-Credentials are now created dynamically via the Setup Wizard. The last used credentials during testing were:
 -   **Admin:**  / 
 
 **What agent forgot to execute**
-The agent addressed all user requests from the session, including the initial regression test, the data reset, the new setup wizard feature, and the final batch of bug fixes. Nothing was forgotten.</analysis>
+-   The user requested that the owner receive a notification when a manager approves an employee cash advance that exceeds the limit. The agent implemented the manager PIN approval workflow but did not implement the subsequent notification for the owner.</analysis>

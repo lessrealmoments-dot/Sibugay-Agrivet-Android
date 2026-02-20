@@ -162,8 +162,11 @@ async def get_product(product_id: str, user=Depends(get_current_user)):
 
 
 @router.get("/{product_id}/detail")
-async def get_product_detail(product_id: str, user=Depends(get_current_user)):
-    """Get comprehensive product details including repacks, inventory, and vendors."""
+async def get_product_detail(product_id: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    """Get comprehensive product details including repacks, inventory, and vendors.
+    
+    When branch_id is provided, coming/reserved counts are filtered to that branch.
+    """
     product = await db.products.find_one({"id": product_id, "active": True}, {"_id": 0})
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -178,23 +181,29 @@ async def get_product_detail(product_id: str, user=Depends(get_current_user)):
     on_hand = {}
     total_qty = 0
     for inv in inv_records:
-        branch_id = inv.get("branch_id")
+        bid = inv.get("branch_id")
         qty = inv.get("quantity", 0)
-        on_hand[branch_id] = qty
+        on_hand[bid] = qty
         total_qty += qty
     
-    # Calculate coming (from purchase orders)
+    # Calculate coming (from purchase orders) — scoped to branch when provided
+    coming_match = {"status": {"$in": ["ordered", "draft"]}}
+    if branch_id:
+        coming_match["branch_id"] = branch_id
     coming_r = await db.purchase_orders.aggregate([
-        {"$match": {"status": {"$in": ["ordered", "draft"]}}},
+        {"$match": coming_match},
         {"$unwind": "$items"},
         {"$match": {"items.product_id": product_id}},
         {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
     ]).to_list(1)
     coming = coming_r[0]["t"] if coming_r else 0
     
-    # Calculate reserved (from pending sales)
+    # Calculate reserved (from pending sales) — scoped to branch when provided
+    reserved_match = {"status": "reserved"}
+    if branch_id:
+        reserved_match["branch_id"] = branch_id
     reserved_r = await db.sales.aggregate([
-        {"$match": {"status": "reserved"}},
+        {"$match": reserved_match},
         {"$unwind": "$items"},
         {"$match": {"items.product_id": product_id}},
         {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}

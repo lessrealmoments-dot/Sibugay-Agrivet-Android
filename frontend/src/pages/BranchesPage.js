@@ -6,14 +6,16 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Building2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Building2, Plus, Pencil, Trash2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { BranchCapitalWizard } from '../components/BranchCapitalWizard';
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', address: '', phone: '' });
+  const [wizardBranch, setWizardBranch] = useState(null); // branch to run quick-fill for
 
   const fetchBranches = async () => {
     try {

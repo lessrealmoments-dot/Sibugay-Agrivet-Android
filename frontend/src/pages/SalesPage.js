@@ -51,8 +51,19 @@ export default function SalesPage() {
 
   const viewSale = async (sale) => {
     try {
-      const res = await api.get(`/sales/${sale.id}`);
-      setSelectedSale(res.data);
+      // Use invoices endpoint
+      const res = await api.get(`/invoices/${sale.id}`);
+      const inv = res.data;
+      // Map to sale format
+      setSelectedSale({
+        ...inv,
+        sale_number: inv.invoice_number,
+        total: inv.grand_total,
+        subtotal: inv.subtotal,
+        discount: inv.overall_discount || 0,
+        items: inv.items || [],
+        status: inv.status === 'voided' ? 'voided' : 'completed',
+      });
       setDetailDialog(true);
     } catch { toast.error('Failed to load sale details'); }
   };

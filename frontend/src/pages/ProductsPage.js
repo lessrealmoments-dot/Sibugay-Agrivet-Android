@@ -39,6 +39,15 @@ export default function ProductsPage() {
   const [qrGenerating, setQrGenerating] = useState(false);
   const [qrResults, setQrResults] = useState(null); // null = not yet generated
   const searchTimers = useRef({});
+  const pendingFocusRowId = useRef(null);
+
+  // After a new row is added via Tab, focus its parent search input
+  useEffect(() => {
+    if (pendingFocusRowId.current) {
+      const input = document.querySelector(`[data-testid="qr-parent-${pendingFocusRowId.current}"]`);
+      if (input) { input.focus(); pendingFocusRowId.current = null; }
+    }
+  }, [qrRows]);
 
   const computeCapital = (parent, unitsPerParent, addOnCost) => {
     if (!parent) return 0;

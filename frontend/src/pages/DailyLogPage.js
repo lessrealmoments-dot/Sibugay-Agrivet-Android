@@ -226,6 +226,7 @@ export default function DailyLogPage() {
         cash_to_safe: cashToSafeNum,
         cash_to_drawer: cashToDrawerNum,
         admin_pin: adminPin,
+        variance_notes: varianceNotes,
       });
       toast.success('Day closed successfully!');
       setClosing(res.data);

@@ -230,10 +230,42 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
     if product.get("parent_id"):
         parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
     
-    # Get cost info
+    # Get cost info — compute moving average and last purchase from PO history
+    moving_avg_r = await db.purchase_orders.aggregate([
+        {"$match": {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}},
+        {"$unwind": "$items"},
+        {"$match": {"items.product_id": product_id}},
+        {"$group": {
+            "_id": None,
+            "total_cost": {"$sum": {"$multiply": ["$items.quantity", "$items.cost"]}},
+            "total_qty": {"$sum": "$items.quantity"}
+        }}
+    ]).to_list(1)
+    if moving_avg_r and moving_avg_r[0]["total_qty"] > 0:
+        moving_average = round(moving_avg_r[0]["total_cost"] / moving_avg_r[0]["total_qty"], 2)
+    else:
+        moving_average = float(product.get("cost_price", 0))
+
+    last_po = await db.purchase_orders.find_one(
+        {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}},
+        {"items": 1},
+        sort=[("created_at", -1)]
+    )
+    last_purchase = 0.0
+    if last_po:
+        for item in last_po.get("items", []):
+            if item.get("product_id") == product_id:
+                last_purchase = float(item.get("cost", item.get("unit_cost", 0)))
+                break
+
+    capital_method = product.get("capital_method", "manual")
     cost = {
-        "cost_price": product.get("cost_price", 0),
-        "capital_method": product.get("capital_method", "manual"),
+        "cost_price": float(product.get("cost_price", 0)),
+        "capital_method": capital_method,
+        "method": capital_method,          # alias used by frontend quick-stats card
+        "moving_average": moving_average,
+        "last_purchase": last_purchase,
+        "last_purchase_warning": last_purchase > 0 and moving_average > 0 and last_purchase < moving_average,
     }
     
     return {

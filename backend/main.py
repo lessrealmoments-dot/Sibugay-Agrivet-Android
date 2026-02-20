@@ -39,6 +39,7 @@ from routes import (
     sync_router,
     employees_router,
     settings_router,
+    count_sheets_router,
 )
 
 # =============================================================================

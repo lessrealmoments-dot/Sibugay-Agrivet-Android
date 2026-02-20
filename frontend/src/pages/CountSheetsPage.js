@@ -121,9 +121,6 @@ export default function CountSheetsPage() {
     setLoading(false);
   };
 
-  // Debounce timers per product
-  const debounceTimers = useRef({});
-
   // Update local state immediately for real-time display
   const updateLocalState = (productId, updateData) => {
     setSelectedSheet(prev => {

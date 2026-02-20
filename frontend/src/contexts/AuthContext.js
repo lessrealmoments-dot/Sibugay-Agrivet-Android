@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import {
+  getProducts, getCustomers, getPriceSchemes,
+  getInventory, getInventoryItem, getBranchPrice, addPendingSale,
+} from '../lib/offlineDB';
+import { onSyncUpdate } from '../lib/syncManager';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const AuthContext = createContext(null);

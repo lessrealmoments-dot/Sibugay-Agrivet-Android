@@ -35,12 +35,13 @@ export default function ProductDetailPage() {
 
   const fetchDetail = useCallback(async () => {
     try {
-      const res = await api.get(`/products/${id}/detail`);
+      const params = currentBranch ? { branch_id: currentBranch.id } : {};
+      const res = await api.get(`/products/${id}/detail`, { params });
       setDetail(res.data);
       setEditForm(res.data.product);
     } catch (e) { toast.error('Failed to load product'); navigate('/products'); }
     setLoading(false);
-  }, [id, navigate]);
+  }, [id, navigate, currentBranch]);
 
   const fetchMovements = useCallback(async () => {
     try { const res = await api.get(`/products/${id}/movements`, { params: { limit: 50 } }); setMovements(res.data.movements); }

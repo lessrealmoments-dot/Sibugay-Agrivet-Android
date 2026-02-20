@@ -81,7 +81,7 @@ async def create_product(data: dict, user=Depends(get_current_user)):
 
 @router.get("/search-detail")
 async def search_products_detail(q: str = "", branch_id: Optional[str] = None, user=Depends(get_current_user)):
-    """Enhanced product search with stock information."""
+    """Enhanced product search with stock information and branch-specific prices."""
     if not q or len(q) < 1:
         return []
     
@@ -94,6 +94,18 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
     results = []
     
     for p in products:
+        # Apply branch price overrides to the prices dict
+        if branch_id:
+            override = await db.branch_prices.find_one(
+                {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
+            )
+            if override and override.get("prices"):
+                # Merge: branch prices take precedence over global prices
+                merged_prices = {**(p.get("prices") or {}), **override["prices"]}
+                p = {**p, "prices": merged_prices}
+                if override.get("cost_price") is not None:
+                    p = {**p, "cost_price": override["cost_price"]}
+
         # For repacks: calculate available from parent stock
         if p.get("is_repack") and p.get("parent_id"):
             parent = await db.products.find_one({"id": p["parent_id"]}, {"_id": 0})

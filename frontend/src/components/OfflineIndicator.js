@@ -168,10 +168,31 @@ export default function OfflineIndicator() {
   }, []);
 
   const handleManualSync = async () => {
-    if (pendingCount > 0 && navigator.onLine) {
-      await syncPendingSales();
-      await loadCacheInfo();
-      toast.success('Pending sales synced');
+    if (!navigator.onLine) {
+      toast.error('Cannot sync — device is offline');
+      return;
+    }
+    if (pendingCount > 0) {
+      try {
+        const result = await syncPendingSales();
+        await loadCacheInfo();
+        if (result && result.synced > 0) {
+          toast.success(`${result.synced} sale(s) synced`);
+        } else if (result && result.remaining > 0) {
+          // Some couldn't sync — try force-clearing already-synced ones
+          const cleared = await clearAlreadySyncedSales();
+          await loadCacheInfo();
+          if (cleared > 0) {
+            toast.success(`Cleared ${cleared} already-synced sale(s) from queue`);
+          } else {
+            toast.error('Sync failed — check your connection and try again');
+          }
+        } else {
+          toast.success('Queue cleared');
+        }
+      } catch {
+        toast.error('Sync failed');
+      }
     }
   };
 

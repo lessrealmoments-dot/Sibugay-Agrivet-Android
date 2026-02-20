@@ -212,7 +212,64 @@ export default function UnifiedSalesPage() {
   };
 
   const removeFromCart = (productId) => setCart(cart.filter(c => c.product_id !== productId));
-  const clearCart = () => { setCart([]); setLines([{ ...EMPTY_LINE }]); setSelectedCustomer(null); setCustSearch(''); };
+  const clearCart = () => {
+    setCart([]); setLines([{ ...EMPTY_LINE }]); setSelectedCustomer(null); setCustSearch('');
+    setActiveScheme(defaultScheme); // Restore walk-in default when clearing
+  };
+
+  // Apply a scheme change: updates activeScheme and reprices all open cart/line items
+  const applySchemeChange = (scheme) => {
+    setActiveScheme(scheme);
+    if (allProducts.length > 0) {
+      setCart(prev => prev.map(c => {
+        const product = allProducts.find(p => p.id === c.product_id);
+        if (!product) return c;
+        const newPrice = product.prices?.[scheme] ?? 0;
+        return { ...c, price: newPrice, original_price: newPrice, total: newPrice * c.quantity };
+      }));
+      setLines(prev => prev.map(l => {
+        if (!l.product_id) return l;
+        const product = allProducts.find(p => p.id === l.product_id);
+        if (!product) return l;
+        const newRate = product.prices?.[scheme] ?? 0;
+        return { ...l, rate: newRate, original_rate: newRate };
+      }));
+    }
+  };
+
+  // Handle scheme selection: unified for both walk-in and customer
+  const handleSchemeChange = (newScheme) => {
+    if (!selectedCustomer) {
+      // Walk-in: update both active and default (session preference)
+      setDefaultScheme(newScheme);
+      applySchemeChange(newScheme);
+    } else if (newScheme !== selectedCustomer.price_scheme) {
+      // Customer with a different scheme: apply for this sale, ask to save
+      applySchemeChange(newScheme);
+      setPendingSchemeChange({ newScheme });
+      setSchemeSaveDialog(true);
+    } else {
+      // Same as stored scheme: just apply
+      applySchemeChange(newScheme);
+    }
+  };
+
+  // Persist the scheme change to the customer record
+  const saveSchemeToCustomer = async () => {
+    if (!pendingSchemeChange || !selectedCustomer) return;
+    try {
+      await api.put(`/customers/${selectedCustomer.id}`, { price_scheme: pendingSchemeChange.newScheme });
+      const updated = { ...selectedCustomer, price_scheme: pendingSchemeChange.newScheme };
+      setSelectedCustomer(updated);
+      setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? updated : c));
+      const schemeName = schemes.find(s => s.key === pendingSchemeChange.newScheme)?.name || pendingSchemeChange.newScheme;
+      toast.success(`${selectedCustomer.name}'s price scheme updated to ${schemeName}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to update customer scheme');
+    }
+    setSchemeSaveDialog(false);
+    setPendingSchemeChange(null);
+  };
 
   const clearLine = (index) => {
     const newLines = [...lines];

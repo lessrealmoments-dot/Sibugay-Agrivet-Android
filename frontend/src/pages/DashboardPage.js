@@ -233,6 +233,33 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Unpaid POs in Owner View */}
+          <Card className="border-slate-200">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Truck size={16} className="text-red-600" /> Unpaid POs
+                </CardTitle>
+                {poSummary?.total_unpaid > 0 && <span className="text-sm font-bold text-red-600">{formatPHP(poSummary.total_unpaid)}</span>}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!poSummary || poSummary.total_count === 0 ? (
+                <p className="text-sm text-slate-400">All POs paid</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 4).map(po => (
+                    <div key={po.id} className="flex justify-between text-xs bg-slate-50 rounded px-2 py-1">
+                      <span className="font-mono text-blue-600">{po.po_number}</span>
+                      <span className="text-slate-500 truncate max-w-[80px]">{po.vendor}</span>
+                      <span className="font-bold text-red-600">{formatPHP(po.balance)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Recent Activity Across Branches */}

@@ -210,6 +210,54 @@ export default function UnifiedSalesPage() {
   const removeFromCart = (productId) => setCart(cart.filter(c => c.product_id !== productId));
   const clearCart = () => { setCart([]); setLines([{ ...EMPTY_LINE }]); setSelectedCustomer(null); setCustSearch(''); };
 
+  const clearLine = (index) => {
+    const newLines = [...lines];
+    newLines[index] = { ...EMPTY_LINE };
+    setLines(newLines);
+  };
+
+  const triggerPriceSaveDialog = (productId, productName, oldPrice, newPrice) => {
+    if (!productId || newPrice === oldPrice || newPrice <= 0) return;
+    const scheme = selectedCustomer?.price_scheme || defaultScheme;
+    const schemeName = schemes.find(s => s.key === scheme)?.name || scheme;
+    setPendingPriceChange({ product_id: productId, product_name: productName, old_price: oldPrice, new_price: newPrice, scheme_key: scheme, scheme_name: schemeName });
+    setPriceSaveDialog(true);
+  };
+
+  const dismissPriceSaveDialog = () => {
+    if (pendingPriceChange) {
+      // Update originals so dialog doesn't retrigger on next blur
+      setLines(lines.map(l => l.product_id === pendingPriceChange.product_id
+        ? { ...l, original_rate: pendingPriceChange.new_price } : l
+      ));
+      setCart(cart.map(c => c.product_id === pendingPriceChange.product_id
+        ? { ...c, original_price: pendingPriceChange.new_price } : c
+      ));
+    }
+    setPriceSaveDialog(false);
+    setPendingPriceChange(null);
+  };
+
+  const savePriceToScheme = async () => {
+    if (!pendingPriceChange) return;
+    try {
+      await api.put(`/products/${pendingPriceChange.product_id}/update-price`, {
+        scheme: pendingPriceChange.scheme_key,
+        price: pendingPriceChange.new_price,
+      });
+      toast.success(`${pendingPriceChange.scheme_name} price updated to ₱${pendingPriceChange.new_price.toFixed(2)}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to save price');
+    }
+    dismissPriceSaveDialog();
+  };
+
+  const handleRateBlur = (line) => {
+    if (line.product_id && line.rate !== line.original_rate) {
+      triggerPriceSaveDialog(line.product_id, line.product_name, line.original_rate, line.rate);
+    }
+  };
+
   // Order mode: Handle lines
   const handleProductSelect = (index, product) => {
     const newLines = [...lines];

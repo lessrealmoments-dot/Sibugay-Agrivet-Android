@@ -1,0 +1,125 @@
+{
+  "summary": "Tested all new features: Offline sync estimate display, Branch Prices API (CRUD), Product Detail Branch Pricing UI. Backend: 31/31 tests pass. Frontend: all new features work correctly with 3 minor pre-existing bugs identified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ProductDetailPage.js - Quick Stats",
+        "issue": "COST () header shows empty method. Line 200: uses `cost.method` but backend returns `cost.capital_method`. Shows 'COST ()' instead of 'COST (manual)'. Capital/Cost accordion section correctly uses `cost.method || 'manual'` fallback so that section is fine.",
+        "selector": "Quick stats 4th card header",
+        "priority": "LOW"
+      },
+      {
+        "component": "ProductDetailPage.js - Capital/Cost accordion",
+        "issue": "Moving Average shows ₱0.00. Frontend uses `cost.moving_average` but backend returns `cost.cost_price` only. `cost.last_purchase` also undefined (backend doesn't return it). Only Manual Cost card shows correct value (uses `product.cost_price` directly).",
+        "selector": "[data-testid='section-capital'] .moving-average",
+        "priority": "LOW"
+      },
+      {
+        "component": "ProductDetailPage.js - Inventory section - Stock by Branch table",
+        "issue": "Stock by Branch table is ALWAYS EMPTY. Frontend renders `(detail.branches || []).map(b => ...)` but the `/products/{id}/detail` API does NOT return a `branches` key. The `inventory.on_hand` map has the data keyed by branch_id but no branch objects exist to render the table.",
+        "selector": "[data-testid='section-inventory'] table tbody",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "feature_test_results": {
+    "offline_indicator_all_branches_mode": {
+      "status": "PASS",
+      "notes": "In 'All Branches' mode: 'Select a branch to enable offline mode' shown correctly in sidebar"
+    },
+    "offline_indicator_ready_state": {
+      "status": "PASS",
+      "notes": "After selecting Main Branch - Downtown: green 'Ready for offline' badge appears with '9 products · 4 customers · 3 stock records · Synced just now · Main Branch - Downtown'"
+    },
+    "sync_estimate_endpoint": {
+      "status": "PASS",
+      "notes": "GET /sync/estimate?branch_id=X returns {products: 9, customers: 2, inventory: 3, estimated_kb: 15} for Main Branch. Without branch_id: inventory=0 (correct)."
+    },
+    "branch_prices_put": {
+      "status": "PASS",
+      "notes": "PUT /api/branch-prices/{product_id} with {branch_id, prices, cost_price} creates/updates override. Returns correct data without _id. Validates negative prices (400) and missing branch_id (400)."
+    },
+    "branch_prices_get": {
+      "status": "PASS",
+      "notes": "GET /api/branch-prices?product_id returns list of overrides with correct structure. Main Branch override: retail=95.5, wholesale=82.0, cost_price=70.0"
+    },
+    "branch_prices_delete": {
+      "status": "PASS",
+      "notes": "DELETE /api/branch-prices/{product_id}?branch_id removes override. Returns success message. GET confirms override removed. 404 for non-existent overrides."
+    },
+    "product_detail_branch_pricing_visible": {
+      "status": "PASS",
+      "notes": "Branch Pricing accordion section visible for admin user (owner role). Shows '(1 custom / 3 branches)' in header."
+    },
+    "branch_pricing_all_3_branches": {
+      "status": "PASS",
+      "notes": "All 3 branches visible: Main Branch - Downtown, IPIL BRANCH, sampoli. Table shows Retail/Wholesale/Special/Government/Cost(Landed)/Override columns."
+    },
+    "branch_pricing_custom_default_badges": {
+      "status": "PASS",
+      "notes": "Main Branch - Downtown shows 'Custom' badge (has override, violet colored prices ₱95.50/₱82.00/₱70.00). IPIL BRANCH and sampoli show 'Default' badge (global prices in grey)."
+    },
+    "branch_pricing_edit": {
+      "status": "PASS",
+      "notes": "Clicking pencil icon shows price input fields inline. Changed IPIL BRANCH retail to 88.00, wholesale 75.00 → 'Branch prices saved' toast appeared. API confirmed: 2 overrides saved. Cleanup: IPIL override deleted."
+    },
+    "available_uses_branch_stock": {
+      "status": "PASS",
+      "notes": "Available card shows 'Available (Main Branch - Downtown — On Hand minus Reserved)' using branch-specific stock. Correct formula: branchStock - inventory.reserved."
+    },
+    "product_search_detail_branch_prices": {
+      "status": "PASS",
+      "notes": "GET /products/search-detail?q=VITMIN&branch_id=MAIN returns retail=95.5 (override). Without branch override (sampoli), returns global retail=370.0"
+    }
+  },
+  "backend_tests": {
+    "test_file": "/app/backend/tests/test_branch_pricing_sync.py",
+    "total": 31,
+    "passed": 31,
+    "failed": 0,
+    "sections": [
+      "TestSyncEstimate (6 tests): GET /sync/estimate with/without branch_id",
+      "TestBranchPricesGet (6 tests): GET /branch-prices filtering",
+      "TestBranchPricesPut (6 tests): PUT /branch-prices/{product_id} CRUD",
+      "TestBranchPricesDelete (4 tests): DELETE /branch-prices/{product_id}",
+      "TestProductSearchDetailWithBranchPrices (4 tests): search-detail branch price application",
+      "TestProductDetailPage (5 tests): detail endpoint structure"
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_branch_pricing_sync.py",
+    "/app/test_reports/pytest/pytest_branch_pricing.xml"
+  ],
+  "action_items": [
+    "MEDIUM: Fix Stock by Branch table in ProductDetailPage.js - detail API doesn't return 'branches' key. Either: (a) add branches list to /products/{id}/detail API response, OR (b) change frontend to use auth context `branches` with `inventory.on_hand[b.id]` lookup (same pattern as Branch Pricing table above)",
+    "LOW: Fix 'COST ()' quick stats header in ProductDetailPage.js - change `cost.method` to `cost.capital_method` on line 200",
+    "LOW: Fix Capital/Cost accordion - backend should include `moving_average`, `last_purchase`, `last_purchase_warning` in cost response, OR frontend should use `product.moving_average_cost` directly"
+  ],
+  "critical_code_review_comments": [
+    "ProductDetailPage.js Stock by Branch table ALWAYS EMPTY: `detail.branches` is never returned by `/products/{id}/detail` endpoint. The frontend code `(detail.branches || []).map(b => ...)` renders zero rows. The Branch Pricing table works because it uses `branches` from AuthContext, not from detail.",
+    "ProductDetailPage.js multiple cost field mismatches: quick stats uses `cost.method` (undefined), accordion uses `cost.moving_average` (undefined), `cost.last_purchase` (undefined). Backend only returns `cost.cost_price` and `cost.capital_method`.",
+    "get_product_detail() in products.py is missing moving_average_cost, last_purchase_price in cost dict, and doesn't return branches list. These are needed by the frontend."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_branch_pricing_sync.py"
+  ],
+  "success_rate": {
+    "backend": "100% (31/31)",
+    "frontend": "85% (core new features all pass, 3 pre-existing minor UI bugs)"
+  },
+  "seed_data_creation": "IPIL BRANCH override created during UI testing (retail=88, wholesale=75) and deleted (cleanup). Only Main Branch override (retail=95.5, wholesale=82.0, cost=70) remains from dev setup.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new features (branch prices CRUD, sync estimate, offline indicator, branch pricing UI) are working. 3 pre-existing bugs found in ProductDetailPage.js: (1) 'COST ()' header empty, (2) Stock by Branch table empty because detail API doesn't return branches list, (3) Moving Average shows ₱0 because API returns cost.cost_price not cost.moving_average. Backend 31/31 tests pass. Branch prices state: Main Branch Downtown has override (retail=95.5, wholesale=82.0, cost=70).",
+  "rca_of_issues": {
+    "stock_by_branch_empty": "In ProductDetailPage.js line 475, the code renders `(detail.branches || []).map(b => ...)` but the `/products/{id}/detail` API response never includes a 'branches' key. The inventory section has on_hand data keyed by branch_id, but no branch objects to iterate over. The Branch Pricing section works because it uses `branches` from AuthContext. Fix: either add branches list to the detail API endpoint response, or change the inventory table to also use auth context branches.",
+    "cost_method_header_bug": "ProductDetailPage.js line 200: `Cost ({cost.method})` renders 'COST ()' because backend returns `cost.capital_method` not `cost.method`. Fix: change to `cost.capital_method || 'manual'`.",
+    "moving_average_zero": "ProductDetailPage.js Capital/Cost section uses `cost.moving_average` which is undefined (API only returns `cost.cost_price`). The product object has `moving_average_cost`. Fix: include moving_average in the cost response from the detail endpoint or use `product.moving_average_cost`."
+  }
+}

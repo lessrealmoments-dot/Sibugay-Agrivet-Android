@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { Users, Plus, Pencil, Trash2, Search, FileText, Eye, X } from 'lucide-react';
+import { Users, Plus, Pencil, Trash2, Search, FileText, Eye, X, Printer } from 'lucide-react';
 import { toast } from 'sonner';
+import CustomerStatementModal from '../components/CustomerStatementModal';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);

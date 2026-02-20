@@ -81,7 +81,7 @@ async def create_product(data: dict, user=Depends(get_current_user)):
 
 @router.get("/search-detail")
 async def search_products_detail(q: str = "", branch_id: Optional[str] = None, user=Depends(get_current_user)):
-    """Enhanced product search with stock information and branch-specific prices."""
+    """Enhanced product search with stock, branch prices, and capital reference data."""
     if not q or len(q) < 1:
         return []
     
@@ -94,19 +94,73 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
     results = []
     
     for p in products:
-        # Apply branch price overrides to the prices dict
+        # Apply branch price overrides
         if branch_id:
             override = await db.branch_prices.find_one(
                 {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
             )
             if override and override.get("prices"):
-                # Merge: branch prices take precedence over global prices
                 merged_prices = {**(p.get("prices") or {}), **override["prices"]}
                 p = {**p, "prices": merged_prices}
                 if override.get("cost_price") is not None:
                     p = {**p, "cost_price": override["cost_price"]}
 
-        # For repacks: calculate available from parent stock
+        # ── Capital reference data (moving average + last purchase from PO history)
+        # Used as reference info in the POS price editor
+        lookup_id = p.get("parent_id") if p.get("is_repack") and p.get("parent_id") else p["id"]
+
+        # Last purchase price
+        last_po = await db.purchase_orders.find_one(
+            {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}},
+            {"items": 1}, sort=[("created_at", -1)]
+        )
+        last_purchase_cost = 0.0
+        if last_po:
+            for item in last_po.get("items", []):
+                if item.get("product_id") == lookup_id:
+                    raw = item.get("unit_price") or item.get("cost") or item.get("unit_cost")
+                    if raw:
+                        last_purchase_cost = float(raw)
+                        # For repacks: divide by units_per_parent
+                        if p.get("is_repack") and p.get("units_per_parent", 1) > 1:
+                            last_purchase_cost = round(last_purchase_cost / p["units_per_parent"], 4)
+                    break
+
+        # Moving average cost
+        avg_r = await db.purchase_orders.aggregate([
+            {"$match": {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}}},
+            {"$unwind": "$items"},
+            {"$match": {"items.product_id": lookup_id}},
+            {"$group": {"_id": None,
+                "total": {"$sum": {"$multiply": ["$items.quantity",
+                    {"$ifNull": ["$items.unit_price", {"$ifNull": ["$items.cost", 0]}]}]}},
+                "qty": {"$sum": "$items.quantity"}
+            }}
+        ]).to_list(1)
+        if avg_r and avg_r[0]["qty"] > 0:
+            moving_average_cost = round(avg_r[0]["total"] / avg_r[0]["qty"], 4)
+            if p.get("is_repack") and p.get("units_per_parent", 1) > 1:
+                moving_average_cost = round(moving_average_cost / p["units_per_parent"], 4)
+        else:
+            moving_average_cost = float(p.get("cost_price", 0))
+
+        # Effective capital = the cost the system uses for below-capital validation
+        capital_method = p.get("capital_method", "manual")
+        if capital_method == "moving_average":
+            effective_capital = moving_average_cost
+        elif capital_method == "last_purchase":
+            effective_capital = last_purchase_cost or float(p.get("cost_price", 0))
+        else:
+            effective_capital = float(p.get("cost_price", 0))
+
+        capital_data = {
+            "moving_average_cost": moving_average_cost,
+            "last_purchase_cost": last_purchase_cost,
+            "effective_capital": effective_capital,
+            "capital_method": capital_method,
+        }
+
+        # Stock & availability
         if p.get("is_repack") and p.get("parent_id"):
             parent = await db.products.find_one({"id": p["parent_id"]}, {"_id": 0})
             pinv = await db.inventory.find_one(
@@ -114,43 +168,40 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
             ) if branch_id else None
             parent_stock = pinv["quantity"] if pinv else 0
             units_per_parent = p.get("units_per_parent", 1)
-            available = parent_stock * units_per_parent
             result = {
-                **p,
-                "available": available,
-                "reserved": 0,
-                "coming": 0,
+                **p, **capital_data,
+                "available": parent_stock * units_per_parent,
+                "reserved": 0, "coming": 0,
                 "parent_name": parent["name"] if parent else "",
                 "parent_stock": parent_stock,
                 "parent_unit": parent["unit"] if parent else "",
                 "derived_from_parent": True,
             }
         else:
-            # Regular product: use its own inventory
             inv = await db.inventory.find_one(
                 {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
             ) if branch_id else None
             available = inv["quantity"] if inv else 0
-            
+
             coming_r = await db.purchase_orders.aggregate([
                 {"$match": {"status": {"$in": ["ordered", "draft"]}}},
                 {"$unwind": "$items"},
                 {"$match": {"items.product_id": p["id"]}},
                 {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
             ]).to_list(1)
-            
+
             reserved_r = await db.sales.aggregate([
                 {"$match": {"status": "reserved"}},
                 {"$unwind": "$items"},
                 {"$match": {"items.product_id": p["id"]}},
                 {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
             ]).to_list(1)
-            
+
             result = {
-                **p,
+                **p, **capital_data,
                 "available": available,
                 "reserved": reserved_r[0]["t"] if reserved_r else 0,
-                "coming": coming_r[0]["t"] if coming_r else 0
+                "coming": coming_r[0]["t"] if coming_r else 0,
             }
         results.append(result)
     

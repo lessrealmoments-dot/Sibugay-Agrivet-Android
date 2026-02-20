@@ -116,3 +116,31 @@ async def update_cashier_wallet(branch_id, amount, reference=""):
         "reference": reference,
         "created_at": now_iso()
     })
+
+
+async def get_product_price(product: dict, branch_id: str, scheme: str) -> float:
+    """
+    Get the effective price for a product at a specific branch.
+    Fallback chain: branch_prices override → product.prices (global default)
+    """
+    if branch_id:
+        override = await db.branch_prices.find_one(
+            {"product_id": product["id"], "branch_id": branch_id}, {"_id": 0}
+        )
+        if override and scheme in (override.get("prices") or {}):
+            return float(override["prices"][scheme])
+    return float((product.get("prices") or {}).get(scheme, product.get("cost_price", 0)))
+
+
+async def get_branch_cost(product: dict, branch_id: str) -> float:
+    """
+    Get the effective cost/capital price for a product at a specific branch.
+    Fallback chain: branch_prices.cost_price → product.cost_price (global)
+    """
+    if branch_id:
+        override = await db.branch_prices.find_one(
+            {"product_id": product["id"], "branch_id": branch_id}, {"_id": 0}
+        )
+        if override and override.get("cost_price") is not None:
+            return float(override["cost_price"])
+    return float(product.get("cost_price", 0))

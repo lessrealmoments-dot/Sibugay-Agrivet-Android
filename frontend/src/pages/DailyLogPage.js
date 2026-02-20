@@ -24,7 +24,7 @@ export default function DailyLogPage() {
   const [logEntries, setLogEntries] = useState([]);
   const [report, setReport] = useState(null);
   const [closing, setClosing] = useState(null);
-  const [closeForm, setCloseForm] = useState({ actual_cash: 0, bank_checks: 0, other_payment_forms: 0, cash_to_drawer: 0, cash_to_safe: 0 });
+  const [preview, setPreview] = useState(null);  // Z-Report preview
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [expenseType, setExpenseType] = useState('other');
   const [expForm, setExpForm] = useState({ category: '', description: '', amount: 0, customer_id: '', tag: '', employee_id: '', employee_name: '' });
@@ -32,6 +32,22 @@ export default function DailyLogPage() {
   const [employees, setEmployees] = useState([]);
   const [empDialog, setEmpDialog] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', position: '', phone: '' });
+
+  // Close form state
+  const [actualCash, setActualCash] = useState('');
+  const [cashToSafe, setCashToSafe] = useState('');
+  const [cashToDrawer, setCashToDrawer] = useState('');
+  const [adminPin, setAdminPin] = useState('');
+  const [closing_loading, setClosingLoading] = useState(false);
+
+  function r2(n) { return Math.round((parseFloat(n) || 0) * 100) / 100; }
+
+  // Computed values
+  const expectedCounter = preview?.expected_counter || 0;
+  const actualNum = r2(actualCash);
+  const overShort = actualCash !== '' ? r2(actualNum - expectedCounter) : null;
+  const cashToDrawerNum = r2(cashToDrawer);
+  const cashToSafeNum = r2(cashToSafe);
 
   const fetchLog = useCallback(async () => {
     if (!currentBranch) return;

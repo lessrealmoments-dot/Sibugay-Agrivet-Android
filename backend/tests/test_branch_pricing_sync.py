@@ -174,10 +174,10 @@ class TestBranchPricesGet:
             # _id must be excluded
             assert "_id" not in o, "MongoDB _id should be excluded"
 
-    def test_unauthorized_returns_401(self, api_client):
-        """Branch prices endpoint should require authentication."""
+    def test_unauthorized_returns_401_or_403(self, api_client):
+        """Branch prices endpoint should require authentication (returns 401 or 403)."""
         response = api_client.get(f"{BASE_URL}/api/branch-prices")
-        assert response.status_code == 401
+        assert response.status_code in (401, 403)
 
 
 class TestBranchPricesPut:

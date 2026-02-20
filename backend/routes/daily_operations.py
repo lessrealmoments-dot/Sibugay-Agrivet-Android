@@ -389,6 +389,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     cash_to_safe = float(data.get("cash_to_safe", 0))
     cash_to_drawer = float(data.get("cash_to_drawer", 0))
     over_short = round(actual_cash - expected_counter, 2)
+    variance_notes = data.get("variance_notes", "").strip()
 
     close_record = {
         "id": new_id(), "branch_id": branch_id, "date": date, "status": "closed",
@@ -405,6 +406,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "expected_counter": expected_counter,
         "actual_cash": actual_cash,
         "over_short": over_short,
+        "variance_notes": variance_notes,   # explanation of any over/short
         "cash_to_safe": cash_to_safe,
         "cash_to_drawer": cash_to_drawer,
         "closed_by": user["id"],

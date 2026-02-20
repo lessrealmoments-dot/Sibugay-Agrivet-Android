@@ -385,9 +385,10 @@ export default function UnifiedSalesPage() {
       });
       // Add to local customers list
       setCustomers([...customers, res.data]);
-      // Select the new customer
+      // Select the new customer and apply their scheme
       setSelectedCustomer(res.data);
       setCustSearch(res.data.name);
+      applySchemeChange(res.data.price_scheme || 'retail');
       setNewCustomerDialog(false);
       toast.success('Customer created!');
     } catch (e) {

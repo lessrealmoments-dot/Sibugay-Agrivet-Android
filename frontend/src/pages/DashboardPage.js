@@ -363,6 +363,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Top Products */}
         <Card className="border-slate-200">
           <CardHeader className="pb-3">

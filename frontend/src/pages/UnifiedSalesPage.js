@@ -865,9 +865,14 @@ export default function UnifiedSalesPage() {
                           <td className="px-3 py-1">
                             <Input
                               type="number"
-                              className="h-8 text-right w-24"
+                              className={`h-8 text-right w-24 ${
+                                line.product_id && line.rate <= 0 ? 'border-amber-400 bg-amber-50'
+                                : line.product_id && line.cost_price > 0 && line.rate < line.cost_price && line.rate > 0 ? 'border-red-300 bg-red-50'
+                                : ''
+                              }`}
                               value={line.rate}
                               onChange={e => updateLine(i, 'rate', parseFloat(e.target.value) || 0)}
+                              onBlur={() => handleRateBlur(lines[i])}
                             />
                           </td>
                           <td className="px-3 py-1">

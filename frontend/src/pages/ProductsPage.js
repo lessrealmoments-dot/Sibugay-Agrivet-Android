@@ -133,6 +133,55 @@ export default function ProductsPage() {
   const updatePrice = (key, val) => setForm({ ...form, prices: { ...form.prices, [key]: parseFloat(val) || 0 } });
   const updateRepackPrice = (key, val) => setRepackForm({ ...repackForm, prices: { ...repackForm.prices, [key]: parseFloat(val) || 0 } });
 
+  // Quick Repack: search parents as user types
+  useEffect(() => {
+    if (!qrSearch || qrSearch.length < 2) { setQrMatches([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get('/products', { params: { search: qrSearch, is_repack: false, limit: 8 } });
+        setQrMatches(res.data.products || []);
+      } catch {}
+    }, 250);
+    return () => clearTimeout(t);
+  }, [qrSearch]);
+
+  const selectQrParent = (p) => {
+    setQrParent(p);
+    setQrSearch(p.name);
+    setQrMatches([]);
+    setQrForm(f => ({
+      ...f,
+      name: `R ${p.name}`,
+      units_per_parent: 1,
+      add_on_cost: 0,
+      retail_price: p.prices?.retail || 0,
+    }));
+  };
+
+  const handleQuickRepack = async () => {
+    if (!qrParent) { toast.error('Select a parent product first'); return; }
+    if (!qrForm.retail_price) { toast.error('Enter a retail price'); return; }
+    try {
+      // Build prices: apply the single retail_price to ALL active schemes
+      const allPrices = {};
+      schemes.forEach(s => { allPrices[s.key] = qrForm.retail_price; });
+      const autoCost = Math.round((qrParent.cost_price / (qrForm.units_per_parent || 1) + (qrForm.add_on_cost || 0)) * 100) / 100;
+      await api.post(`/products/${qrParent.id}/generate-repack`, {
+        name: qrForm.name,
+        unit: qrForm.unit,
+        units_per_parent: qrForm.units_per_parent,
+        add_on_cost: qrForm.add_on_cost || 0,
+        cost_price: autoCost,
+        prices: allPrices,
+      });
+      toast.success(`Repack created — ${qrForm.retail_price} applied to all price schemes`);
+      setQrOpen(false);
+      setQrParent(null);
+      setQrSearch('');
+      fetchProducts();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating repack'); }
+  };
+
   const totalPages = Math.ceil(total / LIMIT);
 
   return (

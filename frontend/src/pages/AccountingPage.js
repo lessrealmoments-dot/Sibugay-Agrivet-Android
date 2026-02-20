@@ -692,6 +692,33 @@ export default function AccountingPage() {
         </DialogContent>
       </Dialog>
 
+      {/* CA LIMIT MANAGER PIN DIALOG */}
+      <Dialog open={caManagerPinDialog} onOpenChange={setCaManagerPinDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+              <Shield size={18} className="text-amber-500" /> Manager Approval Required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-red-700">{expenseForm.employee_name} has exceeded their monthly CA limit</p>
+              <p className="text-xs text-red-600 mt-1">This month: {formatPHP(caSummary?.this_month_total || 0)} / Limit: {formatPHP(caSummary?.monthly_ca_limit || 0)}</p>
+              <p className="text-xs text-red-500 mt-1">Additional: {formatPHP(parseFloat(expenseForm.amount || 0))}</p>
+            </div>
+            <div>
+              <Label>Manager PIN</Label>
+              <Input type="password" value={caManagerPin} onChange={e => setCaManagerPin(e.target.value)}
+                placeholder="Enter 4-digit PIN" className="text-center text-2xl tracking-widest h-14" maxLength={6} />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setCaManagerPinDialog(false); setCaManagerPin(''); }}>Cancel</Button>
+              <Button className="flex-1 bg-amber-500 hover:bg-amber-600 text-white" onClick={handleCaManagerPin}>Approve & Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* FARM EXPENSE DIALOG */}
       <Dialog open={farmExpenseDialog} onOpenChange={setFarmExpenseDialog}>
         <DialogContent className="sm:max-w-lg">

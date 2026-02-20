@@ -86,6 +86,9 @@ api_router.include_router(sync_router)
 api_router.include_router(settings_router)
 api_router.include_router(dashboard_router)
 
+# Audit / Count Sheets
+api_router.include_router(count_sheets_router)
+
 
 # =============================================================================
 # STARTUP & SHUTDOWN

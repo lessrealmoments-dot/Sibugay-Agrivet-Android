@@ -19,6 +19,7 @@ from .sync import router as sync_router
 from .employees import router as employees_router
 from .settings import router as settings_router
 from .count_sheets import router as count_sheets_router
+from .setup import router as setup_router
 
 __all__ = [
     'auth_router',
@@ -39,4 +40,5 @@ __all__ = [
     'employees_router',
     'settings_router',
     'count_sheets_router',
+    'setup_router',
 ]

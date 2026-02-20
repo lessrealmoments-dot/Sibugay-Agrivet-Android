@@ -352,7 +352,27 @@ export default function PurchaseOrderPage() {
                 <p className="text-xs text-amber-600 mt-2 flex items-center gap-1"><DollarSign size={12} /> Total will be deducted from Cashier Drawer on save</p>
               )}
               {header.payment_method === 'credit' && (
-                <p className="text-xs text-blue-600 mt-2">Payable will be created. Pay later from PO list.</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">Payment Terms (days)</Label>
+                    <Input type="number" min="0" className="h-9" value={header.terms_days}
+                      onChange={e => {
+                        const days = parseInt(e.target.value) || 0;
+                        const pd = header.purchase_date || new Date().toISOString().slice(0,10);
+                        const due = days > 0 ? new Date(new Date(pd).getTime() + days * 86400000).toISOString().slice(0,10) : '';
+                        setHeader(h => ({ ...h, terms_days: days, due_date: due }));
+                      }}
+                      placeholder="e.g. 30 for Net 30" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Due Date (auto-computed)</Label>
+                    <Input type="date" className="h-9" value={header.due_date}
+                      onChange={e => setHeader(h => ({ ...h, due_date: e.target.value }))} />
+                  </div>
+                </div>
+              )}
+              {header.payment_method === 'credit' && !header.terms_days && (
+                <p className="text-xs text-blue-600 mt-2">Payable will be created. Set payment terms above for due-date tracking.</p>
               )}
             </CardContent>
           </Card>

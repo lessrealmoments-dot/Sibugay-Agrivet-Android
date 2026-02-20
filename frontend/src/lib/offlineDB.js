@@ -161,6 +161,9 @@ export async function getBranchPrice(productId) {
     request.onerror = () => { db.close(); reject(request.error); };
   });
 }
+
+// Inventory cache (keyed by product_id — one branch at a time)
+export async function cacheInventory(items) {
   await clearAndPut(STORES.INVENTORY, items);
 }
 

@@ -595,6 +595,11 @@ export default function CountSheetsPage() {
                                         const loose = item.actual_loose ?? 0;
                                         handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
                                       }}
+                                      onBlur={e => {
+                                        const whole = parseInt(e.target.value) || 0;
+                                        const loose = item.actual_loose ?? 0;
+                                        saveToServer(item.product_id, { actual_whole: whole, actual_loose: loose });
+                                      }}
                                       data-testid={`actual-whole-${item.product_id}`}
                                     />
                                     <span className="text-xs text-slate-400">{item.unit}</span>
@@ -610,6 +615,11 @@ export default function CountSheetsPage() {
                                         const loose = e.target.value === '' ? 0 : parseInt(e.target.value) || 0;
                                         const whole = item.actual_whole ?? item.system_whole ?? 0;
                                         handleUpdateCount(item.product_id, { actual_whole: whole, actual_loose: loose });
+                                      }}
+                                      onBlur={e => {
+                                        const loose = parseInt(e.target.value) || 0;
+                                        const whole = item.actual_whole ?? item.system_whole ?? 0;
+                                        saveToServer(item.product_id, { actual_whole: whole, actual_loose: loose });
                                       }}
                                       data-testid={`actual-loose-${item.product_id}`}
                                     />

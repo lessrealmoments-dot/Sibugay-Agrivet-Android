@@ -17,6 +17,129 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// ── Small helper components ───────────────────────────────────────────────────
+function SectionCard({ title, children, accent = 'slate', note }) {
+  const borders = { emerald: 'border-emerald-200', blue: 'border-blue-200', red: 'border-red-200', amber: 'border-amber-200', slate: 'border-slate-200' };
+  const headers = { emerald: 'bg-emerald-50 text-emerald-800', blue: 'bg-blue-50 text-blue-800', red: 'bg-red-50 text-red-800', amber: 'bg-amber-50 text-amber-800', slate: 'bg-slate-50 text-slate-700' };
+  return (
+    <Card className={`border ${borders[accent]}`}>
+      <CardHeader className={`py-2.5 px-4 ${headers[accent]} border-b ${borders[accent]}`}>
+        <CardTitle className="text-sm font-semibold flex items-center justify-between">
+          <span>{title}</span>
+          {note && <span className="text-[10px] font-normal opacity-70 italic">{note}</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4">{children}</CardContent>
+    </Card>
+  );
+}
+
+function InfoRow({ label, value, bold, className = '' }) {
+  return (
+    <div className="flex justify-between items-center text-sm py-0.5">
+      <span className="text-slate-500">{label}</span>
+      <span className={`font-mono ${bold ? 'font-bold' : ''} ${className}`}>{value}</span>
+    </div>
+  );
+}
+
+function ZReport({ data, branchName, onPrint }) {
+  if (!data) return null;
+  const r2 = n => Math.round((parseFloat(n) || 0) * 100) / 100;
+  return (
+    <div className="space-y-4 print:space-y-3">
+      <div className="flex items-center justify-between print:hidden">
+        <Card className="border-emerald-200 bg-emerald-50 flex-1 mr-3"><CardContent className="p-3">
+          <p className="font-bold text-emerald-800">
+            <CheckCircle size={14} className="inline mr-1" />
+            Day closed by {data.closed_by_name} · {new Date(data.closed_at).toLocaleString()}
+          </p>
+        </CardContent></Card>
+        <Button variant="outline" size="sm" onClick={onPrint}><Printer size={14} className="mr-1" /> Print</Button>
+      </div>
+
+      {/* Print header */}
+      <div className="hidden print:block border-b-2 border-black pb-3 mb-3">
+        <h1 className="text-xl font-bold">DAILY CLOSE REPORT — {branchName}</h1>
+        <p>Date: {data.date} · Closed by: {data.closed_by_name}</p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-3">
+        <SectionCard title="Opening">
+          <InfoRow label="Safe Balance" value={formatPHP(data.safe_balance)} bold />
+          <InfoRow label="Starting Cashier Float" value={formatPHP(data.starting_float)} bold className="text-emerald-700" />
+        </SectionCard>
+        <SectionCard title="Cash Reconciliation">
+          <InfoRow label="Expected in Counter" value={formatPHP(data.expected_counter)} />
+          <InfoRow label="Actual Cash Counted" value={formatPHP(data.actual_cash)} bold />
+          <Separator className="my-1" />
+          <InfoRow label={data.over_short >= 0 ? 'Cash Over' : 'Cash Short'}
+            value={`${data.over_short >= 0 ? '+' : ''}${formatPHP(data.over_short)}`}
+            bold className={data.over_short >= 0 ? 'text-emerald-600' : 'text-red-600'} />
+          <InfoRow label="Transferred to Safe" value={formatPHP(data.cash_to_safe)} />
+          <InfoRow label="Left in Register (tomorrow's float)" value={formatPHP(data.cash_to_drawer)} bold className="text-emerald-600" />
+        </SectionCard>
+      </div>
+
+      <SectionCard title={`Cash Sales — ${formatPHP(data.total_cash_sales)}`} accent="emerald">
+        {Object.entries(data.sales_by_category || {}).map(([cat, total]) => (
+          <div key={cat} className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0">
+            <span>{cat}</span><span className="font-semibold font-mono">{formatPHP(total)}</span>
+          </div>
+        ))}
+      </SectionCard>
+
+      {data.credit_collections?.length > 0 && (
+        <SectionCard title={`AR Payments Received — ${formatPHP(data.total_ar_received)}`} accent="blue">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-slate-50 text-xs text-slate-500 border-b">
+                <th className="px-3 py-1.5 text-left">Customer</th>
+                <th className="px-3 py-1.5 text-right">Bal Before</th>
+                <th className="px-3 py-1.5 text-right">Interest</th>
+                <th className="px-3 py-1.5 text-right">Penalty</th>
+                <th className="px-3 py-1.5 text-right">Cash Paid</th>
+                <th className="px-3 py-1.5 text-right">Remaining</th>
+              </tr></thead>
+              <tbody>
+                {data.credit_collections.map((p, i) => (
+                  <tr key={i} className="border-b border-slate-100 last:border-0">
+                    <td className="px-3 py-1.5">{p.customer}<div className="text-[10px] text-slate-400 font-mono">{p.invoice}</div></td>
+                    <td className="px-3 py-1.5 text-right font-mono">{formatPHP(p.balance_before)}</td>
+                    <td className="px-3 py-1.5 text-right font-mono text-amber-600">{p.interest_paid > 0 ? formatPHP(p.interest_paid) : '—'}</td>
+                    <td className="px-3 py-1.5 text-right font-mono text-red-500">{p.penalty_paid > 0 ? formatPHP(p.penalty_paid) : '—'}</td>
+                    <td className="px-3 py-1.5 text-right font-mono font-bold text-blue-700">{formatPHP(p.total_paid)}</td>
+                    <td className="px-3 py-1.5 text-right font-mono text-slate-500">{formatPHP(p.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      )}
+
+      <SectionCard title={`Expenses — ${formatPHP(data.total_expenses)}`} accent="red">
+        {(data.expenses || []).map((e, i) => (
+          <div key={i} className="py-1.5 border-b border-slate-100 last:border-0">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px]">{e.category}</Badge>
+                <span className="text-sm">{e.description || e.employee_name || ''}</span>
+              </div>
+              <span className="font-semibold text-red-600 font-mono">{formatPHP(e.amount)}</span>
+            </div>
+            {e.category === 'Employee Advance' && e.monthly_ca_total !== undefined && (
+              <div className="text-[10px] text-amber-600 ml-1 mt-0.5">
+                {e.employee_name || 'Employee'} — monthly CA total: <span className="font-semibold">{formatPHP(e.monthly_ca_total)}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </SectionCard>
+    </div>
+  );
+}
+
 export default function DailyLogPage() {
   const { currentBranch } = useAuth();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));

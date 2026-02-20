@@ -79,6 +79,15 @@ async def create_product(data: dict, user=Depends(get_current_user)):
     return product
 
 
+@router.get("/{product_id}")
+async def get_product(product_id: str, user=Depends(get_current_user)):
+    """Get a single product by ID."""
+    product = await db.products.find_one({"id": product_id, "active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
+
 @router.put("/{product_id}")
 async def update_product(product_id: str, data: dict, user=Depends(get_current_user)):
     """Update product details."""

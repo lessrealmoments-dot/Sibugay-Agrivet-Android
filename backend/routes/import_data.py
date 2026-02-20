@@ -1,0 +1,442 @@
+"""
+Import Center Routes
+====================
+Handles bulk data import from Excel (.xlsx, .xls) and CSV files.
+Supports:
+  - Product catalog import (global)
+  - Inventory seed import (branch-specific, admin PIN required)
+
+Flow:
+  1. POST /api/import/parse     — upload file, return {headers, sample_rows, all_rows, total}
+  2. POST /api/import/products  — import with column mapping, returns {imported, skipped, errors}
+  3. POST /api/import/inventory-seed — set initial inventory (admin PIN)
+  4. GET  /api/import/template/{type} — download CSV template
+"""
+import io
+import csv
+import re
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
+from config import db
+from utils import get_current_user, check_perm, now_iso, new_id, verify_password
+
+router = APIRouter(prefix="/import", tags=["Import"])
+
+
+def _read_file(content: bytes, filename: str) -> list[dict]:
+    """Parse .xls, .xlsx, or .csv file into list of row dicts."""
+    name = filename.lower()
+    if name.endswith(".csv"):
+        text = content.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        return [dict(row) for row in reader]
+
+    elif name.endswith(".xlsx"):
+        import openpyxl
+        wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return []
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        result = []
+        for row in rows[1:]:
+            if all(v is None for v in row):
+                continue
+            result.append({headers[i]: (row[i] if row[i] is not None else "") for i in range(len(headers))})
+        wb.close()
+        return result
+
+    elif name.endswith(".xls"):
+        import xlrd
+        wb = xlrd.open_workbook(file_contents=content)
+        ws = wb.sheet_by_index(0)
+        if ws.nrows == 0:
+            return []
+        headers = [str(ws.cell_value(0, c)).strip() for c in range(ws.ncols)]
+        result = []
+        for r in range(1, ws.nrows):
+            row = {headers[c]: ws.cell_value(r, c) for c in range(ws.ncols)}
+            if all(str(v).strip() == "" for v in row.values()):
+                continue
+            result.append(row)
+        return result
+
+    else:
+        raise ValueError("Unsupported file format. Use .csv, .xlsx, or .xls")
+
+
+def _safe_float(val, default=0.0) -> float:
+    try:
+        return float(val) if val not in (None, "", " ") else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_str(val) -> str:
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
+def _generate_sku(name: str) -> str:
+    """Auto-generate a short SKU from the product name."""
+    slug = re.sub(r"[^A-Z0-9]", "", name.upper())[:8]
+    return f"P-{slug}-{new_id()[:4].upper()}"
+
+
+# =============================================================================
+# QUICKBOOKS COLUMN PRESETS
+# =============================================================================
+QB_PRESET = {
+    "name": "Product/Service Name",
+    "unit": "SKU",                   # QB's SKU field is actually the unit
+    "description": "Sales Description",
+    "product_type": "Type",          # Inventory → stockable, Service → service
+    "retail_price": "Sales Price / Rate",
+    "cost_price": "Purchase Cost",
+    "reorder_point": "Reorder Point",
+    "quantity": "Quantity On Hand",  # for inventory seed
+}
+
+# Known preset configurations
+COLUMN_PRESETS = {
+    "quickbooks": {
+        "label": "QuickBooks Online Export",
+        "mapping": QB_PRESET,
+        "notes": "QB's 'SKU' column is treated as Unit of Measurement. Quantity On Hand is used only in Inventory Seed import.",
+    },
+    "agripos": {
+        "label": "AgriPOS Template",
+        "mapping": {
+            "name": "Product Name",
+            "sku": "SKU",
+            "category": "Category",
+            "unit": "Unit",
+            "description": "Description",
+            "product_type": "Type",
+            "retail_price": "Retail Price",
+            "wholesale_price": "Wholesale Price",
+            "cost_price": "Cost Price",
+            "reorder_point": "Reorder Point",
+            "quantity": "Quantity",
+        },
+    },
+}
+
+
+@router.get("/presets")
+async def get_presets(user=Depends(get_current_user)):
+    """Return available column mapping presets."""
+    return COLUMN_PRESETS
+
+
+@router.post("/parse")
+async def parse_file(file: UploadFile = File(...), user=Depends(get_current_user)):
+    """
+    Upload a file and return its headers + first 10 rows for preview.
+    Also returns total row count so the user knows what they're importing.
+    The full rows are NOT returned here — the client re-uploads on import.
+    """
+    try:
+        content = await file.read()
+        rows = _read_file(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read file: {str(e)}")
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="File is empty or has no data rows")
+
+    headers = list(rows[0].keys()) if rows else []
+    # Clean empty headers
+    headers = [h for h in headers if h.strip()]
+
+    return {
+        "filename": file.filename,
+        "total_rows": len(rows),
+        "headers": headers,
+        "sample_rows": rows[:10],
+    }
+
+
+@router.post("/products")
+async def import_products(
+    file: UploadFile = File(...),
+    mapping: str = "",        # JSON string: {"name":"Product/Service Name", ...}
+    branch_id: str = "",      # Optional: branch for branch-specific prices
+    user=Depends(get_current_user)
+):
+    """
+    Import products from uploaded file using specified column mapping.
+    Returns: { imported, skipped (with reason), errors }
+    """
+    check_perm(user, "products", "create")
+
+    import json
+    try:
+        col_map = json.loads(mapping) if mapping else {}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid column mapping JSON")
+
+    if not col_map.get("name"):
+        raise HTTPException(status_code=400, detail="Column mapping must include 'name' field")
+
+    try:
+        content = await file.read()
+        rows = _read_file(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Get existing schemes for price mapping
+    schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
+    scheme_keys = {s["key"]: s["name"] for s in schemes}
+
+    imported = 0
+    skipped = []
+    errors = []
+
+    for i, row in enumerate(rows, start=2):  # Row 2 = first data row (row 1 = headers)
+        try:
+            name = _safe_str(row.get(col_map.get("name", ""), ""))
+            if not name:
+                continue  # Skip blank rows
+
+            # Build product dict from mapping
+            sku_raw = _safe_str(row.get(col_map.get("sku", ""), ""))
+            unit = _safe_str(row.get(col_map.get("unit", ""), "Piece")) or "Piece"
+            category = _safe_str(row.get(col_map.get("category", ""), "")) or "General"
+            description = _safe_str(row.get(col_map.get("description", ""), ""))
+            cost_price = _safe_float(row.get(col_map.get("cost_price", ""), 0))
+            reorder_point = _safe_float(row.get(col_map.get("reorder_point", ""), 0))
+
+            raw_type = _safe_str(row.get(col_map.get("product_type", ""), "")).lower()
+            if "service" in raw_type:
+                product_type = "service"
+            else:
+                product_type = "stockable"
+
+            # Build prices dict from mapped scheme columns
+            prices = {}
+            for scheme_key in scheme_keys:
+                col_for_scheme = col_map.get(f"{scheme_key}_price", "")
+                if col_for_scheme and col_for_scheme in row:
+                    val = _safe_float(row.get(col_for_scheme, 0))
+                    if val > 0:
+                        prices[scheme_key] = val
+
+            # Handle direct retail_price mapping (QB style)
+            if col_map.get("retail_price") and col_map["retail_price"] in row:
+                retail = _safe_float(row.get(col_map["retail_price"], 0))
+                if retail > 0:
+                    prices["retail"] = retail
+
+            # Check for duplicate by name (case-insensitive)
+            existing = await db.products.find_one(
+                {"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}, "active": True},
+                {"_id": 0, "id": 1, "name": 1, "sku": 1}
+            )
+            if existing:
+                skipped.append({
+                    "row": i,
+                    "name": name,
+                    "reason": "duplicate_name",
+                    "existing_id": existing["id"],
+                    "existing_sku": existing.get("sku", ""),
+                })
+                continue
+
+            # Auto-generate SKU if not provided
+            if not sku_raw:
+                sku_raw = _generate_sku(name)
+            # Ensure SKU uniqueness
+            sku_check = await db.products.find_one({"sku": sku_raw, "active": True}, {"_id": 0, "id": 1})
+            if sku_check:
+                sku_raw = f"{sku_raw[:10]}-{new_id()[:4].upper()}"
+
+            product = {
+                "id": new_id(),
+                "sku": sku_raw,
+                "name": name,
+                "category": category,
+                "description": description,
+                "unit": unit,
+                "cost_price": cost_price,
+                "prices": prices,
+                "parent_id": None,
+                "is_repack": False,
+                "units_per_parent": None,
+                "repack_unit": None,
+                "barcode": "",
+                "product_type": product_type,
+                "capital_method": "manual",
+                "reorder_point": reorder_point,
+                "reorder_quantity": 0.0,
+                "unit_of_measurement": unit,
+                "last_vendor": "",
+                "active": True,
+                "imported_from": "file_import",
+                "created_at": now_iso(),
+            }
+            await db.products.insert_one(product)
+            imported += 1
+
+        except Exception as e:
+            errors.append({"row": i, "name": _safe_str(row.get(col_map.get("name", ""), "")), "error": str(e)})
+
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "errors": errors,
+        "total_processed": len(rows),
+        "summary": f"Imported {imported} products. {len(skipped)} skipped (duplicates). {len(errors)} errors.",
+    }
+
+
+@router.post("/products/overwrite")
+async def overwrite_products(data: dict, user=Depends(get_current_user)):
+    """
+    Overwrite specific products from the skipped duplicates list.
+    Body: { product_ids: [...], updates: { name, cost_price, prices, unit, ... } }
+    Used when user reviews the skipped-duplicates report and chooses to overwrite specific ones.
+    """
+    check_perm(user, "products", "edit")
+
+    updates = data.get("updates", {})
+    product_ids = data.get("product_ids", [])
+    if not product_ids:
+        raise HTTPException(status_code=400, detail="No product IDs provided")
+
+    allowed = ["name", "category", "description", "unit", "cost_price", "prices",
+               "reorder_point", "product_type"]
+    clean = {k: v for k, v in updates.items() if k in allowed}
+    clean["updated_at"] = now_iso()
+
+    result = await db.products.update_many(
+        {"id": {"$in": product_ids}},
+        {"$set": clean}
+    )
+    return {"updated": result.modified_count}
+
+
+@router.post("/inventory-seed")
+async def import_inventory_seed(
+    file: UploadFile = File(...),
+    mapping: str = "",
+    branch_id: str = "",
+    pin: str = "",
+    user=Depends(get_current_user)
+):
+    """
+    Set initial inventory quantities for a branch from a file upload.
+    Requires admin user or manager PIN.
+    Matches products by name (case-insensitive). Unmatched → report.
+    """
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="branch_id is required for inventory seed")
+
+    # PIN check for non-admin users
+    if user.get("role") != "admin":
+        if not pin:
+            raise HTTPException(status_code=403, detail="Admin PIN required for inventory seed")
+        # Verify against owner account
+        owner = await db.users.find_one({"role": "admin"}, {"_id": 0})
+        if not owner or not verify_password(pin, owner.get("password_hash", "")):
+            raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    import json
+    try:
+        col_map = json.loads(mapping) if mapping else {}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid column mapping JSON")
+
+    if not col_map.get("name") or not col_map.get("quantity"):
+        raise HTTPException(status_code=400, detail="Mapping must include 'name' and 'quantity' fields")
+
+    try:
+        content = await file.read()
+        rows = _read_file(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    updated = 0
+    not_found = []
+    errors = []
+
+    for i, row in enumerate(rows, start=2):
+        try:
+            name = _safe_str(row.get(col_map.get("name", ""), ""))
+            qty = _safe_float(row.get(col_map.get("quantity", ""), 0))
+
+            if not name:
+                continue
+
+            # Match product by name (exact, case-insensitive)
+            product = await db.products.find_one(
+                {"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}, "active": True},
+                {"_id": 0, "id": 1, "name": 1}
+            )
+            if not product:
+                not_found.append({"row": i, "name": name, "quantity": qty})
+                continue
+
+            # Set (not add) inventory quantity
+            existing = await db.inventory.find_one(
+                {"product_id": product["id"], "branch_id": branch_id}, {"_id": 0}
+            )
+            if existing:
+                await db.inventory.update_one(
+                    {"product_id": product["id"], "branch_id": branch_id},
+                    {"$set": {"quantity": qty, "updated_at": now_iso()}}
+                )
+            else:
+                await db.inventory.insert_one({
+                    "id": new_id(),
+                    "product_id": product["id"],
+                    "branch_id": branch_id,
+                    "quantity": qty,
+                    "updated_at": now_iso(),
+                })
+            updated += 1
+
+        except Exception as e:
+            errors.append({"row": i, "name": _safe_str(row.get(col_map.get("name", ""), "")), "error": str(e)})
+
+    return {
+        "updated": updated,
+        "not_found": not_found,
+        "errors": errors,
+        "total_processed": len(rows),
+        "summary": f"Set inventory for {updated} products. {len(not_found)} not found. {len(errors)} errors.",
+    }
+
+
+@router.get("/template/{template_type}")
+async def download_template(template_type: str, user=Depends(get_current_user)):
+    """Download a CSV template for the specified import type."""
+    if template_type == "products":
+        headers = ["Product Name", "SKU", "Category", "Unit", "Description", "Type",
+                   "Retail Price", "Wholesale Price", "Cost Price", "Reorder Point"]
+        sample = [["Sample Product A", "PROD-001", "Feeds", "BAG", "50kg bag", "stockable",
+                   "1500", "1350", "1200", "10"],
+                  ["Sample Product B", "", "Pesticide", "BOTTLE", "", "stockable",
+                   "250", "225", "200", "5"]]
+    elif template_type == "inventory-seed":
+        headers = ["Product Name", "Quantity"]
+        sample = [["Sample Product A", "50"],
+                  ["Sample Product B", "120"]]
+    else:
+        raise HTTPException(status_code=404, detail="Unknown template type")
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    writer.writerows(sample)
+    output.seek(0)
+
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode()),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=agripos_{template_type}_template.csv"}
+    )

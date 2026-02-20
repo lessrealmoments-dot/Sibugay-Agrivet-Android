@@ -1,15 +1,16 @@
 /**
  * AgriPOS Offline Database (IndexedDB)
- * Stores products, customers, price schemes, and pending offline sales
+ * Stores products, customers, price schemes, inventory, and pending offline sales
  */
 
 const DB_NAME = 'agripos_offline';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // bumped: added inventory store
 
 const STORES = {
   PRODUCTS: 'products',
   CUSTOMERS: 'customers',
   PRICE_SCHEMES: 'price_schemes',
+  INVENTORY: 'inventory',
   PENDING_SALES: 'pending_sales',
   META: 'meta',
 };
@@ -19,9 +20,14 @@ function openDB() {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      // Inventory uses product_id as key (one record per product per branch cache)
+      const keyPaths = {
+        [STORES.META]: 'key',
+        [STORES.INVENTORY]: 'product_id',
+      };
       Object.values(STORES).forEach((store) => {
         if (!db.objectStoreNames.contains(store)) {
-          const keyPath = store === STORES.META ? 'key' : 'id';
+          const keyPath = keyPaths[store] || 'id';
           db.createObjectStore(store, { keyPath });
         }
       });

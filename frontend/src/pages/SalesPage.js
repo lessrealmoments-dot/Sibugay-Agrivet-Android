@@ -70,7 +70,7 @@ export default function SalesPage() {
 
   const voidSale = async (saleId) => {
     if (!window.confirm('Void this sale? Stock will be restored.')) return;
-    try { await api.post(`/sales/${saleId}/void`); toast.success('Sale voided'); fetchSales(); setDetailDialog(false); }
+    try { await api.post(`/invoices/${saleId}/void`); toast.success('Sale voided'); fetchSales(); setDetailDialog(false); }
     catch (e) { toast.error(e.response?.data?.detail || 'Failed to void sale'); }
   };
 

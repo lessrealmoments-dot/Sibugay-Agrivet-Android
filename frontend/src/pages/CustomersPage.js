@@ -149,6 +149,10 @@ export default function CustomersPage() {
                       <Button variant="ghost" size="sm" data-testid={`view-customer-${c.id}`} onClick={() => openHistory(c)} title="View Transactions">
                         <Eye size={14} />
                       </Button>
+                      <Button variant="ghost" size="sm" onClick={() => { setStatementCustomer(c); setStatementDialog(true); }}
+                        title="Statement of Account" className="text-slate-400 hover:text-[#1A4D2E]">
+                        <Printer size={14} />
+                      </Button>
                       <Button variant="ghost" size="sm" data-testid={`edit-customer-${c.id}`} onClick={() => openEdit(c)}>
                         <Pencil size={14} />
                       </Button>

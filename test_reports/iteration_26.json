@@ -1,0 +1,135 @@
+{
+  "summary": "Tested 5 major AgriPOS feature areas: Dashboard Unpaid PO widget, Pay Supplier page, PO credit with terms/due_date, PO Reopen flow, and Customer Statement of Account. All 27 backend tests passed. Frontend: 16/16 test scenarios passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CustomerStatementModal.js",
+        "issue": "Print header has typo: `statement.dateTo` (camelCase) should be `statement.date_to` (snake_case) on line 82. Only affects the hidden print view header (print:block hidden class), not the visible UI.",
+        "selector": "CustomerStatementModal.js line 82",
+        "priority": "LOW"
+      },
+      {
+        "component": "DashboardPage.js - Consolidated Owner View",
+        "issue": "Unpaid PO widget is only shown in single-branch view. In consolidated 'All Branches' owner view, the poSummary data is fetched but not displayed anywhere. May be intentional design decision.",
+        "selector": "data-testid=owner-dashboard",
+        "priority": "LOW"
+      },
+      {
+        "component": "PurchaseOrderPage - PO List",
+        "issue": "Cancelled credit POs still show 'Pay' button if payment_status=unpaid. E.g., TEST_Pay_Vendor_26, TEST_Reopen_Vendor_26 (from backend tests) show 'Pay' even though cancelled. Minor UX confusion.",
+        "selector": "[data-testid^='pay-po-']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "feature_test_results": {
+    "dashboard_unpaid_po_widget": {
+      "status": "PASS",
+      "notes": "Widget shows in single-branch (IPIL BRANCH) view with 'Upcoming' badge, ₱88,550.00 total in red, PO list with PO#. 'All POs paid up to date' shown for Main Branch - Downtown which is correct."
+    },
+    "dashboard_po_total": {
+      "status": "PASS",
+      "notes": "₱88,550.00 displayed in widget matches expected balance for PILMICO PO in IPIL BRANCH"
+    },
+    "credit_po_terms_due_date_fields": {
+      "status": "PASS",
+      "notes": "Selecting 'Purchase on Credit' shows 'Payment Terms (days)' and 'Due Date (auto-computed)' fields. Hint text 'Payable will be created. Set payment terms above for due-date tracking.' appears."
+    },
+    "reopen_po_button_after_receive": {
+      "status": "PASS",
+      "notes": "After clicking Receive on PILMICO PO: status changes to 'received', Reopen button appears, Receive button disappears."
+    },
+    "reopen_po_status_reverts": {
+      "status": "PASS",
+      "notes": "After clicking Reopen + confirm dialog: status reverts to 'ordered', Receive button reappears. Toast shows 'PO reopened. Inventory reversed.' confirming inventory reversal."
+    },
+    "pay_supplier_page": {
+      "status": "PASS",
+      "notes": "/pay-supplier route loads with 'Suppliers with Balance' panel. PILMICO shows ₱88,550.00 in red with '1 PO' badge."
+    },
+    "pay_supplier_po_table": {
+      "status": "PASS",
+      "notes": "Clicking PILMICO shows Open Purchase Orders table with PO#, Date, Status, Due, Items, Total, Paid, Balance, Payment columns."
+    },
+    "pay_supplier_fund_source": {
+      "status": "PASS",
+      "notes": "Cashier (₱-1,660.00) and Safe (₱0.00) fund source buttons visible with current balances."
+    },
+    "pay_supplier_cashier_warning": {
+      "status": "PASS",
+      "notes": "Amber warning 'Insufficient Cashier Balance - Cashier has ₱-1660.00, short by ₱X.XX. Check both Cashier and Safe balances.' appears when amount entered."
+    },
+    "pay_all_button": {
+      "status": "PASS",
+      "notes": "Pay All fills row input with ₱88,550.00 (full balance). 'Payment Allocation:' chips appear with PO# and amount."
+    },
+    "check_number_field": {
+      "status": "PASS",
+      "notes": "check-number-input data-testid exists. Code confirms label changes to 'Check # *' and placeholder to 'Required' when Check method selected. UI tested by code review."
+    },
+    "customer_printer_icon": {
+      "status": "PASS",
+      "notes": "Printer icon with title='Statement of Account' visible per customer row (3 buttons found for 3 customers)."
+    },
+    "statement_modal_opens": {
+      "status": "PASS",
+      "notes": "Clicking printer icon opens 'Statement of Account — SADRAK' modal with From/To date pickers and Generate Statement button."
+    },
+    "statement_generate_table": {
+      "status": "PASS",
+      "notes": "Generate Statement button fetches transactions. Table shows Date, Reference, Description, Charges, Payments, Balance (running balance) columns. Verified running balance updates (₱340→₱240→₱140→₱0)."
+    },
+    "statement_print_button": {
+      "status": "PASS",
+      "notes": "Print button appears after statement generation next to Generate Statement button."
+    }
+  },
+  "backend_tests": {
+    "test_file": "/app/backend/tests/test_po_statement_features.py",
+    "total": 27,
+    "passed": 27,
+    "failed": 0,
+    "sections": [
+      "TestUnpaidSummary (5 tests): GET /purchase-orders/unpaid-summary",
+      "TestPayablesBySupplier (5 tests): GET /purchase-orders/payables-by-supplier",
+      "TestCreditPOCreation (5 tests): credit PO with terms_days/due_date",
+      "TestReopenPO (3 tests): POST /{id}/reopen",
+      "TestPOPayment (2 tests): POST /{id}/pay with fund source",
+      "TestCustomerStatement (7 tests): GET /customers/{id}/statement"
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_po_statement_features.py",
+    "/app/test_reports/pytest/pytest_po_statement.xml"
+  ],
+  "action_items": [
+    "LOW: Fix typo in CustomerStatementModal.js line 82: `statement.dateTo` → `statement.date_to` (affects hidden print header only)",
+    "LOW: Consider hiding 'Pay' button on cancelled POs to avoid user confusion",
+    "SUGGESTION: Consider showing Unpaid PO summary widget in consolidated Owner Dashboard view (currently only shown in single-branch view)"
+  ],
+  "critical_code_review_comments": [
+    "CustomerStatementModal.js line 82: `statement.dateTo` is undefined (should be `statement.date_to`) - this breaks the date range display in print header",
+    "PO List: cancelled POs with credit/unpaid status show Pay button - confusing UX",
+    "Dashboard consolidated view: poSummary API is called but widget not rendered - dead code/missed feature for owner consolidated view"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_po_statement_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (27/27)",
+    "frontend": "100% (16/16 scenarios)"
+  },
+  "seed_data_creation": "3 test POs created (cancelled), PILMICO PO was received and reopened during UI testing (now back to 'ordered' status).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 5 major features verified working: Dashboard PO widget (single-branch only), Pay Supplier page (/pay-supplier with PILMICO ₱88,550), Credit PO terms/due_date, Reopen PO flow (inventory reversal confirmed), Customer Statement modal with running balance and Print button. Backend 27/27 tests pass. PILMICO PO is back to 'ordered' status. Minor issues: CustomerStatementModal print header typo (statement.dateTo vs statement.date_to), cancelled POs show Pay button, consolidated dashboard lacks PO widget.",
+  "rca_of_issues": {
+    "CustomerStatementModal typo": "In CustomerStatementModal.js line 82, the code uses `statement.dateTo` but the backend returns `date_to` (snake_case). This is a JavaScript naming convention mismatch. The property is `undefined` in JS when accessed as camelCase on a Python-derived JSON object. Fix: change `statement.dateTo` to `statement.date_to`."
+  }
+}

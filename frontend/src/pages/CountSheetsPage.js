@@ -121,54 +121,74 @@ export default function CountSheetsPage() {
     setLoading(false);
   };
 
-  const handleUpdateCount = async (productId, updateData) => {
-    if (!selectedSheet) return;
-    try {
-      await api.put(`/count-sheets/${selectedSheet.id}/items`, {
-        items: [{ product_id: productId, ...updateData }]
-      });
-      // Update local state
-      setSelectedSheet(prev => ({
+  // Debounce timers per product
+  const debounceTimers = useRef({});
+
+  // Update local state immediately for real-time display
+  const updateLocalState = (productId, updateData) => {
+    setSelectedSheet(prev => {
+      if (!prev) return prev;
+      return {
         ...prev,
         items: prev.items.map(item => {
           if (item.product_id !== productId) return item;
-          
-          let actualQty;
-          let actualWhole = updateData.actual_whole;
-          let actualLoose = updateData.actual_loose;
-          
+
+          let actualQty, actualWhole, actualLoose;
+
           if (updateData.actual_whole !== undefined || updateData.actual_loose !== undefined) {
-            // Split input
-            const whole = parseFloat(updateData.actual_whole || 0);
-            const loose = parseFloat(updateData.actual_loose || 0);
-            const unitsPerParent = item.units_per_parent || 1;
-            actualQty = whole + (loose / unitsPerParent);
-            actualWhole = Math.floor(whole);
-            actualLoose = Math.floor(loose);
+            const whole = parseFloat(updateData.actual_whole ?? item.actual_whole ?? 0) || 0;
+            const loose = parseFloat(updateData.actual_loose ?? item.actual_loose ?? 0) || 0;
+            const upp = item.units_per_parent || 1;
+            // Auto-carry: if loose >= upp, roll over into whole
+            const carryOver = Math.floor(loose / upp);
+            const normalizedLoose = loose % upp;
+            const normalizedWhole = whole + carryOver;
+            actualQty = normalizedWhole + (normalizedLoose / upp);
+            actualWhole = Math.floor(normalizedWhole);
+            actualLoose = Math.round(normalizedLoose);
           } else if (updateData.actual_quantity !== undefined) {
-            // Decimal input
-            actualQty = parseFloat(updateData.actual_quantity);
-            const unitsPerParent = item.units_per_parent || 1;
+            actualQty = parseFloat(updateData.actual_quantity) || 0;
+            const upp = item.units_per_parent || 1;
             actualWhole = Math.floor(actualQty);
-            actualLoose = Math.round((actualQty - actualWhole) * unitsPerParent);
+            actualLoose = Math.round((actualQty - actualWhole) * upp);
+          } else {
+            return item;
           }
-          
+
           const variance = actualQty - item.system_quantity;
           return {
             ...item,
-            actual_quantity: actualQty,
+            actual_quantity: Math.round(actualQty * 10000) / 10000,
             actual_whole: actualWhole,
             actual_loose: actualLoose,
             counted: true,
-            variance: variance,
-            loss_capital: variance * item.capital_price,
-            loss_retail: variance * item.retail_price,
+            variance: Math.round(variance * 10000) / 10000,
+            loss_capital: Math.round(variance * item.capital_price * 100) / 100,
+            loss_retail: Math.round(variance * item.retail_price * 100) / 100,
           };
         })
-      }));
-    } catch (err) {
-      toast.error('Failed to update count');
-    }
+      };
+    });
+  };
+
+  // Debounced API save — fires 600ms after user stops typing
+  const scheduleSave = (productId, updateData) => {
+    clearTimeout(debounceTimers.current[productId]);
+    debounceTimers.current[productId] = setTimeout(async () => {
+      if (!selectedSheet) return;
+      try {
+        await api.put(`/count-sheets/${selectedSheet.id}/items`, {
+          items: [{ product_id: productId, ...updateData }]
+        });
+      } catch (err) {
+        toast.error('Failed to save count — please re-enter the value');
+      }
+    }, 600);
+  };
+
+  const handleUpdateCount = async (productId, updateData) => {
+    updateLocalState(productId, updateData);
+    scheduleSave(productId, updateData);
   };
 
   const handleComplete = async () => {

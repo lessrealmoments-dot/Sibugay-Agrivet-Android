@@ -506,7 +506,7 @@ export default function UnifiedSalesPage() {
                   onFocus={() => { if (custSearch) setCustDropdownOpen(true); }}
                   onBlur={() => setTimeout(() => setCustDropdownOpen(false), 200)}
                 />
-                {custDropdownOpen && filteredCusts.length > 0 && (
+                {custDropdownOpen && (
                   <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {filteredCusts.map(c => (
                       <button key={c.id} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50"
@@ -516,6 +516,16 @@ export default function UnifiedSalesPage() {
                         {c.balance > 0 && <Badge variant="outline" className="ml-2 text-[10px] text-red-600">Bal: {formatPHP(c.balance)}</Badge>}
                       </button>
                     ))}
+                    {custSearch && !customers.find(c => c.name.toLowerCase() === custSearch.toLowerCase()) && (
+                      <button
+                        data-testid="create-customer-btn"
+                        className="w-full text-left px-3 py-2.5 text-sm bg-[#1A4D2E]/5 hover:bg-[#1A4D2E]/10 text-[#1A4D2E] font-medium border-t border-slate-100"
+                        onMouseDown={openNewCustomerDialog}
+                      >
+                        <Plus size={14} className="inline mr-2" />
+                        Create "{custSearch}" as new customer
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

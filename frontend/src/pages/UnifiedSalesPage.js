@@ -160,7 +160,7 @@ export default function UnifiedSalesPage() {
     : [];
 
   const getPriceForCustomer = (product) => {
-    const scheme = selectedCustomer?.price_scheme || 'retail';
+    const scheme = selectedCustomer?.price_scheme || defaultScheme;
     return product.prices?.[scheme] || product.prices?.retail || product.cost_price || 0;
   };
 

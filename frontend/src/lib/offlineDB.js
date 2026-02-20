@@ -4,13 +4,14 @@
  */
 
 const DB_NAME = 'agripos_offline';
-const DB_VERSION = 3; // bumped: added inventory store
+const DB_VERSION = 4; // bumped: added branch_prices store
 
 const STORES = {
   PRODUCTS: 'products',
   CUSTOMERS: 'customers',
   PRICE_SCHEMES: 'price_schemes',
   INVENTORY: 'inventory',
+  BRANCH_PRICES: 'branch_prices',
   PENDING_SALES: 'pending_sales',
   META: 'meta',
 };
@@ -20,10 +21,11 @@ function openDB() {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      // Inventory uses product_id as key (one record per product per branch cache)
+      // Custom key paths per store
       const keyPaths = {
         [STORES.META]: 'key',
         [STORES.INVENTORY]: 'product_id',
+        [STORES.BRANCH_PRICES]: 'product_id', // one branch cached at a time
       };
       Object.values(STORES).forEach((store) => {
         if (!db.objectStoreNames.contains(store)) {

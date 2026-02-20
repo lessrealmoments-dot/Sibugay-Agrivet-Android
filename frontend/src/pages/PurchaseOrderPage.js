@@ -24,7 +24,9 @@ export default function PurchaseOrderPage() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [prefixes, setPrefixes] = useState({});
   const [header, setHeader] = useState({
-    vendor: '', branch_id: '', purchase_date: new Date().toISOString().slice(0, 10), notes: '', status: 'ordered', payment_method: 'cash', po_number: '',
+    vendor: '', branch_id: '', purchase_date: new Date().toISOString().slice(0, 10),
+    notes: '', status: 'ordered', payment_method: 'cash', po_number: '',
+    terms_days: 0, due_date: '',
   });
   const [lines, setLines] = useState([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);

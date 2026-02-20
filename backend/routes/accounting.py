@@ -863,3 +863,53 @@ async def get_customer_payment_history(customer_id: str, user=Depends(get_curren
 
 # ==================== CUSTOMER INTEREST/PENALTY GENERATION ====================
 @router.get("/customers/{customer_id}/charges-preview")
+async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] = None, user=Depends(get_current_user)):
+    """Preview interest for a customer WITHOUT creating invoices. Used for display only."""
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    comp_date_str = as_of_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
+    grace_period = int(customer.get("grace_period", 7))
+    default_rate = float(customer.get("interest_rate", 0))
+
+    invoices = await db.invoices.find(
+        {"customer_id": customer_id, "balance": {"$gt": 0}, "status": {"$nin": ["voided", "paid"]}},
+        {"_id": 0}
+    ).to_list(500)
+
+    interest_preview, total_interest, total_principal = [], 0, 0
+
+    for inv in invoices:
+        if inv.get("sale_type") in ("interest_charge", "penalty_charge"):
+            continue
+        rate = float(inv.get("interest_rate") or default_rate)
+        if rate <= 0:
+            continue
+        due_str = inv.get("due_date") or inv.get("order_date") or comp_date_str
+        due_date = datetime.strptime(due_str, "%Y-%m-%d")
+        grace_end = due_date + timedelta(days=grace_period)
+        last_int_str = inv.get("last_interest_date")
+        start_date = datetime.strptime(last_int_str, "%Y-%m-%d") if last_int_str else grace_end
+        days = max(0, (comp_date - start_date).days)
+        principal = max(0, inv.get("balance", 0) - inv.get("interest_accrued", 0) - inv.get("penalties", 0))
+        total_principal += principal
+        if days > 0 and principal > 0:
+            interest = round(principal * (rate / 100 / 30) * days, 2)
+            total_interest += interest
+            interest_preview.append({
+                "invoice_number": inv.get("invoice_number", ""),
+                "invoice_id": inv["id"],
+                "principal": principal,
+                "rate": rate,
+                "days_for_interest": days,
+                "interest_amount": interest,
+            })
+
+    return {
+        "customer_id": customer_id,
+        "total_principal": total_principal,
+        "total_interest": round(total_interest, 2),
+        "interest_preview": interest_preview,
+    }

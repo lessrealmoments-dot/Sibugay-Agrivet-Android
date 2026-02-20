@@ -154,6 +154,7 @@ ROLE_PRESETS = {
             "price_schemes": {"view": True, "create": True, "edit": True, "delete": True},
             "reports": {"view": True, "view_profit": True, "export": True, "close_day": True},
             "settings": {"view": True, "edit": True, "manage_users": True, "manage_permissions": True},
+            "count_sheets": {"view": True, "create": True, "count": True, "complete": True, "cancel": True, "adjust": True},
         }
     },
     "manager": {
@@ -172,6 +173,7 @@ ROLE_PRESETS = {
             "price_schemes": {"view": True, "create": False, "edit": False, "delete": False},
             "reports": {"view": True, "view_profit": True, "export": True, "close_day": True},
             "settings": {"view": True, "edit": False, "manage_users": False, "manage_permissions": False},
+            "count_sheets": {"view": True, "create": True, "count": True, "complete": True, "cancel": True, "adjust": False},
         }
     },
     "cashier": {
@@ -190,6 +192,7 @@ ROLE_PRESETS = {
             "price_schemes": {"view": True, "create": False, "edit": False, "delete": False},
             "reports": {"view": False, "view_profit": False, "export": False, "close_day": False},
             "settings": {"view": False, "edit": False, "manage_users": False, "manage_permissions": False},
+            "count_sheets": {"view": False, "create": False, "count": False, "complete": False, "cancel": False, "adjust": False},
         }
     },
     "inventory_clerk": {
@@ -208,6 +211,7 @@ ROLE_PRESETS = {
             "price_schemes": {"view": True, "create": False, "edit": False, "delete": False},
             "reports": {"view": True, "view_profit": False, "export": False, "close_day": False},
             "settings": {"view": False, "edit": False, "manage_users": False, "manage_permissions": False},
+            "count_sheets": {"view": True, "create": True, "count": True, "complete": False, "cancel": False, "adjust": False},
         }
     },
 }

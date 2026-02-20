@@ -491,6 +491,116 @@ export default function ProductsPage() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Quick Repack Generator */}
+      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
+              <Zap size={18} className="text-amber-500" /> Quick Repack Generator
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-1">
+            {/* Step 1: Parent search */}
+            <div className="relative">
+              <Label className="mb-1.5 block">Parent Product <span className="text-red-500">*</span></Label>
+              <div className="relative">
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  className="pl-9"
+                  placeholder="Search parent product name..."
+                  value={qrSearch}
+                  onChange={e => { setQrSearch(e.target.value); setQrParent(null); }}
+                  data-testid="qr-parent-search"
+                  autoFocus
+                />
+              </div>
+              {qrMatches.length > 0 && !qrParent && (
+                <div className="absolute z-20 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
+                  {qrMatches.map(p => (
+                    <button key={p.id} onMouseDown={() => selectQrParent(p)}
+                      className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm border-b border-slate-100 last:border-0">
+                      <div className="font-medium">{p.name}</div>
+                      <div className="text-xs text-slate-400">{p.sku} · {p.unit} · Cost: ₱{p.cost_price}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {qrParent && (
+                <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
+                  <span className="font-semibold text-emerald-800">{qrParent.name}</span>
+                  <span className="text-emerald-600 text-xs ml-2">{qrParent.unit} · Cost ₱{qrParent.cost_price}</span>
+                </div>
+              )}
+            </div>
+
+            {qrParent && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="mb-1.5 block">Repack Name</Label>
+                    <Input value={qrForm.name} onChange={e => setQrForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder={`R ${qrParent.name}`} data-testid="qr-name" />
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block">Repack Unit</Label>
+                    <Input value={qrForm.unit} onChange={e => setQrForm(f => ({ ...f, unit: e.target.value }))}
+                      placeholder="Pack, Sachet, Piece" data-testid="qr-unit" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="mb-1.5 block">Qty per {qrParent.unit} <span className="text-red-500">*</span></Label>
+                    <Input type="number" min={1} value={qrForm.units_per_parent}
+                      onChange={e => setQrForm(f => ({ ...f, units_per_parent: parseInt(e.target.value) || 1 }))}
+                      data-testid="qr-units-per-parent" />
+                    <p className="text-[10px] text-slate-400 mt-0.5">How many {qrForm.unit || 'pcs'} in 1 {qrParent.unit}</p>
+                  </div>
+                  <div>
+                    <Label className="mb-1.5 block">Add-on Cost</Label>
+                    <Input type="number" min={0} step="0.01" value={qrForm.add_on_cost}
+                      onChange={e => setQrForm(f => ({ ...f, add_on_cost: parseFloat(e.target.value) || 0 }))}
+                      data-testid="qr-addon-cost" placeholder="0.00" />
+                    <p className="text-[10px] text-slate-400 mt-0.5">Packaging, labor, etc.</p>
+                  </div>
+                </div>
+
+                {/* Auto cost preview */}
+                <div className="flex items-center gap-2 text-sm p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                  <span className="text-blue-600">Auto cost:</span>
+                  <span className="font-bold text-blue-800">
+                    ₱{((qrParent.cost_price / (qrForm.units_per_parent || 1)) + (qrForm.add_on_cost || 0)).toFixed(2)}
+                  </span>
+                  <span className="text-blue-500 text-xs">(₱{qrParent.cost_price} ÷ {qrForm.units_per_parent}{qrForm.add_on_cost > 0 ? ` + ₱${qrForm.add_on_cost}` : ''})</span>
+                </div>
+
+                <div>
+                  <Label className="mb-1.5 block">
+                    Retail Price <span className="text-red-500">*</span>
+                    <span className="text-xs font-normal text-slate-500 ml-2">— applied to ALL price schemes</span>
+                  </Label>
+                  <Input type="number" min={0} step="0.01" value={qrForm.retail_price}
+                    onChange={e => setQrForm(f => ({ ...f, retail_price: parseFloat(e.target.value) || 0 }))}
+                    className="text-lg font-bold"
+                    data-testid="qr-retail-price" placeholder="0.00" />
+                  {schemes.length > 0 && (
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Will set: {schemes.map(s => s.name).join(', ')} → all to ₱{qrForm.retail_price}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" onClick={() => setQrOpen(false)}>Cancel</Button>
+                  <Button onClick={handleQuickRepack} className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="qr-generate-btn">
+                    <Zap size={14} className="mr-1.5" /> Generate Repack
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

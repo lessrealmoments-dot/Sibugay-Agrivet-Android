@@ -88,6 +88,12 @@ export default function BranchesPage() {
                   <TableCell className="text-slate-500">{b.phone || '—'}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" title="Quick-Fill Capital"
+                        data-testid={`quickfill-${b.id}`}
+                        onClick={() => setWizardBranch(b)}
+                        className="text-amber-600 hover:text-amber-700">
+                        <Zap size={14} />
+                      </Button>
                       <Button variant="ghost" size="sm" data-testid={`edit-branch-${b.id}`} onClick={() => openEdit(b)}>
                         <Pencil size={14} />
                       </Button>

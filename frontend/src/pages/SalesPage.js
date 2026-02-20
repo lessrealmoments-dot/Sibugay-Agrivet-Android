@@ -26,9 +26,19 @@ export default function SalesPage() {
     try {
       const params = { skip: page * LIMIT, limit: LIMIT };
       if (currentBranch) params.branch_id = currentBranch.id;
-      const res = await api.get('/sales', { params });
-      setSales(res.data.sales);
-      setTotal(res.data.total);
+      // Use invoices endpoint as sales are now stored as invoices
+      const res = await api.get('/invoices', { params });
+      // Map invoice format to sales format for backward compatibility
+      const invoices = res.data.invoices || [];
+      const mappedSales = invoices.map(inv => ({
+        ...inv,
+        sale_number: inv.invoice_number,
+        total: inv.grand_total,
+        items: inv.items || [],
+        status: inv.status === 'voided' ? 'voided' : 'completed',
+      }));
+      setSales(mappedSales);
+      setTotal(res.data.total || 0);
     } catch { toast.error('Failed to load sales'); }
   }, [currentBranch, page]);
 

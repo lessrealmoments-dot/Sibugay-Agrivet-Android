@@ -12,6 +12,7 @@ import {
   ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
+import NotificationBell from './NotificationBell';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null },

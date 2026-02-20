@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, useAuth } from '../contexts/AuthContext';
+import { api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Badge } from './ui/badge';
 import { Search, Package, ArrowUp, ArrowDown, PlusCircle } from 'lucide-react';
@@ -10,9 +10,29 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
   const [open, setOpen] = useState(false);
   const [noResults, setNoResults] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
   const debounceRef = useRef(null);
+
+  // Position the dropdown using fixed coords to escape any overflow:hidden/auto ancestor
+  const updateDropdownPos = () => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 320) });
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    updateDropdownPos();
+    window.addEventListener('scroll', updateDropdownPos, true);
+    window.addEventListener('resize', updateDropdownPos);
+    return () => {
+      window.removeEventListener('scroll', updateDropdownPos, true);
+      window.removeEventListener('resize', updateDropdownPos);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!query || query.length < 1) { setResults([]); setOpen(false); setNoResults(false); return; }
@@ -22,6 +42,7 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
         const res = await api.get('/products/search-detail', { params: { q: query, branch_id: branchId } });
         setResults(res.data);
         setNoResults(res.data.length === 0 && query.length >= 2);
+        updateDropdownPos();
         setOpen(true);
         setActiveIndex(-1);
       } catch { setResults([]); setNoResults(true); }
@@ -83,13 +104,17 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
       </div>
 
       {open && (results.length > 0 || noResults) && (
-        <div ref={dropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-[400px] overflow-y-auto"
-          data-testid="search-results-dropdown">
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, zIndex: 9999 }}
+          className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-[400px] overflow-y-auto"
+          data-testid="search-results-dropdown"
+        >
           {results.map((p, i) => (
             <div
               key={p.id}
               data-testid={`search-result-${p.id}`}
-              onClick={() => selectProduct(p)}
+              onMouseDown={() => selectProduct(p)}
               className={`px-3 py-2.5 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
                 i === activeIndex ? 'bg-[#1A4D2E]/5 border-l-2 border-l-[#1A4D2E]' : 'hover:bg-slate-50'
               }`}
@@ -103,7 +128,6 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
                 <span className="text-sm font-bold text-[#1A4D2E] shrink-0 ml-2">{formatPHP(p.prices?.retail)}</span>
               </div>
 
-              {/* Detail row - always visible when active */}
               {i === activeIndex && (
                 <div className="mt-2 p-2.5 rounded-md bg-slate-50 border border-slate-100 text-xs animate-fadeIn">
                   <div className="grid grid-cols-4 gap-3">
@@ -134,7 +158,6 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
                 </div>
               )}
 
-              {/* Compact info when not active */}
               {i !== activeIndex && (
                 <div className="flex gap-3 mt-0.5 text-[11px] text-slate-400">
                   <span>Capital: {formatPHP(p.cost_price)}</span>
@@ -145,14 +168,14 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
               )}
             </div>
           ))}
-          {/* No results - offer to create */}
+
           {noResults && query.length >= 2 && (
             <div className="px-3 py-3 border-t border-slate-100">
               <p className="text-sm text-slate-500 mb-2">No product found for "<b>{query}</b>"</p>
               {onCreateNew ? (
                 <button
                   data-testid="create-product-from-search"
-                  onClick={() => { onCreateNew(query); setOpen(false); setQuery(''); }}
+                  onMouseDown={() => { onCreateNew(query); setOpen(false); setQuery(''); }}
                   className="flex items-center gap-2 w-full px-3 py-2 rounded-md bg-[#1A4D2E]/5 hover:bg-[#1A4D2E]/10 text-[#1A4D2E] text-sm font-medium transition-colors"
                 >
                   <PlusCircle size={16} /> Create "{query}" as new product

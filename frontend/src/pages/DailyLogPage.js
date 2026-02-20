@@ -88,12 +88,26 @@ export default function DailyLogPage() {
   }, [currentBranch]);
 
   const handleClose = async () => {
+    if (actualCash === '') { toast.error('Enter the actual cash count first'); return; }
+    if (!cashToDrawer && cashToDrawer !== 0) { toast.error('Enter how much stays in the register'); return; }
+    if (r2(cashToDrawerNum + cashToSafeNum) > r2(actualNum) + 0.01) {
+      toast.error('Cash to safe + register cannot exceed actual cash count'); return;
+    }
     if (!window.confirm(`Close accounts for ${date}? This cannot be undone.`)) return;
+    setClosingLoading(true);
     try {
-      const res = await api.post('/daily-close', { ...closeForm, date, branch_id: currentBranch.id });
-      toast.success(`Day closed! Extra cash: ${formatPHP(res.data.extra_cash)}`);
+      const res = await api.post('/daily-close', {
+        date, branch_id: currentBranch.id,
+        actual_cash: actualNum,
+        cash_to_safe: cashToSafeNum,
+        cash_to_drawer: cashToDrawerNum,
+        admin_pin: adminPin,
+      });
+      toast.success('Day closed successfully!');
       setClosing(res.data);
+      setAdminPin('');
     } catch (e) { toast.error(e.response?.data?.detail || 'Error closing day'); }
+    setClosingLoading(false);
   };
 
   const handleExpense = async () => {

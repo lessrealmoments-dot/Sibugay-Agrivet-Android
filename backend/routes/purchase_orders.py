@@ -223,7 +223,7 @@ async def cancel_purchase_order(po_id: str, user=Depends(get_current_user)):
 
 @router.post("/{po_id}/pay")
 async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_user)):
-    """Record a payment on a purchase order."""
+    """Record a payment on a purchase order. Validates fund balance and creates expense record."""
     check_perm(user, "accounting", "create")
     
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
@@ -234,52 +234,107 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
     
     amount = float(data.get("amount", po.get("balance", po["subtotal"])))
     branch_id = po.get("branch_id", "")
+    fund_source = data.get("fund_source", "cashier")  # cashier | safe | bank
+    
+    # --- Balance check before paying ---
+    cashier_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
+    cashier_balance = cashier_wallet.get("balance", 0) if cashier_wallet else 0
+    
+    safe_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0})
+    safe_balance = 0
+    if safe_wallet:
+        lots = await db.safe_lots.find({"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
+        safe_balance = sum(lot["remaining_amount"] for lot in lots)
+    
+    if fund_source == "cashier" and cashier_balance < amount:
+        raise HTTPException(status_code=400, detail={
+            "type": "insufficient_funds",
+            "message": f"Cashier has only ₱{cashier_balance:.2f}. Short by ₱{amount - cashier_balance:.2f}.",
+            "cashier_balance": cashier_balance,
+            "safe_balance": safe_balance,
+            "shortfall": round(amount - cashier_balance, 2),
+            "can_use_safe": safe_balance >= amount,
+        })
+    if fund_source == "safe" and safe_balance < amount:
+        raise HTTPException(status_code=400, detail={
+            "type": "insufficient_funds",
+            "message": f"Safe has only ₱{safe_balance:.2f}. Short by ₱{amount - safe_balance:.2f}.",
+            "cashier_balance": cashier_balance,
+            "safe_balance": safe_balance,
+            "shortfall": round(amount - safe_balance, 2),
+        })
     
     ref_parts = [f"PO Payment {po['po_number']} - {po['vendor']}"]
     if data.get("check_number"):
         ref_parts.append(f"Check #{data['check_number']}")
+    if data.get("reference"):
+        ref_parts.append(data["reference"])
+    ref_text = " | ".join(ref_parts)
     
-    await update_cashier_wallet(branch_id, -amount, " ".join(ref_parts))
+    # Deduct from selected fund
+    if fund_source == "safe" and safe_wallet:
+        remaining = amount
+        for lot in await db.safe_lots.find({"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).sort("remaining_amount", -1).to_list(500):
+            if remaining <= 0:
+                break
+            take = min(lot["remaining_amount"], remaining)
+            await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+            remaining -= take
+    else:
+        await update_cashier_wallet(branch_id, -amount, ref_text)
     
     new_paid = po.get("amount_paid", 0) + amount
     new_balance = max(0, round(po["subtotal"] - new_paid, 2))
     new_status = "paid" if new_balance <= 0 else "partial"
     
     payment_record = {
-        "id": new_id(),
-        "amount": amount,
+        "id": new_id(), "amount": amount,
         "date": data.get("payment_date", now_iso()[:10]),
         "check_number": data.get("check_number", ""),
         "check_date": data.get("check_date", ""),
         "method": data.get("method", "Cash"),
+        "fund_source": fund_source,
+        "reference": data.get("reference", ""),
         "recorded_by": user.get("full_name", user["username"]),
         "recorded_at": now_iso(),
     }
     
     await db.purchase_orders.update_one({"id": po_id}, {
-        "$set": {
-            "amount_paid": new_paid,
-            "balance": new_balance,
-            "payment_status": new_status
-        },
+        "$set": {"amount_paid": new_paid, "balance": new_balance, "payment_status": new_status},
         "$push": {"payment_history": payment_record}
     })
     
     # Update payable if exists
     payable = await db.payables.find_one({"po_id": po_id}, {"_id": 0})
     if payable:
-        pay_new_paid = payable["paid"] + amount
+        pay_new_paid = payable.get("paid", 0) + amount
         pay_new_balance = max(0, round(payable["amount"] - pay_new_paid, 2))
         pay_status = "paid" if pay_new_balance <= 0 else "partial"
-        await db.payables.update_one(
-            {"po_id": po_id},
-            {"$set": {"paid": pay_new_paid, "balance": pay_new_balance, "status": pay_status}}
-        )
+        await db.payables.update_one({"po_id": po_id}, {
+            "$set": {"paid": pay_new_paid, "balance": pay_new_balance, "status": pay_status}
+        })
+    
+    # Create expense record for this payment
+    await db.expenses.insert_one({
+        "id": new_id(), "branch_id": branch_id,
+        "category": "Purchase Payment",
+        "description": f"PO {po['po_number']} — {po['vendor']}",
+        "notes": f"Check #{data.get('check_number','')}" if data.get("check_number") else data.get("reference", ""),
+        "amount": amount,
+        "payment_method": data.get("method", "Cash"),
+        "reference_number": data.get("check_number") or data.get("reference", ""),
+        "date": data.get("payment_date", now_iso()[:10]),
+        "fund_source": fund_source,
+        "po_id": po_id, "po_number": po["po_number"], "vendor": po["vendor"],
+        "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    })
     
     return {
-        "message": "Payment recorded",
+        "message": f"Payment of ₱{amount:.2f} recorded from {fund_source}",
         "new_balance": new_balance,
-        "payment_status": new_status
+        "payment_status": new_status,
+        "cashier_balance_after": cashier_balance - amount if fund_source == "cashier" else cashier_balance,
     }
 
 

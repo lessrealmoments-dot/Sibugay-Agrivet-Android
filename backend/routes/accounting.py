@@ -221,9 +221,12 @@ async def get_expense_categories(user=Depends(get_current_user)):
 async def create_expense(data: dict, user=Depends(get_current_user)):
     """Create a new expense. If category is 'Employee Advance', updates employee's advance balance."""
     check_perm(user, "accounting", "create_expense")
+    branch_id = data.get("branch_id") or ""  # Safe: never raise KeyError
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="Branch is required. Please select a specific branch before recording expenses.")
     expense = {
         "id": new_id(),
-        "branch_id": data["branch_id"],
+        "branch_id": branch_id,
         "category": data.get("category", "Miscellaneous"),
         "description": data.get("description", ""),
         "notes": data.get("notes", ""),

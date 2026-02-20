@@ -191,9 +191,17 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Products</h1>
           <p className="text-sm text-slate-500 mt-1">{total} products &middot; Parent & Repack management</p>
         </div>
-        <Button data-testid="create-product-btn" onClick={() => openCreate()} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-          <Plus size={16} className="mr-2" /> Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/import')} data-testid="go-to-import-btn">
+            <Upload size={15} className="mr-1.5" /> Import
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { setQrOpen(true); setQrParent(null); setQrSearch(''); setQrForm({ name: '', unit: 'Pack', units_per_parent: 1, add_on_cost: 0, retail_price: 0 }); }} data-testid="quick-repack-btn">
+            <Zap size={15} className="mr-1.5 text-amber-500" /> Quick Repack
+          </Button>
+          <Button data-testid="create-product-btn" onClick={() => openCreate()} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+            <Plus size={16} className="mr-2" /> Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

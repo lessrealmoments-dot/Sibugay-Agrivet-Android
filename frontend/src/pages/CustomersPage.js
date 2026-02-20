@@ -318,7 +318,7 @@ export default function CustomersPage() {
                             <TableCell className="text-sm text-right text-red-600 font-medium">{formatPHP(inv.balance)}</TableCell>
                             <TableCell>{getStatusBadge(inv.status)}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="text-[10px]">{inv.payment_type || inv.sale_type}</Badge>
+                              {getSaleTypeBadge(inv)}
                             </TableCell>
                           </TableRow>
                         ))}

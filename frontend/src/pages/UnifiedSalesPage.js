@@ -63,6 +63,10 @@ export default function UnifiedSalesPage() {
   
   // Default price scheme for walk-in customers
   const [defaultScheme, setDefaultScheme] = useState('retail');
+
+  // Price save dialog
+  const [priceSaveDialog, setPriceSaveDialog] = useState(false);
+  const [pendingPriceChange, setPendingPriceChange] = useState(null);
   
   // Checkout
   const [checkoutDialog, setCheckoutDialog] = useState(false);

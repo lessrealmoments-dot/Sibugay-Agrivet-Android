@@ -1011,7 +1011,7 @@ async def get_customer_statement(
         "interest_charge": "Interest Charge",
         "penalty_charge": "Penalty Charge",
         "farm_expense": "Farm Expense",
-        "cash_advance": "Cash Advance",
+        "cash_advance": "Customer Cash Out",  # Never "Cash Advance" — that's for employees
     }
 
     transactions = []

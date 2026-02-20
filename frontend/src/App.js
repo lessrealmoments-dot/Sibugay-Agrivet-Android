@@ -29,6 +29,7 @@ import CountSheetsPage from './pages/CountSheetsPage';
 import AccountsPage from './pages/AccountsPage';
 import EmployeesPage from './pages/EmployeesPage';
 import PaySupplierPage from './pages/PaySupplierPage';
+import ImportPage from './pages/ImportPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

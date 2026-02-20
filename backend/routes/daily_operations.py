@@ -21,7 +21,7 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
         query["branch_id"] = branch_id
     
     entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
-    return entries
+    return {"entries": entries, "date": date, "count": len(entries)}
 
 
 @router.get("/daily-report")
@@ -32,62 +32,78 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
     if not date:
         date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    query = {"date": date}
-    branch_filter = await get_branch_filter(user, branch_id)
-    query = apply_branch_filter(query, branch_filter)
+    log_query = {"date": date}
+    if branch_id:
+        log_query["branch_id"] = branch_id
     
-    # Get sales from sales log
-    sales_log = await db.sales_log.find(query, {"_id": 0}).to_list(10000)
-    total_sales = sum(e.get("line_total", 0) for e in sales_log)
+    # Sales by category
+    cat_pipeline = [
+        {"$match": log_query},
+        {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}, "count": {"$sum": "$quantity"}}}
+    ]
+    cat_results = await db.sales_log.aggregate(cat_pipeline).to_list(100)
+    sales_by_category = {r["_id"] or "Uncategorized": {"total": r["total"], "count": r["count"]} for r in cat_results}
+    total_revenue = sum(r["total"] for r in cat_results)
     
-    # Get expenses
-    expense_query = {"date": date}
-    expense_query = apply_branch_filter(expense_query, branch_filter)
-    expenses = await db.expenses.find(expense_query, {"_id": 0}).to_list(1000)
+    # COGS - get cost prices for all sold products
+    log_entries = await db.sales_log.find(log_query, {"_id": 0}).to_list(10000)
+    total_cogs = 0
+    for entry in log_entries:
+        if entry.get("product_id"):
+            prod = await db.products.find_one({"id": entry["product_id"]}, {"_id": 0, "cost_price": 1})
+            if prod:
+                total_cogs += (prod.get("cost_price", 0) * entry.get("quantity", 0))
+    total_cogs = round(total_cogs, 2)
+    
+    # Expenses
+    exp_query = {"date": date}
+    if branch_id:
+        exp_query["branch_id"] = branch_id
+    expenses = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
     total_expenses = sum(e.get("amount", 0) for e in expenses)
     
-    # Get invoices for the day
-    invoice_query = {"created_at": {"$gte": date, "$lt": date + "T23:59:59"}}
-    invoice_query = apply_branch_filter(invoice_query, branch_filter)
-    invoices = await db.invoices.find(invoice_query, {"_id": 0}).to_list(10000)
+    # Credit collections: only payments on OLD invoices (not today's new sales)
+    pay_pipeline = [
+        {"$match": {"status": {"$ne": "voided"}}},
+        {"$unwind": "$payments"},
+        {"$match": {"payments.date": date}},
+    ]
+    if branch_id:
+        pay_pipeline[0]["$match"]["branch_id"] = branch_id
+    pay_pipeline.append({"$project": {"_id": 0, "invoice_number": 1, "customer_name": 1, "order_date": 1, "payment": "$payments"}})
+    all_payments_today = await db.invoices.aggregate(pay_pipeline).to_list(500)
     
-    # Calculate payments received
-    payments_received = sum(inv.get("amount_paid", 0) for inv in invoices)
+    # Only count payments on older invoices as credit collections (NOT same-day sales)
+    credit_collections = [p for p in all_payments_today if p.get("order_date") != date]
+    total_credit_collections = sum(p["payment"]["amount"] for p in credit_collections)
     
-    # Calculate cost of goods sold (COGS)
-    total_cogs = 0
-    for inv in invoices:
-        for item in inv.get("items", []):
-            qty = item.get("quantity", 0)
-            cost = item.get("cost_price", 0)
-            total_cogs += qty * cost
+    # Total cash from all invoice payments (for cash flow)
+    total_cash_from_invoices = sum(p["payment"]["amount"] for p in all_payments_today)
     
-    gross_profit = total_sales - total_cogs
-    net_profit = gross_profit - total_expenses
+    gross_profit = round(total_revenue - total_cogs, 2)
+    net_profit = round(gross_profit - total_expenses, 2)
     
-    # Category breakdown
-    category_sales = {}
-    for e in sales_log:
-        cat = e.get("category", "General")
-        category_sales[cat] = category_sales.get(cat, 0) + e.get("line_total", 0)
-    
-    category_expenses = {}
-    for e in expenses:
-        cat = e.get("category", "Miscellaneous")
-        category_expenses[cat] = category_expenses.get(cat, 0) + e.get("amount", 0)
+    # Get real-time cashier wallet balance
+    wallet_query = {"type": "cashier", "active": True}
+    if branch_id:
+        wallet_query["branch_id"] = branch_id
+    cashier_wallet = await db.fund_wallets.find_one(wallet_query, {"_id": 0})
+    cashier_balance = cashier_wallet["balance"] if cashier_wallet else 0
     
     return {
         "date": date,
-        "total_sales": total_sales,
+        "new_sales_today": total_revenue,
         "total_cogs": total_cogs,
         "gross_profit": gross_profit,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "payments_received": payments_received,
-        "invoice_count": len(invoices),
-        "sales_transactions": len(set(e.get("invoice_number", "") for e in sales_log)),
-        "category_sales": category_sales,
-        "category_expenses": category_expenses,
+        "sales_by_category": sales_by_category,
+        "expenses": expenses,
+        "credit_collections": credit_collections,
+        "total_credit_collections": total_credit_collections,
+        "total_cash_from_invoices": total_cash_from_invoices,
+        "cashier_wallet_balance": round(cashier_balance, 2),
+        "transaction_count": len(log_entries),
     }
 
 
@@ -97,8 +113,8 @@ async def get_daily_close(date: str, user=Depends(get_current_user), branch_id: 
     query = {"date": date}
     if branch_id:
         query["branch_id"] = branch_id
-    close = await db.daily_closings.find_one(query, {"_id": 0})
-    return close
+    closing = await db.daily_closings.find_one(query, {"_id": 0})
+    return closing or {"status": "open", "date": date}
 
 
 @router.post("/daily-close")
@@ -106,50 +122,123 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     """Close accounts for a day."""
     check_perm(user, "reports", "close_day")
     
-    date = data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    date = data["date"]
     branch_id = data["branch_id"]
     
     # Check if already closed
-    existing = await db.daily_closings.find_one({"date": date, "branch_id": branch_id}, {"_id": 0})
-    if existing and existing.get("status") == "closed":
+    existing = await db.daily_closings.find_one({"date": date, "branch_id": branch_id, "status": "closed"}, {"_id": 0})
+    if existing:
         raise HTTPException(status_code=400, detail="Day already closed")
     
-    # Calculate totals
-    sales_log = await db.sales_log.find({"date": date, "branch_id": branch_id}, {"_id": 0}).to_list(10000)
-    total_sales = sum(e.get("line_total", 0) for e in sales_log)
+    # Get report data
+    report_query = {"date": date, "branch_id": branch_id}
+    log_entries = await db.sales_log.find(report_query, {"_id": 0}).to_list(10000)
+    new_sales_today = sum(e.get("line_total", 0) for e in log_entries)
     
-    expenses = await db.expenses.find({"date": date, "branch_id": branch_id}, {"_id": 0}).to_list(1000)
+    # Sales by category
+    cat_map = {}
+    for e in log_entries:
+        cat = e.get("category", "Uncategorized")
+        cat_map[cat] = cat_map.get(cat, 0) + e.get("line_total", 0)
+    
+    # Expenses
+    expenses = await db.expenses.find(report_query, {"_id": 0}).to_list(500)
     total_expenses = sum(e.get("amount", 0) for e in expenses)
     
-    # Get cashier wallet balance
+    # Credit collections (payments on existing receivables)
+    all_payments_pipeline = [
+        {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}}},
+        {"$unwind": "$payments"},
+        {"$match": {"payments.date": date}},
+        {"$project": {
+            "_id": 0, "invoice_number": 1, "customer_name": 1, "balance": 1,
+            "interest_accrued": 1, "order_date": 1, "payment": "$payments"
+        }}
+    ]
+    all_payments_today = await db.invoices.aggregate(all_payments_pipeline).to_list(500)
+    
+    # Credit collections = payments on invoices NOT created today
+    credit_collections = []
+    for p in all_payments_today:
+        if p.get("order_date") != date:
+            credit_collections.append({
+                "customer": p.get("customer_name", ""),
+                "invoice": p.get("invoice_number", ""),
+                "principal_paid": p["payment"].get("applied_to_principal", p["payment"]["amount"]),
+                "interest_paid": p["payment"].get("applied_to_interest", 0),
+                "total_paid": p["payment"]["amount"],
+                "balance": p.get("balance", 0)
+            })
+    total_credit_collections = sum(c["total_paid"] for c in credit_collections)
+    
+    # Cashier wallet
     wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
-    cashier_balance = wallet["balance"] if wallet else 0
+    previous_balance = wallet["balance"] if wallet else 0
     
-    # Physical count from user
-    physical_count = float(data.get("physical_count", cashier_balance))
-    variance = physical_count - cashier_balance
+    # Safe balance
+    safe = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0})
+    safe_balance = 0
+    if safe:
+        lots = await db.safe_lots.find({"wallet_id": safe["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
+        safe_balance = sum(l["remaining_amount"] for l in lots)
     
+    # Expected cash
+    expected_cash = previous_balance
+    
+    # User input
+    actual_cash = float(data.get("actual_cash", 0))
+    bank_checks = float(data.get("bank_checks", 0))
+    other_payment_forms = float(data.get("other_payment_forms", 0))
+    cash_to_drawer = float(data.get("cash_to_drawer", 0))
+    cash_to_safe = float(data.get("cash_to_safe", 0))
+    
+    extra_cash = round(actual_cash - (expected_cash - bank_checks - other_payment_forms), 2)
+    
+    # Create closing record
     close_record = {
         "id": new_id(),
         "branch_id": branch_id,
         "date": date,
-        "total_sales": total_sales,
-        "total_expenses": total_expenses,
-        "net_sales": total_sales - total_expenses,
-        "system_balance": cashier_balance,
-        "physical_count": physical_count,
-        "variance": variance,
-        "variance_notes": data.get("variance_notes", ""),
         "status": "closed",
+        "new_sales_today": new_sales_today,
+        "sales_by_category": cat_map,
+        "total_expenses": total_expenses,
+        "credit_collections": credit_collections,
+        "total_credit_collections": total_credit_collections,
+        "previous_cashier_balance": previous_balance,
+        "expected_cash": expected_cash,
+        "actual_cash": actual_cash,
+        "bank_checks": bank_checks,
+        "other_payment_forms": other_payment_forms,
+        "extra_cash": extra_cash,
+        "cash_to_drawer": cash_to_drawer,
+        "cash_to_safe": cash_to_safe,
+        "cash_deposited_to_safe": cash_to_safe,
+        "safe_balance": safe_balance,
         "closed_by": user["id"],
         "closed_by_name": user.get("full_name", user["username"]),
         "closed_at": now_iso(),
     }
     
-    if existing:
-        await db.daily_closings.update_one({"id": existing["id"]}, {"$set": close_record})
-    else:
-        await db.daily_closings.insert_one(close_record)
-        del close_record["_id"]
+    await db.daily_closings.insert_one(close_record)
+    del close_record["_id"]
+    
+    # Update cashier wallet balance to cash_to_drawer
+    if wallet:
+        await db.fund_wallets.update_one({"id": wallet["id"]}, {"$set": {"balance": cash_to_drawer}})
+    
+    # Add to safe if cash_to_safe > 0
+    if cash_to_safe > 0 and safe:
+        await db.safe_lots.insert_one({
+            "id": new_id(),
+            "branch_id": branch_id,
+            "wallet_id": safe["id"],
+            "date_received": date,
+            "original_amount": cash_to_safe,
+            "remaining_amount": cash_to_safe,
+            "source_reference": f"Day close {date}",
+            "created_by": user["id"],
+            "created_at": now_iso()
+        })
     
     return close_record

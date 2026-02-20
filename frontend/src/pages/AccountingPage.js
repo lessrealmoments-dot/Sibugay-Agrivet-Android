@@ -80,9 +80,10 @@ export default function AccountingPage() {
         api.get('/payables', { params: { limit: 100 } }),
         api.get('/customers', { params: { limit: 500 } }),
       ]);
-      setExpenses(expRes.data.expenses);
-      setReceivables(recRes.data.receivables);
-      setPayables(payRes.data.payables);
+      setExpenses(expRes.data.expenses || []);
+      // receivables and payables return arrays directly, not wrapped objects
+      setReceivables(Array.isArray(recRes.data) ? recRes.data : (recRes.data.receivables || []));
+      setPayables(Array.isArray(payRes.data) ? payRes.data : (payRes.data.payables || []));
       setCustomers(custRes.data.customers || []);
     } catch { toast.error('Failed to load accounting data'); }
   }, [currentBranch, filters]);

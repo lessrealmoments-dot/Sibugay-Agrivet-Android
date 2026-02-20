@@ -121,27 +121,50 @@ export default function CountSheetsPage() {
     setLoading(false);
   };
 
-  const handleUpdateCount = async (productId, actualQty, notes = '') => {
+  const handleUpdateCount = async (productId, updateData) => {
     if (!selectedSheet) return;
     try {
       await api.put(`/count-sheets/${selectedSheet.id}/items`, {
-        items: [{ product_id: productId, actual_quantity: actualQty, notes }]
+        items: [{ product_id: productId, ...updateData }]
       });
       // Update local state
       setSelectedSheet(prev => ({
         ...prev,
-        items: prev.items.map(item => 
-          item.product_id === productId 
-            ? {
-                ...item,
-                actual_quantity: actualQty,
-                counted: true,
-                variance: actualQty - item.system_quantity,
-                loss_capital: (actualQty - item.system_quantity) * item.capital_price,
-                loss_retail: (actualQty - item.system_quantity) * item.retail_price,
-              }
-            : item
-        )
+        items: prev.items.map(item => {
+          if (item.product_id !== productId) return item;
+          
+          let actualQty;
+          let actualWhole = updateData.actual_whole;
+          let actualLoose = updateData.actual_loose;
+          
+          if (updateData.actual_whole !== undefined || updateData.actual_loose !== undefined) {
+            // Split input
+            const whole = parseFloat(updateData.actual_whole || 0);
+            const loose = parseFloat(updateData.actual_loose || 0);
+            const unitsPerParent = item.units_per_parent || 1;
+            actualQty = whole + (loose / unitsPerParent);
+            actualWhole = Math.floor(whole);
+            actualLoose = Math.floor(loose);
+          } else if (updateData.actual_quantity !== undefined) {
+            // Decimal input
+            actualQty = parseFloat(updateData.actual_quantity);
+            const unitsPerParent = item.units_per_parent || 1;
+            actualWhole = Math.floor(actualQty);
+            actualLoose = Math.round((actualQty - actualWhole) * unitsPerParent);
+          }
+          
+          const variance = actualQty - item.system_quantity;
+          return {
+            ...item,
+            actual_quantity: actualQty,
+            actual_whole: actualWhole,
+            actual_loose: actualLoose,
+            counted: true,
+            variance: variance,
+            loss_capital: variance * item.capital_price,
+            loss_retail: variance * item.retail_price,
+          };
+        })
       }));
     } catch (err) {
       toast.error('Failed to update count');

@@ -216,5 +216,19 @@ New Endpoints:
 - `POST /api/auth/verify-manager-pin` - Verify manager PIN
 
 ## Testing Status
-- **Granular Permissions**: 100% tested (12 backend, all frontend features)
-- **Test reports**: /app/test_reports/iteration_18.json
+- **Full Regression (Dec 2025)**: 100% pass - All 21 features verified
+  - Multi-branch Owner Dashboard working
+  - Branch selector for admin (locked for cashier)
+  - All 17+ pages loading correctly
+  - API integration fixes applied (AccountingPage, SalesPage)
+- **Test reports**: /app/test_reports/iteration_20.json (latest)
+
+## Upcoming Tasks (P1)
+- **Robust Offline Sync**: Transaction Envelope (local_id, device_id), idempotent sync endpoint, conflict resolution
+  
+## Future Tasks (P2)
+- **Comprehensive Audit System**: Audit trail for price overrides, inventory adjustments, invoice edits
+- **Real-Time Owner Visibility**: Pre-computed daily summaries, WebSockets for live updates
+- **User Roles & Presets**: Reusable role templates (e.g., "Branch Manager")
+- **Advanced Reporting**: Monthly/quarterly summaries, sales incentive tracking
+- **Bulk Data Import/Export**: CSV import/export for products

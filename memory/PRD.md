@@ -46,6 +46,11 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 - `onBlur` on cases input skips save if focus moves to paired packs input (same product)
 - Split input redesigned to single-row with unit labels above inputs
 
+**6. Bug fixes from testing agent (3 pre-existing bugs)**
+- `Stock by Branch` table was always empty — now uses `branches` from AuthContext (same pattern as Branch Pricing table)
+- `COST ()` header showed blank method — changed `cost.method` to `cost.capital_method`
+- Moving Average / Last Purchase showed ₱0 — backend now computes both from PO history and returns them in cost dict
+
 ## Previous Updates (Feb 2026)
 
 ### Full Routing Audit + Receivables Fix - COMPLETE ✅ (Feb 2026)

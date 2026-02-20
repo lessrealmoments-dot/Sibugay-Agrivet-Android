@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import SetupWizardPage from './pages/SetupWizardPage';
 import DashboardPage from './pages/DashboardPage';
 import BranchesPage from './pages/BranchesPage';
 import ProductsPage from './pages/ProductsPage';

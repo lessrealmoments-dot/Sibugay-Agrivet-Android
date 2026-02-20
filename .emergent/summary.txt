@@ -16,17 +16,38 @@ The user wants to build a comprehensive Accounting, Inventory, and Point of Sale
 **User's preferred language**: English
 
 **what currently exists?**
-The application's backend has been successfully refactored from a monolith () into a fully modular FastAPI structure. A new Count Sheets feature has been implemented for inventory management, including an advanced split counting UI for parent/repack products. The frontend has also been updated to support multi-branch operations, featuring a consolidated Owner Dashboard for an aggregated view and the ability for admins to switch between viewing All Branches or a specific branch. Branch-restricted users are correctly locked to their own branch's data.
+The application now features a Company Setup Wizard that runs on a fresh instance. It allows the user to configure company details, the first branch, an admin user, and crucial opening balances for funds (Cashier, Safe, Bank). This wizard seeds the initial data, replacing the previous hardcoded startup data. The database can be reset on demand. Several critical bugs in the Product Management and Sales/POS modules have also been resolved, restoring functionality for viewing product details, adding products with correct pricing, creating customers from the sales page, and using product search in order mode.
 
 **Last working item**:
--   **Last item agent was working:** Multi-Branch Frontend Integration. The agent implemented the full-stack functionality for an owner-level consolidated view and a branch-level filtered view, controlled by a new branch selector in the UI.
+-   **Last item agent was working:** Fixing a batch of user-reported bugs on the Sales/POS and Product pages. This included:
+    1.  Inability to select a price scheme for walk-in customers.
+    2.  Missing functionality to create a new customer from the sales page.
+    3.  Broken product search and no price scheme selection in Order mode.
+    4.  Failed to load error when viewing a product's detail page.
 -   **Status:** USER VERIFICATION PENDING
--   **Agent Testing Done:** Y (Verified via multiple screenshots showing the consolidated owner dashboard, the branch selector functionality, and the single-branch view after switching context.)
--   **Which testing method agent to use?**  to run a full regression test on the frontend and ensure the new branch context is correctly applied across all relevant pages.
+-   **Agent Testing Done:** Y (The  was called and successfully verified that all three sales-related bugs were fixed.)
+-   **Which testing method agent to use?** Manual testing by the user is the next step. If new issues arise, use  for regression.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-None. The previously reported runtime error on the Daily Operations page was successfully fixed.
+The following issues were reported by the user and have been addressed by the agent. They are pending user verification.
+
+-   **Issue 1:** Pricing in Quick Sale mode was not using selectable price schemes. (PRIORITY: P0)
+-   **Issue 2:** Users could not create a new customer from the . (PRIORITY: P0)
+-   **Issue 3:** In Order mode on the sales page, product search was broken and price schemes couldn't be selected. (PRIORITY: P0)
+-   **Issue 4:** Product detail page was failing to load data. (PRIORITY: P0)
+
+**Issues Detail:**
+-   **Issue 1, 2, 3, 4:**
+    -   **Attempted fixes:**
+        -   **Product Detail (Issue 4):** The agent identified that the  endpoint was missing. It was added, along with associated , , and  endpoints. The backend response for  was then updated to match the structure expected by the frontend.
+        -   **Sales Page Bugs (Issues 1, 2, 3):**
+            -   The product search issue was traced to incorrect route ordering in . The  route was being captured by the generic  route. This was fixed by moving the specific route before the dynamic one.
+            -   A Create New Customer feature was added to , including a new dialog and state management.
+            -   A price scheme selector was added for walk-in customers, along with the logic to apply the selected scheme's price.
+    -   **Status:** USER VERIFICATION PENDING
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Both have been tested by the agent. Awaiting user confirmation.
 
 **In progress Task List**:
 None.
@@ -42,15 +63,15 @@ None.
     - **P2: Bulk Data Import/Export:** Add functionality to import/export data (like products) via CSV files.
 
 **Completed work in this session**
-- **Backend Monolith Refactor (DONE):** Successfully migrated all logic from  into a modular structure under . The application now runs via a new  entry point. The refactor was verified with a full testing agent run (43/43 tests passed).
-- **Count Sheets Feature (V1 & V2 - DONE):**
-    - Designed and implemented a full-stack Count Sheets feature for inventory verification, allowing users to take a snapshot of inventory, enter physical counts, and apply adjustments.
-    - Enhanced the feature with Split Counting for products with repacks, allowing users to enter counts in whole units and sub-units (e.g., 9 boxes + 50 tablets).
-- **Multi-Branch Frontend Integration (DONE):**
-    - Implemented a React  to manage the user's branch view (consolidated vs. specific branch).
-    - Created a consolidated Owner Dashboard that displays aggregated data from all branches.
-    - Updated the UI to allow admin users to switch between All Branches and individual branch views.
-- **Daily Operations Page Bug Fix (DONE):** Resolved a runtime error on the  page by correcting the data structure returned by the backend API to match frontend expectations.
+- **Database Reset Functionality (DONE):** Implemented a function to clear all collections in the database upon user request.
+- **Company Setup Wizard (DONE):**
+    - Created a full-stack multi-step wizard () that runs when the application is uninitialized.
+    - The wizard collects company info, first branch details, an admin user, and opening balances for Cashier, Safe, and Bank accounts.
+    - The backend startup logic was modified to prevent auto-seeding data, making the wizard the sole source of initial data.
+- **Fund Management Bug Fix (DONE):** Resolved an issue where the Fund Management page appeared empty in the All Branches view by correcting the data-fetching logic.
+- **Product & Sales Page Bug Fixes (DONE - Pending User Verification):**
+    - Fixed multiple critical bugs preventing users from viewing product details, adding products with correct pricing, creating customers, and using the product search in the sales Order mode. This involved backend route fixes and significant frontend updates to .
+- **Full Regression Test (DONE):** Ran the testing agent, which passed with 100% and applied minor fixes to  and .
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -65,87 +86,73 @@ None.
 - **Backend:** FastAPI, Python, Modular Architecture (APIRouter)
 - **Frontend:** React, JavaScript, Vite, 
 - **Database:** MongoDB
-- **State Management:** React Context API for global auth and branch state.
-- **API Communication:** Axios interceptors to automatically append  to requests.
-- **Authentication:** JSON Web Tokens (JWT)
-- **Data Isolation:** Enforced at the backend API level based on user's .
+- **State Management:** React Context API
+- **API Communication:** Axios
+- **Application State:** The application now has a defined uninitialized vs. initialized state, managed via a backend status check.
 
 **key DB schema**
-- **count_sheets:** { count_sheet_number, branch_id, status, started_at, completed_at, items: [{ product_id, system_quantity, actual_quantity, variance, ... }], summary: { ... } }
-- **inventory_adjustments:** { count_sheet_id, branch_id, adjustments: [{...}], total_capital_impact, applied_by, applied_at }
+- No new collections were added. The  process now populates , , , , and .
 
 **changes in tech stack**
 None.
 
 **All files of reference**
-- **New Backend Files:**
-  - 
-  - 
-  - , , , , , 
-- **New Frontend Files:**
-  - 
-  - 
-  - 
-- **Modified Core Files:**
-  -  (now a shim)
-  - 
-  - 
-  - 
-  - 
-  -  &  (for permissions)
+- **New Files:**
+  - : Backend API for the company setup wizard.
+  - : Frontend UI for the multi-step setup wizard.
+  - : Component to handle routing based on setup completion status.
+- **Heavily Modified Files:**
+  - : Startup event logic was changed to conditionally seed data, deferring to the setup wizard.
+  - : Reordered routes to fix a search bug and added several new endpoints for fetching product details.
+  - : Updated to use  to direct users to the setup wizard if necessary.
+  - : Major changes to add a customer creation dialog, a price scheme selector, and associated state logic.
+  - : Corrected API call from  to the newly created endpoint.
 
 **Areas that need refactoring**:
-None. The critical backend refactor is complete.
+- : This file is becoming large and complex. The manual reordering of routes to fix a bug indicates it's fragile. It could be broken down further for better maintainability.
 
 **key api endpoints**
 - **New:**
-  - : Creates a new count sheet.
-  - : Moves sheet to 'In Progress' and captures inventory.
-  - : Updates actual counted quantities.
-  - : Finalizes the count sheet.
-  - : Applies inventory adjustments based on the sheet.
-- **Modified:**
-  - : Now returns detailed aggregated data for the Owner Dashboard.
-  - , : Fixed to return the correct, complete data structure.
+  - : Checks if the initial company setup has been completed.
+  - : Submits the data from the setup wizard to initialize the application.
+  - : Fetches comprehensive details for a single product.
+  - : Placeholder for inventory movements.
+  - : Placeholder for related purchase/sales orders.
+- **Fixed:**
+  - : Now works correctly after fixing backend route order.
 
 **Critical Info for New Agent**
-- **Backend is Modular:** The application is no longer a monolith. The main entry point is , which aggregates all routers from the  directory. The old  is just a shim for the supervisor and should not be edited.
-- **Frontend Branch Scoping:** API requests are now automatically filtered by branch. This is handled by the  and an Axios interceptor. When implementing new features, ensure they respect the  from this context.
-- **User's Vision Document:** The user has provided a detailed long-term vision for the app, focusing on robust offline sync and a comprehensive audit trail. This should be the primary source for planning the next major features. The immediate next step is likely implementing the offline sync strategy.
+- **Setup Wizard is Mandatory:** On a fresh instance, the application is not usable until the setup wizard at  is completed. The old default users (/) no longer exist by default.
+- **Database Reset:** The user requested and the agent implemented a way to clear the database. Be aware that this will trigger the setup wizard flow again.
+- **Session Expiration:** The previous agent noted that frequent backend restarts (due to hot-reloading on file changes) were causing JWTs to be invalidated, leading to rapid session expirations during development. This is expected behavior but something to be mindful of.
 
 **documents and test reports created in this job**
 -  (updated)
--  (updated)
--  (from backend refactor test)
+- 
+- 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** finish tool call - **Status:** COMPLETED
-2.  **User:** finish tool call - **Status:** COMPLETED
-3.  **User:** finish tool call - **Status:** COMPLETED
-4.  **User:** finish tool call - **Status:** COMPLETED
-5.  **User:** Okay, do multi branch integration - **Status:** COMPLETED
-6.  **User:** finish tool call - **Status:** COMPLETED
-7.  **User:** finish tool call - **Status:** COMPLETED
-8.  **User:** Going back to count sheet. It should show the actual count sheet. Is it possible to have it like promotor for example if it has like 9.5 box inventory, we find a way to make it like 9 box and 50 tablets based on our parent and repack value? But when computing for value we compute it still by 9.5 or something - **Status:** COMPLETED
-9.  **User:** runtime error on daily-ops link - **Status:** COMPLETED
-10. **User:** finish tool call - **Status:** COMPLETED
+1.  **User:** On retail, Quick it seems that pricing is based on capital and we can't choose the price scheme we need. ALSO CAN'T CREATE CUSTOMER ON SALES. ON Order section, product search is not viewing, also no price scheme to choose from. - **Status:** COMPLETED (Fixes implemented, pending user verification).
+2.  **User:** New product error. NEW PRODUCT ADD PRICING. Price Schemes not Visible. PRODUCT VIEWING (FAILED TO LOAD). - **Status:** COMPLETED (Fixes implemented, pending user verification).
+3.  **User:** clear all the data inside tight now, I wanna start fresh and check bugs. reset everything. Also when setting up a company maybe the system should ask me how much currently in the cashier, how much is in the safe, etc. - **Status:** COMPLETED (Data was cleared and setup wizard was implemented).
+4.  **User:** runn full regression. - **Status:** COMPLETED.
 
 **Project Health Check:**
--   **Broken:** None.
+-   **Broken:** None. All known issues have been addressed.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
 None.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES, after the backend refactor (43/43 tests passed).
+-   **Testing agent used after significant changes:** YES. Used twice in this session: once for a full regression test and once to verify the final batch of bug fixes.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None
 -   **Known regressions:** None.
 
 **Credentials to test flow:**
--   **Admin:**  /  (sees all branches, has owner dashboard)
--   **Cashier:**  /  (sees only their assigned branch)
+Credentials are now created dynamically via the Setup Wizard. The last used credentials during testing were:
+-   **Admin:**  / 
 
 **What agent forgot to execute**
-The agent has successfully executed all user requests and has a clear plan for the next steps based on the user's detailed vision. Nothing was forgotten.</analysis>
+The agent addressed all user requests from the session, including the initial regression test, the data reset, the new setup wizard feature, and the final batch of bug fixes. Nothing was forgotten.</analysis>

@@ -40,6 +40,7 @@ from routes import (
     employees_router,
     settings_router,
     count_sheets_router,
+    setup_router,
 )
 
 # =============================================================================
@@ -88,6 +89,9 @@ api_router.include_router(dashboard_router)
 
 # Audit / Count Sheets
 api_router.include_router(count_sheets_router)
+
+# Setup Wizard (no auth required)
+api_router.include_router(setup_router)
 
 
 # =============================================================================

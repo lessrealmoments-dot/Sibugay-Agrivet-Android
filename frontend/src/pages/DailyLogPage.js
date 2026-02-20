@@ -290,6 +290,7 @@ export default function DailyLogPage() {
           <TabsTrigger value="log" data-testid="tab-log"><ClipboardList size={14} className="mr-1" /> Sales Log</TabsTrigger>
           <TabsTrigger value="profit" data-testid="tab-profit"><TrendingUp size={14} className="mr-1" /> Daily Profit</TabsTrigger>
           <TabsTrigger value="close" data-testid="tab-close"><Lock size={14} className="mr-1" /> Close Accounts</TabsTrigger>
+          <TabsTrigger value="variance" data-testid="tab-variance"><FileWarning size={14} className="mr-1" /> Variance Log</TabsTrigger>
         </TabsList>
 
         {/* SEQUENTIAL SALES LOG */}

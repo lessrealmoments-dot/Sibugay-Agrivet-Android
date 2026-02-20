@@ -358,7 +358,7 @@ class TestReceivePayment:
         customer_id = test_customer["id"]
         past_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
 
-        # Create 2 invoices
+        # Create 2 invoices (rate must be >= cost_price=1000)
         inv1_res = api_client.post(f"{BASE_URL}/api/invoices", json={
             "customer_id": customer_id,
             "customer_name": test_customer["name"],
@@ -366,7 +366,7 @@ class TestReceivePayment:
             "order_date": past_date,
             "due_date": past_date,
             "items": [{"product_id": test_product["id"], "product_name": test_product["name"],
-                       "quantity": 1, "rate": 500}]
+                       "quantity": 1, "rate": 1500}]
         })
         assert inv1_res.status_code in [200, 201]
         inv1 = inv1_res.json()
@@ -378,7 +378,7 @@ class TestReceivePayment:
             "order_date": past_date,
             "due_date": past_date,
             "items": [{"product_id": test_product["id"], "product_name": test_product["name"],
-                       "quantity": 1, "rate": 300}]
+                       "quantity": 1, "rate": 1200}]
         })
         assert inv2_res.status_code in [200, 201]
         inv2 = inv2_res.json()

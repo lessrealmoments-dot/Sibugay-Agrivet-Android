@@ -98,8 +98,10 @@ export default function AccountingPage() {
     setEditMode(false);
     setExpenseForm({
       category: 'Miscellaneous', description: '', notes: '', amount: 0,
-      payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10)
+      payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
+      employee_id: '', employee_name: '',
     });
+    setCaSummary(null);
     setExpenseDialog(true);
   };
 
@@ -113,9 +115,22 @@ export default function AccountingPage() {
       amount: expense.amount || 0,
       payment_method: expense.payment_method || 'Cash',
       reference_number: expense.reference_number || '',
-      date: expense.date || new Date().toISOString().slice(0, 10)
+      date: expense.date || new Date().toISOString().slice(0, 10),
+      employee_id: expense.employee_id || '',
+      employee_name: expense.employee_name || '',
     });
+    setCaSummary(null);
     setExpenseDialog(true);
+  };
+
+  const handleEmployeeSelect = async (empId) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) { setExpenseForm(f => ({...f, employee_id: '', employee_name: ''})); setCaSummary(null); return; }
+    setExpenseForm(f => ({...f, employee_id: emp.id, employee_name: emp.name}));
+    try {
+      const res = await api.get(`/employees/${emp.id}/ca-summary`);
+      setCaSummary(res.data);
+    } catch { setCaSummary(null); }
   };
 
   const openFarmExpense = () => {

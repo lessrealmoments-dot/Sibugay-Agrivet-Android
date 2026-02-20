@@ -24,7 +24,26 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Feb 2026)
 
-### Account Section + Employee System + Admin PIN Fix - COMPLETE ✅ (Feb 2026)
+### QuickBooks-style Receive Payments - COMPLETE ✅ (Feb 2026)
+
+**What was built (QB-style payment page revamp):**
+- **5 new backend endpoints** — all were previously missing:
+  - `GET /customers/{id}/invoices` — all open items sorted: Penalty first → Interest → Regular (oldest first)
+  - `POST /customers/{id}/generate-interest` — computes accrued interest, creates `INT-XXXXXXXX-XXXX` invoice per invoice breakdown
+  - `POST /customers/{id}/generate-penalty` — applies flat % penalty to overdue invoices, creates `PEN-` invoice
+  - `POST /customers/{id}/receive-payment` — QB-style multi-invoice allocation: `[{invoice_id, amount}]`
+  - `GET /customers/{id}/payment-history` — full payment trail across all invoices
+
+- **Frontend PaymentsPage.js** complete rewrite:
+  - Customer list with balance display
+  - Payment header: date, method, check#/reference, memo
+  - **Per-row payment inputs** — each open invoice has its own editable "Amount" column
+  - **Auto-apply button** — fills row amounts by rule (penalty → interest → oldest invoice)
+  - **"Pay All" button** — one click to pay full balance
+  - Running totals: Amount to Apply vs Total Balance Due
+  - Allocation preview chips (what gets applied where)
+  - **Collapsible charges section**: Generate Interest (with accrued preview breakdown), Generate Penalty (configurable %)
+  - Payment History dialog with total received footer
 
 **Accounts Page (`/accounts`) — Admin Only**
 - Full user management table: create, edit, activate/deactivate users

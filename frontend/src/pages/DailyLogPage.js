@@ -260,111 +260,239 @@ export default function DailyLogPage() {
           ) : <p className="text-center py-8 text-slate-400">Loading report...</p>}
         </TabsContent>
 
-        {/* CLOSE ACCOUNTS */}
-        <TabsContent value="close" className="mt-4 space-y-4">
+        {/* ═══ CLOSE ACCOUNTS / Z-REPORT ═══════════════════════════════ */}
+        <TabsContent value="close" className="mt-4 space-y-0 print:mt-0">
           {isClosed ? (
-            /* Show closed report */
-            <div className="space-y-4">
-              <Card className="border-emerald-200 bg-emerald-50"><CardContent className="p-4">
-                <p className="font-bold text-emerald-800">Day Closed by {closing.closed_by_name} at {new Date(closing.closed_at).toLocaleString()}</p>
-              </CardContent></Card>
-              <div className="grid md:grid-cols-2 gap-4">
-                <Card className="border-slate-200"><CardContent className="p-4 space-y-2 text-sm">
-                  <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>General Details</h3>
-                  <div className="flex justify-between"><span className="text-slate-500">Safe Balance</span><span className="font-bold">{formatPHP(closing.safe_balance)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Cash to Safe Today</span><span className="font-bold">{formatPHP(closing.cash_deposited_to_safe)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Prev Drawer Balance</span><span>{formatPHP(closing.previous_cashier_balance)}</span></div>
-                </CardContent></Card>
-                <Card className="border-slate-200"><CardContent className="p-4 space-y-2 text-sm">
-                  <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>Cash Count</h3>
-                  <div className="flex justify-between"><span className="text-slate-500">Expected Cash</span><span>{formatPHP(closing.expected_cash)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Actual Cash</span><span className="font-bold">{formatPHP(closing.actual_cash)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Checks</span><span>{formatPHP(closing.bank_checks)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Other (GCash etc.)</span><span>{formatPHP(closing.other_payment_forms)}</span></div>
-                  <Separator />
-                  <div className="flex justify-between"><span className="text-slate-500">Extra Cash</span><span className={`font-bold ${closing.extra_cash >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatPHP(closing.extra_cash)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Cash to Drawer</span><span>{formatPHP(closing.cash_to_drawer)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Cash to Safe</span><span>{formatPHP(closing.cash_to_safe)}</span></div>
-                </CardContent></Card>
-              </div>
-              <Card className="border-slate-200"><CardContent className="p-4 space-y-2 text-sm">
-                <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>Sales by Category</h3>
-                {Object.entries(closing.sales_by_category || {}).map(([cat, total]) => (
-                  <div key={cat} className="flex justify-between"><span>{cat}</span><span className="font-bold">{formatPHP(total)}</span></div>
-                ))}
-                <Separator />
-                <div className="flex justify-between font-bold"><span>New Sales Today</span><span>{formatPHP(closing.new_sales_today)}</span></div>
-              </CardContent></Card>
-              {closing.credit_collections?.length > 0 && (
-                <Card className="border-slate-200"><CardContent className="p-4 text-sm">
-                  <h3 className="font-bold mb-2" style={{ fontFamily: 'Manrope' }}>Credit Collections Today</h3>
-                  <p className="text-[10px] text-slate-400 mb-2">Payments on previous credit balances (not new revenue)</p>
-                  <Table><TableHeader><TableRow>
-                    <TableHead className="text-xs">Customer</TableHead><TableHead className="text-xs">Invoice</TableHead>
-                    <TableHead className="text-xs text-right">Principal</TableHead><TableHead className="text-xs text-right">Interest</TableHead>
-                    <TableHead className="text-xs text-right">Total Paid</TableHead><TableHead className="text-xs text-right">Open Bal</TableHead>
-                  </TableRow></TableHeader><TableBody>
-                    {closing.credit_collections.map((p, i) => (
-                      <TableRow key={i}><TableCell>{p.customer}</TableCell><TableCell className="font-mono text-xs">{p.invoice}</TableCell>
-                        <TableCell className="text-right">{formatPHP(p.principal_paid)}</TableCell>
-                        <TableCell className="text-right text-amber-600">{formatPHP(p.interest_paid)}</TableCell>
-                        <TableCell className="text-right font-bold">{formatPHP(p.total_paid)}</TableCell>
-                        <TableCell className="text-right">{formatPHP(p.balance)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody></Table>
-                </CardContent></Card>
-              )}
-            </div>
+            /* ── CLOSED: Show the Z-Report ── */
+            <ZReport data={closing} branchName={currentBranch?.name} onPrint={() => window.print()} />
           ) : (
-            /* Close Form */
+            /* ── OPEN: Cash Reconciliation Form ── */
             <div className="space-y-4">
-              <Card className="border-amber-200 bg-amber-50"><CardContent className="p-4">
-                <p className="text-sm text-amber-800 font-medium"><AlertTriangle size={14} className="inline mr-1" /> This will lock all transactions for {date}. New sales will go to the next day.</p>
-              </CardContent></Card>
-              {/* Summary */}
-              {report && (
-                <div className="grid md:grid-cols-3 gap-4 text-sm">
-                  <Card className="border-slate-200"><CardContent className="p-4">
-                    <p className="text-xs text-slate-500 uppercase mb-1">New Sales Today</p>
-                    <p className="text-xl font-bold text-emerald-600">{formatPHP(report.new_sales_today)}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">Revenue from products sold today</p>
-                  </CardContent></Card>
-                  <Card className="border-slate-200"><CardContent className="p-4">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Credit Collections Today</p>
-                    <p className="text-xl font-bold text-blue-600">{formatPHP(report.total_credit_collections)}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">Payments on old credit (not new revenue)</p>
-                  </CardContent></Card>
-                  <Card className="border-slate-200"><CardContent className="p-4">
-                    <p className="text-xs text-slate-500 uppercase mb-1">Total Expenses</p>
-                    <p className="text-xl font-bold text-red-600">{formatPHP(report.total_expenses)}</p>
-                  </CardContent></Card>
-                </div>
-              )}
-              <Card className="border-slate-200"><CardContent className="p-5 space-y-4">
-                <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>Cash Counting</h3>
-                <p className="text-sm text-slate-500">Expected Cash in Drawer: <span className="font-bold text-slate-800">{formatPHP(expectedCash)}</span></p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><Label className="text-xs">Actual Cash Count</Label><Input data-testid="actual-cash" type="number" value={closeForm.actual_cash} onChange={e => setCloseForm({ ...closeForm, actual_cash: parseFloat(e.target.value) || 0 })} className="h-10 text-lg font-bold" /></div>
-                  <div><Label className="text-xs">Bank Checks</Label><Input type="number" value={closeForm.bank_checks} onChange={e => setCloseForm({ ...closeForm, bank_checks: parseFloat(e.target.value) || 0 })} className="h-10" /></div>
-                  <div><Label className="text-xs">Other (GCash, etc.)</Label><Input type="number" value={closeForm.other_payment_forms} onChange={e => setCloseForm({ ...closeForm, other_payment_forms: parseFloat(e.target.value) || 0 })} className="h-10" /></div>
-                  <div>
-                    <Label className="text-xs">Extra Cash</Label>
-                    <div className={`h-10 flex items-center px-3 rounded-md text-lg font-bold ${(closeForm.actual_cash - (expectedCash - closeForm.bank_checks - closeForm.other_payment_forms)) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
-                      {formatPHP(round2(closeForm.actual_cash - (expectedCash - closeForm.bank_checks - closeForm.other_payment_forms)))}
+              {!preview && <p className="text-center py-8 text-slate-400">Loading day data...</p>}
+              {preview && (
+                <>
+                  {/* ── OPENING ─────────────────────────────────── */}
+                  <SectionCard title="Opening">
+                    <div className="grid grid-cols-2 gap-3">
+                      <InfoRow label="Total Amount in Safe" value={formatPHP(preview.safe_balance)} bold className="text-slate-500" />
+                      <InfoRow label="Starting Cashier Float" value={formatPHP(preview.starting_float)} bold className="text-emerald-600" />
                     </div>
+                  </SectionCard>
+
+                  {/* ── CASH SALES BY CATEGORY ──────────────────── */}
+                  <SectionCard title={`Cash Sales Today — ${formatPHP(preview.total_cash_sales)}`} accent="emerald">
+                    {preview.cash_sales_by_category?.length ? (
+                      <div className="space-y-1">
+                        {preview.cash_sales_by_category.map(c => (
+                          <div key={c.category} className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0">
+                            <span className="text-slate-600">{c.category}</span>
+                            <span className="font-semibold font-mono">{formatPHP(c.total)}</span>
+                          </div>
+                        ))}
+                        {preview.total_partial_cash > 0 && (
+                          <div className="flex justify-between text-sm py-1">
+                            <span className="text-slate-500 italic">Partial payments received today</span>
+                            <span className="font-semibold font-mono">{formatPHP(preview.total_partial_cash)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
+                          <span>Total Cash Received from Sales</span>
+                          <span className="text-emerald-700">{formatPHP(r2(preview.total_cash_sales + preview.total_partial_cash))}</span>
+                        </div>
+                      </div>
+                    ) : <p className="text-sm text-slate-400">No cash sales today</p>}
+                  </SectionCard>
+
+                  {/* ── NEW CREDIT TODAY (info only) ─────────────── */}
+                  {preview.credit_sales_today?.length > 0 && (
+                    <SectionCard title={`New Credit Sales Today — ${formatPHP(preview.total_credit_today)}`} accent="amber" note="Info only — not counted as cash received">
+                      <div className="space-y-1">
+                        {preview.credit_sales_today.map((c, i) => (
+                          <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-slate-100 last:border-0">
+                            <div>
+                              <span className="font-medium">{c.customer_name}</span>
+                              <span className="text-slate-400 text-xs ml-2">{c.invoice_number}</span>
+                            </div>
+                            <span className="font-mono text-amber-700">{formatPHP(c.grand_total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </SectionCard>
+                  )}
+
+                  {/* ── AR PAYMENTS RECEIVED ─────────────────────── */}
+                  <SectionCard title={`AR Payments Received Today — ${formatPHP(preview.total_ar_received)}`} accent="blue">
+                    {preview.ar_payments?.length ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead><tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500">
+                            <th className="px-3 py-2 text-left">Customer</th>
+                            <th className="px-3 py-2 text-right">Bal Before</th>
+                            <th className="px-3 py-2 text-right">Interest</th>
+                            <th className="px-3 py-2 text-right">Penalty</th>
+                            <th className="px-3 py-2 text-right font-semibold text-blue-600">Cash Paid</th>
+                            <th className="px-3 py-2 text-right">Remaining</th>
+                          </tr></thead>
+                          <tbody>
+                            {preview.ar_payments.map((p, i) => (
+                              <tr key={i} className="border-b border-slate-100 last:border-0">
+                                <td className="px-3 py-2">
+                                  <div className="font-medium">{p.customer_name}</div>
+                                  <div className="text-xs text-slate-400 font-mono">{p.invoice_number}</div>
+                                </td>
+                                <td className="px-3 py-2 text-right font-mono">{formatPHP(p.balance_before)}</td>
+                                <td className="px-3 py-2 text-right font-mono text-amber-600">{p.interest_paid > 0 ? formatPHP(p.interest_paid) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono text-red-500">{p.penalty_paid > 0 ? formatPHP(p.penalty_paid) : '—'}</td>
+                                <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">{formatPHP(p.amount_paid)}</td>
+                                <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(p.remaining_balance)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-blue-200 bg-blue-50/50">
+                              <td className="px-3 py-2 font-bold text-blue-800" colSpan={4}>Total AR Cash Received</td>
+                              <td className="px-3 py-2 text-right font-bold text-blue-700 font-mono">{formatPHP(preview.total_ar_received)}</td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    ) : <p className="text-sm text-slate-400">No AR payments received today</p>}
+                  </SectionCard>
+
+                  {/* ── EXPENSES ─────────────────────────────────── */}
+                  <SectionCard title={`Expenses Today — ${formatPHP(preview.total_expenses)}`} accent="red">
+                    {preview.expenses?.length ? (
+                      <div className="space-y-1">
+                        {preview.expenses.map((e, i) => (
+                          <div key={i} className="py-1.5 border-b border-slate-100 last:border-0">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-[10px]">{e.category}</Badge>
+                                <span className="text-sm">{e.description || e.employee_name || ''}</span>
+                              </div>
+                              <span className="font-semibold text-red-600 font-mono">{formatPHP(e.amount)}</span>
+                            </div>
+                            {/* Employee CA monthly running total */}
+                            {e.category === 'Employee Advance' && e.monthly_ca_total !== undefined && (
+                              <div className="text-[11px] text-amber-600 ml-1 mt-0.5">
+                                {e.employee_name || 'Employee'} — running CA total this month: <span className="font-semibold">{formatPHP(e.monthly_ca_total)}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
+                          <span>Total Expenses</span>
+                          <span className="text-red-600">{formatPHP(preview.total_expenses)}</span>
+                        </div>
+                      </div>
+                    ) : <p className="text-sm text-slate-400">No expenses recorded today</p>}
+                  </SectionCard>
+
+                  {/* ── EXPECTED COUNTER ─────────────────────────── */}
+                  <div className="bg-slate-800 text-white rounded-xl p-5">
+                    <div className="text-xs uppercase tracking-wide text-slate-400 mb-1">Expected Money in Counter</div>
+                    <div className="text-xs text-slate-400 mb-3">
+                      Starting Float ({formatPHP(preview.starting_float)}) + Cash Sales ({formatPHP(r2(preview.total_cash_sales + preview.total_partial_cash))}) + AR Received ({formatPHP(preview.total_ar_received)}) − Expenses ({formatPHP(preview.total_expenses)})
+                    </div>
+                    <div className="text-3xl font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(expectedCounter)}</div>
                   </div>
-                </div>
-                <Separator />
-                <h3 className="font-bold" style={{ fontFamily: 'Manrope' }}>End-of-Day Allocation</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label className="text-xs">Cash Remaining in Drawer</Label><Input data-testid="cash-to-drawer" type="number" value={closeForm.cash_to_drawer} onChange={e => { const v = parseFloat(e.target.value) || 0; setCloseForm({ ...closeForm, cash_to_drawer: v, cash_to_safe: round2(closeForm.actual_cash - v) }); }} className="h-10" /></div>
-                  <div><Label className="text-xs">Cash to Transfer to Safe</Label><Input data-testid="cash-to-safe" type="number" value={closeForm.cash_to_safe} onChange={e => { const v = parseFloat(e.target.value) || 0; setCloseForm({ ...closeForm, cash_to_safe: v, cash_to_drawer: round2(closeForm.actual_cash - v) }); }} className="h-10" /></div>
-                </div>
-                <Button data-testid="close-day-btn" onClick={handleClose} className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-base">
-                  <Lock size={16} className="mr-2" /> Close Accounts for {date}
-                </Button>
-              </CardContent></Card>
+
+                  {/* ── ACTUAL CASH COUNT ────────────────────────── */}
+                  <SectionCard title="Cash Count & Reconciliation">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="font-semibold mb-1.5 block">Actual Cash in Counter <span className="text-red-500">*</span></Label>
+                        <Input type="number" min={0} step="0.01"
+                          value={actualCash}
+                          onChange={e => {
+                            setActualCash(e.target.value);
+                            // Auto-fill cash to safe and drawer if not yet touched
+                            const a = parseFloat(e.target.value) || 0;
+                            if (!cashToDrawer && !cashToSafe) {
+                              setCashToSafe(String(r2(a - 2000 > 0 ? a - 2000 : 0)));
+                              setCashToDrawer(String(r2(Math.min(a, 2000))));
+                            }
+                          }}
+                          className="h-12 text-xl font-bold font-mono"
+                          placeholder="Enter actual cash counted"
+                          data-testid="actual-cash-input" />
+                      </div>
+
+                      {actualCash !== '' && (
+                        <div className={`p-4 rounded-lg flex items-center justify-between ${overShort >= 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+                          <div>
+                            <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                              {overShort >= 0 ? 'Cash Over (extra)' : 'Cash Short (deficit)'}
+                            </div>
+                            <div className="text-xs text-slate-400">Actual {formatPHP(actualNum)} − Expected {formatPHP(expectedCounter)}</div>
+                          </div>
+                          <div className={`text-2xl font-bold font-mono ${overShort >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {overShort >= 0 ? '+' : ''}{formatPHP(overShort)}
+                          </div>
+                        </div>
+                      )}
+
+                      <Separator />
+                      <div className="text-sm font-semibold text-slate-700">Distribution of Actual Cash</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="mb-1.5 block">Transfer to Safe</Label>
+                          <Input type="number" min={0} step="0.01" value={cashToSafe}
+                            onChange={e => {
+                              setCashToSafe(e.target.value);
+                              setCashToDrawer(String(r2(actualNum - (parseFloat(e.target.value) || 0))));
+                            }}
+                            className="h-10 font-mono" data-testid="cash-to-safe-input" />
+                        </div>
+                        <div>
+                          <Label className="mb-1.5 block">
+                            Stays in Register
+                            <span className="text-xs text-slate-400 font-normal ml-1">(= tomorrow's starting float)</span>
+                          </Label>
+                          <Input type="number" min={0} step="0.01" value={cashToDrawer}
+                            onChange={e => {
+                              setCashToDrawer(e.target.value);
+                              setCashToSafe(String(r2(actualNum - (parseFloat(e.target.value) || 0))));
+                            }}
+                            className="h-10 font-mono font-bold bg-emerald-50 border-emerald-300" data-testid="cash-to-drawer-input" />
+                          <p className="text-[10px] text-emerald-600 mt-0.5">This becomes the starting float for tomorrow</p>
+                        </div>
+                      </div>
+
+                      {actualCash !== '' && cashToDrawer !== '' && (
+                        <div className="text-xs text-slate-500 text-right">
+                          Safe: {formatPHP(cashToSafeNum)} + Register: {formatPHP(cashToDrawerNum)} = {formatPHP(r2(cashToSafeNum + cashToDrawerNum))}
+                          {Math.abs(r2(cashToSafeNum + cashToDrawerNum) - actualNum) > 0.01 && (
+                            <span className="text-red-500 ml-2">⚠ Does not match actual cash</span>
+                          )}
+                        </div>
+                      )}
+
+                      <Separator />
+                      <div>
+                        <Label className="mb-1.5 block">Admin PIN to Confirm Close <span className="text-red-500">*</span></Label>
+                        <Input type="password" value={adminPin} onChange={e => setAdminPin(e.target.value)}
+                          placeholder="Enter admin PIN" maxLength={6} className="max-w-xs"
+                          data-testid="admin-pin-close" />
+                      </div>
+
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                        <AlertTriangle size={12} className="inline mr-1" />
+                        Closing the day locks all transactions for {date}. New sales will roll to the next day.
+                      </div>
+
+                      <Button onClick={handleClose} disabled={closing_loading || actualCash === '' || !adminPin}
+                        className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-base"
+                        data-testid="close-day-btn">
+                        {closing_loading
+                          ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />Closing...</>
+                          : <><Lock size={16} className="mr-2" /> Close Accounts for {date}</>}
+                      </Button>
+                    </div>
+                  </SectionCard>
+                </>
+              )}
             </div>
           )}
         </TabsContent>

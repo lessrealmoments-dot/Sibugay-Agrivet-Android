@@ -26,6 +26,8 @@ import AccountingPage from './pages/AccountingPage';
 import SettingsPage from './pages/SettingsPage';
 import UserPermissionsPage from './pages/UserPermissionsPage';
 import CountSheetsPage from './pages/CountSheetsPage';
+import AccountsPage from './pages/AccountsPage';
+import EmployeesPage from './pages/EmployeesPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

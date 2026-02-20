@@ -208,6 +208,49 @@ async def get_repacks(product_id: str, user=Depends(get_current_user)):
     return repacks
 
 
+@router.get("/{product_id}/movements")
+async def get_product_movements(product_id: str, limit: int = 50, user=Depends(get_current_user)):
+    """Get stock movements for a product."""
+    movements = await db.movements.find(
+        {"product_id": product_id}, 
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    return {"movements": movements}
+
+
+@router.get("/{product_id}/orders")
+async def get_product_orders(product_id: str, limit: int = 50, user=Depends(get_current_user)):
+    """Get purchase orders containing this product."""
+    # Find POs that have this product in their items
+    pipeline = [
+        {"$match": {"items.product_id": product_id}},
+        {"$sort": {"created_at": -1}},
+        {"$limit": limit},
+        {"$project": {"_id": 0}}
+    ]
+    orders = await db.purchase_orders.aggregate(pipeline).to_list(limit)
+    return {"orders": orders}
+
+
+@router.post("/{product_id}/vendors")
+async def add_product_vendor(product_id: str, data: dict, user=Depends(get_current_user)):
+    """Add a vendor for a product."""
+    check_perm(user, "products", "edit")
+    
+    vendor = {
+        "id": new_id(),
+        "product_id": product_id,
+        "vendor_name": data.get("vendor_name", ""),
+        "vendor_contact": data.get("vendor_contact", ""),
+        "last_price": float(data.get("last_price", 0)),
+        "is_preferred": data.get("is_preferred", False),
+        "created_at": now_iso()
+    }
+    await db.product_vendors.insert_one(vendor)
+    del vendor["_id"]
+    return vendor
+
+
 @router.put("/{product_id}/update-price")
 async def update_product_price(product_id: str, data: dict, user=Depends(get_current_user)):
     """Update a specific price scheme for a product."""

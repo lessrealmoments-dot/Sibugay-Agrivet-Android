@@ -199,6 +199,7 @@ export default function Layout({ children }) {
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
+            <NotificationBell />
             <span className="hidden sm:inline">{user?.full_name || user?.username}</span>
             <span className="capitalize bg-slate-100 px-2 py-0.5 rounded text-[11px]">{user?.role}</span>
           </div>

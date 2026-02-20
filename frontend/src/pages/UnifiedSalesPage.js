@@ -483,7 +483,20 @@ export default function UnifiedSalesPage() {
     if (!managerPin) { toast.error('Enter manager PIN'); return; }
     
     try {
-      const res = await api.post('/auth/verify-manager-pin', { pin: managerPin });
+      const total = cartItems.reduce((s, i) => s + i.quantity * i.price, 0);
+      const customerName = selectedCustomer?.name || 'Walk-in';
+      const res = await api.post('/auth/verify-manager-pin', {
+        pin: managerPin,
+        context: {
+          type: 'credit_sale',
+          description: `₱${total.toFixed(2)} ${paymentType} sale to ${customerName}`,
+          amount: total,
+          customer_name: customerName,
+          payment_type: paymentType,
+          branch_id: currentBranch?.id,
+          branch_name: currentBranch?.name,
+        }
+      });
       if (res.data.valid) {
         toast.success(`Approved by ${res.data.manager_name}`);
         setCreditApprovalDialog(false);

@@ -24,7 +24,35 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Update (Feb 2026)
 
-### Bug Fixes (Feb 2026) ✅
+### Purchase Order Overhaul + Pay Supplier + Statement of Account - COMPLETE ✅ (Feb 2026)
+
+**PO Improvements:**
+- Added `due_date` and `terms_days` to PO (auto-computes due date from terms)
+- **Cash PO**: auto-creates expense record on save
+- **Credit PO**: payment now also creates expense record
+- **Cashier balance check before paying**: returns 400 with `cashier_balance`, `safe_balance`, `shortfall`; frontend shows amber warning + recommends switching to Safe
+- `fund_source` parameter: pay from Cashier or Safe
+- **Reopen PO**: `POST /{id}/reopen` reverses inventory addition, status back to "ordered" → edit → receive again (self-correcting negative inventory pattern)
+- Cancelled POs no longer show Pay button
+
+**Pay Supplier Page (`/pay-supplier`):**
+- Supplier list with total owed + Overdue badge
+- QB-style per-PO payment inputs + auto-apply "Pay All"
+- Fund source selector (Cashier/Safe) with live balance display
+- Amber warning when selected fund is insufficient
+- Check#/Reference field (required for Check payments)
+- PO Detail dialog shows items, payment history
+
+**Dashboard Unpaid PO Widget:**
+- Both single-branch and consolidated views
+- Ranked: Overdue (red) → Due This Week (amber) → Upcoming
+- Shows PO#, vendor, balance, due date
+
+**Statement of Account (Customer):**
+- Printer icon on each customer in Customers page
+- Date range filter (From/To)
+- Running balance column across all charges and payments
+- Print button (browser print)
 - **Employee Advance Expense**: Fixed `KeyError` when `branch_id` is missing (admin in "All Branches" view). Backend now returns clear 400 error. Frontend validates branch is selected before saving.
 - **Interest Rate UI**: Clarified distinction between penalty rate (one-time %) and customer interest rate (stored in profile). Generate Interest button now disabled with explanation when customer has no interest rate set.
 

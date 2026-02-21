@@ -91,6 +91,19 @@ function BranchCard({ branch, onSelect }) {
           </div>
         </div>
         <Separator className="my-2" />
+        {branch.inventory_value && (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] py-1">
+            <div>
+              <span className="text-slate-400">Stock @ Capital</span>
+              <p className="font-semibold text-slate-700 font-mono">{formatPHP(branch.inventory_value.capital_value)}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Stock @ Retail</span>
+              <p className="font-semibold text-emerald-700 font-mono">{formatPHP(branch.inventory_value.retail_value)}</p>
+            </div>
+          </div>
+        )}
+        <Separator className="my-2" />
         <div className="flex items-center justify-between text-[10px] text-slate-400">
           <span className="flex items-center gap-1">
             <Lock size={9} />

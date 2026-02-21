@@ -84,7 +84,7 @@ function ZReport({ data, branchName, onPrint }) {
         </SectionCard>
       </div>
 
-      <SectionCard title={`Cash Sales — ${formatPHP(data.total_cash_sales)}`} accent="emerald">
+      <SectionCard title={`Walk-in Sales — ${formatPHP(data.total_cash_sales)}`} accent="emerald">
         {Object.entries(data.sales_by_category || {}).map(([cat, total]) => (
           <div key={cat} className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0">
             <span>{cat}</span><span className="font-semibold font-mono">{formatPHP(total)}</span>

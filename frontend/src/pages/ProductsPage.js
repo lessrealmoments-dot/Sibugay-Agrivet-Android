@@ -628,6 +628,7 @@ export default function ProductsPage() {
                           onChange={e => setCorrectionQty(e.target.value)}
                           placeholder={currentStock !== null ? `Current: ${currentStock}` : 'Enter qty'}
                           className="h-9 mt-1 font-mono"
+                          disabled={!currentBranch}
                         />
                       </div>
                       <div>
@@ -638,6 +639,7 @@ export default function ProductsPage() {
                           onChange={e => setCorrectionReason(e.target.value)}
                           placeholder="e.g. Physical count correction"
                           className="h-9 mt-1"
+                          disabled={!currentBranch}
                         />
                       </div>
                     </div>
@@ -646,7 +648,7 @@ export default function ProductsPage() {
                       data-testid="apply-correction-btn"
                       size="sm"
                       onClick={handleCorrectionSubmit}
-                      disabled={correctionSaving || !correctionQty || !correctionReason.trim()}
+                      disabled={correctionSaving || !correctionQty || !correctionReason.trim() || !currentBranch}
                       className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {correctionSaving

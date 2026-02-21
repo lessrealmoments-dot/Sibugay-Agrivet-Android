@@ -22,8 +22,8 @@ import { toast } from 'sonner';
 
 // ── Small helper components ───────────────────────────────────────────────────
 function SectionCard({ title, children, accent = 'slate', note }) {
-  const borders = { emerald: 'border-emerald-200', blue: 'border-blue-200', red: 'border-red-200', amber: 'border-amber-200', slate: 'border-slate-200' };
-  const headers = { emerald: 'bg-emerald-50 text-emerald-800', blue: 'bg-blue-50 text-blue-800', red: 'bg-red-50 text-red-800', amber: 'bg-amber-50 text-amber-800', slate: 'bg-slate-50 text-slate-700' };
+  const borders = { emerald: 'border-emerald-200', blue: 'border-blue-200', red: 'border-red-200', amber: 'border-amber-200', slate: 'border-slate-200', indigo: 'border-indigo-200' };
+  const headers = { emerald: 'bg-emerald-50 text-emerald-800', blue: 'bg-blue-50 text-blue-800', red: 'bg-red-50 text-red-800', amber: 'bg-amber-50 text-amber-800', slate: 'bg-slate-50 text-slate-700', indigo: 'bg-indigo-50 text-indigo-800' };
   return (
     <Card className={`border ${borders[accent]}`}>
       <CardHeader className={`py-2.5 px-4 ${headers[accent]} border-b ${borders[accent]}`}>

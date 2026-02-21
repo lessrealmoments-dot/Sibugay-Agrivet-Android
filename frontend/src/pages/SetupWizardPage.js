@@ -425,7 +425,7 @@ export default function SetupWizardPage() {
           <div className="w-14 h-14 rounded-2xl bg-[#1A4D2E] flex items-center justify-center mx-auto mb-4">
             <Store size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>Welcome to AgriPOS</h1>
+          <h1 className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>Welcome to AgriBooks</h1>
           <p className="text-slate-500 mt-1">Let's set up your business in a few steps</p>
         </div>
         

@@ -17,6 +17,7 @@ import NotificationBell from './NotificationBell';
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null },
   { path: '/branches', label: 'Branches', icon: Building2, perm: 'branches.view' },
+  { path: '/branch-transfers', label: 'Branch Transfers', icon: ArrowRight, perm: 'branches.view' },
   { path: '/products', label: 'Products', icon: Package, perm: 'products.view' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, perm: 'inventory.view' },
   { path: '/count-sheets', label: 'Count Sheets', icon: ClipboardList, perm: 'count_sheets.view' },

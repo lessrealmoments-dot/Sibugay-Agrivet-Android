@@ -31,6 +31,7 @@ function newRow() {
   return {
     id: Math.random().toString(36).slice(2),
     productSearch: '', productMatches: [], product: null,
+    activeSearchIndex: -1,
     qty: 1,
     branch_capital: 0,
     transfer_capital: '',

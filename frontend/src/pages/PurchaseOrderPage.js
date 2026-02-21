@@ -614,7 +614,7 @@ export default function PurchaseOrderPage() {
       {/* Pay Supplier Dialog */}
       <Dialog open={payDialog} onOpenChange={setPayDialog}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Pay Supplier (from Cashier Drawer)</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Pay Supplier (from Operating Fund)</DialogTitle></DialogHeader>
           {selectedPO && (
             <div className="space-y-4 mt-2">
               <div className="p-3 bg-slate-50 rounded-lg text-sm">

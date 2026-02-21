@@ -101,6 +101,9 @@ api_router.include_router(setup_router)
 # Backups
 api_router.include_router(backups_router)
 
+# Reports (AR Aging, Sales, Expenses)
+api_router.include_router(reports_router)
+
 
 # =============================================================================
 # STARTUP & SHUTDOWN

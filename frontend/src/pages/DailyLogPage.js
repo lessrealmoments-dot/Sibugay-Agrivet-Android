@@ -1253,6 +1253,7 @@ export default function DailyLogPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+      <Dialog open={expenseDialog} onOpenChange={setExpenseDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>
             {expenseType === 'farm' ? 'Farm Expense' : expenseType === 'advance' ? 'Employee Cash Advance' : 'Record Expense'}

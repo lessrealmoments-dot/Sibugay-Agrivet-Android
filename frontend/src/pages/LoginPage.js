@@ -44,9 +44,9 @@ export default function LoginPage() {
           <div className="w-16 h-16 rounded-2xl bg-[#1A4D2E] flex items-center justify-center mx-auto mb-6">
             <Store size={32} className="text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: 'Manrope' }}>AgriPOS</h2>
+          <h2 className="text-3xl font-bold text-white mb-3" style={{ fontFamily: 'Manrope' }}>AgriBooks</h2>
           <p className="text-slate-300 text-sm leading-relaxed">
-            Multi-branch Inventory, POS & Accounting system built for agricultural retail and wholesale businesses.
+            Agricultural Inventory &amp; Business Management System for retail and wholesale businesses.
           </p>
         </div>
       </div>

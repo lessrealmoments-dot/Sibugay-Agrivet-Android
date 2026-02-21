@@ -1236,7 +1236,8 @@ class TestPhase9DataIntegrity:
         rosario_id = shared_state.get("rosario_id")
         if not rosario_id:
             pytest.skip("ROSARIO not created")
-        resp = authed.get(f"{BASE_URL}/api/accounting/customers/{rosario_id}/invoices")
+        # accounting router has no prefix: endpoint is /api/customers/{id}/invoices
+        resp = authed.get(f"{BASE_URL}/api/customers/{rosario_id}/invoices")
         assert resp.status_code == 200
         invoices = resp.json()
         print(f"\nROSARIO open invoices: {len(invoices)}")

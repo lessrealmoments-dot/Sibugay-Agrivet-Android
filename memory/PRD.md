@@ -24,7 +24,14 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Permission Toggle System Fix - COMPLETE ✅ (Feb 2026)
+### `edit_cost` Permission — Capital Editing Control - COMPLETE ✅ (Feb 2026)
+- Added `edit_cost` action to `products` permission module (backend `models/permissions.py`)
+- Role presets: admin=true, manager=true, cashier=false, inventory_clerk=true
+- Backend `PUT /products/{id}` now raises 403 if `cost_price` is submitted without `products.edit_cost` permission
+- Frontend `ProductsPage.js` and `ProductDetailPage.js`: Cost Price / Capital field disabled + "locked" indicator when user lacks permission; price scheme fields remain fully editable
+- Admin and manager can still edit prices freely; only cost/capital is gated separately
+
+
 **3 bugs fixed in UserPermissionsPage + SettingsPage:**
 1. **Double-toggle**: `<label>` wrapping Radix Switch caused `onCheckedChange` to fire twice (label click forwarded to input + Switch's own handler). Fixed by replacing `<label>` with `<div>` and adding `e.stopPropagation()` on Switch click. Applied to both UserPermissionsPage and SettingsPage TOTP controls.
 2. **State mutation**: `handlePermissionToggle` did `{ ...prev }` shallow copy then mutated `prev[module][action]` directly. Fixed to deep-copy module: `{ ...(prev[module] || {}) }` before modifying.

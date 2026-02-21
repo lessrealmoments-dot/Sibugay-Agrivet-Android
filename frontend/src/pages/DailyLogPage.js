@@ -1073,8 +1073,180 @@ export default function DailyLogPage() {
             </div>
           )}
         </TabsContent>
+
+        {/* ═══ Z-REPORT ARCHIVE ═══════════════════════════════════════ */}
+        <TabsContent value="archive" className="mt-4 space-y-4" data-testid="archive-tab">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-[180px]">
+              <div className="relative">
+                <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Filter by date (e.g. 2026-02)"
+                  value={archiveSearch}
+                  onChange={e => setArchiveSearch(e.target.value)}
+                  className="pl-8 h-9 text-sm"
+                  data-testid="archive-date-filter"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Building2 size={14} className="text-slate-400 shrink-0" />
+              <Select
+                value={archiveBranch}
+                onValueChange={v => { setArchiveBranch(v); fetchArchive(v); }}
+              >
+                <SelectTrigger className="h-9 w-44 text-sm" data-testid="archive-branch-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {(window._branches || []).map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => fetchArchive(archiveBranch)}
+              disabled={archiveLoading}
+              data-testid="archive-refresh-btn"
+            >
+              {archiveLoading
+                ? <RefreshCw size={13} className="animate-spin" />
+                : <RefreshCw size={13} />}
+            </Button>
+          </div>
+
+          {/* Summary stats */}
+          {archiveRecords.length > 0 && (() => {
+            const filtered = archiveRecords.filter(r =>
+              !archiveSearch || r.date.includes(archiveSearch) || (r.branch_name || '').toLowerCase().includes(archiveSearch.toLowerCase())
+            );
+            const totalSales   = filtered.reduce((s, r) => s + (r.total_cash_sales || 0), 0);
+            const totalAR      = filtered.reduce((s, r) => s + (r.total_ar_received || 0), 0);
+            const totalExp     = filtered.reduce((s, r) => s + (r.total_expenses || 0), 0);
+            const totalOS      = filtered.reduce((s, r) => s + (r.over_short || 0), 0);
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'Closed Days', value: filtered.length, mono: false, color: 'slate' },
+                  { label: 'Total Cash Sales', value: formatPHP(totalSales), mono: true, color: 'emerald' },
+                  { label: 'Total AR Collected', value: formatPHP(totalAR), mono: true, color: 'blue' },
+                  { label: 'Net Over / Short', value: (totalOS >= 0 ? '+' : '') + formatPHP(totalOS), mono: true, color: totalOS >= 0 ? 'emerald' : 'red' },
+                ].map(({ label, value, mono, color }) => (
+                  <Card key={label} className="border-slate-200">
+                    <CardContent className="p-3">
+                      <p className={`text-xs text-${color}-500 uppercase font-medium mb-0.5`}>{label}</p>
+                      <p className={`text-xl font-bold text-${color}-700 ${mono ? 'font-mono' : ''}`}>{value}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Archive table */}
+          <Card className="border-slate-200">
+            <CardContent className="p-0">
+              <ScrollArea className="h-[450px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50 sticky top-0">
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Date</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Branch</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Cash Sales</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">AR Collected</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Expenses</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Over / Short</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Closed By</TableHead>
+                      <TableHead className="w-20"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {archiveLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-10 text-slate-400">
+                          <RefreshCw size={18} className="animate-spin mx-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ) : (() => {
+                      const filtered = archiveRecords.filter(r =>
+                        !archiveSearch || r.date.includes(archiveSearch) || (r.branch_name || '').toLowerCase().includes(archiveSearch.toLowerCase())
+                      );
+                      if (filtered.length === 0) return (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-10 text-slate-400">
+                            {archiveRecords.length === 0 ? 'No closed days yet.' : 'No results match your filter.'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                      return filtered.map((r, i) => {
+                        const os = r.over_short || 0;
+                        return (
+                          <TableRow key={r.id || i} className="table-row-hover">
+                            <TableCell className="font-mono text-sm font-semibold">{r.date}</TableCell>
+                            <TableCell className="text-sm text-slate-600">{r.branch_name || '—'}</TableCell>
+                            <TableCell className="text-right font-mono text-emerald-700">{formatPHP(r.total_cash_sales || 0)}</TableCell>
+                            <TableCell className="text-right font-mono text-blue-700">{formatPHP(r.total_ar_received || 0)}</TableCell>
+                            <TableCell className="text-right font-mono text-red-600">{formatPHP(r.total_expenses || 0)}</TableCell>
+                            <TableCell className="text-right font-mono">
+                              <span className={os > 0 ? 'text-emerald-600 font-semibold' : os < 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}>
+                                {os > 0 ? '+' : ''}{formatPHP(os)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm text-slate-500">{r.closed_by_name}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline" size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => openZreport(r)}
+                                data-testid={`view-zreport-${r.date}`}
+                              >
+                                <Eye size={12} className="mr-1" /> View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })()}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
-      <Dialog open={expenseDialog} onOpenChange={setExpenseDialog}>
+
+      {/* ── Z-Report Viewer Dialog ─────────────────────────────────── */}
+      <Dialog open={zreportDialog} onOpenChange={setZreportDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0 print:hidden">
+            <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+              <Archive size={18} className="text-[#1A4D2E]" />
+              {zreportData ? `Z-Report — ${zreportData.date} · ${zreportData.branch_name || ''}` : 'Loading Z-Report...'}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 overflow-auto">
+            <div className="pr-2 py-1">
+              {zreportLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw size={22} className="animate-spin text-slate-400" />
+                </div>
+              ) : zreportData ? (
+                <ZReport
+                  data={zreportData}
+                  branchName={zreportData.branch_name || currentBranch?.name}
+                  onPrint={() => window.print()}
+                />
+              ) : (
+                <p className="text-center py-8 text-slate-400">Could not load Z-report data.</p>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>
             {expenseType === 'farm' ? 'Farm Expense' : expenseType === 'advance' ? 'Employee Cash Advance' : 'Record Expense'}

@@ -130,7 +130,8 @@ async def lookup_product_for_transfer(
     products = await db.products.find(query, {"_id": 0}).limit(10).to_list(10)
     results = []
     for p in products:
-        branch_capital = float(await get_branch_cost(p, from_branch_id)) if from_branch_id else float(p.get("cost_price", 0))
+        global_cost = float(p.get("cost_price", 0))
+        branch_capital = float(await get_branch_cost(p, from_branch_id)) if from_branch_id else global_cost
         last_purchase, moving_avg = await _get_po_refs(p["id"])
         memory = await _get_price_memory(p["id"], to_branch_id) if to_branch_id else {}
         results.append({
@@ -140,6 +141,8 @@ async def lookup_product_for_transfer(
             "category": p.get("category", "General"),
             "unit": p.get("unit", ""),
             "branch_capital": branch_capital,
+            "global_cost_price": global_cost,
+            "is_branch_specific_cost": (branch_capital != global_cost),
             "last_purchase_ref": last_purchase,
             "moving_average_ref": moving_avg,
             "last_branch_retail": memory.get("last_retail_price"),

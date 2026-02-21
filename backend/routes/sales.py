@@ -62,12 +62,19 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     count = await db.invoices.count_documents({"prefix": prefix})
     inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
     
+    # ── Batch-fetch all products upfront — eliminates N+1 queries ─────────────
+    product_ids = list({item["product_id"] for item in items})
+    products_list = await db.products.find(
+        {"id": {"$in": product_ids}, "active": True}, {"_id": 0}
+    ).to_list(len(product_ids))
+    products_map = {p["id"]: p for p in products_list}
+
     # Process items and compute totals
     sale_items = []
     subtotal = 0
-    
+
     for item in items:
-        product = await db.products.find_one({"id": item["product_id"], "active": True}, {"_id": 0})
+        product = products_map.get(item["product_id"])
         if not product:
             raise HTTPException(status_code=400, detail=f"Product not found: {item['product_id']}")
         

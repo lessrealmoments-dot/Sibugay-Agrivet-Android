@@ -274,13 +274,24 @@ async def branch_summary(user=Depends(get_current_user)):
         if not branch:
             continue
         
-        # Today's revenue for this branch
+        # Today's revenue for this branch (by order_date)
         today_invoices = await db.invoices.find(
-            {"branch_id": branch_id, "status": {"$ne": "voided"}, "created_at": {"$gte": today}},
-            {"_id": 0, "grand_total": 1}
+            {"branch_id": branch_id, "status": {"$ne": "voided"}, "order_date": today},
+            {"_id": 0, "grand_total": 1, "payment_type": 1}
         ).to_list(10000)
-        today_revenue = sum(inv.get("grand_total", 0) for inv in today_invoices)
+        today_revenue = round(sum(inv.get("grand_total", 0) for inv in today_invoices), 2)
         today_sales_count = len(today_invoices)
+        today_cash_sales = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") == "cash"), 2)
+        today_new_credit = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") in ("credit", "partial")), 2)
+
+        # AR collected today (payments on older invoices)
+        ar_today = await db.invoices.aggregate([
+            {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}, "order_date": {"$ne": today}}},
+            {"$unwind": "$payments"},
+            {"$match": {"payments.date": today}},
+            {"$group": {"_id": None, "total": {"$sum": "$payments.amount"}}}
+        ]).to_list(1)
+        ar_collected_today = round(ar_today[0]["total"] if ar_today else 0, 2)
         
         # Outstanding receivables for this branch
         rec_result = await db.invoices.aggregate([

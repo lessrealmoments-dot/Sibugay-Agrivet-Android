@@ -348,25 +348,36 @@ async def branch_summary(user=Depends(get_current_user)):
         low_stock_result = await db.products.aggregate(low_stock_pipeline).to_list(1)
         low_stock_count = low_stock_result[0]["total"] if low_stock_result else 0
         
+        # Last close date for this branch
+        last_close = await db.daily_closings.find_one(
+            {"branch_id": branch_id, "status": "closed"}, {"_id": 0, "date": 1},
+            sort=[("date", -1)]
+        )
+        last_close_date = last_close["date"] if last_close else None
+
         # Determine status
         status = "good"
         if low_stock_count > 10:
             status = "warning"
         if low_stock_count > 20:
             status = "critical"
-        
+
         summaries.append({
             "id": branch_id,
             "name": branch.get("name", ""),
             "today_revenue": today_revenue,
             "today_sales_count": today_sales_count,
-            "receivables": receivables,
-            "today_expenses": expenses,
-            "net_today": today_revenue - expenses,
-            "cashier_balance": cashier_balance,
-            "safe_balance": safe_balance,
-            "total_cash": cashier_balance + safe_balance,
+            "today_cash_sales": today_cash_sales,
+            "today_new_credit": today_new_credit,
+            "ar_collected_today": ar_collected_today,
+            "receivables": round(receivables, 2),
+            "today_expenses": round(expenses, 2),
+            "net_today": round(today_revenue - expenses, 2),
+            "cashier_balance": round(cashier_balance, 2),
+            "safe_balance": round(safe_balance, 2),
+            "total_cash": round(cashier_balance + safe_balance, 2),
             "low_stock_count": low_stock_count,
+            "last_close_date": last_close_date,
             "status": status,
         })
     total_revenue = sum(s["today_revenue"] for s in summaries)

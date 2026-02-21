@@ -31,12 +31,7 @@ def auth_headers():
 @pytest.fixture(scope="module")
 def branch_id(auth_headers):
     """Get the first available branch id."""
-    res = requests.get(f"{BASE_URL}/api/branches", headers=auth_headers)
-    if res.status_code == 200:
-        branches = res.data if isinstance(res.data, list) else res.json()
-        if isinstance(branches, list) and len(branches) > 0:
-            return branches[0].get("id")
-    # Try from dashboard/stats
+    # Try from branch-summary (always works for owner)
     res2 = requests.get(f"{BASE_URL}/api/dashboard/branch-summary", headers=auth_headers)
     if res2.status_code == 200:
         data = res2.json()

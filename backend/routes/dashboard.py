@@ -526,8 +526,6 @@ async def branch_summary(user=Depends(get_current_user)):
             "low_stock_count": low_stock_count,
             "status": status,
         })
-    
-    # Calculate totals
     total_revenue = sum(s["today_revenue"] for s in summaries)
     total_receivables = sum(s["receivables"] for s in summaries)
     total_expenses = sum(s["today_expenses"] for s in summaries)

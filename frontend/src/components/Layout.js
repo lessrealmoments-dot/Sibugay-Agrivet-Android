@@ -81,8 +81,8 @@ export default function Layout({ children }) {
           <Store size={18} className="text-white" strokeWidth={2} />
         </div>
         <div>
-          <h1 className="text-base font-bold text-white tracking-tight" style={{ fontFamily: 'Manrope' }}>AgriPOS</h1>
-          <p className="text-[11px] text-slate-500">Inventory & POS</p>
+          <h1 className="text-base font-bold text-white tracking-tight" style={{ fontFamily: 'Manrope' }}>AgriBooks</h1>
+          <p className="text-[11px] text-slate-500">Business Management</p>
         </div>
       </div>
       <Separator className="bg-white/5" />

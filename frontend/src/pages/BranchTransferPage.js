@@ -78,6 +78,7 @@ export default function BranchTransferPage() {
   // Load markup template when destination branch changes
   useEffect(() => {
     if (!toBranchId) { setTemplateLoaded(false); return; }
+    setRows([newRow()]); // Reset rows for new destination
     api.get(`/branch-transfers/markup-template/${toBranchId}`)
       .then(r => {
         setMinMargin(r.data.min_margin ?? 20);

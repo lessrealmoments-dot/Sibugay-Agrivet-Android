@@ -128,7 +128,7 @@ export default function FundManagementPage() {
           </Card>
         ))}
         {!wallets.length && (
-          <p className="col-span-3 text-center py-8 text-slate-400">No wallets set up. Create Cashier Drawer, Safe, and Bank accounts.</p>
+          <p className="col-span-3 text-center py-8 text-slate-400">No wallets set up. Create Operating Fund, Vault, and Bank accounts.</p>
         )}
       </div>
 

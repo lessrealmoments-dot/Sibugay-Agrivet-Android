@@ -260,3 +260,90 @@ async def set_inventory(data: dict, user=Depends(get_current_user)):
         })
     
     return {"message": "Inventory set", "quantity": quantity}
+
+
+@router.post("/admin-adjust")
+async def admin_adjust_inventory(data: dict, user=Depends(get_current_user)):
+    """
+    Admin inventory correction — sets stock to exact new_quantity to fix counting errors.
+    Requires prior TOTP/password verification. Creates a full audit log.
+    """
+    product_id = data["product_id"]
+    branch_id = data["branch_id"]
+    new_quantity = float(data["new_quantity"])
+    reason = data.get("reason", "Admin correction")
+    verified_by = data.get("verified_by", "")    # name of admin who verified
+    auth_mode = data.get("auth_mode", "totp")    # "totp", "password", or "direct_admin"
+
+    # Repack guard
+    product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if product and product.get("is_repack"):
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot adjust repack inventory directly. Adjust the parent product."
+        )
+
+    existing = await db.inventory.find_one(
+        {"product_id": product_id, "branch_id": branch_id}, {"_id": 0}
+    )
+    old_quantity = existing["quantity"] if existing else 0
+
+    if existing:
+        await db.inventory.update_one(
+            {"product_id": product_id, "branch_id": branch_id},
+            {"$set": {"quantity": new_quantity, "updated_at": now_iso()}}
+        )
+    else:
+        await db.inventory.insert_one({
+            "id": new_id(),
+            "product_id": product_id,
+            "branch_id": branch_id,
+            "quantity": new_quantity,
+            "updated_at": now_iso()
+        })
+
+    diff = new_quantity - old_quantity
+
+    # Full audit record
+    correction_id = new_id()
+    correction = {
+        "id": correction_id,
+        "product_id": product_id,
+        "branch_id": branch_id,
+        "old_quantity": old_quantity,
+        "new_quantity": new_quantity,
+        "difference": diff,
+        "reason": reason,
+        "performed_by_id": user["id"],
+        "performed_by_name": user.get("full_name", user["username"]),
+        "authorized_by": verified_by,
+        "auth_mode": auth_mode,
+        "created_at": now_iso(),
+    }
+    await db.inventory_corrections.insert_one(correction)
+    del correction["_id"]
+
+    # Movement history entry
+    await log_movement(
+        product_id, branch_id, "correction", diff,
+        correction_id, "CORR", 0, user["id"],
+        user.get("full_name", user["username"]), reason
+    )
+
+    return {
+        "message": "Inventory corrected",
+        "old_quantity": old_quantity,
+        "new_quantity": new_quantity,
+        "difference": diff,
+        "correction": correction,
+    }
+
+
+@router.get("/corrections/{product_id}")
+async def get_inventory_corrections(product_id: str, user=Depends(get_current_user)):
+    """Get correction history for a specific product."""
+    corrections = await db.inventory_corrections.find(
+        {"product_id": product_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return corrections

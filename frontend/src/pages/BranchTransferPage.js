@@ -62,7 +62,7 @@ export default function BranchTransferPage() {
   const [minMargin, setMinMargin] = useState(20);
   const [categoryMarkups, setCategoryMarkups] = useState([]); // [{category, type, value}]
   const [markupPanelOpen, setMarkupPanelOpen] = useState(false);
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(() => [newRow()]);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [templateLoaded, setTemplateLoaded] = useState(false);

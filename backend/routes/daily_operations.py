@@ -54,7 +54,8 @@ async def get_daily_close_preview(
 
     # ── Cash sales today (payment_type=cash, by category) ────────────────────
     cash_sales_pipeline = [
-        {"$match": {"branch_id": branch_id, "date": date, "payment_method": "cash"}},
+        {"$match": {"branch_id": branch_id, "date": date,
+                    "payment_method": {"$regex": "^cash$", "$options": "i"}}},
         {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}, "qty": {"$sum": "$quantity"}}},
         {"$sort": {"total": -1}},
     ]

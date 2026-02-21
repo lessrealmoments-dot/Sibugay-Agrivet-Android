@@ -115,8 +115,8 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
               key={p.id}
               data-testid={`search-result-${p.id}`}
               onMouseDown={() => selectProduct(p)}
-              className={`px-3 py-2.5 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
-                i === activeIndex ? 'bg-[#1A4D2E]/5 border-l-2 border-l-[#1A4D2E]' : 'hover:bg-slate-50'
+              className={`px-3 py-2.5 cursor-pointer border-b border-slate-100 last:border-0 transition-colors ${
+                i === activeIndex ? 'bg-emerald-50 border-l-[3px] border-l-emerald-700' : 'hover:bg-slate-50'
               }`}
             >
               <div className="flex items-center justify-between">

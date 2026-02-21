@@ -712,7 +712,7 @@ export default function CloseWizardPage() {
                     className="h-10 font-mono mt-1" />
                 </div>
                 <div>
-                  <Label>Stay in Register (Float)</Label>
+                  <Label>Stay as Opening Float (Next Day)</Label>
                   <Input data-testid="cash-to-drawer-input" type="number" min={0} step="0.01"
                     value={cashToDrawer}
                     onChange={e => { setCashToDrawer(e.target.value); const rem = r2((parseFloat(actualCash)||0)-(parseFloat(e.target.value)||0)); setCashToSafe(String(Math.max(0,rem))); }}

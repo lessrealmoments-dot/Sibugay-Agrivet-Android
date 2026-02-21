@@ -29,6 +29,7 @@ from routes import (
     settings_router, count_sheets_router, setup_router, branch_prices_router,
     import_router, notifications_router,
 )
+from routes.backups import router as backups_router
 
 # =============================================================================
 # APP SETUP

@@ -352,11 +352,11 @@ class TestCancelWorkflow:
             "category_markups": [],
             "items": [
                 {
-                    "product_id": "4dfff4e8",
-                    "product_name": "VITMIN PRO POWDER",
-                    "sku": "TEST-VITMIN-001",
-                    "category": "Veterinary",
-                    "unit": "Box",
+                    "product_id": LANNATE_PRODUCT_ID,
+                    "product_name": LANNATE_PRODUCT_NAME,
+                    "sku": "TEST-LANNATE",
+                    "category": "Pesticide",
+                    "unit": "Pouch",
                     "qty": 1,
                     "branch_capital": 500.0,
                     "transfer_capital": 550.0,

@@ -1,0 +1,70 @@
+{
+  "summary": "Comprehensive backend + frontend testing of Branch Transfer system. All 22 backend tests pass. UI mostly functional with 1 critical bug found (initial ephemeral row pattern prevents product search from working until 'Add Product' is clicked). Key flows validated: markup template, product lookup, transfer_capital auto-fill, price memory, validation rules, override checkbox, order creation, send, receive dialog. Receive fails with 'Insufficient stock' when 'All Branches' is selected (from_branch_id empty) - expected UX issue, works correctly when Main Branch is selected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/branch-transfers/{id}/receive", "issue": "Returns 400 'Insufficient stock: have 0, need N' when order created with empty from_branch_id (All Branches selected). Expected from context but affects real usage."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "BranchTransferPage - New Transfer - Product Search Row",
+        "issue": "CRITICAL BUG: Initial row is ephemeral (not in React state). rows is initialized as [] in useState, rendering uses [newRow()] which is NOT stored in state. Typing in the initial search field calls updateRow(ephemeralId) which fails silently (ID not in rows array). Users MUST click 'Add Product' first to get a real row before searching. This is a confusing UX flow.",
+        "selector": "[data-testid^='product-search-']",
+        "priority": "HIGH",
+        "rca": "In BranchTransferPage.js: useState([]) initializes rows as empty. JSX renders {(rows.length ? rows : [newRow()]).map(row => ...)}. The ephemeral newRow() is not in state, so onChange→searchProduct→updateRow finds no matching row ID and does nothing. Fix: Change useState([]) to useState([newRow()]) or useState(() => [newRow()]) to initialize with one real row."
+      },
+      {
+        "component": "History Table - Action Buttons",
+        "issue": "View Details, Mark as Sent, Cancel buttons for draft/sent orders are missing data-testid attributes. Only receive-btn-{id} has a testid. Send and Cancel buttons use title='Mark as Sent' and title='Cancel' for identification.",
+        "selector": "button[title='Mark as Sent'], button[title='Cancel'], button[title='View Details']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "New Transfer → Product Search (initial state)",
+        "issue": "When toBranchId is selected and rows=[], the rendered ephemeral row cannot accept input. User must click 'Add Product' button first to create a real row in state before product search works.",
+        "affected_selectors": ["[data-testid^='product-search-']", "[data-testid='add-row-btn']"]
+      },
+      {
+        "flow": "Receive Order (All Branches context)",
+        "issue": "Creating transfer with 'All Branches' selected (from_branch_id='') makes receive fail: 'Insufficient stock: have 0, need N'. Must select specific Main Branch before creating transfers.",
+        "affected_selectors": ["[data-testid='confirm-receive-btn']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "History table - Console errors",
+        "issues": ["React hydration errors: 'In HTML, span cannot be a child of tbody/tr'. Live preview tool (x-dynamic attributes) injects span wrappers inside table elements, causing these hydration warnings. Not a production issue."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_branch_transfers.py",
+    "/app/test_reports/pytest/pytest_branch_transfers.xml"
+  ],
+  "action_items": [
+    "CRITICAL FIX: In BranchTransferPage.js, change `useState([])` to `useState(() => [newRow()])` so the initial row is always a real row in state. This fixes the ephemeral row bug where product search doesn't work without clicking 'Add Product' first.",
+    "MINOR: Add data-testid attributes to View Details, Mark as Sent, and Cancel buttons in history table for better testability: data-testid='view-btn-{id}', data-testid='send-btn-{id}', data-testid='cancel-btn-{id}'",
+    "UX: Consider showing warning or auto-selecting Main Branch when user navigates to Branch Transfers with 'All Branches' selected, since from_branch_id is required for correct receive workflow"
+  ],
+  "critical_code_review_comments": [
+    "BranchTransferPage.js: `useState([])` + `{(rows.length ? rows : [newRow()]).map(...)}` pattern creates ephemeral non-state rows that cannot accept user interaction. Fix: `useState(() => [newRow()])`",
+    "History buttons: Only receive-btn has data-testid. View Details, Mark as Sent, Cancel buttons lack testids making them harder to test/automate",
+    "Receive endpoint: When fromBranchId is '' (empty), `find_one({'branch_id': ''})` returns null → 400 error. The page should enforce branch selection before allowing transfers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_branch_transfers.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 tests pass)",
+    "frontend": "80% (critical flows work after workaround of clicking Add Product first; validation, override, send, history all work)"
+  },
+  "seed_data_creation": "Created 5 transfer orders (BTO-0001 to BTO-0005) via backend tests and UI. BTO-0003 and BTO-0005 were received. Backend test data cleaned up (orders cancelled or received). Price memory set: ENERTONE last_retail=1020, last_transfer_capital=970 for IPIL BRANCH.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Main bug: BranchTransferPage.js has ephemeral initial row (useState([]) issue). Fix is to change to useState(() => [newRow()]). After fix, test: (1) product search works immediately on page load without clicking Add Product, (2) transfer_capital auto-fills to 970 for ENERTONE/Feeds/+₱50, (3) branch_retail auto-fills 1020 from price memory. Backend tests all pass (22/22). Use 'Add Product' button first as workaround in UI tests. Full receive flow requires selecting Main Branch (not All Branches) before creating a transfer.",
+  "rca_of_issue": "Root cause: In BranchTransferPage.js, `const [rows, setRows] = useState([])` initializes rows as empty array. The JSX renders `{(rows.length ? rows : [newRow()]).map(row => ...)}` which creates a temporary row via newRow() not stored in state. When user types in the search field, onChange calls `searchProduct(row.id, query)` → `updateRow(row.id, {productSearch: query})` → `setRows(prev => prev.map(r => r.id === id ? {...r, ...updates} : r))`. Since the ephemeral row.id is not in the prev array (empty), map returns [], state doesn't update, component re-renders with empty rows, showing the ephemeral placeholder again. Fix: Initialize with `useState(() => [newRow()])` so rows always has at least one real row."
+}

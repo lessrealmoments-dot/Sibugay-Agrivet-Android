@@ -16,20 +16,11 @@ import { Settings, Plus, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock, R
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 
-const PERMISSION_MODULES = [
-  { key: 'branches', label: 'Branches', actions: ['view', 'create', 'edit', 'delete'] },
-  { key: 'products', label: 'Products', actions: ['view', 'create', 'edit', 'delete'] },
-  { key: 'inventory', label: 'Inventory', actions: ['view', 'adjust', 'transfer'] },
-  { key: 'pos', label: 'POS', actions: ['view', 'sell', 'void'] },
-  { key: 'customers', label: 'Customers', actions: ['view', 'create', 'edit', 'delete'] },
-  { key: 'price_schemes', label: 'Price Schemes', actions: ['view', 'create', 'edit', 'delete'] },
-  { key: 'accounting', label: 'Accounting', actions: ['view', 'create', 'edit', 'delete'] },
-  { key: 'reports', label: 'Reports', actions: ['view', 'export'] },
-  { key: 'settings', label: 'Settings', actions: ['view', 'manage_users', 'manage_roles'] },
-];
+const PERMISSION_MODULES = []; // unused - permissions managed via /user-permissions page
 
 export default function SettingsPage() {
   const { user: currentUser, branches } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = currentUser?.role === 'admin';
 
   // ── User Management ───────────────────────────────────────────────────────

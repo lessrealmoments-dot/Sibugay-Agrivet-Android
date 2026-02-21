@@ -469,7 +469,7 @@ export default function BranchTransferPage() {
           <Building2 size={22} className="text-[#1A4D2E]" /> Branch Transfers
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
-          Supply branches from Main Branch with auto-computed pricing
+          Transfer stock between any branches with auto-computed pricing
         </p>
       </div>
 

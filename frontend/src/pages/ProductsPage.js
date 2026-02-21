@@ -28,6 +28,8 @@ export default function ProductsPage() {
   const [schemes, setSchemes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selected, setSelected] = useState(new Set());
+  const [repackParentIds, setRepackParentIds] = useState(new Set()); // parents that have at least one repack
+  const [repackConfirmParent, setRepackConfirmParent] = useState(null); // pending confirm dialog
   const LIMIT = 20;
 
   const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', unit_of_measurement: 'Box' });

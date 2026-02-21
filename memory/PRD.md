@@ -24,6 +24,13 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Quick Repack Generator - Search & Warning Fixes - COMPLETE ✅ (Feb 2026)
+- Fixed parent product search dropdown clipping in Quick Repack modal using React portal (`createPortal`) with `position: fixed`
+- Added "⚠ has repack" indicator in search dropdown results for products that already have repacks
+- Added toast warning when selecting a parent that already has a repack
+- Added inline "⚠ Already has a repack" badge below selected parent in Quick Repack row
+
+
 ### Offline Download Progress Bar + Branch Isolation Fixes - COMPLETE ✅ (Feb 2026)
 
 **1. Offline Data Pre-Download Widget (OfflineIndicator rewrite)**

@@ -328,7 +328,7 @@ export default function DailyLogPage() {
     if (actualCash === '') { toast.error('Enter the actual cash count first'); return; }
     if (!cashToDrawer && cashToDrawer !== 0) { toast.error('Enter how much stays in the register'); return; }
     if (r2(cashToDrawerNum + cashToSafeNum) > r2(actualNum) + 0.01) {
-      toast.error('Cash to safe + register cannot exceed actual cash count'); return;
+      toast.error('Transfer to Vault + Opening Float cannot exceed actual count'); return;
     }
     if (!window.confirm(`Close accounts for ${date}? This cannot be undone.`)) return;
     setClosingLoading(true);

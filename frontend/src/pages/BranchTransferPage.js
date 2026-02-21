@@ -915,46 +915,131 @@ export default function BranchTransferPage() {
 
       {/* ── View / Receive Order Dialog ── */}
       <Dialog open={!!viewOrder && !receiveDialog} onOpenChange={() => setViewOrder(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Manrope' }}>
-              {viewOrder?.order_number} — {branches.find(b => b.id === viewOrder?.to_branch_id)?.name}
+              {viewOrder?.order_number} — {branches.find(b => b.id === viewOrder?.from_branch_id)?.name || '?'}
+              <span className="text-slate-400 mx-1">→</span>
+              {branches.find(b => b.id === viewOrder?.to_branch_id)?.name || '?'}
               <Badge className={`ml-2 text-[10px] ${STATUS_COLORS[viewOrder?.status]}`}>{viewOrder?.status}</Badge>
+              {viewOrder?.has_shortage && (
+                <Badge className="ml-2 text-[10px] bg-red-100 text-red-700">Shortage</Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           <ScrollArea className="flex-1">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white border-b">
-                <tr className="text-xs uppercase text-slate-500">
-                  <th className="px-3 py-2 text-left">Product</th>
-                  <th className="px-3 py-2 text-center">Qty</th>
-                  <th className="px-3 py-2 text-right">Branch Capital</th>
-                  <th className="px-3 py-2 text-right">Transfer Capital</th>
-                  <th className="px-3 py-2 text-right">Branch Retail</th>
-                  <th className="px-3 py-2 text-right">Margin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(viewOrder?.items || []).map((item, i) => {
-                  const margin = (item.branch_retail - item.transfer_capital);
-                  return (
-                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="px-3 py-2">
-                        <p className="font-medium">{item.product_name}</p>
-                        <p className="text-xs text-slate-400 font-mono">{item.sku} · {item.category}</p>
-                      </td>
-                      <td className="px-3 py-2 text-center font-mono">{item.qty} {item.unit}</td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(item.branch_capital)}</td>
-                      <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">{formatPHP(item.transfer_capital)}</td>
-                      <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">{formatPHP(item.branch_retail)}</td>
-                      <td className={`px-3 py-2 text-right font-mono font-bold ${margin >= 20 ? 'text-emerald-600' : 'text-red-500'}`}>
-                        +{formatPHP(margin)}
-                      </td>
+            {/* Reconciliation view for received orders */}
+            {viewOrder?.status === 'received' ? (
+              <div className="space-y-3">
+                <div className="text-xs text-slate-500 bg-slate-50 rounded px-3 py-2 flex justify-between">
+                  <span>Received by: <b>{viewOrder.received_by_name}</b> · {viewOrder.received_at?.slice(0,10)}</span>
+                  {viewOrder.has_shortage && (
+                    <span className="text-red-600 font-medium flex items-center gap-1">
+                      <AlertTriangle size={12}/> {viewOrder.shortages?.length} product(s) short
+                    </span>
+                  )}
+                </div>
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white border-b">
+                    <tr className="text-[10px] uppercase text-slate-500">
+                      <th className="px-3 py-2 text-left">Product</th>
+                      <th className="px-3 py-2 text-right">Ordered</th>
+                      <th className="px-3 py-2 text-right">Received</th>
+                      <th className="px-3 py-2 text-right font-semibold">Variance</th>
+                      <th className="px-3 py-2 text-right">Capital/unit</th>
+                      <th className="px-3 py-2 text-right text-red-600">Capital Loss</th>
+                      <th className="px-3 py-2 text-right">Retail/unit</th>
+                      <th className="px-3 py-2 text-right text-red-600">Retail Loss</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {(viewOrder?.items || []).map((item, i) => {
+                      const qtyOrdered = item.qty_ordered ?? item.qty;
+                      const qtyReceived = item.qty_received ?? item.qty;
+                      const variance = qtyOrdered - qtyReceived;
+                      const capLoss = variance * item.transfer_capital;
+                      const retLoss = variance * item.branch_retail;
+                      const hasShortage = variance > 0;
+                      return (
+                        <tr key={i} className={`border-b border-slate-50 ${hasShortage ? 'bg-red-50/40' : 'hover:bg-slate-50'}`}>
+                          <td className="px-3 py-2">
+                            <p className="font-medium">{item.product_name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{item.sku} · {item.category}</p>
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono">{qtyOrdered} {item.unit}</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold">{qtyReceived} {item.unit}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-bold ${variance > 0 ? 'text-red-600' : variance < 0 ? 'text-blue-600' : 'text-emerald-600'}`}>
+                            {variance === 0 ? '✓ OK' : variance > 0 ? `-${variance}` : `+${Math.abs(variance)}`}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(item.transfer_capital)}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-bold ${capLoss > 0 ? 'text-red-600' : 'text-slate-300'}`}>
+                            {capLoss > 0 ? `-${formatPHP(capLoss)}` : '—'}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(item.branch_retail)}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-bold ${retLoss > 0 ? 'text-red-600' : 'text-slate-300'}`}>
+                            {retLoss > 0 ? `-${formatPHP(retLoss)}` : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Totals row */}
+                    {(() => {
+                      const items = viewOrder?.items || [];
+                      const totalCapLoss = items.reduce((s,i) => {
+                        const v = (i.qty_ordered ?? i.qty) - (i.qty_received ?? i.qty);
+                        return s + (v > 0 ? v * i.transfer_capital : 0);
+                      }, 0);
+                      const totalRetLoss = items.reduce((s,i) => {
+                        const v = (i.qty_ordered ?? i.qty) - (i.qty_received ?? i.qty);
+                        return s + (v > 0 ? v * i.branch_retail : 0);
+                      }, 0);
+                      return (
+                        <tr className="bg-slate-100 font-bold border-t-2 border-slate-300 text-sm">
+                          <td className="px-3 py-2" colSpan={5}>Expected Losses (shortage)</td>
+                          <td className="px-3 py-2 text-right font-mono text-red-700">{totalCapLoss > 0 ? `-${formatPHP(totalCapLoss)}` : '₱0.00'}</td>
+                          <td className="px-3 py-2"></td>
+                          <td className="px-3 py-2 text-right font-mono text-red-700">{totalRetLoss > 0 ? `-${formatPHP(totalRetLoss)}` : '₱0.00'}</td>
+                        </tr>
+                      );
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              // Standard view for draft/sent
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white border-b">
+                  <tr className="text-xs uppercase text-slate-500">
+                    <th className="px-3 py-2 text-left">Product</th>
+                    <th className="px-3 py-2 text-center">Qty</th>
+                    <th className="px-3 py-2 text-right">Branch Capital</th>
+                    <th className="px-3 py-2 text-right">Transfer Capital</th>
+                    <th className="px-3 py-2 text-right">Branch Retail</th>
+                    <th className="px-3 py-2 text-right">Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(viewOrder?.items || []).map((item, i) => {
+                    const margin = (item.branch_retail - item.transfer_capital);
+                    return (
+                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="px-3 py-2">
+                          <p className="font-medium">{item.product_name}</p>
+                          <p className="text-xs text-slate-400 font-mono">{item.sku} · {item.category}</p>
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono">{item.qty} {item.unit}</td>
+                        <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(item.branch_capital)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">{formatPHP(item.transfer_capital)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">{formatPHP(item.branch_retail)}</td>
+                        <td className={`px-3 py-2 text-right font-mono font-bold ${margin >= 20 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          +{formatPHP(margin)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </ScrollArea>
           {viewOrder?.status === 'sent' && (
             <div className="pt-3 border-t flex justify-between">

@@ -491,6 +491,29 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     over_short = round(actual_cash - expected_counter, 2)
     variance_notes = data.get("variance_notes", "").strip()
 
+    # ── Credit sales today (new AR created) ───────────────────────────────────
+    credit_invoices_today = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1,
+         "balance": 1, "payment_type": 1, "sale_type": 1}
+    ).to_list(500)
+    total_new_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices_today), 2)
+
+    # Also get cashouts/farm AR credits
+    ar_credits_today = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "sale_type": {"$in": ["cash_advance", "farm_expense"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "sale_type": 1}
+    ).to_list(200)
+
+    # ── Total outstanding AR at time of close ─────────────────────────────────
+    ar_total_result = await db.invoices.aggregate([
+        {"$match": {"branch_id": branch_id, "status": {"$nin": ["paid", "voided"]}, "balance": {"$gt": 0}}},
+        {"$group": {"_id": None, "total": {"$sum": "$balance"}}}
+    ]).to_list(1)
+    total_ar_at_close = round(ar_total_result[0]["total"] if ar_total_result else 0, 2)
+
     close_record = {
         "id": new_id(), "branch_id": branch_id, "date": date, "status": "closed",
         "starting_float": starting_float,
@@ -506,9 +529,23 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "expected_counter": expected_counter,
         "actual_cash": actual_cash,
         "over_short": over_short,
-        "variance_notes": variance_notes,   # explanation of any over/short
+        "variance_notes": variance_notes,
         "cash_to_safe": cash_to_safe,
         "cash_to_drawer": cash_to_drawer,
+        # New credit extended today
+        "credit_sales_today": [
+            {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],
+             "grand_total": inv.get("grand_total", 0), "balance": inv.get("balance", 0),
+             "type": inv.get("sale_type", "credit")}
+            for inv in credit_invoices_today
+        ],
+        "ar_credits_today": [
+            {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],
+             "grand_total": inv.get("grand_total", 0), "type": inv.get("sale_type", "")}
+            for inv in ar_credits_today
+        ],
+        "total_new_credit": total_new_credit,
+        "total_ar_at_close": total_ar_at_close,
         "closed_by": user["id"],
         "closed_by_name": user.get("full_name", user["username"]),
         "closed_at": now_iso(),

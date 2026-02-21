@@ -1,6 +1,6 @@
 {
-  "name": "AgriPOS - Multi-Branch POS & Inventory",
-  "short_name": "AgriPOS",
+  "name": "AgriBooks - Agricultural Business Management",
+  "short_name": "AgriBooks",
   "description": "Offline-capable Inventory, POS & Accounting for Agricultural Business",
   "start_url": "/dashboard",
   "scope": "/",

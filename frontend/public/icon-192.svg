@@ -6,5 +6,5 @@
     <path d="M0,-4 V24"/>
     <rect x="-12" y="4" width="24" height="20" rx="3" fill="white" fill-opacity="0.3"/>
   </g>
-  <text x="96" y="152" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="700" font-size="22">AgriPOS</text>
+  <text x="96" y="152" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="700" font-size="22">AgriBooks</text>
 </svg>

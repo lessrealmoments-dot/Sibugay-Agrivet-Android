@@ -134,7 +134,7 @@ export default function PurchaseOrderPage() {
         amount: paySupForm.amount, check_number: paySupForm.check_number,
         payment_date: paySupForm.payment_date, check_date: paySupForm.check_date,
       });
-      toast.success('Supplier payment recorded! Deducted from Cashier Drawer.');
+      toast.success('Supplier payment recorded! Deducted from Operating Fund.');
       selectPayVendor(payVendor);
       fetchOrders();
       setPaySupForm(f => ({ ...f, amount: 0, check_number: '', selected_po: '' }));

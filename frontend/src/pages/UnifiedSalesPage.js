@@ -24,7 +24,13 @@ import {
 } from '../lib/offlineDB';
 import { syncPendingSales, startAutoSync, stopAutoSync } from '../lib/syncManager';
 
-const EMPTY_LINE = { product_id: '', product_name: '', description: '', quantity: 1, rate: 0, original_rate: 0, cost_price: 0, discount_type: 'amount', discount_value: 0, is_repack: false };
+const EMPTY_LINE = {
+  product_id: '', product_name: '', description: '',
+  quantity: 1, rate: 0, original_rate: 0,
+  cost_price: 0, moving_average_cost: 0, last_purchase_cost: 0,
+  effective_capital: 0, capital_method: 'manual',
+  discount_type: 'amount', discount_value: 0, is_repack: false,
+};
 
 export default function UnifiedSalesPage() {
   const { currentBranch, user } = useAuth();

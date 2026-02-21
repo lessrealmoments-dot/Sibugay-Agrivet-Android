@@ -84,7 +84,7 @@ export default function CloseWizardPage() {
   const today = new Date().toISOString().split('T')[0];
 
   const loadWizardData = useCallback(async () => {
-    if (!currentBranch) return;
+    if (!currentBranch) { setLoading(false); return; }
     setLoading(true);
     try {
       const d = today;

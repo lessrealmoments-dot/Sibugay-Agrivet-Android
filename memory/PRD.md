@@ -24,7 +24,26 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### `edit_cost` Permission — Capital Editing Control - COMPLETE ✅ (Feb 2026)
+### Daily Close Wizard - COMPLETE ✅ (Feb 2026)
+**8-step guided close wizard at `/close-wizard`:**
+1. Sales Log — sequential cash+credit sales, Quick Add Sale, Full Panel link
+2. Customer Credits — credit invoices, cashouts, farm services grouped
+3. AR Payments — balance-before, interest, penalty, amount paid, balance remaining; Quick Receive Payment
+4. Expenses — today's expenses with employee advance monthly total notice; Quick Add Expense
+5. Cash Count — expected vs actual, dynamic over/short indicator
+6. Fund Allocation — safe/drawer split, auto-updates when actual cash changes
+7. Close & Sign Off — Z-Report summary, manager/owner PIN sign-off, Close Day button
+8. Open Tomorrow — confirmation that new transactions will auto-date to tomorrow (backend handles this)
+
+**Two 1-Click Reports (header buttons, always accessible):**
+- Low Stock Alert — all products with branch inventory history that are at 0 or below reorder point
+- Supplier Payables — all unpaid POs, sorted overdue→urgent→pending, red badge when <7 days due
+
+**Backend: 2 new endpoints in `daily_operations.py`:**
+- `GET /api/low-stock-alert?branch_id=` — products ever stocked in branch now at/below reorder
+- `GET /api/supplier-payables?branch_id=` — all unpaid POs with urgency flags
+
+
 - Added `edit_cost` action to `products` permission module (backend `models/permissions.py`)
 - Role presets: admin=true, manager=true, cashier=false, inventory_clerk=true
 - Backend `PUT /products/{id}` now raises 403 if `cost_price` is submitted without `products.edit_cost` permission

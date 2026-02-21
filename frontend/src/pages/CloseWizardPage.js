@@ -153,7 +153,7 @@ export default function CloseWizardPage() {
     const safe = parseFloat(cashToSafe) || 0;
     const drawer = parseFloat(cashToDrawer) || 0;
     const actual = parseFloat(actualCash);
-    if (safe + drawer > actual) { toast.error('Safe + drawer cannot exceed actual cash'); return; }
+    if (safe + drawer > actual) { toast.error('Vault + Opening Float cannot exceed actual count'); return; }
     setClosing(true);
     try {
       const res = await api.post('/daily-close', {

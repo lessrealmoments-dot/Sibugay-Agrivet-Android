@@ -493,7 +493,9 @@ export default function CloseWizardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(preview?.ar_payments || []).map((p, i) => (
+                    {(preview?.ar_payments || []).length === 0
+                      ? <tr><td colSpan={7} className="text-center py-8 text-slate-400">No AR payments received today</td></tr>
+                      : (preview?.ar_payments || []).map((p, i) => (
                       <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
                         <td className="px-3 py-2">
                           <p className="font-medium">{p.customer_name}</p>
@@ -512,9 +514,6 @@ export default function CloseWizardPage() {
                         </td>
                       </tr>
                     ))}
-                    {!(preview?.ar_payments?.length) && (
-                      <tr><td colSpan={7} className="text-center py-8 text-slate-400">No AR payments received today</td></tr>
-                    )}
                   </tbody>
                 </table>
               </ScrollArea>

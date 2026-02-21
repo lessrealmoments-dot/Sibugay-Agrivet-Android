@@ -195,6 +195,11 @@ async def dashboard_stats(
     ar_aging = await _compute_ar_aging(branch_filter)
     top_debtors = await _get_top_debtors(branch_filter)
 
+    # ── Inventory value ───────────────────────────────────────────────────────
+    inventory_value = None
+    if effective_branch_id:
+        inventory_value = await _compute_inventory_value(effective_branch_id)
+
     # ── Last close date ───────────────────────────────────────────────────────
     close_query = {"status": "closed"}
     if effective_branch_id:

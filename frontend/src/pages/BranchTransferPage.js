@@ -279,8 +279,7 @@ export default function BranchTransferPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
   };
 
-  const handleCancel = async (orderId) => {
-    if (!window.confirm('Cancel this transfer order?')) return;
+  const handleCancel = async (orderId) => {    if (!window.confirm('Cancel this transfer order?')) return;
     try {
       await api.delete(`/branch-transfers/${orderId}`);
       toast.success('Transfer cancelled');

@@ -70,7 +70,7 @@ function ZReport({ data, branchName, onPrint }) {
       <div className="grid md:grid-cols-2 gap-3">
         <SectionCard title="Opening">
           <InfoRow label="Safe Balance" value={formatPHP(data.safe_balance)} bold />
-          <InfoRow label="Starting Cashier Float" value={formatPHP(data.starting_float)} bold className="text-emerald-700" />
+          <InfoRow label="Opening Float" value={formatPHP(data.starting_float)} bold className="text-emerald-700" />
         </SectionCard>
         <SectionCard title="Cash Reconciliation">
           <InfoRow label="Expected in Counter" value={formatPHP(data.expected_counter)} />

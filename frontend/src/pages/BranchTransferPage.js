@@ -136,6 +136,27 @@ export default function BranchTransferPage() {
   const updateRow = (id, updates) =>
     setRows(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
 
+  const handleRowSearchKeyDown = (e, row) => {
+    const matches = row.productMatches || [];
+    if (!matches.length) {
+      if (e.key === 'Escape') updateRow(row.id, { productSearch: '', productMatches: [], activeSearchIndex: -1 });
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      updateRow(row.id, { activeSearchIndex: Math.min((row.activeSearchIndex ?? -1) + 1, matches.length - 1) });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      updateRow(row.id, { activeSearchIndex: Math.max((row.activeSearchIndex ?? 0) - 1, 0) });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = row.activeSearchIndex ?? -1;
+      if (idx >= 0 && matches[idx]) selectProduct(row.id, matches[idx]);
+    } else if (e.key === 'Escape') {
+      updateRow(row.id, { productMatches: [], activeSearchIndex: -1 });
+    }
+  };
+
   function applyMarkupToRow(row, markups) {
     if (!row.product) return row;
     const cat = row.product.category || 'General';

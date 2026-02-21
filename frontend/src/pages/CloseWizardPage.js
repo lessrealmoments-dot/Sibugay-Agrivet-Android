@@ -265,7 +265,16 @@ export default function CloseWizardPage() {
     setPayablesDialog(true);
   };
 
-  // ── Expected / over-short helpers ───────────────────────────────────────────
+  // Sync step 6 pre-fill whenever actualCash changes (after step 5)
+  useEffect(() => {
+    if (!actualCash) return;
+    const actual = parseFloat(actualCash);
+    if (isNaN(actual) || actual <= 0) return;
+    const safe = Math.max(0, Math.floor(actual * 0.7));
+    const drawer = Math.max(0, Math.round((actual - safe) * 100) / 100);
+    setCashToSafe(String(safe));
+    setCashToDrawer(String(drawer));
+  }, [actualCash]);
   const expectedCash = r2(preview?.expected_counter || 0);
   const overShort    = actualCash !== '' ? r2(parseFloat(actualCash) - expectedCash) : null;
 

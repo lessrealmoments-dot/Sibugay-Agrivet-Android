@@ -334,7 +334,8 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
     total_cash_from_invoices = sum(p["payment"]["amount"] for p in all_payments_today)
     
     gross_profit = round(total_revenue - total_cogs, 2)
-    net_profit = round(gross_profit - total_expenses, 2)
+    # Net profit uses ONLY real expenses — credits (AR) and advances are not P&L losses
+    net_profit = round(gross_profit - total_real_expenses, 2)
     
     # Get real-time cashier wallet balance
     wallet_query = {"type": "cashier", "active": True}

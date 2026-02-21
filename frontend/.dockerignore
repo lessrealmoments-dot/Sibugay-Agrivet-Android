@@ -4,4 +4,3 @@ build
 *.md
 .git
 src/**/*.test.*
-public/login-bg.jpg

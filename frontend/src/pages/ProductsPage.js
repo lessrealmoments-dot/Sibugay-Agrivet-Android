@@ -175,6 +175,16 @@ export default function ProductsPage() {
     api.get('/products/categories').then(r => setCategories(r.data)).catch(() => {});
   }, []);
 
+  // Load all repack parent IDs so we can show green/red indicator
+  const refreshRepackIndicators = useCallback(async () => {
+    try {
+      const res = await api.get('/products', { params: { is_repack: true, limit: 5000 } });
+      const ids = new Set((res.data.products || []).filter(p => p.parent_id).map(p => p.parent_id));
+      setRepackParentIds(ids);
+    } catch {}
+  }, []);
+  useEffect(() => { refreshRepackIndicators(); }, [refreshRepackIndicators]);
+
   const openCreate = (prefillName = '') => {
     setEditing(null);
     setForm({ sku: '', name: prefillName, category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', starting_inventory: 0 });

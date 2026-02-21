@@ -484,11 +484,28 @@ export default function BranchTransferPage() {
 
           {/* Header row */}
           <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <Label className="text-xs">Destination Branch</Label>
-              <Select value={toBranchId} onValueChange={setToBranchId}>
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs">From Branch <span className="text-slate-400">(source)</span></Label>
+              <Select value={fromBranchId} onValueChange={val => { setFromBranchId(val); setToBranchId(''); }}
+                data-testid="from-branch-select">
+                <SelectTrigger className="mt-1 h-9" data-testid="from-branch-trigger">
+                  <SelectValue placeholder="Select source branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.filter(b => b.id !== toBranchId).map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center pb-1">
+              <ArrowRight size={18} className="text-slate-400" />
+            </div>
+            <div className="flex-1 min-w-[160px]">
+              <Label className="text-xs">To Branch <span className="text-slate-400">(destination)</span></Label>
+              <Select value={toBranchId} onValueChange={setToBranchId} disabled={!fromBranchId}>
                 <SelectTrigger className="mt-1 h-9" data-testid="dest-branch-select">
-                  <SelectValue placeholder="Select branch to supply" />
+                  <SelectValue placeholder="Select destination branch" />
                 </SelectTrigger>
                 <SelectContent>
                   {branches.filter(b => b.id !== fromBranchId).map(b => (

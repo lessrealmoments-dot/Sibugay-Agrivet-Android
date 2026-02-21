@@ -252,6 +252,32 @@ export default function CloseWizardPage() {
     setPmtSaving(false);
   };
 
+  // ── Find any customer & receive payment (Step 3 panel) ──────────────────────
+  const searchFindPayCustomer = (query) => {
+    setFindPayCustomer(query);
+    setFindPaySelected(null);
+    setFindPayInvoices([]);
+    if (findPayTimerRef.current) clearTimeout(findPayTimerRef.current);
+    if (!query || query.length < 1) { setFindPayMatches([]); return; }
+    findPayTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/customers', { params: { search: query, branch_id: currentBranch?.id, limit: 8 } });
+        const list = res.data.customers || res.data || [];
+        setFindPayMatches(list.filter(c => (c.balance || 0) > 0));
+      } catch {}
+    }, 200);
+  };
+
+  const selectFindPayCustomer = async (customer) => {
+    setFindPaySelected(customer);
+    setFindPayCustomer(customer.name);
+    setFindPayMatches([]);
+    try {
+      const res = await api.get('/invoices', { params: { customer_id: customer.id, status: 'open', limit: 10 } });
+      setFindPayInvoices((res.data.invoices || res.data || []).filter(inv => (inv.balance || 0) > 0));
+    } catch {}
+  };
+
   // ── Load 1-click reports ────────────────────────────────────────────────────
   const loadLowStock = async () => {
     if (!currentBranch) return;

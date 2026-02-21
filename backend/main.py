@@ -86,6 +86,9 @@ api_router.include_router(count_sheets_router)
 # Branch-specific Pricing
 api_router.include_router(branch_prices_router)
 
+# Branch Transfers (inter-branch supply orders)
+api_router.include_router(branch_transfers_router)
+
 # Import Center
 api_router.include_router(import_router)
 

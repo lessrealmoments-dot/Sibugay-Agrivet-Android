@@ -1,7 +1,8 @@
 """
-Authentication routes: login, register, password management.
+Authentication routes: login, register, password management, TOTP setup.
 """
 from fastapi import APIRouter, Depends, HTTPException
+import pyotp
 from config import db
 from utils import (
     hash_password, verify_password, create_token,

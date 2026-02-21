@@ -33,6 +33,7 @@ PERMISSION_MODULES = {
             "edit": "Edit Product",
             "delete": "Delete Product",
             "view_cost": "View Cost Price",
+            "edit_cost": "Edit Capital / Cost Price",
         }
     },
     "inventory": {

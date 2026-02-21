@@ -245,7 +245,7 @@ export default function PurchaseOrderPage() {
   const handlePay = async () => {
     try {
       await api.post(`/purchase-orders/${selectedPO.id}/pay`, { amount: payForm.amount, reference: payForm.reference });
-      toast.success('Payment recorded! Deducted from Cashier Drawer.');
+      toast.success('Payment recorded! Deducted from Operating Fund.');
       setPayDialog(false);
       fetchOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Payment failed'); }

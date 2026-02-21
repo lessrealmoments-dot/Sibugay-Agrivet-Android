@@ -580,6 +580,104 @@ export default function ProductsPage() {
                 <p className="text-[11px] text-slate-400 mt-0.5">Leave 0 if no stock yet</p>
               </div>
             )}
+
+            {/* ── Inventory Correction (edit mode only) ── */}
+            {editing && !editing.is_repack && (
+              <div className="border border-dashed border-slate-300 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setCorrectionExpanded(v => !v)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-sm font-medium text-slate-700"
+                  data-testid="correction-toggle-btn"
+                >
+                  <span className="flex items-center gap-2">
+                    <History size={15} className="text-blue-500" />
+                    Inventory Correction
+                    {currentStock !== null && (
+                      <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-700 bg-blue-50">
+                        Current: {currentStock}
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="text-slate-400 text-xs">{correctionExpanded ? '▲ Hide' : '▼ Show'}</span>
+                </button>
+
+                {correctionExpanded && (
+                  <div className="p-4 space-y-3">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2">
+                      <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                      <span>
+                        This directly sets the stock count for <strong>{currentBranch?.name}</strong>.
+                        Use only to correct counting errors. Every change is logged.
+                        {user?.role !== 'admin' && ' Requires TOTP verification.'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">New Quantity</Label>
+                        <Input
+                          data-testid="correction-qty-input"
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={correctionQty}
+                          onChange={e => setCorrectionQty(e.target.value)}
+                          placeholder={currentStock !== null ? `Current: ${currentStock}` : 'Enter qty'}
+                          className="h-9 mt-1 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Reason <span className="text-red-400">*</span></Label>
+                        <Input
+                          data-testid="correction-reason-input"
+                          value={correctionReason}
+                          onChange={e => setCorrectionReason(e.target.value)}
+                          placeholder="e.g. Physical count correction"
+                          className="h-9 mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      data-testid="apply-correction-btn"
+                      size="sm"
+                      onClick={handleCorrectionSubmit}
+                      disabled={correctionSaving || !correctionQty || !correctionReason.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {correctionSaving
+                        ? <><RefreshCw size={13} className="animate-spin mr-1.5" /> Applying...</>
+                        : <><History size={13} className="mr-1.5" /> Apply Correction</>}
+                    </Button>
+
+                    {/* Recent corrections log */}
+                    {correctionHistory.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-semibold text-slate-500 mb-1.5">Recent Corrections</p>
+                        <div className="rounded-lg border border-slate-200 overflow-hidden text-xs">
+                          {correctionHistory.slice(0, 5).map((c, i) => (
+                            <div key={c.id} className={`flex items-center justify-between px-3 py-2 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-b last:border-0`}>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`font-mono font-bold ${c.difference > 0 ? 'text-emerald-600' : c.difference < 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                                  {c.old_quantity} → {c.new_quantity}
+                                </span>
+                                <span className="text-slate-500 truncate">{c.reason}</span>
+                              </div>
+                              <div className="text-right text-slate-400 shrink-0 ml-2">
+                                <p>{c.performed_by_name}</p>
+                                <p>{c.auth_mode === 'totp' ? '🔐 TOTP' : c.auth_mode === 'password' ? '🔑 PW' : '👤 Admin'}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button data-testid="save-product-btn" onClick={handleSave} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save Product</Button>

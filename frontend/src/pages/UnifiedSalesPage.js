@@ -336,7 +336,12 @@ export default function UnifiedSalesPage() {
     newLines[index] = {
       ...newLines[index], product_id: product.id, product_name: product.name,
       description: product.description || '', rate, original_rate: rate,
-      cost_price: product.cost_price || 0, is_repack: product.is_repack || false,
+      cost_price: product.cost_price || 0,
+      moving_average_cost: product.moving_average_cost || 0,
+      last_purchase_cost: product.last_purchase_cost || 0,
+      effective_capital: product.effective_capital || product.cost_price || 0,
+      capital_method: product.capital_method || 'manual',
+      is_repack: product.is_repack || false,
     };
     if (index === lines.length - 1) newLines.push({ ...EMPTY_LINE });
     setLines(newLines);

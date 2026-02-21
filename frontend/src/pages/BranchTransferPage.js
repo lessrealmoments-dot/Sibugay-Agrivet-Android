@@ -279,6 +279,139 @@ export default function BranchTransferPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
   };
 
+  // ── Print Transfer Order (QuickBooks-style) ──────────────────────────────
+  const printTransferOrder = (order) => {
+    const toBranch = branches.find(b => b.id === order.to_branch_id)?.name || '';
+    const fromBranch = branches.find(b => b.id === order.from_branch_id)?.name || '';
+    const items = order.items || [];
+    const totalTransfer = items.reduce((s, i) => s + i.transfer_capital * i.qty, 0);
+    const totalRetail = items.reduce((s, i) => s + i.branch_retail * i.qty, 0);
+    const php = (n) => '₱' + parseFloat(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${order.order_number}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1a1a1a; padding: 24px 32px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px solid #1A4D2E; }
+    .company { }
+    .company h1 { font-size: 22px; font-weight: 800; color: #1A4D2E; letter-spacing: -0.5px; }
+    .company p { font-size: 11px; color: #666; margin-top: 2px; }
+    .doc-info { text-align: right; }
+    .doc-info h2 { font-size: 16px; font-weight: 700; color: #1A4D2E; text-transform: uppercase; letter-spacing: 1px; }
+    .doc-info .number { font-size: 18px; font-weight: 800; color: #333; }
+    .doc-info .date { font-size: 11px; color: #666; margin-top: 4px; }
+    .address-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .address-box { border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; background: #fafafa; }
+    .address-box .label { font-size: 9px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+    .address-box .value { font-size: 13px; font-weight: 700; color: #1A4D2E; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    thead tr { background: #1A4D2E; color: white; }
+    thead th { padding: 8px 10px; text-align: left; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    thead th.right { text-align: right; }
+    tbody tr { border-bottom: 1px solid #f0f0f0; }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    tbody td { padding: 7px 10px; font-size: 11px; }
+    tbody td.right { text-align: right; font-family: 'Courier New', monospace; }
+    tbody td.sku { color: #999; font-size: 9px; font-family: 'Courier New', monospace; }
+    .totals { margin-left: auto; width: 300px; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; }
+    .totals-row { display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; border-bottom: 1px solid #f0f0f0; }
+    .totals-row.total { background: #1A4D2E; color: white; font-weight: 700; font-size: 13px; }
+    .totals-row.retail { background: #e8f5e9; color: #1A4D2E; font-weight: 600; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 36px; padding-top: 16px; border-top: 1px solid #e0e0e0; }
+    .sig-box { text-align: center; }
+    .sig-line { border-bottom: 1px solid #333; margin-bottom: 6px; height: 28px; }
+    .sig-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .note { font-size: 9px; color: #999; margin-top: 20px; text-align: center; }
+    @media print { body { padding: 0; } @page { margin: 16mm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company">
+      <h1>AgriBooks</h1>
+      <p>Agricultural Inventory &amp; Business Management System</p>
+    </div>
+    <div class="doc-info">
+      <h2>Branch Transfer Order</h2>
+      <div class="number">${order.order_number}</div>
+      <div class="date">Date: ${order.created_at?.slice(0, 10) || ''}</div>
+      <div class="date">Status: ${order.status?.toUpperCase()}</div>
+    </div>
+  </div>
+
+  <div class="address-row">
+    <div class="address-box">
+      <div class="label">From (Source Branch)</div>
+      <div class="value">${fromBranch}</div>
+    </div>
+    <div class="address-box">
+      <div class="label">To (Destination Branch)</div>
+      <div class="value">${toBranch}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:38%">Product</th>
+        <th class="right" style="width:14%">Qty</th>
+        <th class="right" style="width:16%">Transfer Capital</th>
+        <th class="right" style="width:16%">Total</th>
+        <th class="right" style="width:16%">Recommended Retail</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${items.map(item => `
+      <tr>
+        <td>
+          <div style="font-weight:600">${item.product_name}</div>
+          <div class="sku">${item.sku} · ${item.category}</div>
+        </td>
+        <td class="right">${item.qty} ${item.unit || ''}</td>
+        <td class="right">${php(item.transfer_capital)}</td>
+        <td class="right" style="font-weight:700">${php(item.transfer_capital * item.qty)}</td>
+        <td class="right" style="color:#1A4D2E;font-weight:700">${php(item.branch_retail)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="totals-row"><span>Total Items</span><span>${items.length}</span></div>
+    <div class="totals-row"><span>Total Qty</span><span>${items.reduce((s, i) => s + i.qty, 0)}</span></div>
+    <div class="totals-row total"><span>Transfer Total</span><span>${php(totalTransfer)}</span></div>
+    <div class="totals-row retail"><span>Retail Value at Branch</span><span>${php(totalRetail)}</span></div>
+  </div>
+
+  <div class="signatures">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Prepared by</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Released by (Source Branch)</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Received by (Destination Branch)</div>
+    </div>
+  </div>
+
+  <div class="note">AgriBooks — Agricultural Inventory &amp; Business Management System &nbsp;|&nbsp; Internal Use Only</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+  };
+
   const handleCancel = async (orderId) => {    if (!window.confirm('Cancel this transfer order?')) return;
     try {
       await api.delete(`/branch-transfers/${orderId}`);

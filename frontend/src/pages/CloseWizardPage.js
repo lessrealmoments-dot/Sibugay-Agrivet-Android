@@ -544,6 +544,64 @@ export default function CloseWizardPage() {
                   </tbody>
                 </table>
               </ScrollArea>
+
+              {/* Find & Record Payment for ANY customer */}
+              <div className="border border-dashed border-blue-300 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setFindPayShowPanel(v => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-sm font-medium text-blue-700"
+                  data-testid="find-pay-toggle-btn"
+                >
+                  <Plus size={14} /> Receive Payment for a Customer (not listed above)
+                </button>
+                {findPayShowPanel && (
+                  <div className="p-4 space-y-3">
+                    <div className="relative">
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={findPayCustomer}
+                        onChange={e => searchFindPayCustomer(e.target.value)}
+                        placeholder="Search customer name..."
+                        className="pl-8 h-9"
+                        data-testid="find-pay-customer-search"
+                      />
+                      {findPayMatches.length > 0 && (
+                        <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {findPayMatches.map(c => (
+                            <button key={c.id} onMouseDown={() => selectFindPayCustomer(c)}
+                              className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm border-b last:border-0">
+                              <span className="font-medium">{c.name}</span>
+                              <span className="text-slate-400 ml-2 text-xs">AR: {formatPHP(c.balance)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {findPaySelected && (
+                      <div className="space-y-2">
+                        <div className="p-2 bg-blue-50 rounded text-xs text-blue-700">
+                          {findPaySelected.name} — Outstanding AR: <strong>{formatPHP(findPaySelected.balance)}</strong>
+                        </div>
+                        {findPayInvoices.length === 0
+                          ? <p className="text-xs text-slate-400">No open invoices found</p>
+                          : findPayInvoices.map(inv => (
+                            <div key={inv.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-3 py-2">
+                              <div>
+                                <p className="font-mono text-blue-600">{inv.invoice_number}</p>
+                                <p className="text-slate-400">{inv.order_date} · Balance: {formatPHP(inv.balance)}</p>
+                              </div>
+                              <Button size="sm" className="h-7 bg-blue-600 text-white"
+                                onClick={() => { setPmtDialog({ open: true, invoice: { ...inv, customer_name: findPaySelected.name, invoice_id: inv.id } }); setPmtAmount(''); }}>
+                                Receive
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

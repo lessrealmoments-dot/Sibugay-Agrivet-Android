@@ -454,13 +454,15 @@ export default function UnifiedSalesPage() {
       return;
     }
 
-    // Check for below-capital items
+    // Check for below-capital items — uses effective_capital (respects product's capital_method)
     const belowCostItem = mode === 'quick'
-      ? cart.find(c => c.cost_price > 0 && c.price < c.cost_price)
-      : lines.find(l => l.product_id && l.cost_price > 0 && l.rate < l.cost_price);
+      ? cart.find(c => (c.effective_capital || c.cost_price) > 0 && c.price < (c.effective_capital || c.cost_price))
+      : lines.find(l => l.product_id && (l.effective_capital || l.cost_price) > 0 && l.rate > 0 && l.rate < (l.effective_capital || l.cost_price));
     if (belowCostItem) {
       const p = belowCostItem.price ?? belowCostItem.rate;
-      toast.error(`Cannot sell "${belowCostItem.product_name}" at ₱${p.toFixed(2)} — below capital ₱${belowCostItem.cost_price.toFixed(2)}`);
+      const cap = belowCostItem.effective_capital || belowCostItem.cost_price;
+      const method = (belowCostItem.capital_method || 'manual').replace('_', ' ');
+      toast.error(`Cannot sell "${belowCostItem.product_name}" at ₱${p.toFixed(2)} — below capital ₱${cap.toFixed(2)} (${method})`);
       return;
     }
 

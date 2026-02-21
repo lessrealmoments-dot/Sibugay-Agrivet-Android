@@ -387,6 +387,49 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Row 2b: Inventory Value */}
+      {stats?.inventory_value && (
+        <Card className="border-slate-200" data-testid="inventory-value-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Package size={15} className="text-slate-600" /> Inventory Value — {currentBranch?.name || 'Branch'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <p className="text-xs text-slate-500 mb-0.5">At Capital (Cost)</p>
+                <p className="text-xl font-bold font-mono text-slate-800" data-testid="inv-capital-value">
+                  {formatPHP(stats.inventory_value.capital_value)}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{stats.inventory_value.sku_count_in_stock} SKUs in stock</p>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                <p className="text-xs text-emerald-600 mb-0.5">At Retail Price</p>
+                <p className="text-xl font-bold font-mono text-emerald-700" data-testid="inv-retail-value">
+                  {formatPHP(stats.inventory_value.retail_value)}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">If sold at retail</p>
+              </div>
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                <p className="text-xs text-blue-600 mb-0.5">Potential Gross Margin</p>
+                <p className="text-xl font-bold font-mono text-blue-700" data-testid="inv-potential-margin">
+                  {formatPHP(stats.inventory_value.potential_margin)}
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Retail − Capital</p>
+              </div>
+              <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
+                <p className="text-xs text-violet-600 mb-0.5">Margin %</p>
+                <p className="text-xl font-bold font-mono text-violet-700" data-testid="inv-margin-pct">
+                  {stats.inventory_value.margin_pct}%
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Avg markup on cost</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Row 3: Credits today + Recent payments */}
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Credit customers today */}

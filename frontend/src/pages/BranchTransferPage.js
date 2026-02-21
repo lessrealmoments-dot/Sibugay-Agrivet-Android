@@ -558,6 +558,18 @@ export default function BranchTransferPage() {
 
         {/* ── NEW TRANSFER TAB ── */}
         <TabsContent value="new" className="space-y-4 mt-4">
+          {/* Editing banner */}
+          {editingOrderId && (
+            <div className="flex items-center justify-between px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200">
+              <div className="flex items-center gap-2 text-sm text-amber-800">
+                <AlertTriangle size={15} className="shrink-0" />
+                <span>Editing draft order — changes won't affect inventory until it's sent and received.</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={cancelEdit} className="text-amber-700 h-7">
+                Discard Changes
+              </Button>
+            </div>
+          )}
 
           {/* Header row */}
           <div className="flex flex-wrap items-end gap-4">

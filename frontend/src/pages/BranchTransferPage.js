@@ -420,7 +420,7 @@ export default function BranchTransferPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(rows.length ? rows : [newRow()]).map((row) => {
+                      {rows.map((row) => {
                         const v = row.product ? validateRow(row, minMargin) : { ok: true, margin: 0 };
                         const rowBad = !v.ok && !row.override;
                         return (

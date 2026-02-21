@@ -164,9 +164,7 @@ ROLE_PRESETS = {
         "permissions": {
             "dashboard": {"view": True},
             "branches": {"view": True, "create": False, "edit": True, "delete": False},
-            "products": {"view": True, "create": True, "edit": True, "delete": False, "view_cost": True},
-            "inventory": {"view": True, "adjust": True, "transfer": True},
-            "sales": {"view": True, "create": True, "edit": True, "void": True, "sell_below_cost": False, "give_discount": True},
+            "products": {"view": True, "create": True, "edit": True, "delete": False, "view_cost": True, "edit_cost": True},
             "purchase_orders": {"view": True, "create": True, "edit": True, "receive": True, "delete": False},
             "suppliers": {"view": True, "create": True, "edit": True, "delete": False},
             "customers": {"view": True, "create": True, "edit": True, "delete": False, "view_balance": True, "manage_credit": True},

@@ -14,9 +14,11 @@ MAIN_BRANCH_ID = "da114e26-fd00-467f-8728-6b8047a244b5"
 IPIL_BRANCH_ID = "d4a041e7-4918-490e-afb8-54ae90cec7fb"
 OWNER_USER = {"username": "owner", "password": "521325"}
 
-# Products with inventory in Main Branch
-ENERTONE_PRODUCT_ID = "c313bfe0"
-ENERTONE_PRODUCT_NAME = "ENERTONE"
+# Products with inventory in Main Branch (full UUIDs from product-lookup)
+ENERTONE_PRODUCT_ID = "c313bfe0-3e81-4f50-a55c-f4418e7ad300"
+ENERTONE_PRODUCT_NAME = "ENERTONE (1 X 24)"
+LANNATE_PRODUCT_ID = "4a7ff0dc-00da-4c15-983f-c358ea7f2002"
+LANNATE_PRODUCT_NAME = "Lannate (1 x 10)"
 
 
 @pytest.fixture(scope="module")

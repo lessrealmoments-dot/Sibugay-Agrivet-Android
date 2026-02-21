@@ -74,7 +74,7 @@ function BranchCard({ branch, onSelect }) {
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
           <div>
-            <p className="text-slate-400">Cash Sales Today</p>
+            <p className="text-slate-400">Walk-in Sales Today</p>
             <p className="font-bold text-emerald-700">{formatPHP(branch.today_cash_sales || 0)}</p>
           </div>
           <div>

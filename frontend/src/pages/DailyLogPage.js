@@ -584,7 +584,7 @@ export default function DailyLogPage() {
             <div className="mt-4 bg-slate-800 text-white rounded-xl px-5 py-4 flex flex-wrap gap-6 items-center justify-between print:bg-black">
               <div className="flex gap-6">
                 <div>
-                  <div className="text-xs text-slate-400 uppercase tracking-wide">Cash Sales</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Walk-in Sales</div>
                   <div className="font-mono font-bold text-emerald-400">{formatPHP(logSummary.total_cash)}</div>
                 </div>
                 {logSummary.total_credit > 0 && (

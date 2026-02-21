@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 from config import db, client, logger, JWT_SECRET
 from utils import hash_password, now_iso, new_id
 from models import DEFAULT_PERMISSIONS
-
 # Import all route modules
 from routes import (
     auth_router, branches_router, users_router, products_router,

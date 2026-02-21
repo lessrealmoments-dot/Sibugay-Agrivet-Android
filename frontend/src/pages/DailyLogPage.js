@@ -1216,7 +1216,7 @@ export default function DailyLogPage() {
                     <TableRow className="bg-slate-50 sticky top-0">
                       <TableHead className="text-xs uppercase text-slate-500 font-medium">Date</TableHead>
                       <TableHead className="text-xs uppercase text-slate-500 font-medium">Branch</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Cash Sales</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Walk-in Sales</TableHead>
                       <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">AR Collected</TableHead>
                       <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Expenses</TableHead>
                       <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Over / Short</TableHead>

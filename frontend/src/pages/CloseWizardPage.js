@@ -648,7 +648,7 @@ export default function CloseWizardPage() {
             <div className="space-y-4 max-w-md mx-auto">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                  <p className="text-xs text-slate-500 uppercase font-medium mb-1">Starting Float</p>
+                  <p className="text-xs text-slate-500 uppercase font-medium mb-1">Opening Float</p>
                   <p className="text-2xl font-bold font-mono">{formatPHP(preview?.starting_float || 0)}</p>
                 </div>
                 <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">

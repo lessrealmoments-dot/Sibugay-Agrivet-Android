@@ -204,7 +204,7 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
     all_entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
 
     # Separate cash vs credit entries
-    cash_entries = [e for e in all_entries if (e.get("payment_method") or "cash") == "cash"]
+    cash_entries = [e for e in all_entries if (e.get("payment_method") or "cash").lower() == "cash"]
 
     # Compute cash-only running total
     cash_running = 0.0

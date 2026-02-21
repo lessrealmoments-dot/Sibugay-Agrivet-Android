@@ -624,7 +624,7 @@ export default function PurchaseOrderPage() {
               </div>
               <div><Label>Amount to Pay</Label><Input data-testid="pay-po-amount" type="number" value={payForm.amount} onChange={e => setPayForm({ ...payForm, amount: parseFloat(e.target.value) || 0 })} className="h-11 text-lg font-bold" /></div>
               <div><Label>Reference (optional)</Label><Input value={payForm.reference} onChange={e => setPayForm({ ...payForm, reference: e.target.value })} placeholder="Check number, receipt, etc." /></div>
-              <p className="text-xs text-amber-600 flex items-center gap-1"><DollarSign size={12} /> Will be deducted from Cashier Drawer</p>
+              <p className="text-xs text-amber-600 flex items-center gap-1"><DollarSign size={12} /> Will be deducted from Operating Fund</p>
               <Button data-testid="confirm-po-payment" onClick={handlePay} className="w-full h-11 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
                 Pay {formatPHP(payForm.amount)}
               </Button>

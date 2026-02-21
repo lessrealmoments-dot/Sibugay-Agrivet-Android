@@ -643,7 +643,7 @@ export default function CloseWizardPage() {
             </div>
           )}
 
-          {/* ── STEP 5: Cash Count ── */}
+          {/* ── STEP 5: Actual Count ── */}
           {step === 5 && (
             <div className="space-y-4 max-w-md mx-auto">
               <div className="grid grid-cols-2 gap-3">

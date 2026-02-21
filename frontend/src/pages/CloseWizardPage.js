@@ -104,14 +104,7 @@ export default function CloseWizardPage() {
         setStep(8);
         setCompleted(new Set([1,2,3,4,5,6,7]));
       }
-      // Pre-fill safe/drawer from preview
-      const exp = previewRes.data?.expected_counter || 0;
-      if (exp > 0) {
-        const safe = Math.max(0, Math.floor(exp * 0.7));
-        const drawer = Math.max(0, exp - safe);
-        setCashToSafe(String(safe));
-        setCashToDrawer(String(drawer));
-      }
+      // Pre-fill safe/drawer will be computed when user enters actualCash in step 5
     } catch (e) { toast.error('Failed to load wizard data'); }
     setLoading(false);
     // Load price schemes for quick sale

@@ -24,7 +24,22 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Z-Report Archive Tab - COMPLETE ✅ (Feb 2026)
+### Dashboard Redesign + Z-Report + Wizard AR Improvements - COMPLETE ✅ (Feb 2026)
+**Dashboard (DashboardPage.js) - complete redesign:**
+- **Owner View**: Date/day header, Total Sales Today, Total Cash Position, Outstanding AR, Low Stock Alerts. Branch cards show: Cash Sales/New Credit/Cashier+Safe/AR Outstanding/Last Close Date/Low Stock. Supplier Payables with due dates (red when urgent).
+- **Branch View**: 6 KPI cards (Cash Sales, New Credit, AR Collected, Expenses, Net Cash Flow, Transactions); Cash Position card (Cashier + Safe + Total); AR Aging bars (0-30/31-60/61-90/90+) + Top Debtors; Credit Extended Today (who got credit, how much, balance); AR Payments Received Today; Unpaid POs with due dates (OVERDUE/DUE SOON/UPCOMING labels); Last close date + unclosed day alert.
+
+**Z-Report (DailyLogPage.js + daily_operations.py):**
+- New "New Credit Extended Today" section: lists every customer who got credit today (credit sales + cashouts + farm) with invoice#, amount, balance, type badge
+- New "AR Balance at Close" section: running total outstanding AR at the time of closing
+- Stored fields in daily_closings: `credit_sales_today`, `ar_credits_today`, `total_new_credit`, `total_ar_at_close`
+
+**Close Wizard Step 3 (CloseWizardPage.js):**
+- New expandable "Receive Payment for a Customer" panel — search any customer with outstanding AR, see their open invoices, click Receive on any invoice
+
+**Bug fixed**: `dashboard/stats` was summing ALL branches' cashier wallets instead of the selected branch only.
+
+
 - Added "Z-Report Archive" tab to Daily Operations page
 - Shows all past closed days in a sortable table: Date, Branch, Cash Sales, AR Collected, Expenses, Over/Short, Closed By
 - Branch filter + date search filter (admin sees all branches, others see their branch)

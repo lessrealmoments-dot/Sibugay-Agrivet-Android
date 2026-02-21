@@ -82,7 +82,7 @@ export default function FundManagementPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Fund Management</h1>
-          <p className="text-sm text-slate-500">Cashier Drawer, Safe & Bank — {currentBranch?.name}</p>
+          <p className="text-sm text-slate-500">Operating Fund, Vault &amp; Bank — {currentBranch?.name}</p>
         </div>
         <Button data-testid="create-wallet-btn" onClick={() => { setCreateForm({ type: 'cashier', name: '', bank_name: '', account_number: '', balance: 0 }); setCreateDialog(true); }} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
           <Plus size={16} className="mr-2" /> Add Wallet

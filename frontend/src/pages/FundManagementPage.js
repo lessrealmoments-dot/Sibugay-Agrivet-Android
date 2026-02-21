@@ -210,7 +210,7 @@ export default function FundManagementPage() {
               <Select value={createForm.type} onValueChange={v => setCreateForm({ ...createForm, type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cashier">Cashier Drawer</SelectItem>
+                  <SelectItem value="cashier">Operating Fund</SelectItem>
                   <SelectItem value="safe">Safe</SelectItem>
                   <SelectItem value="bank">Bank Account</SelectItem>
                 </SelectContent>

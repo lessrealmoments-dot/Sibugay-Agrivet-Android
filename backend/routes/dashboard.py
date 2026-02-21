@@ -323,8 +323,8 @@ async def branch_summary(user=Depends(get_current_user)):
                 {"wallet_id": safe["id"], "remaining_amount": {"$gt": 0}},
                 {"_id": 0, "remaining_amount": 1}
             ).to_list(500)
-            safe_balance = sum(l.get("remaining_amount", 0) for l in lots)
-        
+            safe_balance = sum(lot.get("remaining_amount", 0) for lot in lots)
+
         # Low stock count for this branch
         low_stock_pipeline = [
             {"$match": {"active": True, "is_repack": {"$ne": True}}},
@@ -340,7 +340,7 @@ async def branch_summary(user=Depends(get_current_user)):
                 "as": "inv"
             }},
             {"$addFields": {"stock": {"$ifNull": [{"$arrayElemAt": ["$inv.quantity", 0]}, 0]}}},
-            {"$match": {"stock": {"$lte": 10}, "stock": {"$gte": 0}}},
+            {"$match": {"$and": [{"stock": {"$lte": 10}}, {"stock": {"$gte": 0}}]}},
             {"$count": "total"}
         ]
         low_stock_result = await db.products.aggregate(low_stock_pipeline).to_list(1)

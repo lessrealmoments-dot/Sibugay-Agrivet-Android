@@ -32,6 +32,7 @@ const MODULE_ICONS = {
   price_schemes: FileText,
   reports: BarChart3,
   settings: Settings,
+  count_sheets: FileText,
 };
 
 export default function UserPermissionsPage() {

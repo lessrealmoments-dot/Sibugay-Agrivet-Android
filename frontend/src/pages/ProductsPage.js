@@ -691,14 +691,21 @@ export default function ProductsPage() {
                         <tr key={row.id} className={`border-b border-slate-100 transition-colors ${hasErr ? 'bg-red-50' : 'hover:bg-slate-50/50'}`}>
 
                           {/* Parent search / selected */}
-                          <td className="px-2 py-1.5 relative" style={{minWidth:'220px'}}>
+                          <td className="px-2 py-1.5" style={{minWidth:'220px'}}>
                             {row.parent ? (
-                              <div className={`flex items-center gap-1.5 h-8 px-2 rounded border ${hasErr && !row.parent ? 'border-red-400' : 'border-emerald-300 bg-emerald-50'}`}>
-                                <span className="text-sm text-emerald-800 truncate flex-1 font-medium">{row.parent.name}</span>
-                                <button onClick={() => updateRow(row.id, { parent: null, parentSearch: '', capital: 0, repackName: '', retailPrice: '', retailError: null })}
-                                  className="text-slate-400 hover:text-red-500 shrink-0">
-                                  <X size={12} />
-                                </button>
+                              <div>
+                                <div className={`flex items-center gap-1.5 h-8 px-2 rounded border ${hasErr && !row.parent ? 'border-red-400' : 'border-emerald-300 bg-emerald-50'}`}>
+                                  <span className="text-sm text-emerald-800 truncate flex-1 font-medium">{row.parent.name}</span>
+                                  <button onClick={() => updateRow(row.id, { parent: null, parentSearch: '', capital: 0, repackName: '', retailPrice: '', retailError: null, hasRepack: false })}
+                                    className="text-slate-400 hover:text-red-500 shrink-0">
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                                {row.hasRepack && (
+                                  <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-1 leading-none">
+                                    <AlertTriangle size={10} /> Already has a repack
+                                  </p>
+                                )}
                               </div>
                             ) : (
                               <div className="relative">
@@ -706,18 +713,42 @@ export default function ProductsPage() {
                                 <Input value={row.parentSearch} placeholder="Search parent..."
                                   onChange={e => searchParent(row.id, e.target.value)}
                                   className={`h-8 pl-7 text-sm ${hasErr ? 'border-red-400 bg-red-50/50' : ''}`}
-                                  data-testid={`qr-parent-${row.id}`} />
-                                {row.parentMatches.length > 0 && (
-                                  <div className="absolute top-full mt-0.5 z-50 w-64 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-44 overflow-y-auto">
-                                    {row.parentMatches.map(p => (
-                                      <button key={p.id} onMouseDown={() => selectParent(row.id, p)}
-                                        className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                                        <div className="font-medium text-sm truncate">{p.name}</div>
-                                        <div className="text-xs text-slate-400">{p.unit} · Cost ₱{p.cost_price}</div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
+                                  data-testid={`qr-parent-${row.id}`}
+                                  ref={el => { dropdownRefs.current[row.id] = el; }}
+                                />
+                                {row.parentMatches.length > 0 && (() => {
+                                  const inputEl = dropdownRefs.current[row.id];
+                                  if (!inputEl) return null;
+                                  const rect = inputEl.getBoundingClientRect();
+                                  return createPortal(
+                                    <div
+                                      style={{
+                                        position: 'fixed',
+                                        top: rect.bottom + 4,
+                                        left: rect.left,
+                                        width: Math.max(rect.width, 256),
+                                        zIndex: 9999,
+                                      }}
+                                      className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-44 overflow-y-auto"
+                                    >
+                                      {row.parentMatches.map(p => (
+                                        <button key={p.id} onMouseDown={() => selectParent(row.id, p)}
+                                          className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                          <div className="font-medium text-sm truncate flex items-center gap-1.5">
+                                            {p.name}
+                                            {repackParentIds.has(p.id) && (
+                                              <span className="text-[10px] text-amber-600 font-normal flex items-center gap-0.5 shrink-0">
+                                                <AlertTriangle size={9} /> has repack
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-slate-400">{p.unit} · Cost ₱{p.cost_price}</div>
+                                        </button>
+                                      ))}
+                                    </div>,
+                                    document.body
+                                  );
+                                })()}
                               </div>
                             )}
                             {hasErr && !row.parent && <p className="text-[10px] text-red-500 mt-0.5 leading-none">{row.rowError}</p>}

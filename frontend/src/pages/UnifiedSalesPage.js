@@ -864,7 +864,7 @@ export default function UnifiedSalesPage() {
                               type="number"
                               className={`w-24 h-7 text-sm text-right px-2 border rounded focus:outline-none focus:ring-1 focus:ring-[#1A4D2E]/30 ${
                                 item.price <= 0 ? 'border-amber-400 bg-amber-50 text-amber-700'
-                                : item.cost_price > 0 && item.price < item.cost_price ? 'border-red-300 bg-red-50 text-red-600'
+                                : (item.effective_capital || item.cost_price) > 0 && item.price < (item.effective_capital || item.cost_price) ? 'border-red-300 bg-red-50 text-red-600'
                                 : 'border-slate-200'
                               }`}
                               value={item.price}
@@ -881,8 +881,31 @@ export default function UnifiedSalesPage() {
                           {item.price <= 0 && (
                             <p className="text-[10px] text-amber-600 flex items-center gap-1"><AlertTriangle size={9}/> Set price before checkout</p>
                           )}
-                          {item.price > 0 && item.cost_price > 0 && item.price < item.cost_price && (
-                            <p className="text-[10px] text-red-600 flex items-center gap-1"><AlertTriangle size={9}/> Below capital ₱{item.cost_price.toFixed(2)}</p>
+                          {item.price > 0 && (item.effective_capital || item.cost_price) > 0 && item.price < (item.effective_capital || item.cost_price) && (
+                            <p className="text-[10px] text-red-600 flex items-center gap-1">
+                              <AlertTriangle size={9}/> Below capital ₱{(item.effective_capital || item.cost_price).toFixed(2)}
+                              {item.capital_method && item.capital_method !== 'manual' && (
+                                <span className="opacity-60">({item.capital_method.replace('_',' ')})</span>
+                              )}
+                            </p>
+                          )}
+                          {/* Capital reference — visible while price is being edited */}
+                          {item.price > 0 && (item.moving_average_cost > 0 || item.last_purchase_cost > 0) && (
+                            <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                              {item.moving_average_cost > 0 && (
+                                <span className={item.price < item.moving_average_cost ? 'text-red-500 font-medium' : ''}>
+                                  Avg ₱{item.moving_average_cost.toFixed(2)}
+                                </span>
+                              )}
+                              {item.last_purchase_cost > 0 && item.last_purchase_cost !== item.moving_average_cost && (
+                                <>
+                                  <span className="text-slate-200">·</span>
+                                  <span className={item.price < item.last_purchase_cost ? 'text-amber-500 font-medium' : ''}>
+                                    Last ₱{item.last_purchase_cost.toFixed(2)}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}

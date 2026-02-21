@@ -881,9 +881,19 @@ export default function BranchTransferPage() {
             </table>
           </ScrollArea>
           {viewOrder?.status === 'sent' && (
-            <div className="pt-3 border-t flex justify-end">
+            <div className="pt-3 border-t flex justify-between">
+              <Button variant="outline" onClick={() => printTransferOrder(viewOrder)} data-testid="print-transfer-btn">
+                Print Transfer Order
+              </Button>
               <Button onClick={() => setReceiveDialog(true)} className="bg-emerald-600 text-white">
                 <CheckCircle2 size={15} className="mr-1.5" /> Confirm Receipt
+              </Button>
+            </div>
+          )}
+          {viewOrder?.status !== 'sent' && (
+            <div className="pt-3 border-t flex justify-end">
+              <Button variant="outline" onClick={() => printTransferOrder(viewOrder)} data-testid="print-transfer-btn">
+                Print Transfer Order
               </Button>
             </div>
           )}

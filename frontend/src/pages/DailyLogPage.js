@@ -518,20 +518,38 @@ export default function DailyLogPage() {
         <TabsContent value="profit" className="mt-4 space-y-4">
           {report ? (
             <>
+              {/* KPI row */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {[
                   { label: 'New Sales Today', value: report.new_sales_today, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ArrowUp },
                   { label: 'COGS', value: report.total_cogs, color: 'text-slate-600', bg: 'bg-slate-50', icon: ArrowDown },
                   { label: 'Gross Profit', value: report.gross_profit, color: report.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600', bg: 'bg-white', icon: TrendingUp },
-                  { label: 'Expenses', value: report.total_expenses, color: 'text-red-600', bg: 'bg-red-50', icon: ArrowDown },
+                  { label: 'Real Expenses', value: report.total_expenses, color: 'text-red-600', bg: 'bg-red-50', icon: ArrowDown,
+                    sub: report.total_all_expenses !== report.total_expenses
+                      ? `(₱${(report.total_all_expenses - report.total_expenses).toLocaleString()} in credits excluded)` : null },
                   { label: 'Net Profit', value: report.net_profit, color: report.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700', bg: report.net_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50', icon: DollarSign },
                 ].map((kpi, i) => (
                   <Card key={i} className="border-slate-200"><CardContent className={`p-4 ${kpi.bg}`}>
                     <div className="flex items-center gap-1 mb-1"><kpi.icon size={14} className={kpi.color} /><span className="text-xs text-slate-500 uppercase">{kpi.label}</span></div>
                     <p className={`text-xl font-bold ${kpi.color}`} style={{ fontFamily: 'Manrope' }}>{formatPHP(kpi.value)}</p>
+                    {kpi.sub && <p className="text-[10px] text-slate-400 mt-0.5">{kpi.sub}</p>}
                   </CardContent></Card>
                 ))}
               </div>
+
+              {/* Formula explanation */}
+              <div className="px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center gap-2">
+                <span>Net Profit =</span>
+                <span className="text-emerald-600 font-medium">Sales {formatPHP(report.new_sales_today)}</span>
+                <span>−</span>
+                <span className="text-slate-600 font-medium">COGS {formatPHP(report.total_cogs)}</span>
+                <span>−</span>
+                <span className="text-red-600 font-medium">Expenses {formatPHP(report.total_expenses)}</span>
+                <span>=</span>
+                <span className={`font-bold ${report.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatPHP(report.net_profit)}</span>
+                <span className="ml-1 text-slate-400">· Credits {formatPHP(report.total_credit_expenses || 0)} excluded (AR)</span>
+              </div>
+
               {/* Sales by Category */}
               <Card className="border-slate-200">
                 <CardHeader className="pb-2"><CardTitle className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Sales by Category</CardTitle></CardHeader>
@@ -546,15 +564,17 @@ export default function DailyLogPage() {
                   </div>
                 </CardContent>
               </Card>
-              {/* Expenses */}
+
+              {/* Real Expenses (P&L) */}
               <Card className="border-slate-200">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Expenses</CardTitle>
+                  <div>
+                    <CardTitle className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Expenses (P&L)</CardTitle>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Actual cash outflows — included in Net Profit calculation</p>
+                  </div>
                   {!isClosed && (
                     <div className="flex gap-1">
                       <Button size="sm" variant="outline" onClick={() => { setExpenseType('other'); setExpForm({ category: '', description: '', amount: 0 }); setExpenseDialog(true); }}><Plus size={12} className="mr-1" /> Expense</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setExpenseType('advance'); setExpForm({ amount: 0, employee_id: '', employee_name: '' }); setExpenseDialog(true); }}>Advance</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setExpenseType('farm'); setExpForm({ amount: 0, customer_id: '', tag: '' }); setExpenseDialog(true); }}>Farm</Button>
                     </div>
                   )}
                 </CardHeader>
@@ -564,9 +584,94 @@ export default function DailyLogPage() {
                       <div><Badge variant="outline" className="text-[10px] mr-2">{e.category}</Badge><span className="text-sm">{e.description}</span></div>
                       <span className="font-bold text-red-600">{formatPHP(e.amount)}</span>
                     </div>
-                  )) : <p className="text-sm text-slate-400">No expenses recorded</p>}
+                  )) : <p className="text-sm text-slate-400">No operational expenses today</p>}
+                  {report.expenses?.length > 0 && (
+                    <div className="flex justify-between font-bold text-sm pt-2 border-t border-slate-200 mt-2">
+                      <span>Total Expenses</span>
+                      <span className="text-red-600">{formatPHP(report.total_expenses)}</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* Credits Extended Today — AR section, NOT included in P&L */}
+              {((report.credit_expenses?.length > 0) || (report.advance_expenses?.length > 0)) && (
+                <Card className="border-blue-200 bg-blue-50/30">
+                  <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-blue-800" style={{ fontFamily: 'Manrope' }}>
+                        Credits Extended Today
+                      </CardTitle>
+                      <p className="text-[10px] text-blue-600 mt-0.5">
+                        Money out that comes BACK — these are receivables/assets, NOT included in Net Profit
+                      </p>
+                    </div>
+                    {!isClosed && (
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline" className="border-blue-200 text-blue-700"
+                          onClick={() => { setExpenseType('advance'); setExpForm({ amount: 0, employee_id: '', employee_name: '' }); setExpenseDialog(true); }}>
+                          CA
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-blue-200 text-blue-700"
+                          onClick={() => { setExpenseType('farm'); setExpForm({ amount: 0, customer_id: '', tag: '' }); setExpenseDialog(true); }}>
+                          Farm
+                        </Button>
+                      </div>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* Customer Credits (Cash Out + Farm Expense) */}
+                    {report.credit_expenses?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-blue-700 mb-1 uppercase tracking-wide">Customer Credits (AR)</p>
+                        {report.credit_expenses.map((e, i) => (
+                          <div key={i} className="flex justify-between items-center p-2 rounded bg-white border border-blue-100 mb-1">
+                            <div>
+                              <Badge className="text-[10px] mr-2 bg-blue-100 text-blue-700 border-0">{e.category}</Badge>
+                              <span className="text-sm">{e.description}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-blue-700">{formatPHP(e.amount)}</span>
+                              <p className="text-[10px] text-blue-400">Owed back</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-sm font-medium text-blue-700 pt-1 border-t border-blue-200">
+                          <span>Total Customer Credits</span>
+                          <span>{formatPHP(report.total_credit_expenses)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Employee Advances */}
+                    {report.advance_expenses?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-blue-700 mb-1 uppercase tracking-wide">Employee Advances (Asset)</p>
+                        {report.advance_expenses.map((e, i) => (
+                          <div key={i} className="flex justify-between items-center p-2 rounded bg-white border border-blue-100 mb-1">
+                            <div>
+                              <Badge className="text-[10px] mr-2 bg-indigo-100 text-indigo-700 border-0">{e.category}</Badge>
+                              <span className="text-sm">{e.description || e.employee_name}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold text-indigo-700">{formatPHP(e.amount)}</span>
+                              <p className="text-[10px] text-indigo-400">Salary deduction</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between text-sm font-medium text-indigo-700 pt-1 border-t border-blue-200">
+                          <span>Total Advances</span>
+                          <span>{formatPHP(report.total_advance_expenses)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Total */}
+                    <div className="flex justify-between font-bold text-sm pt-2 border-t-2 border-blue-200">
+                      <span className="text-blue-800">Total Credits Extended</span>
+                      <span className="text-blue-700">{formatPHP((report.total_credit_expenses || 0) + (report.total_advance_expenses || 0))}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           ) : <p className="text-center py-8 text-slate-400">Loading report...</p>}
         </TabsContent>

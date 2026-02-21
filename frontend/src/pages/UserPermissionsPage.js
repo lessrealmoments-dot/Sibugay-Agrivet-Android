@@ -82,8 +82,10 @@ export default function UserPermissionsPage() {
   const handlePermissionToggle = (module, action) => {
     setUserPermissions(prev => {
       const newPerms = { ...prev };
-      if (!newPerms[module]) newPerms[module] = {};
-      newPerms[module][action] = !newPerms[module][action];
+      // Deep-copy the module object to avoid mutating previous state
+      const modulePerms = { ...(prev[module] || {}) };
+      modulePerms[action] = !modulePerms[action];
+      newPerms[module] = modulePerms;
       return newPerms;
     });
     setHasChanges(true);

@@ -145,7 +145,7 @@ ROLE_PRESETS = {
         "permissions": {
             "dashboard": {"view": True},
             "branches": {"view": True, "create": True, "edit": True, "delete": True},
-            "products": {"view": True, "create": True, "edit": True, "delete": True, "view_cost": True},
+            "products": {"view": True, "create": True, "edit": True, "delete": True, "view_cost": True, "edit_cost": True},
             "inventory": {"view": True, "adjust": True, "transfer": True},
             "sales": {"view": True, "create": True, "edit": True, "void": True, "sell_below_cost": True, "give_discount": True},
             "purchase_orders": {"view": True, "create": True, "edit": True, "receive": True, "delete": True},

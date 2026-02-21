@@ -481,22 +481,25 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
             f"Branch transfer from {from_name}"
         )
 
-        # Track shortage
-        variance = qty_ordered - qty_received
+        # Track shortage / excess
+        variance = qty_ordered - qty_received   # positive = short, negative = excess
+        var_entry = {
+            "product_id": product_id,
+            "product_name": item["product_name"],
+            "sku": item.get("sku", ""),
+            "unit": item.get("unit", ""),
+            "qty_ordered": qty_ordered,
+            "qty_received": qty_received,
+            "variance": variance,
+            "transfer_capital": transfer_capital,
+            "branch_retail": branch_retail,
+            "capital_variance": round(abs(variance) * transfer_capital, 2),
+            "retail_variance": round(abs(variance) * branch_retail, 2),
+        }
         if variance > 0:
-            shortages.append({
-                "product_id": product_id,
-                "product_name": item["product_name"],
-                "sku": item.get("sku", ""),
-                "unit": item.get("unit", ""),
-                "qty_ordered": qty_ordered,
-                "qty_received": qty_received,
-                "shortage": variance,
-                "transfer_capital": transfer_capital,
-                "branch_retail": branch_retail,
-                "capital_variance": round(variance * transfer_capital, 2),
-                "retail_variance": round(variance * branch_retail, 2),
-            })
+            shortages.append(var_entry)
+        elif variance < 0:
+            excesses.append(var_entry)
 
         received_items.append({
             **item,

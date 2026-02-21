@@ -696,7 +696,7 @@ export default function CloseWizardPage() {
             <div className="space-y-4 max-w-md mx-auto">
               {!completed.has(5) && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex gap-2">
-                  <AlertTriangle size={16} className="shrink-0 mt-0.5" /> Complete the Cash Count (Step 5) first.
+                  <AlertTriangle size={16} className="shrink-0 mt-0.5" /> Complete the Fund Count (Step 5) first.
                 </div>
               )}
               <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">

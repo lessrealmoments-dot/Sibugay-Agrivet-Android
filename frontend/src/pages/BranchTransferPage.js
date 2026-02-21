@@ -60,7 +60,7 @@ function validateRow(row, minMargin) {
 }
 
 export default function BranchTransferPage() {
-  const { branches, currentBranch, user } = useAuth();
+  const { branches, currentBranch, user, canViewAllBranches, selectedBranchId, isConsolidatedView } = useAuth();
   const isAdmin = user?.role === 'admin';
   const searchTimers = useRef({});
   const dropdownRefs = useRef({});

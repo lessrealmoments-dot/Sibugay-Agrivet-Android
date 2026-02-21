@@ -1,11 +1,27 @@
 """
-Settings routes: Invoice prefixes, terms options, and system settings.
+Settings routes: Invoice prefixes, terms options, system settings, TOTP controls.
 """
 from fastapi import APIRouter, Depends
 from config import db
 from utils import get_current_user, check_perm, now_iso
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
+
+
+# All sensitive actions that can be protected by TOTP
+TOTP_PROTECTED_ACTIONS = [
+    {"key": "inventory_adjust",    "label": "Direct Inventory Correction",   "module": "Inventory"},
+    {"key": "close_day",           "label": "Close Day (Z-Report)",           "module": "Daily Operations"},
+    {"key": "invoice_edit",        "label": "Edit Posted Invoice",            "module": "Sales"},
+    {"key": "invoice_void",        "label": "Void Invoice",                   "module": "Sales"},
+    {"key": "product_delete",      "label": "Delete Product",                 "module": "Products"},
+    {"key": "price_override",      "label": "Override Branch Price",          "module": "Products"},
+    {"key": "reopen_po",           "label": "Reopen Purchase Order",          "module": "Purchase Orders"},
+    {"key": "manage_users",        "label": "Create / Edit / Delete Users",   "module": "Settings"},
+    {"key": "manage_permissions",  "label": "Manage User Permissions",        "module": "Settings"},
+]
+
+DEFAULT_TOTP_ACTIONS = ["inventory_adjust", "close_day"]
 
 
 @router.get("/invoice-prefixes")

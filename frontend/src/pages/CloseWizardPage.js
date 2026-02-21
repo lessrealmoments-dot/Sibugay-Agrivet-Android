@@ -686,7 +686,7 @@ export default function CloseWizardPage() {
                 </div>
               )}
               {actualCash && <Button onClick={() => markComplete(5)} className="w-full bg-[#1A4D2E] text-white" data-testid="complete-cash-count-btn">
-                <CheckCircle2 size={15} className="mr-2" /> Confirm Cash Count
+                <CheckCircle2 size={15} className="mr-2" /> Confirm Fund Count
               </Button>}
             </div>
           )}

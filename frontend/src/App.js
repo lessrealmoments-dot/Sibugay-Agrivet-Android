@@ -20,6 +20,7 @@ import UnifiedSalesPage from './pages/UnifiedSalesPage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
 import SuppliersPage from './pages/SuppliersPage';
 import DailyLogPage from './pages/DailyLogPage';
+import CloseWizardPage from './pages/CloseWizardPage';
 import PaymentsPage from './pages/PaymentsPage';
 import FundManagementPage from './pages/FundManagementPage';
 import AccountingPage from './pages/AccountingPage';

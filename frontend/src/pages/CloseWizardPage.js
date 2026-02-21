@@ -666,7 +666,7 @@ export default function CloseWizardPage() {
               </div>
               <Separator />
               <div>
-                <Label className="text-sm font-semibold">Actual Cash Count</Label>
+                <Label className="text-sm font-semibold">Actual Fund Count</Label>
                 <Input
                   data-testid="actual-cash-input"
                   type="number" min={0} step="0.01"

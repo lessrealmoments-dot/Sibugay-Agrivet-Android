@@ -24,7 +24,27 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Deployment Prep - COMPLETE ✅ (Feb 2026)
+### Branch Transfer Orders - COMPLETE ✅ (Feb 2026)
+**Inter-branch supply system with 3-price model and automatic price propagation.**
+
+**3 prices per product:**
+- Branch Capital = Main branch's cost (read-only reference)
+- Transfer Capital = Branch Capital + category markup (suggested, fully editable per row)
+- Branch Retail = Branch's selling price to customers (auto-filled from memory, editable)
+
+**Features:**
+- Category Markup Rules panel — set per-category add-on (fixed ₱ or % of capital), saved as default template per destination branch
+- Price memory — auto-fills Branch Retail from last transfer to that branch
+- Validation: RED + blocked if Transfer Capital > Branch Retail OR margin < configurable min (default ₱20)
+- Admin override with reason (for near-expiry, etc.)
+- History tab with status (draft → sent → received)
+- Receive dialog — branch can adjust actual quantities received
+- On confirm receipt: inventory deducted from source, added to destination, `branch_prices` updated (transfer_capital = cost, branch_retail = retail), price memory updated
+
+**Backend endpoints:** `/branch-transfers` (CRUD, send, receive, markup-template, product-lookup)
+**Collections:** `branch_transfer_orders`, `branch_transfer_templates`, `branch_transfer_price_memory`
+
+
 **Code fixes:**
 - Fixed N+1 query in `sales.py` — batch-fetches all products before the loop (eliminates N DB calls per sale item)
 - Added MongoDB text index on products (name + sku + barcode) for fast search at scale

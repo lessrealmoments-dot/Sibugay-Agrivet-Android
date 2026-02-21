@@ -316,11 +316,28 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
                 )
                 break
 
-    capital_method = product.get("capital_method", "manual")
+    capital_method = product.get("capital_method", "moving_average")
+    # Branch-specific cost override (set when transfer is received)
+    branch_prices_doc = None
+    branch_cost_price = None
+    branch_retail_prices = None
+    if branch_id:
+        branch_prices_doc = await db.branch_prices.find_one(
+            {"product_id": product_id, "branch_id": branch_id}, {"_id": 0}
+        )
+        if branch_prices_doc:
+            branch_cost_price = branch_prices_doc.get("cost_price")
+            branch_retail_prices = branch_prices_doc.get("prices", {})
+
     cost = {
-        "cost_price": float(product.get("cost_price", 0)),
+        "cost_price": float(product.get("cost_price", 0)),          # global
+        "branch_cost_price": branch_cost_price,                      # branch-specific (None if not set)
+        "branch_retail_prices": branch_retail_prices,                # branch-specific retail prices
+        "is_branch_specific": branch_cost_price is not None,
+        "cost_source": branch_prices_doc.get("source", "manual") if branch_prices_doc else "manual",
+        "cost_transfer_order": branch_prices_doc.get("transfer_order", "") if branch_prices_doc else "",
         "capital_method": capital_method,
-        "method": capital_method,          # alias used by frontend quick-stats card
+        "method": capital_method,
         "moving_average": moving_average,
         "last_purchase": last_purchase,
         "last_purchase_warning": last_purchase > 0 and moving_average > 0 and last_purchase < moving_average,

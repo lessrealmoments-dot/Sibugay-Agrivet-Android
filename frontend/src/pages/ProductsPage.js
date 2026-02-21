@@ -661,7 +661,8 @@ export default function ProductsPage() {
           ) : (
             /* ── Spreadsheet table ── */
             <div className="flex-1 flex flex-col overflow-hidden">
-              <div className="overflow-auto flex-1">
+              <div className="overflow-x-auto flex-1 overflow-y-visible"
+                   style={{ overflowY: 'visible' }}>
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b-2 border-slate-200 text-xs uppercase tracking-wide text-slate-500">

@@ -607,38 +607,6 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
         "has_excess": len(excesses) > 0,
     }
 
-        await db.notifications.insert_one({
-            "id": new_id(),
-            "type": "transfer_shortage",
-            "title": "Transfer Shortage Detected",
-            "message": (
-                f"Transfer {order['order_number']} received by {to_name} with shortage — "
-                f"{len(shortages)} product(s) short. "
-                f"Capital loss: ₱{total_cap_loss:,.2f} | Retail loss: ₱{total_ret_loss:,.2f}"
-            ),
-            "branch_id": from_branch_id,
-            "branch_name": from_name,
-            "metadata": {
-                "transfer_id": transfer_id,
-                "order_number": order["order_number"],
-                "shortages": shortages,
-                "total_capital_variance": total_cap_loss,
-                "total_retail_variance": total_ret_loss,
-            },
-            "target_user_ids": shortage_target_ids,
-            "read_by": [],
-            "created_at": now_iso(),
-        })
-
-    return {
-        "message": f"Transfer received. {len(received_items)} product(s) updated.",
-        "order_number": order["order_number"],
-        "items_received": len(received_items),
-        "shortages": shortages,
-        "has_shortage": len(shortages) > 0,
-    }
-
-
 @router.delete("/{transfer_id}")
 async def cancel_transfer(transfer_id: str, user=Depends(get_current_user)):
     """Cancel a draft or sent transfer."""

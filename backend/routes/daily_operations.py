@@ -94,7 +94,8 @@ async def get_daily_close_preview(
         {"$match": {"payments.date": date}},
         {"$project": {
             "_id": 0,
-            "customer_name": 1, "invoice_number": 1,
+            "id": 1, "customer_name": 1, "invoice_number": 1,
+            "customer_id": 1,
             "balance": 1,  # current balance after all payments
             "payment": "$payments"
         }}
@@ -109,9 +110,11 @@ async def get_daily_close_preview(
         principal_paid = float(pmt.get("applied_to_principal", amount - interest_paid - penalty_paid))
         current_bal = float(p.get("balance", 0))
         ar_payments.append({
+            "invoice_id": p.get("id", ""),
+            "customer_id": p.get("customer_id", ""),
             "customer_name": p.get("customer_name", ""),
             "invoice_number": p.get("invoice_number", ""),
-            "balance_before": round(current_bal + amount, 2),  # approx before this payment
+            "balance_before": round(current_bal + amount, 2),
             "interest_paid": round(interest_paid, 2),
             "penalty_paid": round(penalty_paid, 2),
             "principal_paid": round(principal_paid, 2),

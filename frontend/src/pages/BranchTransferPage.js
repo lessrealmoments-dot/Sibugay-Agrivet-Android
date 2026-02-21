@@ -689,8 +689,13 @@ export default function BranchTransferPage() {
 
                             {/* Branch Capital — read-only */}
                             <td className="px-2 py-1.5 text-right">
-                              <div className="h-8 flex items-center justify-end pr-2">
+                              <div className="h-auto flex flex-col items-end justify-center pr-2">
                                 <span className="font-mono text-sm text-slate-600">{row.product ? formatPHP(row.branch_capital) : '—'}</span>
+                                {row.product && row.is_branch_specific_cost && (
+                                  <span className="text-[9px] text-amber-600 leading-tight">
+                                    branch cost (global: {formatPHP(row.global_cost_price)})
+                                  </span>
+                                )}
                               </div>
                             </td>
 

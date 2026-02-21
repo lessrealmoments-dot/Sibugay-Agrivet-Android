@@ -200,7 +200,7 @@ export default function OfflineIndicator() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') toast.success('AgriPOS installed!');
+    if (outcome === 'accepted') toast.success('AgriBooks installed!');
     setInstallPrompt(null);
   };
 

@@ -400,7 +400,9 @@ export default function CloseWizardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(dailyLog?.cash_entries || []).map((e, i) => (
+                    {(dailyLog?.cash_entries || []).length === 0
+                      ? <tr><td colSpan={5} className="text-center py-8 text-slate-400">No cash sales yet today</td></tr>
+                      : (dailyLog?.cash_entries || []).map((e, i) => (
                       <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
                         <td className="px-3 py-1.5 text-xs text-slate-400">{e.sequence || i+1}</td>
                         <td className="px-3 py-1.5 font-medium">{e.product_name}</td>
@@ -409,9 +411,6 @@ export default function CloseWizardPage() {
                         <td className="px-3 py-1.5 text-right font-mono text-emerald-700">{formatPHP(e.cash_running_total)}</td>
                       </tr>
                     ))}
-                    {!(dailyLog?.cash_entries?.length) && (
-                      <tr><td colSpan={5} className="text-center py-8 text-slate-400">No cash sales yet today</td></tr>
-                    )}
                   </tbody>
                 </table>
               </ScrollArea>

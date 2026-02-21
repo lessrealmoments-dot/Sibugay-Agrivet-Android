@@ -92,6 +92,47 @@ function ZReport({ data, branchName, onPrint }) {
         ))}
       </SectionCard>
 
+      {/* New Credit Extended Today */}
+      {((data.credit_sales_today?.length > 0) || (data.ar_credits_today?.length > 0)) && (
+        <SectionCard title={`New Credit Extended Today — ${formatPHP(data.total_new_credit || 0)}`} accent="amber" note="Not counted as cash received — added to AR">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="bg-amber-50 text-xs text-slate-500 border-b">
+                <th className="px-3 py-1.5 text-left">Customer</th>
+                <th className="px-3 py-1.5 text-left">Invoice</th>
+                <th className="px-3 py-1.5 text-right">Amount</th>
+                <th className="px-3 py-1.5 text-right">Balance</th>
+                <th className="px-3 py-1.5 text-center">Type</th>
+              </tr></thead>
+              <tbody>
+                {(data.credit_sales_today || []).map((c, i) => (
+                  <tr key={i} className="border-b border-slate-100 last:border-0">
+                    <td className="px-3 py-1.5 font-medium">{c.customer_name}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-blue-600">{c.invoice_number}</td>
+                    <td className="px-3 py-1.5 text-right font-mono font-semibold text-amber-700">{formatPHP(c.grand_total)}</td>
+                    <td className="px-3 py-1.5 text-right font-mono text-slate-500">{formatPHP(c.balance)}</td>
+                    <td className="px-3 py-1.5 text-center"><Badge className="text-[9px] bg-amber-100 text-amber-700">Credit</Badge></td>
+                  </tr>
+                ))}
+                {(data.ar_credits_today || []).map((c, i) => (
+                  <tr key={`arc-${i}`} className="border-b border-slate-100 last:border-0">
+                    <td className="px-3 py-1.5 font-medium">{c.customer_name}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-blue-600">{c.invoice_number}</td>
+                    <td className="px-3 py-1.5 text-right font-mono font-semibold text-blue-700">{formatPHP(c.grand_total)}</td>
+                    <td className="px-3 py-1.5 text-right font-mono text-slate-500">—</td>
+                    <td className="px-3 py-1.5 text-center">
+                      <Badge className={`text-[9px] ${c.type === 'cash_advance' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {c.type === 'cash_advance' ? 'Cash-out' : 'Farm'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      )}
+
       {data.credit_collections?.length > 0 && (
         <SectionCard title={`AR Payments Received — ${formatPHP(data.total_ar_received)}`} accent="blue">
           <div className="overflow-x-auto">
@@ -117,6 +158,19 @@ function ZReport({ data, branchName, onPrint }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        </SectionCard>
+      )}
+
+      {/* AR Running Total at Close */}
+      {data.total_ar_at_close !== undefined && (
+        <SectionCard title="AR Balance at Close" accent="indigo">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-600">Total Outstanding Accounts Receivable at close of {data.date}</p>
+              <p className="text-xs text-slate-400 mt-0.5">All unpaid credit invoices across all customers for this branch</p>
+            </div>
+            <p className="text-2xl font-bold text-indigo-700 font-mono">{formatPHP(data.total_ar_at_close)}</p>
           </div>
         </SectionCard>
       )}

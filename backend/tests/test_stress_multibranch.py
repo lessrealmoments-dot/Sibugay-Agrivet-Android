@@ -173,11 +173,12 @@ class TestPhase0ResolvIDs:
     def test_resolve_suppliers(self, authed):
         resp = authed.get(f"{BASE_URL}/api/suppliers?limit=100")
         assert resp.status_code == 200
-        suppliers = resp.json().get("suppliers", resp.json() if isinstance(resp.json(), list) else [])
-        if isinstance(suppliers, list):
-            pass
-        elif isinstance(suppliers, dict):
-            suppliers = suppliers.get("suppliers", [])
+        raw = resp.json()
+        # Endpoint returns a list or dict with "suppliers" key
+        if isinstance(raw, list):
+            suppliers = raw
+        else:
+            suppliers = raw.get("suppliers", [])
 
         print(f"\nTotal suppliers: {len(suppliers)}")
         for s in suppliers:

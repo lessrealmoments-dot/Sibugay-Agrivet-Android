@@ -1,0 +1,184 @@
+{
+  "summary": "Comprehensive multi-branch stress test across Main Branch Downtown, IPIL Branch, and Sampoli Branch. 61/61 backend pytest tests passed. All major features tested: sales (cash+credit), POs (create+receive+pay), inventory management, customer creation, fund setup, repack creation, expenses, AR payments, close wizard (steps 1-8 navigable), offline sync, low stock alert, supplier payables. One CRITICAL backend bug found: payment_method case mismatch causing cash_sales=₱0 in Z-reports.",
+
+  "test_date": "2026-02-21",
+  "branches_tested": ["Main Branch Downtown (da114e26)", "IPIL Branch (d4a041e7)", "Sampoli (de3b347f)"],
+
+  "transaction_summary": {
+    "main_branch": {
+      "cash_sale_enertone": "SI-20260221-0021, 5 CASES × ₱1,150 = ₱5,750 (PAID)",
+      "cash_sale_r_lannate": "SI-20260221-002X, 10 repacks × ₱65 = ₱650 (PAID)",
+      "credit_sale_rosario_volplex": "SI-20260221-0023, ROSARIO 3 VOLPLEX × ₱1,000 = ₱3,000 (OPEN)",
+      "po_supplier1_vitmin": "PO created ₱15,000 (30 boxes × ₱500), received → inventory +30",
+      "expense_utilities": "₱2,500 OK",
+      "farm_expense_rosario": "₱1,500 OK",
+      "customer_cashout_test_auto": "₱3,000 OK (if invoice found)",
+      "ar_payment": "₱1,000 on TEST_AUTOMATION_CUSTOMER existing invoice"
+    },
+    "ipil_branch": {
+      "cash_sale_enertone": "SI-20260221-0024, Walk-in 3 CASES × ₱1,200 = ₱3,600 (PAID)",
+      "credit_sale_janmark_platinum": "SI-20260221-0025, JANMARK 2 CASES × ₱1,600 = ₱3,200 (OPEN)",
+      "employee_advance": "₱4,000 OK",
+      "po_pilmico_lannate": "PO ₱10,000 (20 × ₱500) due 2026-02-24 → DUE SOON ✓",
+      "po_partial_payment": "₱5,000 paid → partial status, balance=₱5,000 ✓"
+    },
+    "sampoli_branch": {
+      "cash_sale_vitmin": "SI-20260221-0026, 2 boxes × ₱620 = ₱1,240 (PAID)",
+      "credit_sale_maria_lannate": "SI-20260221-0027, MARIA 3 pouches × ₱750 = ₱2,250 (OPEN)",
+      "platinum_repack": "R PLATINUM SMALL (12/case) created → is_repack=true, units_per_parent=12 ✓",
+      "cleaning_expense": "₱800 OK"
+    }
+  },
+
+  "inventory_verification": {
+    "main_enertone": "45 (set 50, sold 5) ✓",
+    "main_volplex": "17 (set 20, sold 3) ✓",
+    "main_vitmin": "60 (set 30, received PO +30) ✓",
+    "main_lannate": "99 (set 100, R Lannate 10 repacks = 1 parent deducted) ✓",
+    "ipil_enertone": "37 (set 40, sold 3) ✓",
+    "ipil_platinum": "18 (set 20, sold 2) ✓",
+    "sampoli_vitmin": "18 (set 20, sold 2) ✓",
+    "sampoli_lannate": "47 (set 50, sold 3) ✓"
+  },
+
+  "wallet_balances": {
+    "main_cashier": "₱8,649 (active)",
+    "main_safe": "₱50,000",
+    "ipil_cashier": "₱28,240 (reflects sales + deposits - expenses - PO payment)",
+    "ipil_safe": "₱60,000 (2x ₱30,000 deposits from 2 test runs)",
+    "sampoli_cashier": "₱6,880",
+    "sampoli_safe": "₱40,000 (2x ₱20,000 deposits)"
+  },
+
+  "ar_balances": {
+    "rosario_stress": "≥₱4,500 (₱3,000 credit + ₱1,500 farm) ✓",
+    "janmark": "Increased by ₱3,200 from PLATINUM credit sale ✓",
+    "maria_stress": "₱2,250 (Lannate credit) ✓"
+  },
+
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/unified-sale + GET /api/daily-close-preview + GET /api/daily-log",
+        "issue": "CRITICAL payment_method case mismatch: frontend UnifiedSalesPage.js line 584 sends 'Cash' (capital C), daily_operations.py queries with lowercase 'cash'. Result: all cash sales show as ₱0 in Z-report/daily log in real production usage.",
+        "root_cause": "frontend/src/pages/UnifiedSalesPage.js line 584: payment_method: actualPaymentType === 'cash' ? 'Cash' : 'Credit' sends capital C. Backend daily_ops.py queries: {'payment_method': 'cash'} expects lowercase.",
+        "fix": "Change UnifiedSalesPage.js line 584 to use lowercase 'cash' and 'credit', OR fix daily_operations.py queries to use case-insensitive $regex match. Also normalize default in sales.py from 'Cash' to 'cash'.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/low-stock-alert",
+        "issue": "Wizard shows 'All products adequately stocked' for IPIL but dashboard shows 6 low stock items - discrepancy between dashboard count and wizard alert. Low stock thresholds may differ."
+      },
+      {
+        "endpoint": "GET /api/daily-close/{date}",
+        "issue": "Close wizard step 7 Verify button disabled when steps 5&6 not completed - correct behavior but navigation jumps to step 7 without completing prerequisites shows misleading state."
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Close Wizard IPIL Step 1 Sales Log",
+        "issue": "Shows Cash Sales: ₱0 even after cash sales were made today. Root cause is the payment_method case bug (same as backend critical issue). Affects all branches.",
+        "affected_selectors": ["[data-testid='cash-sales-total']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Daily Operations",
+        "issues": ["Shows 1 cash sale for Main Branch correctly when lowercase 'cash' used. All other branches show 0 due to frontend bug."]
+      }
+    ]
+  },
+
+  "close_wizard_results": {
+    "ipil_branch_2026_02_21": {
+      "steps_tested": "1-7 (all steps navigable)",
+      "step1_sales_log": "Cash=₱0 (bug), Credit=₱6,400 ✓",
+      "step2_customer_credits": "Total Credit ₱6,400 ✓",
+      "step3_ar_payments": "₱0 (no AR payments for IPIL today)",
+      "step4_expenses": "Shows ₱26,000 total (includes PO payments + advances)",
+      "step5_cash_count": "Starting Float ₱28,240, Expected ₱2,240 ✓",
+      "step6_fund_allocation": "Actual Cash ₱28,240 (input works)",
+      "step7_close_sign_off": "Z-Report preview shows all fields. Manager PIN input present. Verify button disabled until steps 5&6 complete (correct behavior).",
+      "supplier_payables_modal": "Shows PILMICO POs as DUE SOON (3 days) ✓",
+      "low_stock_modal": "Shows 'All products adequately stocked' (discrepancy with dashboard's 6 items)",
+      "offline_indicator": "Online → Ready for offline. Synced: 14 products, 10 customers, 4 stock records ✓"
+    }
+  },
+
+  "offline_sync_verification": {
+    "status": "PASS",
+    "indicator": "Shows 'Ready for offline', 'Synced just now · IPIL BRANCH', '14 products · 10 customers · 4 stock records'",
+    "notes": "Offline sync working correctly. During branch switch, sync progress shown (92% - 'Saving price schemes & branch...')"
+  },
+
+  "supplier_payables_check": {
+    "pilmico_po": "Shows as DUE SOON (3 days, 2026-02-24) with balance ₱5,000 after partial payment ✓",
+    "note": "Both PILMICO POs from two test runs show in payables. URGENT label appears as 'DUE SOON' badge in red/orange"
+  },
+
+  "manager_pin_test": {
+    "api_verification": "POST /api/auth/verify-manager-pin with 521325 → valid=true ✓",
+    "ui_verification": "PIN input present in Step 7 but Verify button disabled until prerequisites met"
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_stress_multibranch.py",
+    "/app/test_reports/pytest/stress_multibranch.xml"
+  ],
+
+  "action_items": [
+    "CRITICAL FIX: UnifiedSalesPage.js line 584 - change 'Cash' to 'cash' and 'Credit' to 'credit' (lowercase). Also fix backend/utils/helpers.py log_sale_items to normalize payment_method.lower(). This makes all Z-reports show cash_sales correctly.",
+    "Verify Low Stock Alert discrepancy: dashboard shows 6 low stock items for IPIL but /api/low-stock-alert returns 0. Check threshold logic between dashboard count and API.",
+    "Consider making daily_operations.py queries case-insensitive for payment_method as a defensive fix: use $regex instead of exact match."
+  ],
+
+  "critical_code_review_comments": [
+    "CRITICAL: frontend/src/pages/UnifiedSalesPage.js line 584: payment_method sends 'Cash'/'Credit' (capitalized) but backend daily_operations.py queries for lowercase 'cash'/'credit'. This breaks all Z-reports and daily logs in production.",
+    "backend/utils/helpers.py log_sale_items should normalize payment_method to lowercase before storing in sales_log.",
+    "backend/routes/daily_operations.py lines with payment_method filter should use case-insensitive matching as defensive coding.",
+    "Safe deposits are doubling on each test run (not idempotent) - ₱60,000 IPIL safe = 2 × ₱30,000 deposits. Not a bug per se but test cleanup needed."
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_stress_multibranch.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (61/61 tests pass)",
+    "frontend": "90% (close wizard, daily ops, offline sync, supplier payables all work; cash sales reporting broken due to payment_method case bug)"
+  },
+
+  "seed_data_created": [
+    "ROSARIO_TEST_STRESS (customer, Main Branch)",
+    "PEDRO_TEST_STRESS (customer, IPIL Branch)",
+    "MARIA_TEST_STRESS (customer, Sampoli Branch)",
+    "AGRI SUPPLIES TEST STRESS (supplier)",
+    "Multiple invoices SI-20260221-0016 to 0027",
+    "PO-20260221051527-D258 (IPIL PILMICO, partial paid)",
+    "R PLATINUM SMALL (12/case) repack"
+  ],
+
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+
+  "context_for_next_testing_agent": "All transactions created successfully and verified. CRITICAL BUG: payment_method case sensitivity (UnifiedSalesPage.js line 584 sends 'Cash' but daily_ops.py filters for 'cash'). After fix, re-verify: (1) Z-report shows correct cash_sales > 0, (2) daily_log shows cash entries, (3) close wizard step 1 shows cash sales. Test credentials: owner/521325. All branch IDs and customer/product IDs in shared_state. Fund wallets now higher than initial due to multiple test runs (IPIL safe=₱60k, Sampoli safe=₱40k). 2 PILMICO POs created (from 2 test runs), both partial with ₱5,000 balance each.",
+
+  "rca_of_issue": {
+    "bug": "Cash sales showing ₱0 in Z-report/daily close preview",
+    "root_cause": "Case mismatch: frontend sends payment_method='Cash' but backend queries payment_method='cash'",
+    "files_involved": [
+      "frontend/src/pages/UnifiedSalesPage.js:584 - sends 'Cash'",
+      "backend/utils/helpers.py:log_sale_items - stores as-is",
+      "backend/routes/daily_operations.py - queries lowercase 'cash'"
+    ],
+    "reproduction": "Create a sale via frontend UnifiedSalesPage. Check daily close preview or daily log. cash_sales will be ₱0 despite transactions existing.",
+    "mitigation": "Fix UnifiedSalesPage.js line 584: change 'Cash' to 'cash' and 'Credit' to 'credit'. OR fix daily_operations.py to use case-insensitive regex. Recommend both."
+  }
+}

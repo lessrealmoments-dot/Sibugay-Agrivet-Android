@@ -533,8 +533,26 @@ export default function ProductsPage() {
                 <Input data-testid="product-unit-input" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Box, Bag, Bottle, Pack" />
               </div>
               <div>
-                <Label>Cost Price</Label>
-                <Input data-testid="product-cost-input" type="number" value={form.cost_price} onChange={e => setForm({ ...form, cost_price: parseFloat(e.target.value) || 0 })} />
+                <Label className="flex items-center gap-1.5">
+                  Cost Price / Capital
+                  {editing && !canEditCost && (
+                    <span className="text-[10px] text-amber-600 font-normal flex items-center gap-0.5">
+                      <Lock size={10} /> locked
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  data-testid="product-cost-input"
+                  type="number"
+                  value={form.cost_price}
+                  onChange={e => setForm({ ...form, cost_price: parseFloat(e.target.value) || 0 })}
+                  disabled={!!editing && !canEditCost}
+                  title={editing && !canEditCost ? 'You do not have permission to edit the capital/cost price' : ''}
+                  className={editing && !canEditCost ? 'bg-slate-100 cursor-not-allowed opacity-60' : ''}
+                />
+                {editing && !canEditCost && (
+                  <p className="text-[10px] text-amber-600 mt-0.5">No permission to edit capital</p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">

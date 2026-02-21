@@ -984,17 +984,34 @@ export default function UnifiedSalesPage() {
                             />
                           </td>
                           <td className="px-3 py-1">
-                            <Input
-                              type="number"
-                              className={`h-8 text-right w-24 ${
-                                line.product_id && line.rate <= 0 ? 'border-amber-400 bg-amber-50'
-                                : line.product_id && line.cost_price > 0 && line.rate < line.cost_price && line.rate > 0 ? 'border-red-300 bg-red-50'
-                                : ''
-                              }`}
-                              value={line.rate}
-                              onChange={e => updateLine(i, 'rate', parseFloat(e.target.value) || 0)}
-                              onBlur={() => handleRateBlur(lines[i])}
-                            />
+                            <div>
+                              <Input
+                                type="number"
+                                className={`h-8 text-right w-24 ${
+                                  line.product_id && line.rate <= 0 ? 'border-amber-400 bg-amber-50'
+                                  : line.product_id && (line.effective_capital || line.cost_price) > 0 && line.rate > 0 && line.rate < (line.effective_capital || line.cost_price) ? 'border-red-300 bg-red-50 text-red-700'
+                                  : ''
+                                }`}
+                                value={line.rate}
+                                onChange={e => updateLine(i, 'rate', parseFloat(e.target.value) || 0)}
+                                onBlur={() => handleRateBlur(lines[i])}
+                              />
+                              {/* Capital reference — shown when a product is selected */}
+                              {line.product_id && (line.moving_average_cost > 0 || line.last_purchase_cost > 0) && (
+                                <div className="flex flex-col gap-0.5 mt-0.5">
+                                  {line.moving_average_cost > 0 && (
+                                    <span className={`text-[10px] ${line.rate > 0 && line.rate < line.moving_average_cost ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
+                                      Avg ₱{line.moving_average_cost.toFixed(2)}
+                                    </span>
+                                  )}
+                                  {line.last_purchase_cost > 0 && line.last_purchase_cost !== line.moving_average_cost && (
+                                    <span className={`text-[10px] ${line.rate > 0 && line.rate < line.last_purchase_cost ? 'text-amber-500 font-semibold' : 'text-slate-400'}`}>
+                                      Last ₱{line.last_purchase_cost.toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-3 py-1">
                             <Input

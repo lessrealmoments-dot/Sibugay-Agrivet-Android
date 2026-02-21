@@ -257,7 +257,7 @@ class TestSendReceiveWorkflow:
         payload = {
             "items": [
                 {
-                    "product_id": "c313bfe0",
+                    "product_id": ENERTONE_PRODUCT_ID,
                     "qty": 2,
                     "qty_received": 2,
                     "transfer_capital": 970.0,

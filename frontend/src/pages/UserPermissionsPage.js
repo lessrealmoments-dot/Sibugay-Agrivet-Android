@@ -290,8 +290,9 @@ export default function UserPermissionsPage() {
                           
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                             {Object.entries(moduleData.actions).map(([actionKey, actionLabel]) => (
-                              <label
+                              <div
                                 key={actionKey}
+                                onClick={() => handlePermissionToggle(moduleKey, actionKey)}
                                 className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
                                   modulePerms[actionKey] 
                                     ? 'bg-emerald-50 border-emerald-200' 
@@ -302,9 +303,10 @@ export default function UserPermissionsPage() {
                                   checked={modulePerms[actionKey] || false}
                                   onCheckedChange={() => handlePermissionToggle(moduleKey, actionKey)}
                                   className="data-[state=checked]:bg-emerald-500"
+                                  onClick={e => e.stopPropagation()}
                                 />
-                                <span className="text-xs">{actionLabel}</span>
-                              </label>
+                                <span className="text-xs select-none">{actionLabel}</span>
+                              </div>
                             ))}
                           </div>
                         </div>

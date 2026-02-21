@@ -504,6 +504,40 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Repack Already Exists — Confirmation Dialog */}
+      <Dialog open={!!repackConfirmParent} onOpenChange={() => setRepackConfirmParent(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
+              <Link2 size={18} className="text-emerald-600" /> Repack Already Exists
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
+              <p className="font-semibold text-emerald-800">{repackConfirmParent?.name}</p>
+              <p className="text-emerald-600 text-xs mt-0.5">
+                This product already has at least one repack SKU. You can generate an additional repack
+                if needed (e.g., a different unit size).
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                className="bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                onClick={() => { _launchRepackDialog(repackConfirmParent); setRepackConfirmParent(null); }}
+              >
+                <Link2 size={14} className="mr-2" /> Generate Another Repack
+              </Button>
+              <Button variant="outline"
+                onClick={() => { navigate(`/products/${repackConfirmParent?.id}`); setRepackConfirmParent(null); }}
+              >
+                View Existing Repacks
+              </Button>
+              <Button variant="ghost" onClick={() => setRepackConfirmParent(null)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Repack Dialog */}
       <Dialog open={repackDialog} onOpenChange={setRepackDialog}>
         <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">

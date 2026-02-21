@@ -411,9 +411,16 @@ export default function ProductDetailPage() {
                 {cost.last_purchase_warning && <p className="text-[10px] text-amber-600"><AlertTriangle size={10} className="inline" /> Cheaper than avg</p>}
               </div>
               <div className="p-3 rounded-lg border bg-slate-50">
-                <p className="text-xs text-slate-500 mb-1">Manual Cost</p>
+                <p className="text-xs text-slate-500 mb-1 flex items-center gap-1">
+                  Manual Cost
+                  {editMode && !canEditCost && <span className="text-amber-500 text-[10px] flex items-center gap-0.5">🔒 locked</span>}
+                </p>
                 {editMode ? (
-                  <Input type="number" value={editForm.cost_price || 0} onChange={e => setEditForm({ ...editForm, cost_price: parseFloat(e.target.value) || 0 })} className="h-9" />
+                  canEditCost ? (
+                    <Input type="number" value={editForm.cost_price || 0} onChange={e => setEditForm({ ...editForm, cost_price: parseFloat(e.target.value) || 0 })} className="h-9" />
+                  ) : (
+                    <p className="text-xl font-bold text-slate-400">{formatPHP(product.cost_price)}</p>
+                  )
                 ) : (
                   <p className="text-xl font-bold">{formatPHP(product.cost_price)}</p>
                 )}

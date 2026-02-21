@@ -179,6 +179,39 @@ export default function DailyLogPage() {
     } catch {}
   }, [currentBranch]);
 
+  // ── Z-Report Archive state ────────────────────────────────────────────────
+  const [archiveRecords, setArchiveRecords] = useState([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveBranch, setArchiveBranch] = useState('all'); // 'all' or branch id
+  const [archiveSearch, setArchiveSearch] = useState('');   // filter by date string
+  const [zreportDialog, setZreportDialog] = useState(false);
+  const [zreportData, setZreportData] = useState(null);
+  const [zreportLoading, setZreportLoading] = useState(false);
+
+  const fetchArchive = useCallback(async (branchId = 'all') => {
+    setArchiveLoading(true);
+    try {
+      const params = { limit: 120 };
+      if (branchId !== 'all') params.branch_id = branchId;
+      const res = await api.get('/daily-variance-history', { params });
+      setArchiveRecords(res.data.records || []);
+    } catch { toast.error('Failed to load Z-report archive'); }
+    setArchiveLoading(false);
+  }, []);
+
+  const openZreport = async (record) => {
+    setZreportData(null);
+    setZreportDialog(true);
+    setZreportLoading(true);
+    try {
+      const res = await api.get(`/daily-close/${record.date}`, {
+        params: { branch_id: record.branch_id }
+      });
+      setZreportData(res.data?.status === 'open' ? null : res.data);
+    } catch { toast.error('Failed to load Z-report'); }
+    setZreportLoading(false);
+  };
+
   function r2(n) { return Math.round((parseFloat(n) || 0) * 100) / 100; }
 
   // Computed values

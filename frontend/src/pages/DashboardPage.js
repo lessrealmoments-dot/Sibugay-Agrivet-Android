@@ -336,7 +336,7 @@ export default function DashboardPage() {
       {/* Row 1: Today's performance */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: 'Cash Sales', value: formatPHP(stats?.today_cash_sales), icon: DollarSign, color: { bg: 'bg-emerald-50', text: 'text-emerald-700' }, sub: 'Paid today', testId: 'kpi-cash-sales' },
+          { label: 'Walk-in Sales', value: formatPHP(stats?.today_cash_sales), icon: DollarSign, color: { bg: 'bg-emerald-50', text: 'text-emerald-700' }, sub: 'Paid today', testId: 'kpi-cash-sales' },
           { label: 'New Credit', value: formatPHP(stats?.today_credit_sales), icon: CreditCard, color: { bg: 'bg-amber-50', text: 'text-amber-700' }, sub: 'AR created today', testId: 'kpi-new-credit' },
           { label: 'AR Collected', value: formatPHP(stats?.today_ar_collected), icon: Banknote, color: { bg: 'bg-blue-50', text: 'text-blue-700' }, sub: 'Payments received', testId: 'kpi-ar-collected' },
           { label: 'Expenses', value: formatPHP(stats?.today_expenses), icon: ArrowDown, color: { bg: 'bg-red-50', text: 'text-red-600' }, sub: 'Paid out today', testId: 'kpi-expenses' },

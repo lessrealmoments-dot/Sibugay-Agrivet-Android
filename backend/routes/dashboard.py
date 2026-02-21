@@ -304,6 +304,7 @@ async def dashboard_stats(
         "total_products": total_products,
         "low_stock_count": low_stock_count,
         "total_customers": total_customers,
+        "inventory_value": inventory_value,
         # Lists
         "recent_sales": recent_invoices,
         "top_products": top_products,

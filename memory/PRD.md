@@ -24,7 +24,15 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Multi-Branch Stress Test + Cash Sales Bug Fix - COMPLETE ✅ (Feb 2026)
+### Z-Report Archive Tab - COMPLETE ✅ (Feb 2026)
+- Added "Z-Report Archive" tab to Daily Operations page
+- Shows all past closed days in a sortable table: Date, Branch, Cash Sales, AR Collected, Expenses, Over/Short, Closed By
+- Branch filter + date search filter (admin sees all branches, others see their branch)
+- Summary stats bar: total closed days, total cash sales, total AR collected, net over/short
+- "View" button on each row opens the full Z-report in a dialog using the existing ZReport component
+- Print button on the dialog
+
+
 **Stress test covered all 3 branches simultaneously:**
 - 61/61 backend tests pass, all transaction types verified
 - Inventory deductions verified per branch (ENERTONE, Lannate, VITMIN, VOLPLEX, PLATINUM)

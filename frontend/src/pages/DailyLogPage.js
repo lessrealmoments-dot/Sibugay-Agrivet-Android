@@ -972,7 +972,7 @@ export default function DailyLogPage() {
                       <div className="text-sm font-semibold text-slate-700">Distribution of Actual Cash</div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="mb-1.5 block">Transfer to Safe</Label>
+                          <Label className="mb-1.5 block">Transfer to Vault</Label>
                           <Input type="number" min={0} step="0.01" value={cashToSafe}
                             onChange={e => {
                               setCashToSafe(e.target.value);

@@ -24,7 +24,14 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Dashboard Redesign + Z-Report + Wizard AR Improvements - COMPLETE ✅ (Feb 2026)
+### Inventory Value per Branch - COMPLETE ✅ (Feb 2026)
+- New `_compute_inventory_value(branch_id)` function in dashboard.py — aggregates quantity × cost_price (capital) and quantity × retail_price for all non-repack products with stock > 0
+- Handles mixed-case retail price key (`retail` vs `Retail` from QB import)
+- Returns: capital_value, retail_value, potential_margin, margin_pct, sku_count_in_stock
+- **Owner Dashboard**: Branch cards now show "Stock @ Capital" and "Stock @ Retail" per branch
+- **Branch Dashboard**: "Inventory Value" card with 4 metrics: Capital, Retail, Potential Margin, Margin %
+
+
 **Dashboard (DashboardPage.js) - complete redesign:**
 - **Owner View**: Date/day header, Total Sales Today, Total Cash Position, Outstanding AR, Low Stock Alerts. Branch cards show: Cash Sales/New Credit/Cashier+Safe/AR Outstanding/Last Close Date/Low Stock. Supplier Payables with due dates (red when urgent).
 - **Branch View**: 6 KPI cards (Cash Sales, New Credit, AR Collected, Expenses, Net Cash Flow, Transactions); Cash Position card (Cashier + Safe + Total); AR Aging bars (0-30/31-60/61-90/90+) + Top Debtors; Credit Extended Today (who got credit, how much, balance); AR Payments Received Today; Unpaid POs with due dates (OVERDUE/DUE SOON/UPCOMING labels); Last close date + unclosed day alert.

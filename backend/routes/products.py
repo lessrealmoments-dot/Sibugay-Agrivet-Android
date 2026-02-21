@@ -345,16 +345,22 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
 async def update_product(product_id: str, data: dict, user=Depends(get_current_user)):
     """Update product details."""
     check_perm(user, "products", "edit")
-    
+
     allowed = ["name", "category", "description", "unit", "cost_price", "prices", "barcode",
                "units_per_parent", "repack_unit", "product_type", "capital_method",
                "reorder_point", "reorder_quantity", "unit_of_measurement", "last_vendor"]
     update = {k: v for k, v in data.items() if k in allowed}
-    
+
     if "cost_price" in update:
+        # Separate permission required to change capital/cost
+        if not has_perm(user, "products", "edit_cost"):
+            raise HTTPException(
+                status_code=403,
+                detail="No permission to edit capital/cost price. You can still edit prices."
+            )
         update["cost_price"] = float(update["cost_price"])
+
     update["updated_at"] = now_iso()
-    
     await db.products.update_one({"id": product_id}, {"$set": update})
     product = await db.products.find_one({"id": product_id}, {"_id": 0})
     return product

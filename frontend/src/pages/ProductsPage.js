@@ -371,8 +371,13 @@ export default function ProductsPage() {
                         <Eye size={14} className="text-blue-500" />
                       </Button>
                       {!p.is_repack && (
-                        <Button variant="ghost" size="sm" data-testid={`repack-btn-${p.id}`} onClick={() => openRepack(p)} title="Generate Repack">
-                          <Link2 size={14} className="text-amber-600" />
+                        <Button variant="ghost" size="sm"
+                          data-testid={`repack-btn-${p.id}`}
+                          onClick={() => openRepack(p)}
+                          title={repackParentIds.has(p.id) ? `Has repack — click to add another` : 'No repack yet — click to generate'}
+                          className={repackParentIds.has(p.id) ? 'text-emerald-600 hover:text-emerald-700' : 'text-red-400 hover:text-red-500'}
+                        >
+                          <Link2 size={14} />
                         </Button>
                       )}
                       <Button variant="ghost" size="sm" data-testid={`edit-product-${p.id}`} onClick={() => openEdit(p)}>

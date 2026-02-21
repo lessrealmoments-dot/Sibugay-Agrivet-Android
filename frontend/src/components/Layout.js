@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { path: '/pay-supplier', label: 'Pay Supplier', icon: Building2, perm: 'purchase_orders.view' },
   { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view' },
   { path: '/daily-ops', label: 'Daily Operations', icon: Receipt, perm: 'reports.view' },
+  { path: '/close-wizard', label: 'Close Wizard', icon: Lock, perm: 'reports.close_day' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },
   { path: '/payments', label: 'Receive Payments', icon: Tags, perm: 'accounting.view' },
   { path: '/price-schemes', label: 'Price Schemes', icon: Tags, perm: 'price_schemes.view' },

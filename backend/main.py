@@ -200,6 +200,30 @@ async def startup():
     await db.notifications.create_index("target_user_ids")
     logger.info("Database indexes created")
 
+    # ── Daily backup scheduler ────────────────────────────────────────────────
+    from services.backup_service import create_backup, delete_old_local_backups
+    db_name = os.environ.get("DB_NAME", "agripos_production")
+    backup_hour = int(os.environ.get("BACKUP_SCHEDULE_HOUR", "1"))
+    retain_days = int(os.environ.get("BACKUP_RETENTION_DAYS", "30"))
+
+    async def _daily_backup_job():
+        logger.info("Running scheduled daily backup...")
+        result = await create_backup(db_name)
+        delete_old_local_backups(db_name, retain_days)
+        if result["success"]:
+            logger.info("Scheduled backup complete: %s (%.2f MB)", result["filename"], result["size_mb"])
+        else:
+            logger.error("Scheduled backup FAILED: %s", result.get("error"))
+
+    _scheduler.add_job(
+        _daily_backup_job,
+        CronTrigger(hour=backup_hour, minute=0),
+        id="daily_backup",
+        replace_existing=True,
+    )
+    _scheduler.start()
+    logger.info("Backup scheduler started — daily at %02d:00", backup_hour)
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

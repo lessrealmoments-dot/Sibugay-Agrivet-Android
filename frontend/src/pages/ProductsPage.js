@@ -66,6 +66,7 @@ export default function ProductsPage() {
     capital: 0,
     retailPrice: '',
     retailError: null, rowError: null,
+    hasRepack: false,
   });
 
   const updateRow = (id, updates) =>

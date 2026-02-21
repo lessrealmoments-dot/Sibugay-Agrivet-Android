@@ -404,6 +404,7 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
 
     received_items = []
     shortages = []
+    excesses = []
     for item in order["items"]:
         product_id = item["product_id"]
         qty_ordered = float(item["qty"])

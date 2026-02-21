@@ -24,6 +24,12 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Permission Toggle System Fix - COMPLETE ✅ (Feb 2026)
+**3 bugs fixed in UserPermissionsPage + SettingsPage:**
+1. **Double-toggle**: `<label>` wrapping Radix Switch caused `onCheckedChange` to fire twice (label click forwarded to input + Switch's own handler). Fixed by replacing `<label>` with `<div>` and adding `e.stopPropagation()` on Switch click. Applied to both UserPermissionsPage and SettingsPage TOTP controls.
+2. **State mutation**: `handlePermissionToggle` did `{ ...prev }` shallow copy then mutated `prev[module][action]` directly. Fixed to deep-copy module: `{ ...(prev[module] || {}) }` before modifying.
+3. **Wrong permissions editor**: SettingsPage had a hardcoded `PERMISSION_MODULES` with wrong keys (`pos` instead of `sales`, missing `count_sheets`, `purchase_orders`, wrong action names). Removed the broken dialog entirely. Permissions button now navigates to the correct `UserPermissionsPage`.
+- Added `count_sheets` to UserPermissionsPage module icons.
 ### TOTP Dynamic PIN + Inventory Correction - COMPLETE ✅ (Feb 2026)
 
 **TOTP (Google Authenticator) for Admin:**

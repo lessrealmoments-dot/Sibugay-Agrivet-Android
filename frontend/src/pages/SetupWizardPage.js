@@ -345,7 +345,7 @@ export default function SetupWizardPage() {
                   <DollarSign size={20} className="text-green-600" />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor="opening_cashier_balance">Cashier Drawer Balance</Label>
+                  <Label htmlFor="opening_cashier_balance">Operating Fund Balance</Label>
                   <Input
                     id="opening_cashier_balance"
                     data-testid="setup-cashier-balance"

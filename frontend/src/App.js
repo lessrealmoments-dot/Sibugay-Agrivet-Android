@@ -32,6 +32,7 @@ import AccountsPage from './pages/AccountsPage';
 import EmployeesPage from './pages/EmployeesPage';
 import PaySupplierPage from './pages/PaySupplierPage';
 import ImportPage from './pages/ImportPage';
+import ReportsPage from './pages/ReportsPage';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -102,6 +103,7 @@ function AppRoutes() {
       <Route path="/pay-supplier" element={<ProtectedRoute><PaySupplierPage /></ProtectedRoute>} />
       <Route path="/count-sheets" element={<ProtectedRoute><CountSheetsPage /></ProtectedRoute>} />
       <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

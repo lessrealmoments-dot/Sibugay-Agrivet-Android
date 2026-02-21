@@ -889,18 +889,18 @@ export default function UnifiedSalesPage() {
                               )}
                             </p>
                           )}
-                          {/* Capital reference — visible while price is being edited */}
-                          {item.price > 0 && (item.moving_average_cost > 0 || item.last_purchase_cost > 0) && (
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                          {/* Capital reference — always visible when product has PO history */}
+                          {(item.moving_average_cost > 0 || item.last_purchase_cost > 0) && (
+                            <div className="flex items-center gap-2 text-[10px] mt-0.5">
                               {item.moving_average_cost > 0 && (
-                                <span className={item.price < item.moving_average_cost ? 'text-red-500 font-medium' : ''}>
+                                <span className={`${item.price > 0 && item.price < item.moving_average_cost ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
                                   Avg ₱{item.moving_average_cost.toFixed(2)}
                                 </span>
                               )}
                               {item.last_purchase_cost > 0 && item.last_purchase_cost !== item.moving_average_cost && (
                                 <>
                                   <span className="text-slate-200">·</span>
-                                  <span className={item.price < item.last_purchase_cost ? 'text-amber-500 font-medium' : ''}>
+                                  <span className={`${item.price > 0 && item.price < item.last_purchase_cost ? 'text-amber-500 font-semibold' : 'text-slate-400'}`}>
                                     Last ₱{item.last_purchase_cost.toFixed(2)}
                                   </span>
                                 </>

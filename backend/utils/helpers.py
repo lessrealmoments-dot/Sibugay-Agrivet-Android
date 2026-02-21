@@ -65,7 +65,7 @@ async def log_sale_items(branch_id, date, items, invoice_number, customer_name, 
             "category": item.get("category", ""),
             "invoice_number": invoice_number,
             "customer_name": customer_name,
-            "payment_method": payment_method,
+            "payment_method": (payment_method or "cash").lower(),
             "cashier_name": cashier_name,
         }
         await db.sales_log.insert_one(entry)

@@ -302,7 +302,9 @@ export default function ProductsPage() {
   const handleSave = async () => {
     try {
       if (editing) {
-        await api.put(`/products/${editing.id}`, form);
+        // Strip cost_price from payload if user cannot edit capital
+        const payload = canEditCost ? form : (({ cost_price, ...rest }) => rest)(form);
+        await api.put(`/products/${editing.id}`, payload);
         toast.success('Product updated');
       } else {
         const res = await api.post('/products', form);

@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import SetupWizardPage from './pages/SetupWizardPage';
 import DashboardPage from './pages/DashboardPage';
 import BranchesPage from './pages/BranchesPage';
+import BranchTransferPage from './pages/BranchTransferPage';
 import ProductsPage from './pages/ProductsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import InventoryPage from './pages/InventoryPage';

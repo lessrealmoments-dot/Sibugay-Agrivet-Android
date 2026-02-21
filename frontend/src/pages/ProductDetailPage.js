@@ -385,14 +385,18 @@ export default function ProductDetailPage() {
               <div className="p-3 rounded-lg border bg-slate-50">
                 <p className="text-xs text-slate-500 mb-1">Method</p>
                 {editMode ? (
-                  <Select value={editForm.capital_method || 'manual'} onValueChange={v => setEditForm({ ...editForm, capital_method: v })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="moving_average">Moving Average</SelectItem>
-                      <SelectItem value="last_purchase">Last Purchase</SelectItem>
-                      <SelectItem value="manual">Manual</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  canEditCost ? (
+                    <Select value={editForm.capital_method || 'manual'} onValueChange={v => setEditForm({ ...editForm, capital_method: v })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="moving_average">Moving Average</SelectItem>
+                        <SelectItem value="last_purchase">Last Purchase</SelectItem>
+                        <SelectItem value="manual">Manual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="font-semibold capitalize text-slate-400">{(cost.method || 'manual').replace('_', ' ')}</p>
+                  )
                 ) : (
                   <p className="font-semibold capitalize">{(cost.method || 'manual').replace('_', ' ')}</p>
                 )}

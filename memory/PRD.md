@@ -24,7 +24,31 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Inventory Value per Branch - COMPLETE ✅ (Feb 2026)
+### Deployment Prep - COMPLETE ✅ (Feb 2026)
+**Code fixes:**
+- Fixed N+1 query in `sales.py` — batch-fetches all products before the loop (eliminates N DB calls per sale item)
+- Added MongoDB text index on products (name + sku + barcode) for fast search at scale
+- JWT_SECRET startup warning if < 32 chars
+- Replaced external Pexels login image with local `/public/login-bg.jpg`
+- Removed "Default: admin / admin123" hint (now dev-only via `NODE_ENV`)
+
+**Backup system:**
+- `backend/services/backup_service.py` — mongodump → gzip archive → upload to Cloudflare R2 (falls back to local if R2 not configured)
+- `backend/routes/backups.py` — API: POST /backups/create, GET /backups/list, POST /backups/restore/{filename}
+- APScheduler wired into main.py — runs daily at configurable hour (default 1:00 AM)
+
+**Docker deployment files:**
+- `backend/Dockerfile` — Python 3.11 slim + MongoDB tools (for mongodump)
+- `frontend/Dockerfile` — 2-stage (Node 18 build → nginx 1.25 serve)
+- `frontend/nginx.conf` — serves React SPA + proxies /api to backend + gzip + caching
+- `docker-compose.yml` — orchestrates MongoDB + Backend + Frontend with health checks
+- `.env.production` — template with all required variables
+- `backend/.dockerignore` + `frontend/.dockerignore`
+- `DEPLOYMENT.md` — step-by-step guide (Hostinger VPS setup, Cloudflare DNS, R2 backup, maintenance)
+
+**Deploy command (on VPS):**  `docker compose up -d --build`
+
+
 - New `_compute_inventory_value(branch_id)` function in dashboard.py — aggregates quantity × cost_price (capital) and quantity × retail_price for all non-repack products with stock > 0
 - Handles mixed-case retail price key (`retail` vs `Retail` from QB import)
 - Returns: capital_value, retail_value, potential_margin, margin_pct, sku_count_in_stock

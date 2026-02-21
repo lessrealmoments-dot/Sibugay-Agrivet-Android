@@ -15,10 +15,16 @@ from starlette.middleware.cors import CORSMiddleware
 import os
 from datetime import datetime, timezone
 
+# APScheduler for daily backup
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
 # Import from local modules
 from config import db, client, logger, JWT_SECRET
 from utils import hash_password, now_iso, new_id
 from models import DEFAULT_PERMISSIONS
+
+_scheduler = AsyncIOScheduler()
 # Import all route modules
 from routes import (
     auth_router, branches_router, users_router, products_router,

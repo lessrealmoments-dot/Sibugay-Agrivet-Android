@@ -669,12 +669,13 @@ export default function BranchTransferPage() {
                       <TableCell>
                         <div className="flex gap-1">
                           <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
-                            title="View Details" className="h-7 px-2">
+                            title="View Details" className="h-7 px-2" data-testid={`view-btn-${o.id}`}>
                             <Eye size={13} />
                           </Button>
                           {o.status === 'draft' && (
                             <Button variant="ghost" size="sm" onClick={() => handleSend(o.id)}
-                              className="h-7 px-2 text-blue-500" title="Mark as Sent">
+                              className="h-7 px-2 text-blue-500" title="Mark as Sent"
+                              data-testid={`send-btn-${o.id}`}>
                               <Send size={13} />
                             </Button>
                           )}
@@ -687,7 +688,8 @@ export default function BranchTransferPage() {
                           )}
                           {(o.status === 'draft' || o.status === 'sent') && (
                             <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
-                              className="h-7 px-2 text-red-400" title="Cancel">
+                              className="h-7 px-2 text-red-400" title="Cancel"
+                              data-testid={`cancel-btn-${o.id}`}>
                               <XCircle size={13} />
                             </Button>
                           )}

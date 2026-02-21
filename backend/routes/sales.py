@@ -256,11 +256,11 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
             {"$inc": {"balance": balance}}
         )
     
-    # Log to sequential sales log
+    # Log to sequential sales log — reuse products_map (no extra DB calls)
     active_date = await get_active_date(branch_id)
     for item in sale_items:
-        prod = await db.products.find_one({"id": item["product_id"]}, {"_id": 0, "category": 1})
-        item["category"] = prod.get("category", "General") if prod else "General"
+        product = products_map.get(item["product_id"])
+        item["category"] = product.get("category", "General") if product else "General"
     
     await log_sale_items(
         branch_id, active_date, sale_items, inv_number,

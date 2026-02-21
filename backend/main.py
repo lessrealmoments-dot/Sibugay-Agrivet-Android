@@ -90,6 +90,9 @@ api_router.include_router(notifications_router)
 # Setup Wizard (no auth required)
 api_router.include_router(setup_router)
 
+# Backups
+api_router.include_router(backups_router)
+
 
 # =============================================================================
 # STARTUP & SHUTDOWN

@@ -997,7 +997,7 @@ export default function DailyLogPage() {
 
                       {actualCash !== '' && cashToDrawer !== '' && (
                         <div className="text-xs text-slate-500 text-right">
-                          Safe: {formatPHP(cashToSafeNum)} + Register: {formatPHP(cashToDrawerNum)} = {formatPHP(r2(cashToSafeNum + cashToDrawerNum))}
+                          Vault: {formatPHP(cashToSafeNum)} + Float: {formatPHP(cashToDrawerNum)} = {formatPHP(r2(cashToSafeNum + cashToDrawerNum))}
                           {Math.abs(r2(cashToSafeNum + cashToDrawerNum) - actualNum) > 0.01 && (
                             <span className="text-red-500 ml-2">⚠ Does not match actual cash</span>
                           )}

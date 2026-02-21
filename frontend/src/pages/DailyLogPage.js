@@ -1101,7 +1101,7 @@ export default function DailyLogPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Branches</SelectItem>
-                  {(window._branches || []).map(b => (
+                  {branches.map(b => (
                     <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
                   ))}
                 </SelectContent>

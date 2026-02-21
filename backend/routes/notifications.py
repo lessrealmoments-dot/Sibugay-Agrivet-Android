@@ -58,11 +58,16 @@ async def mark_all_read(user=Depends(get_current_user)):
     return {"message": "All marked as read"}
 
 
-async def create_pin_notification(context: dict, manager_id: str, manager_name: str):
+async def create_pin_notification(context, manager_id: str, manager_name: str):
     """
     Create a notification for admin users when a manager PIN is used.
     context = { type, description, branch_id, branch_name, amount, ... }
+    Also accepts a plain string context (treated as description).
     """
+    # Normalize context to dict if a plain string was passed
+    if isinstance(context, str):
+        context = {"type": "admin_action", "description": context}
+
     # Get all admin user IDs to notify
     admins = await db.users.find(
         {"role": "admin", "active": True}, {"_id": 0, "id": 1}

@@ -439,6 +439,7 @@ async def branch_summary(user=Depends(get_current_user)):
             "total_cash": round(cashier_balance + safe_balance, 2),
             "low_stock_count": low_stock_count,
             "last_close_date": last_close_date,
+            "inventory_value": inv_val,
             "status": status,
         })
     total_revenue = sum(s["today_revenue"] for s in summaries)

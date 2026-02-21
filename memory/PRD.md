@@ -24,7 +24,23 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Branch Transfer Orders - COMPLETE ✅ (Feb 2026)
+### Terminology Rename (AgriPOS → AgriBooks) + Branch Transfer Print - COMPLETE ✅ (Feb 2026)
+**Renamed across the entire frontend:**
+- Brand: AgriPOS → **AgriBooks**; Subtitle: "Inventory & POS" → "Business Management"
+- "Cashier Drawer" / "Cash Drawer" → **Operating Fund**
+- "Starting Cashier Float" / "Starting Float" → **Opening Float**
+- "Left in Register" → **Opening Float (Next Day)**
+- "Transferred to Safe" / "Transfer to Safe" → **Transferred to Vault** / **Transfer to Vault**
+- "Cash Sales" → **Walk-in Sales**
+- "POS Sale" → **Sales Transaction**
+- "Cash Count" → **Actual Count**; "Cash Register" references → removed
+- HTML title, manifest, PWA icons all updated to AgriBooks
+
+**Branch Transfer Print** (QuickBooks-style layout):
+- Print button on every Branch Transfer Order (draft, sent, received)
+- Opens in new window with professional print layout: company header, from/to branch, items table (Product, Transfer Capital, Total, Recommended Retail), signature lines for Prepared/Released/Received
+
+
 **Inter-branch supply system with 3-price model and automatic price propagation.**
 
 **3 prices per product:**

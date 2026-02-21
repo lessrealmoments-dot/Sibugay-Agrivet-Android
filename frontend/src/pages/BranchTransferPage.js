@@ -27,6 +27,19 @@ const STATUS_COLORS = {
   cancelled: 'bg-red-100 text-red-600',
 };
 
+function newRow() {
+  return {
+    id: Math.random().toString(36).slice(2),
+    productSearch: '', productMatches: [], product: null,
+    qty: 1,
+    branch_capital: 0,
+    transfer_capital: '',
+    branch_retail: '',
+    last_purchase_ref: null, moving_average_ref: null, last_branch_retail: null,
+    override: false, override_reason: '',
+  };
+}
+
 const MARKUP_TYPES = [
   { value: 'fixed', label: '+ Fixed ₱' },
   { value: 'percent', label: '+ % of Capital' },

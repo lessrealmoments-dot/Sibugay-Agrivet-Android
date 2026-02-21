@@ -759,7 +759,7 @@ export default function CloseWizardPage() {
                   { label: 'AR Received', value: preview?.total_ar_received, color: 'blue' },
                   { label: 'Expenses', value: preview?.total_expenses, color: 'red' },
                   { label: 'Expected Cash', value: expectedCash, color: 'indigo' },
-                  { label: 'Actual Cash', value: parseFloat(actualCash)||0, color: 'indigo' },
+                  { label: 'Actual Count', value: parseFloat(actualCash)||0, color: 'indigo' },
                   { label: 'To Safe', value: parseFloat(cashToSafe)||0, color: 'slate' },
                   { label: 'Float Tomorrow', value: parseFloat(cashToDrawer)||0, color: 'emerald' },
                 ].map(({ label, value, color }) => (

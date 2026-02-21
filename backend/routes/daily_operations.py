@@ -272,12 +272,48 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
                 total_cogs += (prod.get("cost_price", 0) * entry.get("quantity", 0))
     total_cogs = round(total_cogs, 2)
     
-    # Expenses
+    # Expenses — split into real P&L expenses vs credit-generating items
+    # Credit-generating categories create AR invoices (receivables, not real losses):
+    #   "Farm Expense" → farm service billed to customer (invoice created)
+    #   "Customer Cash-out" / "Customer Cash Out" → cash given to customer (invoice created)
+    #   "Employee Advance" → advance to employee (to be deducted from salary)
+    CREDIT_CATEGORIES = {"farm expense", "customer cash-out", "customer cash out", "employee advance"}
+
     exp_query = {"date": date}
     if branch_id:
         exp_query["branch_id"] = branch_id
     expenses = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
-    total_expenses = sum(e.get("amount", 0) for e in expenses)
+
+    real_expenses = []       # Actual P&L expenses (utilities, rent, PO payments, etc.)
+    credit_expenses = []     # Credits extended to customers (AR — money comes back)
+    advance_expenses = []    # Employee advances (asset — comes back via salary deduction)
+
+    for e in expenses:
+        cat = (e.get("category") or "").lower().strip()
+        if "employee advance" in cat:
+            advance_expenses.append(e)
+        elif "farm expense" in cat or "customer cash" in cat:
+            credit_expenses.append(e)
+        else:
+            real_expenses.append(e)
+
+    total_real_expenses = round(sum(float(e.get("amount", 0)) for e in real_expenses), 2)
+    total_credit_expenses = round(sum(float(e.get("amount", 0)) for e in credit_expenses), 2)
+    total_advance_expenses = round(sum(float(e.get("amount", 0)) for e in advance_expenses), 2)
+    # Legacy field: sum of ALL for backward compat
+    total_expenses = round(total_real_expenses + total_credit_expenses + total_advance_expenses, 2)
+    
+    # Also fetch today's AR invoices created from cash outs / farm expenses (for display)
+    ar_today_query = {
+        "order_date": date,
+        "sale_type": {"$in": ["cash_advance", "farm_expense"]},
+        "status": {"$ne": "voided"}
+    }
+    if branch_id:
+        ar_today_query["branch_id"] = branch_id
+    ar_credits_today = await db.invoices.find(ar_today_query, {"_id": 0,
+        "invoice_number": 1, "customer_name": 1, "sale_type": 1, "grand_total": 1}).to_list(200)
+    total_ar_credits_today = round(sum(float(inv.get("grand_total", 0)) for inv in ar_credits_today), 2)
     
     # Credit collections: only payments on OLD invoices (not today's new sales)
     pay_pipeline = [

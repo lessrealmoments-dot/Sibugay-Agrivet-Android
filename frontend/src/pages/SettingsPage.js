@@ -26,10 +26,8 @@ export default function SettingsPage() {
   // ── User Management ───────────────────────────────────────────────────────
   const [users, setUsers] = useState([]);
   const [createDialog, setCreateDialog] = useState(false);
-  const [permDialog, setPermDialog] = useState(false);
   const [resetPwDialog, setResetPwDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [perms, setPerms] = useState({});
   const [newPw, setNewPw] = useState('');
   const [createForm, setCreateForm] = useState({
     username: '', full_name: '', email: '', password: '', role: 'cashier', branch_id: ''

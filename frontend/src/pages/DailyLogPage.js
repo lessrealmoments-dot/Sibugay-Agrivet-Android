@@ -416,7 +416,7 @@ export default function DailyLogPage() {
             {/* Section header */}
             <div className="bg-[#1A4D2E] text-white px-4 py-2.5 flex items-center justify-between print:bg-black">
               <div>
-                <span className="font-bold text-sm tracking-wide uppercase">Cash Sales</span>
+                <span className="font-bold text-sm tracking-wide uppercase">Walk-in Sales</span>
                 <span className="text-emerald-200 text-xs ml-3">{currentBranch?.name} · {date}</span>
               </div>
               {logSummary && (

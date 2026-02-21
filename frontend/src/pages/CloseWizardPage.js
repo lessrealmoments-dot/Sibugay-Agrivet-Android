@@ -705,7 +705,7 @@ export default function CloseWizardPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Transfer to Safe</Label>
+                  <Label>Transfer to Vault</Label>
                   <Input data-testid="cash-to-safe-input" type="number" min={0} step="0.01"
                     value={cashToSafe}
                     onChange={e => { setCashToSafe(e.target.value); const rem = r2((parseFloat(actualCash)||0)-(parseFloat(e.target.value)||0)); setCashToDrawer(String(Math.max(0,rem))); }}

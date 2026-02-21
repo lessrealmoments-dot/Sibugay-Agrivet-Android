@@ -1,0 +1,7 @@
+node_modules
+build
+.env
+*.md
+.git
+src/**/*.test.*
+public/login-bg.jpg

@@ -269,7 +269,7 @@ async def update_transfer(transfer_id: str, data: dict, user=Depends(get_current
 
 @router.post("/{transfer_id}/send")
 async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
-    """Mark transfer as sent (goods are on the way)."""
+    """Mark transfer as sent (goods are on the way). Creates incoming notification for destination."""
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Transfer not found")
@@ -280,6 +280,39 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
         {"id": transfer_id},
         {"$set": {"status": "sent", "sent_at": now_iso(), "sent_by": user["id"]}}
     )
+
+    # Notify destination branch users + admins
+    from_branch = await db.branches.find_one({"id": order["from_branch_id"]}, {"_id": 0, "name": 1})
+    to_branch = await db.branches.find_one({"id": order["to_branch_id"]}, {"_id": 0, "name": 1})
+    from_name = from_branch.get("name", order["from_branch_id"]) if from_branch else order["from_branch_id"]
+    to_name = to_branch.get("name", order["to_branch_id"]) if to_branch else order["to_branch_id"]
+
+    dest_users = await db.users.find(
+        {"branch_id": order["to_branch_id"], "active": True}, {"_id": 0, "id": 1}
+    ).to_list(50)
+    admins = await db.users.find(
+        {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+    ).to_list(50)
+    target_ids = list({u["id"] for u in dest_users + admins})
+
+    await db.notifications.insert_one({
+        "id": new_id(),
+        "type": "transfer_incoming",
+        "title": "Incoming Stock Transfer",
+        "message": f"Transfer {order['order_number']} from {from_name} is on the way — {len(order.get('items', []))} product(s)",
+        "branch_id": order["to_branch_id"],
+        "branch_name": to_name,
+        "metadata": {
+            "transfer_id": transfer_id,
+            "order_number": order["order_number"],
+            "from_branch": from_name,
+            "to_branch": to_name,
+        },
+        "target_user_ids": target_ids,
+        "read_by": [],
+        "created_at": now_iso(),
+    })
+
     return {"message": "Transfer sent", "status": "sent"}
 
 

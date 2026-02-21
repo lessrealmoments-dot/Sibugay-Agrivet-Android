@@ -49,28 +49,6 @@ export default function SettingsPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };
 
-  const openPerms = (u) => {
-    setSelectedUser(u);
-    setPerms(JSON.parse(JSON.stringify(u.permissions || {})));
-    setPermDialog(true);
-  };
-
-  const togglePerm = (module, action) => {
-    setPerms(prev => ({
-      ...prev,
-      [module]: { ...prev[module], [action]: !prev[module]?.[action] }
-    }));
-  };
-
-  const savePerms = async () => {
-    try {
-      await api.put(`/users/${selectedUser.id}/permissions`, { permissions: perms });
-      toast.success('Permissions updated');
-      setPermDialog(false);
-      fetchUsers();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
-  };
-
   const openResetPw = (u) => { setSelectedUser(u); setNewPw(''); setResetPwDialog(true); };
 
   const handleResetPw = async () => {

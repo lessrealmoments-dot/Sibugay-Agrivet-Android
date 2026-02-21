@@ -336,8 +336,7 @@ export default function DashboardPage() {
       {/* Row 2: Cash + AR */}
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Cash Position */}
-        <Card className="border-slate-200" data-testid="cash-position-card">
-          <CardHeader className="pb-2">
+        <Card className="border-slate-200" data-testid="cash-position-card">          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Wallet size={15} className="text-blue-600" /> Cash Position
             </CardTitle>

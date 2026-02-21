@@ -187,8 +187,10 @@ export default function BranchTransferPage() {
 
   const selectProduct = (rowId, p) => {
     const rowUpdate = {
-      product: p, productSearch: p.name, productMatches: [],
+      product: p, productSearch: p.name, productMatches: [], activeSearchIndex: -1,
       branch_capital: p.branch_capital,
+      global_cost_price: p.global_cost_price ?? p.branch_capital,
+      is_branch_specific_cost: p.is_branch_specific_cost ?? false,
       last_purchase_ref: p.last_purchase_ref,
       moving_average_ref: p.moving_average_ref,
       last_branch_retail: p.last_branch_retail,

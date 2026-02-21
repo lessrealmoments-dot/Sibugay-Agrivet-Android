@@ -24,6 +24,23 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### P0 Reports (AR Aging, Sales, Expense) - COMPLETE ✅ (Feb 2026)
+
+**3 new report endpoints in `backend/routes/reports.py`:**
+- `GET /api/reports/ar-aging` — Open invoices bucketed by age (0-30, 31-60, 61-90, 90+ days), grouped per customer with expandable invoice detail. Branch filter. Returns as_of_date, totals, rows.
+- `GET /api/reports/sales` — Sales totals by category, daily breakdown, per-transaction list. Filters: date_from, date_to, branch_id. Returns grand_total, categories (with by_payment breakdown), daily array, transactions.
+- `GET /api/reports/expenses` — Expenses by category with progress bars, daily breakdown, per-transaction detail. Filters: date_from, date_to, branch_id, category. Returns grand_total, categories, daily, expenses.
+
+**Frontend `ReportsPage.js` at `/reports`:**
+- Tabbed UI (AR Aging / Sales Report / Expense Report)
+- AR Aging: KPI cards per bucket, Customer Aging Detail table, expandable rows per customer showing invoice-level detail (invoice#, date, days old, balance, due date), print-friendly output
+- Sales Report: KPI cards (Total, Cash, Credit, Category count), Summary view (by-category table with cash/credit split + % of total), Daily Sales table, Transactions view (per-invoice list with status badges), date range filters
+- Expense Report: KPI cards (Total, Count, Categories, Largest Category), Summary view (category table + progress bar share visualization), Daily Expenses table, Detail view (per-transaction with employee/description), category filter dropdown
+- All three reports have Print button that opens a formatted print window
+- Reports nav link added to sidebar (BarChart3 icon, under Daily Operations, perm: reports.view)
+
+**Testing: 34/34 backend tests pass · 100% frontend flows verified by testing agent**
+
 ### Terminology Rename (AgriPOS → AgriBooks) + Branch Transfer Print - COMPLETE ✅ (Feb 2026)
 **Renamed across the entire frontend:**
 - Brand: AgriPOS → **AgriBooks**; Subtitle: "Inventory & POS" → "Business Management"

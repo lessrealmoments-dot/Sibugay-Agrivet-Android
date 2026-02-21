@@ -801,8 +801,7 @@ export default function ProductsPage() {
           )}
         </DialogContent>
       </Dialog>
-      {/* ── Batch Quick Repack Generator ─────────────────────────────── */}
-      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+      {/* ── Batch Quick Repack Generator ─────────────────────────────── */}      <Dialog open={qrOpen} onOpenChange={setQrOpen}>
         <DialogContent className="max-w-[96vw] w-[1100px] max-h-[90vh] flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">

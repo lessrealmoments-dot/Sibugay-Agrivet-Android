@@ -23,8 +23,8 @@ const STEPS = [
   { id: 2, title: 'Customer Credits', icon: CreditCard,   desc: 'Credit sales, cashouts & farm services' },
   { id: 3, title: 'AR Payments',      icon: Banknote,     desc: 'Payments received on existing credit' },
   { id: 4, title: 'Expenses',         icon: ReceiptText,  desc: 'All expenses recorded today' },
-  { id: 5, title: 'Cash Count',       icon: Calculator,   desc: 'Count the actual cash in drawer' },
-  { id: 6, title: 'Fund Allocation',  icon: Wallet,       desc: 'Distribute to safe and register' },
+  { id: 5, title: 'Actual Count',       icon: Calculator,   desc: 'Count the actual funds in the operating fund' },
+  { id: 6, title: 'Fund Allocation',  icon: Wallet,       desc: 'Distribute to vault and opening float' },
   { id: 7, title: 'Close & Sign Off', icon: Lock,         desc: 'Z-Report preview and manager sign-off' },
   { id: 8, title: 'Open Tomorrow',    icon: Sun,          desc: 'Confirm close and start next day' },
 ];

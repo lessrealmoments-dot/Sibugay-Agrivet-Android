@@ -335,11 +335,18 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     from_branch_id = order["from_branch_id"]
     to_branch_id = order["to_branch_id"]
 
+    # Look up branch names for readable log notes and notifications
+    from_branch = await db.branches.find_one({"id": from_branch_id}, {"_id": 0, "name": 1})
+    to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+    from_name = from_branch.get("name", from_branch_id) if from_branch else from_branch_id
+    to_name = to_branch.get("name", to_branch_id) if to_branch else to_branch_id
+
     # Optional qty overrides from receiving party
     qty_overrides = {item["product_id"]: float(item.get("qty_received", item["qty"]))
                      for item in data.get("items", [])}
 
     received_items = []
+    shortages = []
     for item in order["items"]:
         product_id = item["product_id"]
         qty_ordered = float(item["qty"])
@@ -403,21 +410,42 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
             upsert=True
         )
 
-        # Log movements
+        # Log movements with branch names
         await log_movement(
             product_id, from_branch_id, "transfer_out", -qty_received,
             transfer_id, order["order_number"], transfer_capital,
             user["id"], user.get("full_name", user["username"]),
-            f"Branch transfer to {to_branch_id}"
+            f"Branch transfer to {to_name}"
         )
         await log_movement(
             product_id, to_branch_id, "transfer_in", qty_received,
             transfer_id, order["order_number"], transfer_capital,
             user["id"], user.get("full_name", user["username"]),
-            f"Branch transfer from {from_branch_id}"
+            f"Branch transfer from {from_name}"
         )
 
-        received_items.append({**item, "qty_received": qty_received})
+        # Track shortage
+        variance = qty_ordered - qty_received
+        if variance > 0:
+            shortages.append({
+                "product_id": product_id,
+                "product_name": item["product_name"],
+                "sku": item.get("sku", ""),
+                "unit": item.get("unit", ""),
+                "qty_ordered": qty_ordered,
+                "qty_received": qty_received,
+                "shortage": variance,
+                "transfer_capital": transfer_capital,
+                "branch_retail": branch_retail,
+                "capital_variance": round(variance * transfer_capital, 2),
+                "retail_variance": round(variance * branch_retail, 2),
+            })
+
+        received_items.append({
+            **item,
+            "qty_ordered": qty_ordered,
+            "qty_received": qty_received,
+        })
 
     await db.branch_transfer_orders.update_one(
         {"id": transfer_id},
@@ -427,13 +455,53 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
             "received_by": user["id"],
             "received_by_name": user.get("full_name", user["username"]),
             "items": received_items,
+            "shortages": shortages,
+            "has_shortage": len(shortages) > 0,
         }}
     )
+
+    # Notify source branch + admins if there are shortages
+    if shortages:
+        total_cap_loss = round(sum(s["capital_variance"] for s in shortages), 2)
+        total_ret_loss = round(sum(s["retail_variance"] for s in shortages), 2)
+
+        src_users = await db.users.find(
+            {"branch_id": from_branch_id, "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        admins = await db.users.find(
+            {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        shortage_target_ids = list({u["id"] for u in src_users + admins})
+
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "transfer_shortage",
+            "title": "Transfer Shortage Detected",
+            "message": (
+                f"Transfer {order['order_number']} received by {to_name} with shortage — "
+                f"{len(shortages)} product(s) short. "
+                f"Capital loss: ₱{total_cap_loss:,.2f} | Retail loss: ₱{total_ret_loss:,.2f}"
+            ),
+            "branch_id": from_branch_id,
+            "branch_name": from_name,
+            "metadata": {
+                "transfer_id": transfer_id,
+                "order_number": order["order_number"],
+                "shortages": shortages,
+                "total_capital_variance": total_cap_loss,
+                "total_retail_variance": total_ret_loss,
+            },
+            "target_user_ids": shortage_target_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
 
     return {
         "message": f"Transfer received. {len(received_items)} product(s) updated.",
         "order_number": order["order_number"],
         "items_received": len(received_items),
+        "shortages": shortages,
+        "has_shortage": len(shortages) > 0,
     }
 
 

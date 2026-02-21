@@ -24,6 +24,7 @@ from .branch_prices import router as branch_prices_router
 from .import_data import router as import_router
 from .branch_transfers import router as branch_transfers_router
 from .notifications import router as notifications_router
+from .reports import router as reports_router
 
 __all__ = [
     'auth_router', 'branches_router', 'users_router', 'products_router',

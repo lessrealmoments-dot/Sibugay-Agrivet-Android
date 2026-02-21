@@ -356,12 +356,14 @@ export default function BranchTransferPage() {
     setToBranchId('');
   };
   const [receiveQtys, setReceiveQtys] = useState({});
+  const [receiveNotes, setReceiveNotes] = useState('');
 
   const openReceive = (order) => {
     setViewOrder(order);
     const qtys = {};
     order.items.forEach(item => { qtys[item.product_id] = item.qty; });
     setReceiveQtys(qtys);
+    setReceiveNotes('');
     setReceiveDialog(true);
   };
 
@@ -372,13 +374,19 @@ export default function BranchTransferPage() {
       const items = viewOrder.items.map(item => ({
         product_id: item.product_id,
         qty: item.qty,
-        qty_received: parseFloat(receiveQtys[item.product_id]) || item.qty,
+        qty_received: parseFloat(receiveQtys[item.product_id]) ?? item.qty,
         transfer_capital: item.transfer_capital,
         branch_retail: item.branch_retail,
       }));
-      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, { items });
-      toast.success(res.data.message);
+      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, { items, notes: receiveNotes });
+      const msg = res.data.has_shortage
+        ? `${res.data.message} — shortage on ${res.data.shortages?.length} item(s)`
+        : res.data.has_excess
+        ? `${res.data.message} — excess on ${res.data.excesses?.length} item(s)`
+        : res.data.message;
+      toast.success(msg);
       setReceiveDialog(false);
+      setViewOrder(null);
       loadOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Receive failed'); }
     setReceiveSaving(false);

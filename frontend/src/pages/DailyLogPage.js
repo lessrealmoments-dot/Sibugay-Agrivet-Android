@@ -258,6 +258,7 @@ export default function DailyLogPage() {
 
   useEffect(() => { fetchLog(); fetchReport(); fetchClosing(); fetchPreview(); }, [fetchLog, fetchReport, fetchClosing, fetchPreview]);
   useEffect(() => { if (tab === 'variance') fetchVarianceHistory(); }, [tab, fetchVarianceHistory]);
+  useEffect(() => { if (tab === 'archive') fetchArchive(archiveBranch); }, [tab]); // eslint-disable-line
   useEffect(() => {
     api.get('/customers', { params: { limit: 500 } }).then(r => setCustomers(r.data.customers)).catch(() => {});
     if (currentBranch) api.get('/employees', { params: { branch_id: currentBranch.id } }).then(r => setEmployees(r.data)).catch(() => {});

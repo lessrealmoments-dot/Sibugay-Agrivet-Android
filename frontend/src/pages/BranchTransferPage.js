@@ -124,15 +124,21 @@ export default function BranchTransferPage() {
     setRows(prev => prev.map(row => applyMarkupToRow(row, categoryMarkups)));
   }, [categoryMarkups]); // eslint-disable-line
 
-  // Load transfer history
+  // Load transfer history — filtered by branch context
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
     try {
-      const res = await api.get('/branch-transfers', { params: { limit: 50 } });
+      const params = { limit: 100 };
+      // Admin in specific branch view: filter by that branch
+      if (canViewAllBranches && !isConsolidatedView && currentBranch?.id) {
+        params.branch_id = currentBranch.id;
+      }
+      // isConsolidatedView (All Branches) → no filter, admin sees everything
+      const res = await api.get('/branch-transfers', { params });
       setOrders(res.data.orders || []);
     } catch { toast.error('Failed to load transfer history'); }
     setOrdersLoading(false);
-  }, []);
+  }, [canViewAllBranches, isConsolidatedView, currentBranch?.id]);
 
   useEffect(() => { if (tab === 'history') loadOrders(); }, [tab, loadOrders]);
 

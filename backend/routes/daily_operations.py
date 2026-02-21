@@ -570,3 +570,108 @@ async def get_variance_history(
         r["branch_name"] = branch_names.get(bid, "")
 
     return {"records": records, "total": total}
+
+
+
+@router.get("/low-stock-alert")
+async def get_low_stock_alert(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+):
+    """
+    Products that ever had inventory added for this branch and are now
+    at 0 OR at/below their reorder_point.
+    """
+    check_perm(user, "inventory", "view")
+    if not branch_id:
+        branch_id = user.get("branch_id")
+    if not branch_id:
+        return []
+
+    inv_records = await db.inventory.find(
+        {"branch_id": branch_id}, {"_id": 0, "product_id": 1, "quantity": 1}
+    ).to_list(10000)
+
+    low_stock = []
+    for inv in inv_records:
+        qty = float(inv.get("quantity", 0))
+        product = await db.products.find_one(
+            {"id": inv["product_id"], "active": True, "is_repack": {"$ne": True}},
+            {"_id": 0, "id": 1, "name": 1, "sku": 1, "unit": 1, "category": 1,
+             "reorder_point": 1, "reorder_quantity": 1}
+        )
+        if not product:
+            continue
+        reorder_pt = float(product.get("reorder_point", 0))
+        if qty <= 0 or (reorder_pt > 0 and qty <= reorder_pt):
+            low_stock.append({
+                "product_id": product["id"],
+                "sku": product["sku"],
+                "name": product["name"],
+                "unit": product["unit"],
+                "category": product.get("category", "General"),
+                "current_qty": qty,
+                "reorder_point": reorder_pt,
+                "reorder_quantity": product.get("reorder_quantity", 0),
+                "status": "out_of_stock" if qty <= 0 else "low_stock",
+            })
+
+    low_stock.sort(key=lambda x: (0 if x["status"] == "out_of_stock" else 1, x["name"]))
+    return low_stock
+
+
+@router.get("/supplier-payables")
+async def get_supplier_payables(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+):
+    """All outstanding unpaid/partially-paid purchase orders, sorted by urgency."""
+    check_perm(user, "purchase_orders", "view")
+    if not branch_id:
+        branch_id = user.get("branch_id")
+
+    query = {
+        "payment_status": {"$ne": "paid"},
+        "status": {"$in": ["received", "partial", "ordered"]},
+    }
+    if branch_id:
+        query["branch_id"] = branch_id
+
+    pos = await db.purchase_orders.find(query, {"_id": 0}).sort("due_date", 1).to_list(500)
+    today = datetime.now(timezone.utc).date()
+    result = []
+    for po in pos:
+        due_str = po.get("due_date", "")
+        days_until_due = None
+        is_overdue = False
+        is_urgent = False
+        if due_str:
+            try:
+                due_d = datetime.strptime(due_str, "%Y-%m-%d").date()
+                days_until_due = (due_d - today).days
+                is_overdue = days_until_due < 0
+                is_urgent = days_until_due < 7
+            except Exception:
+                pass
+
+        result.append({
+            "id": po.get("id", ""),
+            "po_number": po.get("po_number", po.get("id", "")[:8].upper()),
+            "vendor": po.get("vendor", "Unknown"),
+            "purchase_date": po.get("purchase_date", ""),
+            "due_date": due_str,
+            "subtotal": float(po.get("subtotal", 0)),
+            "balance": float(po.get("balance", po.get("subtotal", 0))),
+            "status": po.get("status", ""),
+            "payment_status": po.get("payment_status", "unpaid"),
+            "days_until_due": days_until_due,
+            "is_overdue": is_overdue,
+            "is_urgent": is_urgent,
+        })
+
+    # Sort: overdue first, then by urgency, then by days_until_due
+    result.sort(key=lambda x: (
+        0 if x["is_overdue"] else (1 if x["is_urgent"] else 2),
+        x["days_until_due"] if x["days_until_due"] is not None else 9999
+    ))
+    return result

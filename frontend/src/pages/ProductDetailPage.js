@@ -202,9 +202,28 @@ export default function ProductDetailPage() {
           <p className="text-2xl font-bold text-amber-600" style={{ fontFamily: 'Manrope' }}>{inventory.reserved}</p>
         </CardContent></Card>
         <Card className="border-slate-200"><CardContent className="p-4">
-          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Cost ({cost.capital_method || 'manual'})</p>
-          <p className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(cost.moving_average)}</p>
-          {cost.last_purchase_warning && <p className="text-[11px] text-amber-600 flex items-center gap-1"><AlertTriangle size={10} /> Last purchase was cheaper</p>}
+          <p className="text-xs text-slate-500 uppercase font-medium mb-1">Cost ({cost.capital_method || 'moving_avg'})</p>
+          {cost.is_branch_specific ? (
+            <div>
+              <p className="text-2xl font-bold text-amber-700" style={{ fontFamily: 'Manrope' }}>{formatPHP(cost.branch_cost_price)}</p>
+              <p className="text-[10px] text-amber-600 mt-0.5">Branch cost {cost.cost_transfer_order ? `(via ${cost.cost_transfer_order})` : ''}</p>
+              <p className="text-[10px] text-slate-400">Global: {formatPHP(cost.cost_price)}</p>
+            </div>
+          ) : (
+            <p className="text-2xl font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(cost.moving_average || cost.cost_price)}</p>
+          )}
+          {cost.last_purchase_warning && <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-1"><AlertTriangle size={10} /> Last purchase was cheaper</p>}
+          {/* Always show both MA and LP */}
+          <div className="flex gap-3 mt-2 pt-2 border-t border-slate-100">
+            <div>
+              <p className="text-[9px] text-slate-400 uppercase font-medium">Mov. Avg</p>
+              <p className="text-xs font-bold font-mono text-slate-700">{formatPHP(cost.moving_average)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] text-slate-400 uppercase font-medium">Last PO</p>
+              <p className={`text-xs font-bold font-mono ${cost.last_purchase_warning ? 'text-amber-600' : 'text-slate-700'}`}>{formatPHP(cost.last_purchase)}</p>
+            </div>
+          </div>
         </CardContent></Card>
       </div>
 

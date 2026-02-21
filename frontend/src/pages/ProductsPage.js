@@ -17,7 +17,8 @@ import { TotpVerifyDialog } from '../components/TotpVerifyDialog';
 
 export default function ProductsPage() {
   const navigate = useNavigate();
-  const { currentBranch, user } = useAuth();
+  const { currentBranch, user, hasPerm } = useAuth();
+  const canEditCost = hasPerm('products', 'edit_cost');
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');

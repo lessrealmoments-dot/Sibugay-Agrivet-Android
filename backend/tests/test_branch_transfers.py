@@ -121,16 +121,19 @@ class TestProductLookup:
         assert data == [], f"Expected empty list for empty query, got {data}"
         print("PASS: empty query returns []")
 
-    def test_product_lookup_vitmin(self, client):
-        """Search 'vitmin' returns product."""
+    def test_product_lookup_lannate(self, client):
+        """Search 'lannate' returns product with correct fields."""
         res = client.get(
             f"{BASE_URL}/api/branch-transfers/product-lookup",
-            params={"q": "vitmin", "from_branch_id": MAIN_BRANCH_ID, "to_branch_id": IPIL_BRANCH_ID}
+            params={"q": "lannate", "from_branch_id": MAIN_BRANCH_ID, "to_branch_id": IPIL_BRANCH_ID}
         )
         assert res.status_code == 200
         data = res.json()
-        assert len(data) > 0, "No products returned for 'vitmin'"
-        print(f"PASS: vitmin lookup returned {len(data)} products")
+        assert len(data) > 0, "No products returned for 'lannate'"
+        p = data[0]
+        assert p["category"] == "Pesticide"
+        assert float(p["branch_capital"]) == 500.0
+        print(f"PASS: lannate lookup returned {len(data)} products, capital={p['branch_capital']}")
 
 
 class TestTransferCRUD:

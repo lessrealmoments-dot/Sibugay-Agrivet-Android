@@ -11,10 +11,12 @@ import { Separator } from '../components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { ScrollArea } from '../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   ClipboardList, TrendingUp, Lock, Printer, Calendar,
-  DollarSign, ArrowDown, ArrowUp, AlertTriangle, Plus, CheckCircle, FileWarning
+  DollarSign, ArrowDown, ArrowUp, AlertTriangle, Plus, CheckCircle, FileWarning,
+  Archive, Eye, RefreshCw, Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
 

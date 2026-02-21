@@ -37,6 +37,16 @@ export default function ProductsPage() {
   const [form, setForm] = useState({ sku: '', name: '', category: 'General', unit: 'Box', cost_price: 0, prices: {}, barcode: '', description: '', product_type: 'stockable', unit_of_measurement: 'Box' });
   const [repackForm, setRepackForm] = useState({ name: '', unit: 'Sachet', units_per_parent: 1, cost_price: 0, prices: {} });
 
+  // ── Inventory Correction (admin) ────────────────────────────────────────
+  const [correctionExpanded, setCorrectionExpanded] = useState(false);
+  const [currentStock, setCurrentStock] = useState(null);
+  const [correctionQty, setCorrectionQty] = useState('');
+  const [correctionReason, setCorrectionReason] = useState('');
+  const [correctionHistory, setCorrectionHistory] = useState([]);
+  const [totpOpen, setTotpOpen] = useState(false);
+  const [pendingCorrection, setPendingCorrection] = useState(null); // { new_qty, reason }
+  const [correctionSaving, setCorrectionSaving] = useState(false);
+
   // ── Batch Quick Repack ──────────────────────────────────────────────────────
   const [qrOpen, setQrOpen] = useState(false);
   const [qrRows, setQrRows] = useState([]);

@@ -413,6 +413,9 @@ async def branch_summary(user=Depends(get_current_user)):
         )
         last_close_date = last_close["date"] if last_close else None
 
+        # Inventory value for this branch
+        inv_val = await _compute_inventory_value(branch_id)
+
         # Determine status
         status = "good"
         if low_stock_count > 10:

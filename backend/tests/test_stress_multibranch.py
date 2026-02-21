@@ -403,6 +403,8 @@ class TestPhase2MainBranch:
         # Record cashier balance before
         shared_state["main_cashier_before_sales"] = self._get_cashier_balance(authed, MAIN_BRANCH_ID)
 
+        # IMPORTANT: payment_method must be lowercase "cash" for daily_log/close_preview to count it
+        # (daily_ops.py queries with exact match: "payment_method": "cash")
         resp = authed.post(f"{BASE_URL}/api/unified-sale", json={
             "branch_id": MAIN_BRANCH_ID,
             "items": [{
@@ -418,7 +420,7 @@ class TestPhase2MainBranch:
             }],
             "payment_type": "cash",
             "customer_name": "Walk-in",
-            "payment_method": "Cash",
+            "payment_method": "cash",
             "subtotal": 5750,
             "grand_total": 5750,
             "amount_paid": 5750,

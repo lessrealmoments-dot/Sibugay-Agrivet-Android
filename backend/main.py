@@ -167,6 +167,14 @@ async def startup():
     await db.products.create_index("sku")
     await db.products.create_index("id", unique=True)
     await db.products.create_index("parent_id")
+    # Text index for fast product search (name + sku + barcode)
+    try:
+        await db.products.create_index(
+            [("name", "text"), ("sku", "text"), ("barcode", "text")],
+            name="product_text_search", default_language="none"
+        )
+    except Exception:
+        pass  # Index may already exist with different options
     await db.inventory.create_index([("product_id", 1), ("branch_id", 1)], unique=True)
     await db.sales.create_index("branch_id")
     await db.sales.create_index("created_at")

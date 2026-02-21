@@ -402,7 +402,7 @@ export default function CloseWizardPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex gap-4 text-sm">
-                  <span className="text-slate-500">Cash Sales: <strong className="text-emerald-700">{formatPHP(dailyLog?.summary?.total_cash || 0)}</strong></span>
+                  <span className="text-slate-500">Walk-in Sales: <strong className="text-emerald-700">{formatPHP(dailyLog?.summary?.total_cash || 0)}</strong></span>
                   <span className="text-slate-500">Credit: <strong className="text-amber-700">{formatPHP(dailyLog?.summary?.total_credit || 0)}</strong></span>
                   <span className="text-slate-500">Total Entries: <strong>{dailyLog?.summary?.cash_count || 0}</strong></span>
                 </div>

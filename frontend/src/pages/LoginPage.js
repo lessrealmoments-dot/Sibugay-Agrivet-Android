@@ -34,7 +34,7 @@ export default function LoginPage() {
       <div
         className="hidden lg:flex lg:w-1/2 relative items-center justify-center"
         style={{
-          backgroundImage: 'url(https://images.pexels.com/photos/7019226/pexels-photo-7019226.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940)',
+          backgroundImage: "url('/login-bg.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}

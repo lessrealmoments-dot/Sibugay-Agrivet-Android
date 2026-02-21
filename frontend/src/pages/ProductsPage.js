@@ -43,6 +43,7 @@ export default function ProductsPage() {
   const [qrResults, setQrResults] = useState(null); // null = not yet generated
   const searchTimers = useRef({});
   const pendingFocusRowId = useRef(null);
+  const dropdownRefs = useRef({});
 
   // After a new row is added via Tab, focus its parent search input
   useEffect(() => {

@@ -427,7 +427,8 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         safe_balance = sum(l["remaining_amount"] for l in lots)
 
     cash_sales_agg = await db.sales_log.aggregate([
-        {"$match": {"branch_id": branch_id, "date": date, "payment_method": "cash"}},
+        {"$match": {"branch_id": branch_id, "date": date,
+                    "payment_method": {"$regex": "^cash$", "$options": "i"}}},
         {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}}}
     ]).to_list(100)
     sales_by_category = {r["_id"] or "General": round(r["total"], 2) for r in cash_sales_agg}

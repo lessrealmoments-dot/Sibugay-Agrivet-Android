@@ -349,10 +349,21 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
         "new_sales_today": total_revenue,
         "total_cogs": total_cogs,
         "gross_profit": gross_profit,
-        "total_expenses": total_expenses,
+        # Correct net profit — only real expenses subtracted
+        "total_expenses": total_real_expenses,
         "net_profit": net_profit,
         "sales_by_category": sales_by_category,
-        "expenses": expenses,
+        # Split expense lists
+        "expenses": real_expenses,
+        "credit_expenses": credit_expenses,           # Farm + Cash-out (AR — NOT a loss)
+        "advance_expenses": advance_expenses,          # Employee advances (asset)
+        "total_credit_expenses": total_credit_expenses,
+        "total_advance_expenses": total_advance_expenses,
+        # AR credits created today from cash outs / farm service (invoice-backed)
+        "ar_credits_today": ar_credits_today,
+        "total_ar_credits_today": total_ar_credits_today,
+        # Legacy sum (all expenses) for any existing UI that needs it
+        "total_all_expenses": total_expenses,
         "credit_collections": credit_collections,
         "total_credit_collections": total_credit_collections,
         "total_cash_from_invoices": total_cash_from_invoices,

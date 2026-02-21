@@ -307,7 +307,6 @@ export default function UserPermissionsPage() {
                                 />
                                 <span className="text-xs select-none">{actionLabel}</span>
                               </div>
-                            ))}
                           </div>
                         </div>
                       );

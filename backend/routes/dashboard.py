@@ -14,6 +14,62 @@ from utils import (
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
+async def _compute_inventory_value(branch_id: str) -> dict:
+    """
+    Calculate stock value for a branch:
+      - capital_value  = sum(qty × cost_price)   [non-repack only]
+      - retail_value   = sum(qty × retail_price)
+      - potential_margin = retail_value - capital_value
+    """
+    pipeline = [
+        {"$match": {"branch_id": branch_id}},
+        {"$lookup": {
+            "from": "products",
+            "localField": "product_id",
+            "foreignField": "id",
+            "as": "product"
+        }},
+        {"$unwind": "$product"},
+        {"$match": {
+            "product.active": True,
+            "product.is_repack": {"$ne": True},
+            "quantity": {"$gt": 0}
+        }},
+        {"$project": {
+            "_id": 0,
+            "quantity": 1,
+            "cost_price": "$product.cost_price",
+            "prices": "$product.prices",
+        }}
+    ]
+    items = await db.inventory.aggregate(pipeline).to_list(10000)
+
+    capital_value = 0.0
+    retail_value = 0.0
+    sku_count = len(items)
+
+    for item in items:
+        qty = float(item.get("quantity", 0))
+        cost = float(item.get("cost_price", 0))
+        capital_value += qty * cost
+
+        # Case-insensitive retail price lookup (handles 'retail' and 'Retail' from QB import)
+        prices = item.get("prices") or {}
+        retail = next(
+            (float(v) for k, v in prices.items() if k.lower() == "retail"),
+            cost  # fallback to cost if no retail price set
+        )
+        retail_value += qty * retail
+
+    return {
+        "capital_value": round(capital_value, 2),
+        "retail_value": round(retail_value, 2),
+        "potential_margin": round(retail_value - capital_value, 2),
+        "margin_pct": round((retail_value - capital_value) / capital_value * 100, 1) if capital_value > 0 else 0,
+        "sku_count_in_stock": sku_count,
+    }
+
+
 async def _compute_ar_aging(branch_filter):
     """Compute AR aging buckets across all outstanding invoices."""
     today = datetime.now(timezone.utc).date()

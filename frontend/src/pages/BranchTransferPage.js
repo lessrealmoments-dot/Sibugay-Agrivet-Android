@@ -289,7 +289,72 @@ export default function BranchTransferPage() {
     setSaving(false);
   };
 
-  // ── Receive order ──────────────────────────────────────────────────────────
+  // ── Edit existing draft order ──────────────────────────────────────────────
+  const loadOrderIntoEdit = (order) => {
+    setFromBranchId(order.from_branch_id || '');
+    setToBranchId(order.to_branch_id || '');
+    setMinMargin(order.min_margin ?? 20);
+    setCategoryMarkups(order.category_markups || []);
+    setEditingOrderId(order.id);
+    // Reconstruct rows from stored items
+    const editRows = (order.items || []).map(item => ({
+      ...newRow(),
+      product: { id: item.product_id, name: item.product_name, sku: item.sku, category: item.category, unit: item.unit },
+      productSearch: item.product_name,
+      qty: item.qty,
+      branch_capital: item.branch_capital || 0,
+      global_cost_price: item.branch_capital || 0,
+      is_branch_specific_cost: false,
+      transfer_capital: String(item.transfer_capital || ''),
+      branch_retail: String(item.branch_retail || ''),
+      override: item.override || false,
+      override_reason: item.override_reason || '',
+    }));
+    setRows(editRows.length ? editRows : [newRow()]);
+    setTab('new');
+  };
+
+  const handleUpdateDraft = async () => {
+    if (!editingOrderId) { handleSubmit(); return; }
+    if (!rows.length || rows.every(r => !r.product)) { toast.error('Add at least one product'); return; }
+    const validRows = rows.filter(r => r.product);
+    const blockers = validRows.filter(r => { const v = validateRow(r, minMargin); return !v.ok && !r.override; });
+    if (blockers.length > 0) { toast.error(`${blockers.length} row(s) have validation errors.`); return; }
+
+    setSaving(true);
+    try {
+      await api.put(`/branch-transfers/${editingOrderId}`, {
+        min_margin: minMargin,
+        category_markups: categoryMarkups.filter(m => parseFloat(m.value) > 0),
+        items: validRows.map(r => ({
+          product_id: r.product.id,
+          product_name: r.product.name,
+          sku: r.product.sku,
+          category: r.product.category,
+          unit: r.product.unit,
+          qty: parseFloat(r.qty) || 0,
+          branch_capital: r.branch_capital,
+          transfer_capital: parseFloat(r.transfer_capital) || 0,
+          branch_retail: parseFloat(r.branch_retail) || 0,
+          override: r.override,
+          override_reason: r.override_reason,
+        })),
+      });
+      toast.success('Draft transfer updated!');
+      setEditingOrderId(null);
+      setRows([newRow()]);
+      setTab('history');
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to update transfer'); }
+    setSaving(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingOrderId(null);
+    setRows([newRow()]);
+    setFromBranchId(currentBranch?.id || '');
+    setToBranchId('');
+  };
   const [receiveQtys, setReceiveQtys] = useState({});
 
   const openReceive = (order) => {

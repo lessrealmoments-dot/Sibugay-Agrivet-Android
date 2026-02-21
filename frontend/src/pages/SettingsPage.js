@@ -408,9 +408,10 @@ export default function SettingsPage() {
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">{module}</p>
                       <div className="grid sm:grid-cols-2 gap-2">
                         {actions.map(action => (
-                          <label
+                          <div
                             key={action.key}
                             data-testid={`totp-action-${action.key}`}
+                            onClick={() => toggleAction(action.key)}
                             className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                               enabledActions.includes(action.key)
                                 ? 'bg-amber-50 border-amber-200'
@@ -421,12 +422,13 @@ export default function SettingsPage() {
                               checked={enabledActions.includes(action.key)}
                               onCheckedChange={() => toggleAction(action.key)}
                               className="data-[state=checked]:bg-amber-500"
+                              onClick={e => e.stopPropagation()}
                             />
                             <div>
                               <p className="text-sm font-medium">{action.label}</p>
                               <p className="text-xs text-slate-400">{action.module}</p>
                             </div>
-                          </label>
+                          </div>
                         ))}
                       </div>
                     </div>

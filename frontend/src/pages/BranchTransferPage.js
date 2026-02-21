@@ -94,6 +94,13 @@ export default function BranchTransferPage() {
     api.get('/products/categories').then(r => setCategories(r.data || [])).catch(() => {});
   }, []);
 
+  // Reset rows and template when source branch changes
+  useEffect(() => {
+    setRows([newRow()]);
+    setToBranchId('');
+    setTemplateLoaded(false);
+  }, [fromBranchId]); // eslint-disable-line
+
   // Load markup template when destination branch changes
   useEffect(() => {
     if (!toBranchId) { setTemplateLoaded(false); return; }

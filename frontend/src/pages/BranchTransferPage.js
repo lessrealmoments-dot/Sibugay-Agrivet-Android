@@ -1202,53 +1202,187 @@ export default function BranchTransferPage() {
 
       {/* ── Receive Confirmation Dialog ── */}
       <Dialog open={receiveDialog} onOpenChange={v => { setReceiveDialog(v); if (!v) setViewOrder(null); }}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Manrope' }}>
               Confirm Receipt — {viewOrder?.order_number}
+              <span className="text-slate-400 text-sm font-normal ml-2">
+                from {branches.find(b => b.id === viewOrder?.from_branch_id)?.name || '?'}
+              </span>
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-500 px-1">
-            Adjust quantities if the actual received amount differs. On confirm, inventory and prices are updated automatically.
-          </p>
-          <ScrollArea className="flex-1 mt-2">
+
+          {/* Explanation banner */}
+          <div className="grid grid-cols-2 gap-3 px-1">
+            <div className="flex gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+              <span className="text-amber-600 font-bold text-lg leading-none">↓</span>
+              <div>
+                <p className="text-xs font-semibold text-amber-800">Shortage (received &lt; ordered)</p>
+                <p className="text-[10px] text-amber-700 mt-0.5">Destination gets only what arrived. Missing qty stays in source. Source branch is notified.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 p-2.5 rounded-lg bg-blue-50 border border-blue-200">
+              <span className="text-blue-600 font-bold text-lg leading-none">↑</span>
+              <div>
+                <p className="text-xs font-semibold text-blue-800">Excess (received &gt; ordered)</p>
+                <p className="text-[10px] text-blue-700 mt-0.5">All extra stock goes to destination, deducted from source. Source branch is alerted to verify their stock.</p>
+              </div>
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 mt-1">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white border-b">
-                <tr className="text-xs uppercase text-slate-500">
+                <tr className="text-[10px] uppercase text-slate-500">
                   <th className="px-3 py-2 text-left">Product</th>
                   <th className="px-3 py-2 text-right">Ordered</th>
-                  <th className="px-3 py-2 text-center">Qty Received</th>
-                  <th className="px-3 py-2 text-right">Transfer ₱</th>
-                  <th className="px-3 py-2 text-right">Retail ₱</th>
+                  <th className="px-3 py-2 text-center w-28">Qty Received</th>
+                  <th className="px-3 py-2 text-center">Variance</th>
+                  <th className="px-3 py-2 text-right">Capital ₱</th>
+                  <th className="px-3 py-2 text-right">Impact</th>
                 </tr>
               </thead>
               <tbody>
-                {(viewOrder?.items || []).map((item, i) => (
-                  <tr key={i} className="border-b border-slate-50">
-                    <td className="px-3 py-2 font-medium">{item.product_name}</td>
-                    <td className="px-3 py-2 text-right font-mono text-slate-400">{item.qty}</td>
-                    <td className="px-3 py-2">
-                      <Input type="number" min={0} max={item.qty}
-                        value={receiveQtys[item.product_id] ?? item.qty}
-                        onChange={e => setReceiveQtys(q => ({ ...q, [item.product_id]: e.target.value }))}
-                        className="h-8 text-sm text-center font-mono w-20 mx-auto block"
-                        data-testid={`receive-qty-${item.product_id}`}
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono text-blue-700">{formatPHP(item.transfer_capital)}</td>
-                    <td className="px-3 py-2 text-right font-mono text-emerald-700">{formatPHP(item.branch_retail)}</td>
-                  </tr>
-                ))}
+                {(viewOrder?.items || []).map((item, i) => {
+                  const ordered = parseFloat(item.qty) || 0;
+                  const received = parseFloat(receiveQtys[item.product_id] ?? ordered) || 0;
+                  const variance = received - ordered; // positive = excess, negative = shortage
+                  const isShort = variance < 0;
+                  const isExcess = variance > 0;
+                  const isOk = variance === 0;
+                  const impact = Math.abs(variance) * item.transfer_capital;
+                  const retImpact = Math.abs(variance) * item.branch_retail;
+
+                  return (
+                    <tr key={i} className={`border-b ${isShort ? 'bg-amber-50/50' : isExcess ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`}>
+                      <td className="px-3 py-2">
+                        <p className="font-medium text-sm">{item.product_name}</p>
+                        <p className="text-[10px] text-slate-400">{item.sku} · {item.category}</p>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-500">{ordered} {item.unit}</td>
+                      <td className="px-3 py-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={receiveQtys[item.product_id] ?? ordered}
+                          onChange={e => setReceiveQtys(q => ({ ...q, [item.product_id]: e.target.value }))}
+                          className={`h-8 text-sm text-center font-mono w-24 mx-auto block font-bold ${
+                            isShort ? 'border-amber-400 bg-amber-50 text-amber-800' :
+                            isExcess ? 'border-blue-400 bg-blue-50 text-blue-800' :
+                            'border-emerald-300'
+                          }`}
+                          data-testid={`receive-qty-${item.product_id}`}
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        {isOk && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ OK</span>}
+                        {isShort && (
+                          <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                            ↓ Short {Math.abs(variance)} {item.unit}
+                          </span>
+                        )}
+                        {isExcess && (
+                          <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                            ↑ Excess {variance} {item.unit}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-sm text-blue-700">{formatPHP(item.transfer_capital)}</td>
+                      <td className="px-3 py-2 text-right">
+                        {isOk && <span className="text-slate-300 text-xs">—</span>}
+                        {isShort && (
+                          <div className="text-right">
+                            <p className="text-[11px] font-bold text-amber-700">-{formatPHP(impact)}</p>
+                            <p className="text-[9px] text-amber-500">-{formatPHP(retImpact)} retail</p>
+                          </div>
+                        )}
+                        {isExcess && (
+                          <div className="text-right">
+                            <p className="text-[11px] font-bold text-blue-700">+{formatPHP(impact)}</p>
+                            <p className="text-[9px] text-blue-500">+{formatPHP(retImpact)} retail</p>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+
+            {/* Live variance summary */}
+            {(() => {
+              const items = viewOrder?.items || [];
+              let totalShortCapital = 0, totalShortRetail = 0, shortCount = 0;
+              let totalExcessCapital = 0, totalExcessRetail = 0, excessCount = 0;
+              items.forEach(item => {
+                const ordered = parseFloat(item.qty) || 0;
+                const received = parseFloat(receiveQtys[item.product_id] ?? ordered) || 0;
+                const variance = received - ordered;
+                if (variance < 0) {
+                  shortCount++;
+                  totalShortCapital += Math.abs(variance) * item.transfer_capital;
+                  totalShortRetail += Math.abs(variance) * item.branch_retail;
+                } else if (variance > 0) {
+                  excessCount++;
+                  totalExcessCapital += variance * item.transfer_capital;
+                  totalExcessRetail += variance * item.branch_retail;
+                }
+              });
+              if (!shortCount && !excessCount) return null;
+              return (
+                <div className="mt-3 mx-3 space-y-2">
+                  {shortCount > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200">
+                      <div>
+                        <p className="text-xs font-bold text-amber-800">Shortage Summary — {shortCount} product(s)</p>
+                        <p className="text-[10px] text-amber-600 mt-0.5">Missing quantity stays in source branch. Source branch will be notified.</p>
+                      </div>
+                      <div className="text-right shrink-0 ml-4">
+                        <p className="text-sm font-bold text-amber-800">-{formatPHP(totalShortCapital)} capital</p>
+                        <p className="text-[11px] text-amber-600">-{formatPHP(totalShortRetail)} retail</p>
+                      </div>
+                    </div>
+                  )}
+                  {excessCount > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200">
+                      <div>
+                        <p className="text-xs font-bold text-blue-800">Excess Summary — {excessCount} product(s)</p>
+                        <p className="text-[10px] text-blue-600 mt-0.5">Extra stock will be accepted. Source branch will be alerted to verify inventory.</p>
+                      </div>
+                      <div className="text-right shrink-0 ml-4">
+                        <p className="text-sm font-bold text-blue-800">+{formatPHP(totalExcessCapital)} capital</p>
+                        <p className="text-[11px] text-blue-600">+{formatPHP(totalExcessRetail)} retail</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Notes field */}
+            <div className="mx-3 mt-3 mb-2">
+              <label className="text-xs text-slate-500 font-medium block mb-1">Receiving Notes (optional)</label>
+              <textarea
+                value={receiveNotes}
+                onChange={e => setReceiveNotes(e.target.value)}
+                placeholder="e.g. 2 boxes of ENERTONE arrived damaged, accepted 8 of 10..."
+                rows={2}
+                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
+                data-testid="receive-notes"
+              />
+            </div>
           </ScrollArea>
-          <div className="pt-3 border-t flex gap-2 justify-end">
-            <Button variant="outline" onClick={() => { setReceiveDialog(false); }}>Cancel</Button>
-            <Button onClick={handleReceive} disabled={receiveSaving} className="bg-emerald-600 text-white"
-              data-testid="confirm-receive-btn">
-              {receiveSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
-              Confirm & Update Prices
-            </Button>
+
+          <div className="pt-3 border-t flex gap-2 justify-between items-center">
+            <p className="text-xs text-slate-400">Inventory and branch prices update automatically on confirm.</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setReceiveDialog(false)}>Cancel</Button>
+              <Button onClick={handleReceive} disabled={receiveSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                data-testid="confirm-receive-btn">
+                {receiveSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
+                Confirm Receipt
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

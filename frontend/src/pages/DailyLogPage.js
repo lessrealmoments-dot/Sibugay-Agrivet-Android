@@ -788,7 +788,7 @@ export default function DailyLogPage() {
                   <SectionCard title="Opening">
                     <div className="grid grid-cols-2 gap-3">
                       <InfoRow label="Total Amount in Safe" value={formatPHP(preview.safe_balance)} bold className="text-slate-500" />
-                      <InfoRow label="Starting Cashier Float" value={formatPHP(preview.starting_float)} bold className="text-emerald-600" />
+                      <InfoRow label="Opening Float" value={formatPHP(preview.starting_float)} bold className="text-emerald-600" />
                     </div>
                   </SectionCard>
 

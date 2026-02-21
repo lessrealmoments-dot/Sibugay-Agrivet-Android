@@ -349,7 +349,7 @@ export default function PurchaseOrderPage() {
                 <Label className="text-xs text-slate-500">Notes</Label><Input className="h-9" value={header.notes} onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))} placeholder="Optional notes for this purchase order" />
               </div>
               {header.payment_method === 'cash' && (
-                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1"><DollarSign size={12} /> Total will be deducted from Cashier Drawer on save</p>
+                <p className="text-xs text-amber-600 mt-2 flex items-center gap-1"><DollarSign size={12} /> Total will be deducted from Operating Fund on save</p>
               )}
               {header.payment_method === 'credit' && (
                 <div className="mt-3 grid grid-cols-2 gap-3">

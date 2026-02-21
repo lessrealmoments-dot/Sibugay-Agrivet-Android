@@ -906,7 +906,7 @@ export default function DailyLogPage() {
                   <div className="bg-slate-800 text-white rounded-xl p-5">
                     <div className="text-xs uppercase tracking-wide text-slate-400 mb-1">Expected Money in Counter</div>
                     <div className="text-xs text-slate-400 mb-3">
-                      Starting Float ({formatPHP(preview.starting_float)}) + Cash Sales ({formatPHP(r2(preview.total_cash_sales + preview.total_partial_cash))}) + AR Received ({formatPHP(preview.total_ar_received)}) − Expenses ({formatPHP(preview.total_expenses)})
+                      Opening Float ({formatPHP(preview.starting_float)}) + Walk-in Sales ({formatPHP(r2(preview.total_cash_sales + preview.total_partial_cash))}) + AR Received ({formatPHP(preview.total_ar_received)}) − Expenses ({formatPHP(preview.total_expenses)})
                     </div>
                     <div className="text-3xl font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(expectedCounter)}</div>
                   </div>

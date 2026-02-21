@@ -89,12 +89,17 @@ export default function ProductsPage() {
 
   const selectParent = (rowId, p) => {
     const capital = computeCapital(p, 1, 0);
+    const hasRepack = repackParentIds.has(p.id);
     updateRow(rowId, {
       parent: p, parentSearch: p.name, parentMatches: [],
       repackName: `R ${p.name}`,
       unitsPerParent: 1, addOnCost: 0, capital,
       retailPrice: '', retailError: null, rowError: null,
+      hasRepack,
     });
+    if (hasRepack) {
+      toast.warning(`"${p.name}" already has a repack. You can still create another (e.g. a different size).`);
+    }
   };
 
   // onBlur validation for retail price — check against capital

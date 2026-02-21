@@ -71,16 +71,21 @@ export default function BranchTransferPage() {
   const [receiveSaving, setReceiveSaving] = useState(false);
 
   // ── New transfer form ──────────────────────────────────────────────────────
+  const [fromBranchId, setFromBranchId] = useState(() => currentBranch?.id || '');
   const [toBranchId, setToBranchId] = useState('');
   const [minMargin, setMinMargin] = useState(20);
-  const [categoryMarkups, setCategoryMarkups] = useState([]); // [{category, type, value}]
+  const [categoryMarkups, setCategoryMarkups] = useState([]);
   const [markupPanelOpen, setMarkupPanelOpen] = useState(false);
   const [rows, setRows] = useState(() => [newRow()]);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [templateLoaded, setTemplateLoaded] = useState(false);
 
-  const fromBranchId = currentBranch?.id || '';
+  // Sync fromBranchId with currentBranch on initial load
+  useEffect(() => {
+    if (currentBranch?.id && !fromBranchId) setFromBranchId(currentBranch.id);
+  }, [currentBranch?.id]); // eslint-disable-line
+
   const destBranch = branches.find(b => b.id === toBranchId);
 
   // Load categories once

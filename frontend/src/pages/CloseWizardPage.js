@@ -81,6 +81,14 @@ export default function CloseWizardPage() {
   const [pmtAmount, setPmtAmount] = useState('');
   const [pmtSaving, setPmtSaving] = useState(false);
 
+  // "Find any customer & receive payment" panel in Step 3
+  const [findPayCustomer, setFindPayCustomer] = useState('');
+  const [findPayMatches, setFindPayMatches] = useState([]);
+  const [findPaySelected, setFindPaySelected] = useState(null);
+  const [findPayInvoices, setFindPayInvoices] = useState([]);
+  const [findPayShowPanel, setFindPayShowPanel] = useState(false);
+  const findPayTimerRef = useRef(null);
+
   const today = new Date().toISOString().split('T')[0];
 
   const loadWizardData = useCallback(async () => {

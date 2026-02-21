@@ -240,6 +240,7 @@ export default function ProductsPage() {
       toast.success('Repack SKU generated!');
       setRepackDialog(false);
       fetchProducts();
+      refreshRepackIndicators();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error generating repack'); }
   };
 

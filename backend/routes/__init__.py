@@ -30,5 +30,5 @@ __all__ = [
     'sales_router', 'purchase_orders_router', 'dashboard_router', 'accounting_router',
     'daily_ops_router', 'suppliers_router', 'sync_router', 'employees_router',
     'settings_router', 'count_sheets_router', 'setup_router', 'branch_prices_router',
-    'import_router', 'notifications_router',
+    'import_router', 'notifications_router', 'branch_transfers_router',
 ]

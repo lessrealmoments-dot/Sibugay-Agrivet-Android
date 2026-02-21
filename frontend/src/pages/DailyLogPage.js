@@ -144,7 +144,7 @@ function ZReport({ data, branchName, onPrint }) {
 }
 
 export default function DailyLogPage() {
-  const { currentBranch } = useAuth();
+  const { currentBranch, branches, hasPerm } = useAuth();
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [tab, setTab] = useState('log');
   const [logEntries, setLogEntries] = useState([]);

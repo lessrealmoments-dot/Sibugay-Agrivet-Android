@@ -1192,7 +1192,7 @@ export default function DailyLogPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
                   { label: 'Closed Days', value: filtered.length, mono: false, color: 'slate' },
-                  { label: 'Total Cash Sales', value: formatPHP(totalSales), mono: true, color: 'emerald' },
+                  { label: 'Total Walk-in Sales', value: formatPHP(totalSales), mono: true, color: 'emerald' },
                   { label: 'Total AR Collected', value: formatPHP(totalAR), mono: true, color: 'blue' },
                   { label: 'Net Over / Short', value: (totalOS >= 0 ? '+' : '') + formatPHP(totalOS), mono: true, color: totalOS >= 0 ? 'emerald' : 'red' },
                 ].map(({ label, value, mono, color }) => (

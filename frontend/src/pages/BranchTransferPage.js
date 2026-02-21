@@ -67,11 +67,13 @@ export default function BranchTransferPage() {
 
   // ── Lists / history ────────────────────────────────────────────────────────
   const [tab, setTab] = useState('new');
+  const [historyTab, setHistoryTab] = useState('outgoing'); // outgoing | incoming
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [viewOrder, setViewOrder] = useState(null);
   const [receiveDialog, setReceiveDialog] = useState(false);
   const [receiveSaving, setReceiveSaving] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState(null); // ID of draft being edited
 
   // ── New transfer form ──────────────────────────────────────────────────────
   const [fromBranchId, setFromBranchId] = useState(() => currentBranch?.id || '');

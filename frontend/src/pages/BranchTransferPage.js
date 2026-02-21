@@ -1,0 +1,812 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useAuth, api } from '../contexts/AuthContext';
+import { formatPHP } from '../lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Badge } from '../components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Separator } from '../components/ui/separator';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import {
+  Plus, Trash2, Send, CheckCircle2, Search, RefreshCw, Settings2,
+  AlertTriangle, ChevronDown, ChevronUp, Building2, Package, X,
+  TrendingUp, Clock, ArrowRight, Eye, XCircle
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+const STATUS_COLORS = {
+  draft: 'bg-slate-100 text-slate-600',
+  sent: 'bg-blue-100 text-blue-700',
+  received: 'bg-emerald-100 text-emerald-700',
+  cancelled: 'bg-red-100 text-red-600',
+};
+
+const MARKUP_TYPES = [
+  { value: 'fixed', label: '+ Fixed ₱' },
+  { value: 'percent', label: '+ % of Capital' },
+];
+
+// ── Per-row validation ──────────────────────────────────────────────────────
+function validateRow(row, minMargin) {
+  const tc = parseFloat(row.transfer_capital) || 0;
+  const br = parseFloat(row.branch_retail) || 0;
+  if (!tc || !br) return { ok: false, reason: 'incomplete', margin: 0 };
+  const margin = br - tc;
+  if (tc > br) return { ok: false, reason: 'below_cost', margin };
+  if (margin < minMargin) return { ok: false, reason: 'low_margin', margin };
+  return { ok: true, reason: '', margin };
+}
+
+export default function BranchTransferPage() {
+  const { branches, currentBranch, user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const searchTimers = useRef({});
+  const dropdownRefs = useRef({});
+
+  // ── Lists / history ────────────────────────────────────────────────────────
+  const [tab, setTab] = useState('new');
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [viewOrder, setViewOrder] = useState(null);
+  const [receiveDialog, setReceiveDialog] = useState(false);
+  const [receiveSaving, setReceiveSaving] = useState(false);
+
+  // ── New transfer form ──────────────────────────────────────────────────────
+  const [toBranchId, setToBranchId] = useState('');
+  const [minMargin, setMinMargin] = useState(20);
+  const [categoryMarkups, setCategoryMarkups] = useState([]); // [{category, type, value}]
+  const [markupPanelOpen, setMarkupPanelOpen] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [templateLoaded, setTemplateLoaded] = useState(false);
+
+  const fromBranchId = currentBranch?.id || '';
+  const destBranch = branches.find(b => b.id === toBranchId);
+
+  // Load categories once
+  useEffect(() => {
+    api.get('/products/categories').then(r => setCategories(r.data || [])).catch(() => {});
+  }, []);
+
+  // Load markup template when destination branch changes
+  useEffect(() => {
+    if (!toBranchId) { setTemplateLoaded(false); return; }
+    api.get(`/branch-transfers/markup-template/${toBranchId}`)
+      .then(r => {
+        setMinMargin(r.data.min_margin ?? 20);
+        setCategoryMarkups(r.data.category_markups || []);
+        setTemplateLoaded(true);
+      })
+      .catch(() => setTemplateLoaded(true));
+  }, [toBranchId]);
+
+  // Re-apply markups to all rows when categoryMarkups change
+  useEffect(() => {
+    if (!rows.length) return;
+    setRows(prev => prev.map(row => applyMarkupToRow(row, categoryMarkups)));
+  }, [categoryMarkups]); // eslint-disable-line
+
+  // Load transfer history
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const res = await api.get('/branch-transfers', { params: { limit: 50 } });
+      setOrders(res.data.orders || []);
+    } catch { toast.error('Failed to load transfer history'); }
+    setOrdersLoading(false);
+  }, []);
+
+  useEffect(() => { if (tab === 'history') loadOrders(); }, [tab, loadOrders]);
+
+  // ── Row helpers ─────────────────────────────────────────────────────────────
+  const newRow = () => ({
+    id: Math.random().toString(36).slice(2),
+    productSearch: '', productMatches: [], product: null,
+    qty: 1,
+    branch_capital: 0,
+    transfer_capital: '',
+    branch_retail: '',
+    last_purchase_ref: null, moving_average_ref: null, last_branch_retail: null,
+    override: false, override_reason: '',
+  });
+
+  const updateRow = (id, updates) =>
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+
+  function applyMarkupToRow(row, markups) {
+    if (!row.product) return row;
+    const cat = row.product.category || 'General';
+    const rule = markups.find(m => m.category === cat);
+    if (!rule) return row;
+    const bc = parseFloat(row.branch_capital) || 0;
+    const type = rule.type;
+    const val = parseFloat(rule.value) || 0;
+    const tc = type === 'percent' ? Math.round(bc * (1 + val / 100) * 100) / 100
+                                   : Math.round((bc + val) * 100) / 100;
+    return { ...row, transfer_capital: String(tc) };
+  }
+
+  const searchProduct = (rowId, q) => {
+    updateRow(rowId, { productSearch: q, product: null });
+    if (searchTimers.current[rowId]) clearTimeout(searchTimers.current[rowId]);
+    if (!q || q.length < 1) { updateRow(rowId, { productMatches: [] }); return; }
+    searchTimers.current[rowId] = setTimeout(async () => {
+      try {
+        const params = { q, from_branch_id: fromBranchId, to_branch_id: toBranchId };
+        const res = await api.get('/branch-transfers/product-lookup', { params });
+        updateRow(rowId, { productMatches: res.data || [] });
+      } catch {}
+    }, 200);
+  };
+
+  const selectProduct = (rowId, p) => {
+    const rowUpdate = {
+      product: p, productSearch: p.name, productMatches: [],
+      branch_capital: p.branch_capital,
+      last_purchase_ref: p.last_purchase_ref,
+      moving_average_ref: p.moving_average_ref,
+      last_branch_retail: p.last_branch_retail,
+      branch_retail: p.last_branch_retail != null ? String(p.last_branch_retail) : '',
+    };
+    // Apply markup to get transfer capital
+    const cat = p.category || 'General';
+    const rule = categoryMarkups.find(m => m.category === cat);
+    if (rule) {
+      const bc = p.branch_capital;
+      const val = parseFloat(rule.value) || 0;
+      const tc = rule.type === 'percent'
+        ? Math.round(bc * (1 + val / 100) * 100) / 100
+        : Math.round((bc + val) * 100) / 100;
+      rowUpdate.transfer_capital = String(tc);
+    } else {
+      rowUpdate.transfer_capital = String(p.branch_capital);
+    }
+    updateRow(rowId, rowUpdate);
+  };
+
+  // ── Category markup panel ───────────────────────────────────────────────────
+  const setMarkup = (category, field, value) => {
+    setCategoryMarkups(prev => {
+      const existing = prev.find(m => m.category === category);
+      if (existing) {
+        return prev.map(m => m.category === category ? { ...m, [field]: value } : m);
+      }
+      return [...prev, { category, type: 'fixed', value: 0, [field]: value }];
+    });
+  };
+  const getMarkup = (category) => categoryMarkups.find(m => m.category === category) || { type: 'fixed', value: '' };
+
+  const saveTemplate = async () => {
+    if (!toBranchId) return;
+    try {
+      await api.put(`/branch-transfers/markup-template/${toBranchId}`, {
+        min_margin: minMargin,
+        category_markups: categoryMarkups.filter(m => m.value !== '' && parseFloat(m.value) > 0),
+      });
+      toast.success('Markup template saved');
+    } catch { toast.error('Failed to save template'); }
+  };
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if (!toBranchId) { toast.error('Select a destination branch'); return; }
+    if (!rows.length || rows.every(r => !r.product)) { toast.error('Add at least one product'); return; }
+
+    const validRows = rows.filter(r => r.product);
+    const blockers = validRows.filter(r => {
+      const v = validateRow(r, minMargin);
+      return !v.ok && !r.override;
+    });
+    if (blockers.length > 0) {
+      toast.error(`${blockers.length} row(s) have validation errors. Fix or override them.`);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.post('/branch-transfers', {
+        from_branch_id: fromBranchId,
+        to_branch_id: toBranchId,
+        min_margin: minMargin,
+        category_markups: categoryMarkups.filter(m => parseFloat(m.value) > 0),
+        items: validRows.map(r => ({
+          product_id: r.product.id,
+          product_name: r.product.name,
+          sku: r.product.sku,
+          category: r.product.category,
+          unit: r.product.unit,
+          qty: parseFloat(r.qty) || 0,
+          branch_capital: r.branch_capital,
+          transfer_capital: parseFloat(r.transfer_capital) || 0,
+          branch_retail: parseFloat(r.branch_retail) || 0,
+          last_purchase_ref: r.last_purchase_ref,
+          moving_average_ref: r.moving_average_ref,
+          override: r.override,
+          override_reason: r.override_reason,
+        })),
+      });
+      toast.success('Branch transfer order created!');
+      setRows([newRow()]);
+      setTab('history');
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to create transfer'); }
+    setSaving(false);
+  };
+
+  // ── Receive order ──────────────────────────────────────────────────────────
+  const [receiveQtys, setReceiveQtys] = useState({});
+
+  const openReceive = (order) => {
+    setViewOrder(order);
+    const qtys = {};
+    order.items.forEach(item => { qtys[item.product_id] = item.qty; });
+    setReceiveQtys(qtys);
+    setReceiveDialog(true);
+  };
+
+  const handleReceive = async () => {
+    if (!viewOrder) return;
+    setReceiveSaving(true);
+    try {
+      const items = viewOrder.items.map(item => ({
+        product_id: item.product_id,
+        qty: item.qty,
+        qty_received: parseFloat(receiveQtys[item.product_id]) || item.qty,
+        transfer_capital: item.transfer_capital,
+        branch_retail: item.branch_retail,
+      }));
+      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, { items });
+      toast.success(res.data.message);
+      setReceiveDialog(false);
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Receive failed'); }
+    setReceiveSaving(false);
+  };
+
+  const handleSend = async (orderId) => {
+    try {
+      await api.post(`/branch-transfers/${orderId}/send`);
+      toast.success('Transfer marked as sent');
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
+  const handleCancel = async (orderId) => {
+    if (!window.confirm('Cancel this transfer order?')) return;
+    try {
+      await api.delete(`/branch-transfers/${orderId}`);
+      toast.success('Transfer cancelled');
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
+  // ── Totals ─────────────────────────────────────────────────────────────────
+  const validRows = rows.filter(r => r.product);
+  const totalBranchCapital = validRows.reduce((s, r) => s + (r.branch_capital * (parseFloat(r.qty)||0)), 0);
+  const totalTransfer = validRows.reduce((s, r) => s + ((parseFloat(r.transfer_capital)||0) * (parseFloat(r.qty)||0)), 0);
+  const totalRetail = validRows.reduce((s, r) => s + ((parseFloat(r.branch_retail)||0) * (parseFloat(r.qty)||0)), 0);
+
+  return (
+    <div className="space-y-5 animate-fadeIn" data-testid="branch-transfer-page">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+          <Building2 size={22} className="text-[#1A4D2E]" /> Branch Transfers
+        </h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Supply branches from Main Branch with auto-computed pricing
+        </p>
+      </div>
+
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="new"><Plus size={14} className="mr-1" /> New Transfer</TabsTrigger>
+          <TabsTrigger value="history" data-testid="transfer-history-tab"><Clock size={14} className="mr-1" /> History</TabsTrigger>
+        </TabsList>
+
+        {/* ── NEW TRANSFER TAB ── */}
+        <TabsContent value="new" className="space-y-4 mt-4">
+
+          {/* Header row */}
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Label className="text-xs">Destination Branch</Label>
+              <Select value={toBranchId} onValueChange={setToBranchId}>
+                <SelectTrigger className="mt-1 h-9" data-testid="dest-branch-select">
+                  <SelectValue placeholder="Select branch to supply" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.filter(b => b.id !== fromBranchId).map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-40">
+              <Label className="text-xs">Min Margin (₱ / unit)</Label>
+              <Input type="number" min={0} value={minMargin}
+                onChange={e => setMinMargin(parseFloat(e.target.value) || 0)}
+                className="mt-1 h-9 font-mono" data-testid="min-margin-input" />
+            </div>
+            {toBranchId && (
+              <Button variant="outline" size="sm" onClick={saveTemplate} className="h-9 mt-5">
+                Save as Default
+              </Button>
+            )}
+          </div>
+
+          {/* Category Markup Panel */}
+          {toBranchId && (
+            <Card className="border-slate-200">
+              <button
+                type="button"
+                onClick={() => setMarkupPanelOpen(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
+                data-testid="markup-panel-toggle"
+              >
+                <span className="flex items-center gap-2">
+                  <Settings2 size={15} className="text-[#1A4D2E]" />
+                  Category Markup Rules
+                  {categoryMarkups.filter(m => parseFloat(m.value) > 0).length > 0 && (
+                    <Badge className="text-[10px] bg-[#1A4D2E]/10 text-[#1A4D2E]">
+                      {categoryMarkups.filter(m => parseFloat(m.value) > 0).length} active
+                    </Badge>
+                  )}
+                </span>
+                {markupPanelOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+              {markupPanelOpen && (
+                <CardContent className="pt-0 pb-4">
+                  <p className="text-xs text-slate-400 mb-3">
+                    Set per-category add-ons. Applies to all products when added. All values are editable per row.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {categories.map(cat => {
+                      const mk = getMarkup(cat);
+                      return (
+                        <div key={cat} className="p-3 rounded-lg border border-slate-200 bg-slate-50">
+                          <p className="text-xs font-semibold text-slate-600 mb-2">{cat}</p>
+                          <div className="flex gap-1.5">
+                            <Select value={mk.type || 'fixed'} onValueChange={v => setMarkup(cat, 'type', v)}>
+                              <SelectTrigger className="h-7 text-xs w-28"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {MARKUP_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <Input type="number" min={0} placeholder="0"
+                              value={mk.value}
+                              onChange={e => setMarkup(cat, 'value', e.target.value)}
+                              className="h-7 text-xs font-mono flex-1"
+                              data-testid={`markup-${cat}`}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
+
+          {/* Product table */}
+          {toBranchId && (
+            <>
+              <Card className="border-slate-200 overflow-visible">
+                <CardContent className="p-0">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b-2 border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2 text-left" style={{minWidth:'200px'}}>Product</th>
+                        <th className="px-2 py-2 text-center" style={{minWidth:'70px'}}>Qty</th>
+                        <th className="px-2 py-2 text-right" style={{minWidth:'100px'}}>Branch Capital</th>
+                        <th className="px-2 py-2 text-right" style={{minWidth:'110px'}}>
+                          Transfer Capital
+                          <span className="text-[9px] font-normal block text-slate-400">(their cost)</span>
+                        </th>
+                        <th className="px-2 py-2 text-right" style={{minWidth:'110px'}}>
+                          Branch Retail
+                          <span className="text-[9px] font-normal block text-slate-400">(their sell price)</span>
+                        </th>
+                        <th className="px-2 py-2 text-center" style={{minWidth:'90px'}}>Margin</th>
+                        {isAdmin && <th className="px-2 py-2 text-center" style={{minWidth:'80px'}}>Override</th>}
+                        <th className="w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(rows.length ? rows : [newRow()]).map((row) => {
+                        const v = row.product ? validateRow(row, minMargin) : { ok: true, margin: 0 };
+                        const rowBad = !v.ok && !row.override;
+                        return (
+                          <tr key={row.id} className={`border-b border-slate-100 ${rowBad ? 'bg-red-50/50' : 'hover:bg-slate-50/30'}`}>
+                            {/* Product search */}
+                            <td className="px-2 py-1.5" style={{minWidth:'200px'}}>
+                              {row.product ? (
+                                <div>
+                                  <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 rounded px-2 h-8">
+                                    <span className="text-sm font-medium text-emerald-800 truncate flex-1">{row.product.name}</span>
+                                    <button onClick={() => updateRow(row.id, { product: null, productSearch: '', transfer_capital: '', branch_retail: '' })}
+                                      className="text-slate-300 hover:text-red-500">
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 mt-0.5">{row.product.sku} · {row.product.category}</p>
+                                </div>
+                              ) : (
+                                <div className="relative">
+                                  <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                                  <Input value={row.productSearch}
+                                    onChange={e => searchProduct(row.id, e.target.value)}
+                                    placeholder="Search product..."
+                                    className="h-8 pl-7 text-sm"
+                                    data-testid={`product-search-${row.id}`}
+                                    ref={el => { dropdownRefs.current[row.id] = el; }}
+                                  />
+                                  {row.productMatches?.length > 0 && (() => {
+                                    const el = dropdownRefs.current[row.id];
+                                    if (!el) return null;
+                                    const rect = el.getBoundingClientRect();
+                                    return createPortal(
+                                      <div style={{ position:'fixed', top: rect.bottom+4, left: rect.left, width: Math.max(rect.width, 300), zIndex: 9999 }}
+                                        className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                        {row.productMatches.map(p => (
+                                          <button key={p.id} onMouseDown={() => selectProduct(row.id, p)}
+                                            className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b last:border-0">
+                                            <div className="flex justify-between items-start">
+                                              <div>
+                                                <span className="font-medium text-sm">{p.name}</span>
+                                                <span className="text-slate-400 text-xs ml-2">{p.sku} · {p.category}</span>
+                                              </div>
+                                              <span className="text-xs font-mono text-slate-600">{formatPHP(p.branch_capital)}</span>
+                                            </div>
+                                            {p.last_branch_retail && (
+                                              <span className="text-[10px] text-blue-500">Last retail at branch: {formatPHP(p.last_branch_retail)}</span>
+                                            )}
+                                          </button>
+                                        ))}
+                                      </div>,
+                                      document.body
+                                    );
+                                  })()}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Qty */}
+                            <td className="px-2 py-1.5 text-center">
+                              <Input type="number" min={1} value={row.qty}
+                                onChange={e => updateRow(row.id, { qty: e.target.value })}
+                                className="h-8 text-sm text-center font-mono w-16"
+                                data-testid={`qty-${row.id}`} />
+                            </td>
+
+                            {/* Branch Capital — read-only */}
+                            <td className="px-2 py-1.5 text-right">
+                              <div className="h-8 flex items-center justify-end pr-2">
+                                <span className="font-mono text-sm text-slate-600">{row.product ? formatPHP(row.branch_capital) : '—'}</span>
+                              </div>
+                            </td>
+
+                            {/* Transfer Capital — editable */}
+                            <td className="px-2 py-1.5">
+                              <div>
+                                <Input type="number" min={0} step="0.01"
+                                  value={row.transfer_capital}
+                                  onChange={e => updateRow(row.id, { transfer_capital: e.target.value })}
+                                  placeholder="0.00"
+                                  className={`h-8 text-sm text-right font-mono font-bold ${rowBad && v.reason === 'below_cost' ? 'border-red-400 text-red-700 bg-red-50' : ''}`}
+                                  data-testid={`transfer-capital-${row.id}`}
+                                  disabled={!row.product}
+                                />
+                                {row.product && (
+                                  <div className="flex gap-2 mt-0.5">
+                                    {row.last_purchase_ref != null && <span className="text-[9px] text-slate-400">LP: {formatPHP(row.last_purchase_ref)}</span>}
+                                    {row.moving_average_ref != null && <span className="text-[9px] text-slate-400">MA: {formatPHP(row.moving_average_ref)}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Branch Retail — editable */}
+                            <td className="px-2 py-1.5">
+                              <div>
+                                <Input type="number" min={0} step="0.01"
+                                  value={row.branch_retail}
+                                  onChange={e => updateRow(row.id, { branch_retail: e.target.value })}
+                                  placeholder="0.00"
+                                  className={`h-8 text-sm text-right font-mono font-bold ${rowBad ? 'border-red-400 text-red-700 bg-red-50' : ''}`}
+                                  data-testid={`branch-retail-${row.id}`}
+                                  disabled={!row.product}
+                                />
+                                {row.last_branch_retail != null && (
+                                  <span className="text-[9px] text-blue-400 mt-0.5 block">Last: {formatPHP(row.last_branch_retail)}</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Margin badge */}
+                            <td className="px-2 py-1.5 text-center">
+                              {row.product && row.transfer_capital && row.branch_retail ? (
+                                <div>
+                                  <span className={`text-sm font-bold font-mono ${v.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    {v.margin >= 0 ? '+' : ''}{formatPHP(v.margin)}
+                                  </span>
+                                  {!v.ok && !row.override && (
+                                    <p className="text-[9px] text-red-500 leading-tight">
+                                      {v.reason === 'below_cost' ? 'Below cost' : `< ₱${minMargin} min`}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : <span className="text-slate-300">—</span>}
+                            </td>
+
+                            {/* Admin override */}
+                            {isAdmin && (
+                              <td className="px-2 py-1.5 text-center">
+                                {row.product && !v.ok ? (
+                                  <div>
+                                    <label className="flex items-center gap-1 justify-center cursor-pointer">
+                                      <input type="checkbox" checked={row.override}
+                                        onChange={e => updateRow(row.id, { override: e.target.checked })}
+                                        className="rounded border-slate-300"
+                                        data-testid={`override-${row.id}`}
+                                      />
+                                      <span className="text-[10px] text-amber-600">Override</span>
+                                    </label>
+                                    {row.override && (
+                                      <Input value={row.override_reason}
+                                        onChange={e => updateRow(row.id, { override_reason: e.target.value })}
+                                        placeholder="Reason" className="h-6 text-[10px] mt-0.5" />
+                                    )}
+                                  </div>
+                                ) : <span className="text-slate-200">—</span>}
+                              </td>
+                            )}
+
+                            {/* Delete row */}
+                            <td className="px-1">
+                              {rows.length > 1 && (
+                                <button onClick={() => setRows(r => r.filter(x => x.id !== row.id))}
+                                  className="p-1 text-slate-300 hover:text-red-500 transition-colors">
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+
+              {/* Add row + Totals + Submit */}
+              <div className="flex items-start justify-between gap-4">
+                <Button variant="outline" size="sm" onClick={() => setRows(r => [...r, newRow()])}
+                  data-testid="add-row-btn">
+                  <Plus size={14} className="mr-1" /> Add Product
+                </Button>
+
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Our Cost</p>
+                    <p className="font-mono font-bold text-slate-700">{formatPHP(totalBranchCapital)}</p>
+                  </div>
+                  <ArrowRight size={14} className="text-slate-400" />
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Transfer Price</p>
+                    <p className="font-mono font-bold text-blue-700">{formatPHP(totalTransfer)}</p>
+                  </div>
+                  <ArrowRight size={14} className="text-slate-400" />
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Branch Retail</p>
+                    <p className="font-mono font-bold text-emerald-700">{formatPHP(totalRetail)}</p>
+                  </div>
+                  <Button onClick={handleSubmit} disabled={saving || !toBranchId || !validRows.length}
+                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white ml-4"
+                    data-testid="create-transfer-btn">
+                    {saving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <Send size={14} className="mr-1.5" />}
+                    Create Transfer Order
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!toBranchId && (
+            <div className="text-center py-16 text-slate-400">
+              <Building2 size={40} className="mx-auto mb-3 opacity-30" />
+              <p>Select a destination branch to start building the transfer order.</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── HISTORY TAB ── */}
+        <TabsContent value="history" className="mt-4">
+          <div className="flex justify-end mb-3">
+            <Button variant="outline" size="sm" onClick={loadOrders} disabled={ordersLoading}>
+              <RefreshCw size={13} className={`mr-1.5 ${ordersLoading ? 'animate-spin' : ''}`} /> Refresh
+            </Button>
+          </div>
+          <Card className="border-slate-200">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Order #</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">To Branch</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Items</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Transfer Value</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Retail Value</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Status</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Date</TableHead>
+                  <TableHead className="w-32"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.length === 0 ? (
+                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">No transfers yet</TableCell></TableRow>
+                ) : orders.map(o => {
+                  const toBranch = branches.find(b => b.id === o.to_branch_id);
+                  return (
+                    <TableRow key={o.id} className="table-row-hover">
+                      <TableCell className="font-mono text-sm text-blue-600">{o.order_number}</TableCell>
+                      <TableCell className="font-medium">{toBranch?.name || o.to_branch_id}</TableCell>
+                      <TableCell className="text-slate-500">{o.items?.length || 0} products</TableCell>
+                      <TableCell className="text-right font-mono">{formatPHP(o.total_at_transfer_capital)}</TableCell>
+                      <TableCell className="text-right font-mono text-emerald-700">{formatPHP(o.total_at_branch_retail)}</TableCell>
+                      <TableCell>
+                        <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>
+                          {o.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-400">{o.created_at?.slice(0, 10)}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
+                            title="View Details" className="h-7 px-2">
+                            <Eye size={13} />
+                          </Button>
+                          {o.status === 'draft' && (
+                            <Button variant="ghost" size="sm" onClick={() => handleSend(o.id)}
+                              className="h-7 px-2 text-blue-500" title="Mark as Sent">
+                              <Send size={13} />
+                            </Button>
+                          )}
+                          {(o.status === 'sent' || o.status === 'draft') && (
+                            <Button variant="ghost" size="sm" onClick={() => openReceive(o)}
+                              className="h-7 px-2 text-emerald-600" title="Confirm Receipt"
+                              data-testid={`receive-btn-${o.id}`}>
+                              <CheckCircle2 size={13} />
+                            </Button>
+                          )}
+                          {(o.status === 'draft' || o.status === 'sent') && (
+                            <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
+                              className="h-7 px-2 text-red-400" title="Cancel">
+                              <XCircle size={13} />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* ── View / Receive Order Dialog ── */}
+      <Dialog open={!!viewOrder && !receiveDialog} onOpenChange={() => setViewOrder(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              {viewOrder?.order_number} — {branches.find(b => b.id === viewOrder?.to_branch_id)?.name}
+              <Badge className={`ml-2 text-[10px] ${STATUS_COLORS[viewOrder?.status]}`}>{viewOrder?.status}</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white border-b">
+                <tr className="text-xs uppercase text-slate-500">
+                  <th className="px-3 py-2 text-left">Product</th>
+                  <th className="px-3 py-2 text-center">Qty</th>
+                  <th className="px-3 py-2 text-right">Branch Capital</th>
+                  <th className="px-3 py-2 text-right">Transfer Capital</th>
+                  <th className="px-3 py-2 text-right">Branch Retail</th>
+                  <th className="px-3 py-2 text-right">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(viewOrder?.items || []).map((item, i) => {
+                  const margin = (item.branch_retail - item.transfer_capital);
+                  return (
+                    <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="px-3 py-2">
+                        <p className="font-medium">{item.product_name}</p>
+                        <p className="text-xs text-slate-400 font-mono">{item.sku} · {item.category}</p>
+                      </td>
+                      <td className="px-3 py-2 text-center font-mono">{item.qty} {item.unit}</td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(item.branch_capital)}</td>
+                      <td className="px-3 py-2 text-right font-mono font-bold text-blue-700">{formatPHP(item.transfer_capital)}</td>
+                      <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">{formatPHP(item.branch_retail)}</td>
+                      <td className={`px-3 py-2 text-right font-mono font-bold ${margin >= 20 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        +{formatPHP(margin)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </ScrollArea>
+          {viewOrder?.status === 'sent' && (
+            <div className="pt-3 border-t flex justify-end">
+              <Button onClick={() => setReceiveDialog(true)} className="bg-emerald-600 text-white">
+                <CheckCircle2 size={15} className="mr-1.5" /> Confirm Receipt
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Receive Confirmation Dialog ── */}
+      <Dialog open={receiveDialog} onOpenChange={v => { setReceiveDialog(v); if (!v) setViewOrder(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              Confirm Receipt — {viewOrder?.order_number}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500 px-1">
+            Adjust quantities if the actual received amount differs. On confirm, inventory and prices are updated automatically.
+          </p>
+          <ScrollArea className="flex-1 mt-2">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white border-b">
+                <tr className="text-xs uppercase text-slate-500">
+                  <th className="px-3 py-2 text-left">Product</th>
+                  <th className="px-3 py-2 text-right">Ordered</th>
+                  <th className="px-3 py-2 text-center">Qty Received</th>
+                  <th className="px-3 py-2 text-right">Transfer ₱</th>
+                  <th className="px-3 py-2 text-right">Retail ₱</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(viewOrder?.items || []).map((item, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    <td className="px-3 py-2 font-medium">{item.product_name}</td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-400">{item.qty}</td>
+                    <td className="px-3 py-2">
+                      <Input type="number" min={0} max={item.qty}
+                        value={receiveQtys[item.product_id] ?? item.qty}
+                        onChange={e => setReceiveQtys(q => ({ ...q, [item.product_id]: e.target.value }))}
+                        className="h-8 text-sm text-center font-mono w-20 mx-auto block"
+                        data-testid={`receive-qty-${item.product_id}`}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-blue-700">{formatPHP(item.transfer_capital)}</td>
+                    <td className="px-3 py-2 text-right font-mono text-emerald-700">{formatPHP(item.branch_retail)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
+          <div className="pt-3 border-t flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setReceiveDialog(false); }}>Cancel</Button>
+            <Button onClick={handleReceive} disabled={receiveSaving} className="bg-emerald-600 text-white"
+              data-testid="confirm-receive-btn">
+              {receiveSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
+              Confirm & Update Prices
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

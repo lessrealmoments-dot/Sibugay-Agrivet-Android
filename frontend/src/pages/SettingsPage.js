@@ -485,42 +485,6 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Permissions Dialog */}
-      <Dialog open={permDialog} onOpenChange={setPermDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh]">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Manrope' }}>Permissions: {selectedUser?.full_name || selectedUser?.username}</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 mt-2 pr-4">
-              {PERMISSION_MODULES.map(mod => (
-                <Card key={mod.key} className="border-slate-200">
-                  <CardHeader className="py-3 px-4"><CardTitle className="text-sm font-semibold">{mod.label}</CardTitle></CardHeader>
-                  <CardContent className="px-4 pb-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      {mod.actions.map(action => (
-                        <div key={action} className="flex items-center justify-between p-2 rounded bg-slate-50">
-                          <span className="text-sm capitalize">{action.replace('_', ' ')}</span>
-                          <Switch
-                            data-testid={`perm-${mod.key}-${action}`}
-                            checked={perms[mod.key]?.[action] || false}
-                            onCheckedChange={() => togglePerm(mod.key, action)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setPermDialog(false)}>Cancel</Button>
-            <Button data-testid="save-perms-btn" onClick={savePerms} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save Permissions</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Reset Password Dialog */}
       <Dialog open={resetPwDialog} onOpenChange={setResetPwDialog}>
         <DialogContent className="sm:max-w-sm">

@@ -651,7 +651,7 @@ export default function BranchTransferPage() {
                                           <button key={p.id} onMouseDown={() => selectProduct(row.id, p)}
                                             className={`w-full text-left px-3 py-2 border-b last:border-0 transition-colors ${
                                               idx === row.activeSearchIndex
-                                                ? 'bg-[#1A4D2E]/8 border-l-2 border-l-[#1A4D2E]'
+                                                ? 'bg-emerald-50 border-l-[3px] border-l-emerald-700'
                                                 : 'hover:bg-slate-50'
                                             }`}>
                                             <div className="flex justify-between items-start">

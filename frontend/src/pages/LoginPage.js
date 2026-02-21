@@ -107,9 +107,11 @@ export default function LoginPage() {
               >
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
-              <p className="text-center text-xs text-slate-400 mt-4">
-                Default: admin / admin123
-              </p>
+              {process.env.NODE_ENV === 'development' && (
+                <p className="text-center text-xs text-slate-400 mt-4">
+                  Default: admin / admin123
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>

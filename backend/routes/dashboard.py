@@ -134,8 +134,6 @@ async def dashboard_stats(
                 {"wallet_id": safe_w["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
             ).to_list(500)
             safe_balance = sum(lot.get("remaining_amount", 0) for lot in lots)
-        wallets = await db.fund_wallets.find({"type": "cashier", "active": True}, {"_id": 0}).to_list(100)
-        cashier_balance = sum(float(w.get("balance", 0)) for w in wallets)
 
     # ── AR aging ──────────────────────────────────────────────────────────────
     ar_aging = await _compute_ar_aging(branch_filter)

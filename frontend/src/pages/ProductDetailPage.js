@@ -76,7 +76,11 @@ export default function ProductDetailPage() {
 
   const handleSave = async () => {
     try {
-      await api.put(`/products/${id}`, editForm);
+      // Strip cost_price and capital_method from payload if user cannot edit capital
+      const payload = canEditCost
+        ? editForm
+        : (({ cost_price, capital_method, ...rest }) => rest)(editForm);
+      await api.put(`/products/${id}`, payload);
       toast.success('Product updated');
       setEditMode(false);
       fetchDetail();

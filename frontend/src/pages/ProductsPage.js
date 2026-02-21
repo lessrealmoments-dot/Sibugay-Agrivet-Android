@@ -213,7 +213,72 @@ export default function ProductsPage() {
   const openEdit = (p) => {
     setEditing(p);
     setForm({ sku: p.sku, name: p.name, category: p.category, unit: p.unit, cost_price: p.cost_price, prices: p.prices || {}, barcode: p.barcode || '', description: p.description || '' });
+    // Reset correction panel
+    setCorrectionExpanded(false);
+    setCorrectionQty('');
+    setCorrectionReason('');
+    setCorrectionHistory([]);
+    setCurrentStock(null);
     setDialogOpen(true);
+  };
+
+  const loadStockForEdit = useCallback(async (product) => {
+    if (!product || !currentBranch) return;
+    try {
+      const res = await api.get('/inventory', {
+        params: { search: product.sku, branch_id: currentBranch.id, limit: 1 }
+      });
+      const item = (res.data.items || []).find(i => i.id === product.id);
+      const stock = item ? (item.branch_stock?.[currentBranch.id] ?? item.total_stock ?? 0) : 0;
+      setCurrentStock(stock);
+    } catch { setCurrentStock(0); }
+    // Load correction history
+    try {
+      const hist = await api.get(`/inventory/corrections/${product.id}`);
+      setCorrectionHistory(hist.data || []);
+    } catch {}
+  }, [currentBranch]);
+
+  useEffect(() => {
+    if (correctionExpanded && editing) loadStockForEdit(editing);
+  }, [correctionExpanded, editing, loadStockForEdit]);
+
+  const submitCorrection = async (verifiedBy, authMode) => {
+    if (!pendingCorrection) return;
+    setCorrectionSaving(true);
+    try {
+      const res = await api.post('/inventory/admin-adjust', {
+        product_id: editing.id,
+        branch_id: currentBranch.id,
+        new_quantity: pendingCorrection.new_qty,
+        reason: pendingCorrection.reason,
+        verified_by: verifiedBy,
+        auth_mode: authMode,
+      });
+      toast.success(`Stock corrected: ${res.data.old_quantity} → ${res.data.new_quantity}`);
+      setCurrentStock(res.data.new_quantity);
+      setCorrectionQty('');
+      setCorrectionReason('');
+      setPendingCorrection(null);
+      // Refresh history
+      const hist = await api.get(`/inventory/corrections/${editing.id}`);
+      setCorrectionHistory(hist.data || []);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Correction failed'); }
+    setCorrectionSaving(false);
+  };
+
+  const handleCorrectionSubmit = () => {
+    const qty = parseFloat(correctionQty);
+    if (isNaN(qty) || qty < 0) { toast.error('Enter a valid quantity (0 or more)'); return; }
+    if (!correctionReason.trim()) { toast.error('Reason is required'); return; }
+    if (user?.role === 'admin') {
+      // Admin can do it directly without TOTP (they are already authenticated)
+      submitCorrection(user.full_name || user.username, 'direct_admin');
+    } else {
+      // Non-admin: require TOTP verification
+      setPendingCorrection({ new_qty: qty, reason: correctionReason.trim() });
+      setTotpOpen(true);
+    }
   };
 
   const openRepack = (p) => {

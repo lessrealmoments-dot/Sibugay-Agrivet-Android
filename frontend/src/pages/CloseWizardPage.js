@@ -754,8 +754,8 @@ export default function CloseWizardPage() {
               {/* Z-Report Summary */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 {[
-                  { label: 'Starting Float', value: preview?.starting_float, color: 'slate' },
-                  { label: 'Cash Sales', value: preview?.total_cash_sales, color: 'emerald' },
+                  { label: 'Opening Float', value: preview?.starting_float, color: 'slate' },
+                  { label: 'Walk-in Sales', value: preview?.total_cash_sales, color: 'emerald' },
                   { label: 'AR Received', value: preview?.total_ar_received, color: 'blue' },
                   { label: 'Expenses', value: preview?.total_expenses, color: 'red' },
                   { label: 'Expected Cash', value: expectedCash, color: 'indigo' },

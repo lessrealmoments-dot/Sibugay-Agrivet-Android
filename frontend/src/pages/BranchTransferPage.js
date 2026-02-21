@@ -921,81 +921,134 @@ export default function BranchTransferPage() {
 
         {/* ── HISTORY TAB ── */}
         <TabsContent value="history" className="mt-4">
-          <div className="flex justify-end mb-3">
+          {/* Outgoing / Incoming sub-tabs */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+              {['outgoing', 'incoming'].map(ht => {
+                const effectiveBranchId = currentBranch?.id || user?.branch_id || '';
+                const count = isConsolidatedView
+                  ? orders.length
+                  : orders.filter(o => ht === 'outgoing' ? o.from_branch_id === effectiveBranchId : o.to_branch_id === effectiveBranchId).length;
+                return (
+                  <button key={ht}
+                    onClick={() => setHistoryTab(ht)}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${historyTab === ht ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                    data-testid={`history-${ht}-tab`}
+                  >
+                    {ht} <span className="ml-1 text-xs text-slate-400">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
             <Button variant="outline" size="sm" onClick={loadOrders} disabled={ordersLoading}>
               <RefreshCw size={13} className={`mr-1.5 ${ordersLoading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
           </div>
-          <Card className="border-slate-200">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50">
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Order #</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">From</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">To</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Items</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Transfer Value</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Retail Value</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Status</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">Date</TableHead>
-                  <TableHead className="w-32"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">No transfers yet</TableCell></TableRow>
-                ) : orders.map(o => {
-                  const toBranch = branches.find(b => b.id === o.to_branch_id);
-                  const fromBranch = branches.find(b => b.id === o.from_branch_id);
-                  return (
-                    <TableRow key={o.id} className="table-row-hover">
-                      <TableCell className="font-mono text-sm text-blue-600">{o.order_number}</TableCell>
-                      <TableCell className="text-sm text-slate-500">{fromBranch?.name || o.from_branch_id?.slice(0,8)}</TableCell>
-                      <TableCell className="font-medium">{toBranch?.name || o.to_branch_id}</TableCell>
-                      <TableCell className="text-slate-500">{o.items?.length || 0} products</TableCell>
-                      <TableCell className="text-right font-mono">{formatPHP(o.total_at_transfer_capital)}</TableCell>
-                      <TableCell className="text-right font-mono text-emerald-700">{formatPHP(o.total_at_branch_retail)}</TableCell>
-                      <TableCell>
-                        <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>
-                          {o.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-400">{o.created_at?.slice(0, 10)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
-                            title="View Details" className="h-7 px-2" data-testid={`view-btn-${o.id}`}>
-                            <Eye size={13} />
-                          </Button>
-                          {o.status === 'draft' && (
-                            <Button variant="ghost" size="sm" onClick={() => handleSend(o.id)}
-                              className="h-7 px-2 text-blue-500" title="Mark as Sent"
-                              data-testid={`send-btn-${o.id}`}>
-                              <Send size={13} />
-                            </Button>
-                          )}
-                          {(o.status === 'sent' || o.status === 'draft') && (
-                            <Button variant="ghost" size="sm" onClick={() => openReceive(o)}
-                              className="h-7 px-2 text-emerald-600" title="Confirm Receipt"
-                              data-testid={`receive-btn-${o.id}`}>
-                              <CheckCircle2 size={13} />
-                            </Button>
-                          )}
-                          {(o.status === 'draft' || o.status === 'sent') && (
-                            <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
-                              className="h-7 px-2 text-red-400" title="Cancel"
-                              data-testid={`cancel-btn-${o.id}`}>
-                              <XCircle size={13} />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
+
+          {(() => {
+            const effectiveBranchId = currentBranch?.id || user?.branch_id || '';
+            const filteredOrders = isConsolidatedView
+              ? orders
+              : orders.filter(o => historyTab === 'outgoing'
+                  ? o.from_branch_id === effectiveBranchId
+                  : o.to_branch_id === effectiveBranchId);
+
+            return (
+              <Card className="border-slate-200">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Order #</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">From</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">To</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Items</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Transfer Value</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Retail Value</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Status</TableHead>
+                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Date</TableHead>
+                      <TableHead className="w-36"></TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOrders.length === 0 ? (
+                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">
+                        No {historyTab} transfers{!isConsolidatedView ? ' for this branch' : ''}.
+                      </TableCell></TableRow>
+                    ) : filteredOrders.map(o => {
+                      const toBranch = branches.find(b => b.id === o.to_branch_id);
+                      const fromBranchObj = branches.find(b => b.id === o.from_branch_id);
+                      const isSourceBranch = isAdmin || o.from_branch_id === effectiveBranchId;
+                      const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
+                      return (
+                        <TableRow key={o.id} className="hover:bg-slate-50">
+                          <TableCell className="font-mono text-sm text-blue-600">{o.order_number}</TableCell>
+                          <TableCell className="text-sm text-slate-500">{fromBranchObj?.name || o.from_branch_id?.slice(0,8) || '—'}</TableCell>
+                          <TableCell className="font-medium">{toBranch?.name || o.to_branch_id}</TableCell>
+                          <TableCell className="text-slate-500">{o.items?.length || 0} products</TableCell>
+                          <TableCell className="text-right font-mono">{formatPHP(o.total_at_transfer_capital)}</TableCell>
+                          <TableCell className="text-right font-mono text-emerald-700">{formatPHP(o.total_at_branch_retail)}</TableCell>
+                          <TableCell>
+                            <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>{o.status}</Badge>
+                            {o.has_shortage && <Badge className="ml-1 text-[10px] bg-red-100 text-red-700">Short</Badge>}
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-400">{o.created_at?.slice(0, 10)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-0.5">
+                              {/* View — always */}
+                              <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
+                                title="View" className="h-7 px-2" data-testid={`view-btn-${o.id}`}>
+                                <Eye size={13} />
+                              </Button>
+                              {/* Edit draft — source branch only */}
+                              {o.status === 'draft' && isSourceBranch && !isDestBranch && (
+                                <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}
+                                  className="h-7 px-2 text-amber-600" title="Edit Draft"
+                                  data-testid={`edit-btn-${o.id}`}>
+                                  <Pencil size={13} />
+                                </Button>
+                              )}
+                              {/* Admin can always edit draft */}
+                              {o.status === 'draft' && isAdmin && (
+                                <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}
+                                  className="h-7 px-2 text-amber-600" title="Edit Draft"
+                                  data-testid={`edit-btn-admin-${o.id}`}>
+                                  <Pencil size={13} />
+                                </Button>
+                              )}
+                              {/* Send — source branch only */}
+                              {o.status === 'draft' && isSourceBranch && (
+                                <Button variant="ghost" size="sm" onClick={() => handleSend(o.id)}
+                                  className="h-7 px-2 text-blue-500" title="Mark as Sent"
+                                  data-testid={`send-btn-${o.id}`}>
+                                  <Send size={13} />
+                                </Button>
+                              )}
+                              {/* Receive — destination branch only (not source unless admin) */}
+                              {o.status === 'sent' && (isDestBranch) && (
+                                <Button variant="ghost" size="sm" onClick={() => openReceive(o)}
+                                  className="h-7 px-2 text-emerald-600" title="Confirm Receipt"
+                                  data-testid={`receive-btn-${o.id}`}>
+                                  <CheckCircle2 size={13} />
+                                </Button>
+                              )}
+                              {/* Cancel — source branch only */}
+                              {(o.status === 'draft' || o.status === 'sent') && isSourceBranch && (
+                                <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
+                                  className="h-7 px-2 text-red-400" title="Cancel"
+                                  data-testid={`cancel-btn-${o.id}`}>
+                                  <XCircle size={13} />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Card>
+            );
+          })()}
         </TabsContent>
       </Tabs>
 

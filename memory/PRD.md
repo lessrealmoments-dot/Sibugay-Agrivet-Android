@@ -24,6 +24,34 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### TOTP Dynamic PIN + Inventory Correction - COMPLETE ✅ (Feb 2026)
+
+**TOTP (Google Authenticator) for Admin:**
+- New `POST /api/auth/totp/setup` → generates TOTP secret + QR provisioning URI
+- New `POST /api/auth/totp/verify-setup` → activates TOTP after confirmation
+- New `GET /api/auth/totp/status` → returns enabled/verified status
+- New `DELETE /api/auth/totp/disable` → disables TOTP
+- New `POST /api/auth/verify-admin-action` → verifies via TOTP code or password fallback
+- TOTP codes expire every 30 seconds; verification is server-side (offline use blocked)
+- Fallback: admin's full login password accepted when authenticator is unavailable
+
+**TOTP-Protected Actions Control Panel (Settings > Security):**
+- Admin can configure which 9 sensitive actions require TOTP verification
+- Stored in `system_settings` collection under key `totp_controls`
+- Default protected: `inventory_adjust`, `close_day`
+
+**Inventory Correction in Product Edit:**
+- Collapsible "Inventory Correction" section in Edit Product dialog
+- Admin applies correction directly (no TOTP prompt — already authenticated)
+- Non-admin users must verify via TOTP or admin password
+- Requires branch selection (disabled with warning in All Branches mode)
+- Full audit log in `inventory_corrections` collection (old_qty → new_qty, reason, who, auth_mode)
+- Recent corrections shown inline in the correction panel
+
+**New files:**
+- `frontend/src/components/TotpVerifyDialog.js` — shared TOTP verification dialog
+- `backend/tests/test_totp_inventory_correction.py` — 27 tests, all passing
+
 ### Quick Repack Generator - Search & Warning Fixes - COMPLETE ✅ (Feb 2026)
 - Fixed parent product search dropdown clipping in Quick Repack modal using React portal (`createPortal`) with `position: fixed`
 - Added "⚠ has repack" indicator in search dropdown results for products that already have repacks

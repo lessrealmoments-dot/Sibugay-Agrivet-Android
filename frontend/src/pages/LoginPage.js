@@ -57,7 +57,7 @@ export default function LoginPage() {
               <Store size={24} className="text-white" />
             </div>
             <CardTitle className="text-2xl" style={{ fontFamily: 'Manrope' }}>Sign In</CardTitle>
-            <p className="text-sm text-slate-500 mt-1">Access your AgriPOS dashboard</p>
+            <p className="text-sm text-slate-500 mt-1">Access your AgriBooks dashboard</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">

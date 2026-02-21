@@ -793,7 +793,7 @@ export default function DailyLogPage() {
                   </SectionCard>
 
                   {/* ── CASH SALES BY CATEGORY ──────────────────── */}
-                  <SectionCard title={`Cash Sales Today — ${formatPHP(preview.total_cash_sales)}`} accent="emerald">
+                  <SectionCard title={`Walk-in Sales Today — ${formatPHP(preview.total_cash_sales)}`} accent="emerald">
                     {preview.cash_sales_by_category?.length ? (
                       <div className="space-y-1">
                         {preview.cash_sales_by_category.map(c => (

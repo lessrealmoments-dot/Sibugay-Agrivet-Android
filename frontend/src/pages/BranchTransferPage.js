@@ -629,10 +629,12 @@ export default function BranchTransferPage() {
                                   <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                                   <Input value={row.productSearch}
                                     onChange={e => searchProduct(row.id, e.target.value)}
+                                    onKeyDown={e => handleRowSearchKeyDown(e, row)}
                                     placeholder="Search product..."
                                     className="h-8 pl-7 text-sm"
                                     data-testid={`product-search-${row.id}`}
                                     ref={el => { dropdownRefs.current[row.id] = el; }}
+                                    autoComplete="off"
                                   />
                                   {row.productMatches?.length > 0 && (() => {
                                     const el = dropdownRefs.current[row.id];
@@ -640,10 +642,14 @@ export default function BranchTransferPage() {
                                     const rect = el.getBoundingClientRect();
                                     return createPortal(
                                       <div style={{ position:'fixed', top: rect.bottom+4, left: rect.left, width: Math.max(rect.width, 300), zIndex: 9999 }}
-                                        className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                                        {row.productMatches.map(p => (
+                                        className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                                        {row.productMatches.map((p, idx) => (
                                           <button key={p.id} onMouseDown={() => selectProduct(row.id, p)}
-                                            className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b last:border-0">
+                                            className={`w-full text-left px-3 py-2 border-b last:border-0 transition-colors ${
+                                              idx === row.activeSearchIndex
+                                                ? 'bg-[#1A4D2E]/8 border-l-2 border-l-[#1A4D2E]'
+                                                : 'hover:bg-slate-50'
+                                            }`}>
                                             <div className="flex justify-between items-start">
                                               <div>
                                                 <span className="font-medium text-sm">{p.name}</span>
@@ -656,6 +662,11 @@ export default function BranchTransferPage() {
                                             )}
                                           </button>
                                         ))}
+                                        <div className="px-3 py-1 bg-slate-50 text-[10px] text-slate-400 flex gap-3 border-t">
+                                          <span>↑↓ navigate</span>
+                                          <span>Enter to select</span>
+                                          <span>Esc to close</span>
+                                        </div>
                                       </div>,
                                       document.body
                                     );

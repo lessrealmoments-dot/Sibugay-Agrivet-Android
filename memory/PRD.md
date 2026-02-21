@@ -24,7 +24,21 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
-### Daily Close Wizard - COMPLETE ✅ (Feb 2026)
+### Multi-Branch Stress Test + Cash Sales Bug Fix - COMPLETE ✅ (Feb 2026)
+**Stress test covered all 3 branches simultaneously:**
+- 61/61 backend tests pass, all transaction types verified
+- Inventory deductions verified per branch (ENERTONE, Lannate, VITMIN, VOLPLEX, PLATINUM)
+- AR balances correct after credit sales across all branches
+- Offline sync working (14 products, 10 customers, 4 stock records synced)
+- Supplier payables showing URGENT badge for 3-day due PO (PILMICO)
+- Close wizard navigable for all branches
+
+**CRITICAL BUG FIXED: payment_method case mismatch**
+- Root cause: `UnifiedSalesPage.js` sent `payment_method: 'Cash'` (capital C) but `daily_operations.py` queried `'cash'` (lowercase) → all cash sales showed ₱0 in Z-reports
+- Fixed in 3 layers: (1) frontend now sends lowercase, (2) `log_sale_items` in helpers.py normalizes to lowercase, (3) `daily_operations.py` uses case-insensitive `$regex` as safety net
+- Z-report `total_cash_sales` now correctly shows ₱12,800 across all branches
+
+
 **8-step guided close wizard at `/close-wizard`:**
 1. Sales Log — sequential cash+credit sales, Quick Add Sale, Full Panel link
 2. Customer Credits — credit invoices, cashouts, farm services grouped

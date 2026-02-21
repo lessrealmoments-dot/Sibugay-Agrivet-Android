@@ -20,7 +20,8 @@ import { toast } from 'sonner';
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentBranch, branches, user } = useAuth();
+  const { currentBranch, branches, user, hasPerm } = useAuth();
+  const canEditCost = hasPerm('products', 'edit_cost');
   const [detail, setDetail] = useState(null);
   const [movements, setMovements] = useState([]);
   const [orders, setOrders] = useState([]);

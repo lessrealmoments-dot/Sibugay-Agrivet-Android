@@ -228,6 +228,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown_db_client():
     """Close database connection on shutdown."""
+    _scheduler.shutdown(wait=False)
     client.close()
 
 

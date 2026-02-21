@@ -75,13 +75,13 @@ export default function ProductsPage() {
   const searchParent = (rowId, query) => {
     updateRow(rowId, { parentSearch: query, parent: null, capital: 0, rowError: null });
     if (searchTimers.current[rowId]) clearTimeout(searchTimers.current[rowId]);
-    if (!query || query.length < 2) { updateRow(rowId, { parentMatches: [] }); return; }
+    if (!query || query.length < 1) { updateRow(rowId, { parentMatches: [] }); return; }
     searchTimers.current[rowId] = setTimeout(async () => {
       try {
         const res = await api.get('/products', { params: { search: query, is_repack: false, limit: 8 } });
         updateRow(rowId, { parentMatches: res.data.products || [] });
       } catch {}
-    }, 250);
+    }, 180);
   };
 
   const selectParent = (rowId, p) => {

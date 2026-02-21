@@ -34,6 +34,8 @@ function newRow() {
     activeSearchIndex: -1,
     qty: 1,
     branch_capital: 0,
+    global_cost_price: 0,
+    is_branch_specific_cost: false,
     transfer_capital: '',
     branch_retail: '',
     last_purchase_ref: null, moving_average_ref: null, last_branch_retail: null,

@@ -238,7 +238,7 @@ export default function ProductDetailPage() {
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">
             {/* Capital reference bar — shown in edit mode */}
-            {editMode && (cost.moving_average > 0 || cost.last_purchase > 0) && (
+            {editMode && (
               <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 flex flex-wrap gap-5 text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">Moving Avg</span>
@@ -253,8 +253,15 @@ export default function ProductDetailPage() {
                     </span>
                   )}
                 </div>
+                {cost.is_branch_specific && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium text-amber-500 uppercase tracking-wide">Branch Cost</span>
+                    <span className="font-bold text-amber-700 font-mono">{formatPHP(cost.branch_cost_price)}</span>
+                    {cost.cost_transfer_order && <span className="text-[10px] text-slate-400">via {cost.cost_transfer_order}</span>}
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">Manual Cost</span>
+                  <span className="text-[10px] font-medium text-blue-500 uppercase tracking-wide">Global Cost</span>
                   <span className="font-bold text-blue-800 font-mono">{formatPHP(cost.cost_price)}</span>
                 </div>
               </div>

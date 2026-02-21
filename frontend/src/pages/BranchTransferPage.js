@@ -845,7 +845,8 @@ export default function BranchTransferPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50">
                   <TableHead className="text-xs uppercase text-slate-500 font-medium">Order #</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 font-medium">To Branch</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">From</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 font-medium">To</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500 font-medium">Items</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Transfer Value</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Retail Value</TableHead>
@@ -856,12 +857,14 @@ export default function BranchTransferPage() {
               </TableHeader>
               <TableBody>
                 {orders.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">No transfers yet</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">No transfers yet</TableCell></TableRow>
                 ) : orders.map(o => {
                   const toBranch = branches.find(b => b.id === o.to_branch_id);
+                  const fromBranch = branches.find(b => b.id === o.from_branch_id);
                   return (
                     <TableRow key={o.id} className="table-row-hover">
                       <TableCell className="font-mono text-sm text-blue-600">{o.order_number}</TableCell>
+                      <TableCell className="text-sm text-slate-500">{fromBranch?.name || o.from_branch_id?.slice(0,8)}</TableCell>
                       <TableCell className="font-medium">{toBranch?.name || o.to_branch_id}</TableCell>
                       <TableCell className="text-slate-500">{o.items?.length || 0} products</TableCell>
                       <TableCell className="text-right font-mono">{formatPHP(o.total_at_transfer_capital)}</TableCell>

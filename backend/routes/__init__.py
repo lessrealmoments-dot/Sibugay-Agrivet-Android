@@ -20,7 +20,7 @@ from .employees import router as employees_router
 from .settings import router as settings_router
 from .count_sheets import router as count_sheets_router
 from .setup import router as setup_router
-from .branch_prices import router as branch_prices_router
+from .import_data import router as import_router
 from .branch_transfers import router as branch_transfers_router
 from .notifications import router as notifications_router
 

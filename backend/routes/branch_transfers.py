@@ -515,13 +515,16 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
             "received_at": now_iso(),
             "received_by": user["id"],
             "received_by_name": user.get("full_name", user["username"]),
+            "receive_notes": data.get("notes", ""),
             "items": received_items,
             "shortages": shortages,
+            "excesses": excesses,
             "has_shortage": len(shortages) > 0,
+            "has_excess": len(excesses) > 0,
         }}
     )
 
-    # Notify source branch + admins if there are shortages
+    # Notify source branch + admins of shortages
     if shortages:
         total_cap_loss = round(sum(s["capital_variance"] for s in shortages), 2)
         total_ret_loss = round(sum(s["retail_variance"] for s in shortages), 2)
@@ -533,6 +536,76 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
             {"role": "admin", "active": True}, {"_id": 0, "id": 1}
         ).to_list(50)
         shortage_target_ids = list({u["id"] for u in src_users + admins})
+
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "transfer_shortage",
+            "title": "Transfer Shortage Detected",
+            "message": (
+                f"Transfer {order['order_number']} received by {to_name} with shortage — "
+                f"{len(shortages)} product(s) short. "
+                f"Capital loss: ₱{total_cap_loss:,.2f} | Retail loss: ₱{total_ret_loss:,.2f}"
+            ),
+            "branch_id": from_branch_id,
+            "branch_name": from_name,
+            "metadata": {
+                "transfer_id": transfer_id,
+                "order_number": order["order_number"],
+                "shortages": shortages,
+                "total_capital_variance": total_cap_loss,
+                "total_retail_variance": total_ret_loss,
+            },
+            "target_user_ids": shortage_target_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
+
+    # Notify source branch + admins of excess received
+    if excesses:
+        total_cap_excess = round(sum(e["capital_variance"] for e in excesses), 2)
+        total_ret_excess = round(sum(e["retail_variance"] for e in excesses), 2)
+
+        src_users = await db.users.find(
+            {"branch_id": from_branch_id, "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        admins = await db.users.find(
+            {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        excess_target_ids = list({u["id"] for u in src_users + admins})
+
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "transfer_excess",
+            "title": "Transfer Excess Received",
+            "message": (
+                f"Transfer {order['order_number']} received by {to_name} with EXCESS — "
+                f"{len(excesses)} product(s) over. "
+                f"Extra capital: ₱{total_cap_excess:,.2f} | Extra retail: ₱{total_ret_excess:,.2f}. "
+                f"Please verify your source inventory."
+            ),
+            "branch_id": from_branch_id,
+            "branch_name": from_name,
+            "metadata": {
+                "transfer_id": transfer_id,
+                "order_number": order["order_number"],
+                "excesses": excesses,
+                "total_capital_excess": total_cap_excess,
+                "total_retail_excess": total_ret_excess,
+            },
+            "target_user_ids": excess_target_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
+
+    return {
+        "message": f"Transfer received. {len(received_items)} product(s) updated.",
+        "order_number": order["order_number"],
+        "items_received": len(received_items),
+        "shortages": shortages,
+        "excesses": excesses,
+        "has_shortage": len(shortages) > 0,
+        "has_excess": len(excesses) > 0,
+    }
 
         await db.notifications.insert_one({
             "id": new_id(),

@@ -1036,6 +1036,19 @@ export default function ProductsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* TOTP Verification Dialog for Inventory Correction */}
+      <TotpVerifyDialog
+        open={totpOpen}
+        onOpenChange={v => { setTotpOpen(v); if (!v) setPendingCorrection(null); }}
+        context={`Inventory correction for ${editing?.name} in ${currentBranch?.name}`}
+        title="Verify Admin Action"
+        onVerified={({ manager_name, mode_used }) => {
+          if (pendingCorrection) {
+            submitCorrection(manager_name, mode_used);
+          }
+        }}
+      />
     </div>
   );
 }

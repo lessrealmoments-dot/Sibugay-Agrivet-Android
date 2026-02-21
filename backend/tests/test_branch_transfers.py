@@ -161,17 +161,17 @@ class TestTransferCRUD:
             "category_markups": [{"category": "Feeds", "type": "fixed", "value": 50}],
             "items": [
                 {
-                    "product_id": "c313bfe0",
-                    "product_name": "ENERTONE",
-                    "sku": "TEST-SKU-001",
+                    "product_id": ENERTONE_PRODUCT_ID,
+                    "product_name": ENERTONE_PRODUCT_NAME,
+                    "sku": "P-6BC86ACA",
                     "category": "Feeds",
                     "unit": "CASE",
                     "qty": 2,
                     "branch_capital": 920.0,
                     "transfer_capital": 970.0,  # 920 + 50 fixed
                     "branch_retail": 1020.0,   # margin=50, above min 20
-                    "last_purchase_ref": 920.0,
-                    "moving_average_ref": 920.0,
+                    "last_purchase_ref": 0.0,
+                    "moving_average_ref": 0.0,
                     "override": False,
                     "override_reason": ""
                 }

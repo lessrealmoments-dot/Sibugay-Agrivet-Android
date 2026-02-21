@@ -581,7 +581,7 @@ export default function UnifiedSalesPage() {
       prefix: header.prefix,
       order_date: header.order_date,
       invoice_date: today,
-      payment_method: actualPaymentType === 'cash' ? 'Cash' : 'Credit',
+      payment_method: actualPaymentType === 'cash' ? 'cash' : 'credit',
       payment_type: actualPaymentType,
       fund_source: 'cashier',
       sale_type: 'walk_in',

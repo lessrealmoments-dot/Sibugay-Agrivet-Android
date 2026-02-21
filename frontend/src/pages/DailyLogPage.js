@@ -79,8 +79,8 @@ function ZReport({ data, branchName, onPrint }) {
           <InfoRow label={data.over_short >= 0 ? 'Cash Over' : 'Cash Short'}
             value={`${data.over_short >= 0 ? '+' : ''}${formatPHP(data.over_short)}`}
             bold className={data.over_short >= 0 ? 'text-emerald-600' : 'text-red-600'} />
-          <InfoRow label="Transferred to Safe" value={formatPHP(data.cash_to_safe)} />
-          <InfoRow label="Left in Register (tomorrow's float)" value={formatPHP(data.cash_to_drawer)} bold className="text-emerald-600" />
+          <InfoRow label="Transferred to Vault" value={formatPHP(data.cash_to_safe)} />
+          <InfoRow label="Opening Float (Next Day)" value={formatPHP(data.cash_to_drawer)} bold className="text-emerald-600" />
         </SectionCard>
       </div>
 

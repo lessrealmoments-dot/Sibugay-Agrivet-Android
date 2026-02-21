@@ -190,6 +190,10 @@ export default function UnifiedSalesPage() {
         product_id: product.id, product_name: product.name, sku: product.sku,
         price, quantity: 1, total: price, unit: product.unit, is_repack: product.is_repack,
         cost_price: product.cost_price || 0,
+        moving_average_cost: product.moving_average_cost || 0,
+        last_purchase_cost: product.last_purchase_cost || 0,
+        effective_capital: product.effective_capital || product.cost_price || 0,
+        capital_method: product.capital_method || 'manual',
         original_price: price,
       }]);
     }

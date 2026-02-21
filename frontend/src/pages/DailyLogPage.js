@@ -982,7 +982,7 @@ export default function DailyLogPage() {
                         </div>
                         <div>
                           <Label className="mb-1.5 block">
-                            Stays in Register
+                            Stays as Opening Float (Next Day)
                             <span className="text-xs text-slate-400 font-normal ml-1">(= tomorrow's starting float)</span>
                           </Label>
                           <Input type="number" min={0} step="0.01" value={cashToDrawer}

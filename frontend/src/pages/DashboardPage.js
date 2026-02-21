@@ -355,7 +355,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {[
-              { label: 'Cashier Drawer', value: stats?.cashier_balance || 0, color: 'text-blue-700', bg: 'bg-blue-50' },
+              { label: 'Operating Fund', value: stats?.cashier_balance || 0, color: 'text-blue-700', bg: 'bg-blue-50' },
               { label: 'Safe', value: stats?.safe_balance || 0, color: 'text-indigo-700', bg: 'bg-indigo-50' },
               { label: 'Total Cash', value: stats?.total_cash_position || 0, color: 'text-emerald-700', bg: 'bg-emerald-50', bold: true },
             ].map(({ label, value, color, bg, bold }) => (

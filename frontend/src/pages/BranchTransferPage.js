@@ -808,7 +808,7 @@ export default function BranchTransferPage() {
           {!toBranchId && (
             <div className="text-center py-16 text-slate-400">
               <Building2 size={40} className="mx-auto mb-3 opacity-30" />
-              <p>Select a destination branch to start building the transfer order.</p>
+              <p>{!fromBranchId ? 'Select a source branch first.' : 'Select a destination branch to start building the transfer order.'}</p>
             </div>
           )}
         </TabsContent>

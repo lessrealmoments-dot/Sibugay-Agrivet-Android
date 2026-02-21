@@ -10,8 +10,7 @@ import {
   TrendingUp, ArrowDown, Building2, Wallet, Receipt, ArrowRight,
   Truck, Clock, CreditCard, Banknote, CheckCircle2, Calendar,
   BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight, Lock
-} from 'lucide-react';
-import { formatPHP } from '../lib/utils';
+} from 'lucide-react';import { formatPHP } from '../lib/utils';
 
 function KpiCard({ label, value, sub, icon: Icon, color, trend, testId }) {
   return (

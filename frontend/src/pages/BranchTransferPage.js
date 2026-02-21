@@ -899,11 +899,12 @@ export default function BranchTransferPage() {
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider">Branch Retail</p>
                     <p className="font-mono font-bold text-emerald-700">{formatPHP(totalRetail)}</p>
                   </div>
-                  <Button onClick={handleSubmit} disabled={saving || !toBranchId || !validRows.length}
+                  <Button onClick={editingOrderId ? handleUpdateDraft : handleSubmit}
+                    disabled={saving || !toBranchId || !validRows.length}
                     className="bg-[#1A4D2E] hover:bg-[#14532d] text-white ml-4"
                     data-testid="create-transfer-btn">
                     {saving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <Send size={14} className="mr-1.5" />}
-                    Create Transfer Order
+                    {editingOrderId ? 'Save Draft' : 'Create Transfer Order'}
                   </Button>
                 </div>
               </div>

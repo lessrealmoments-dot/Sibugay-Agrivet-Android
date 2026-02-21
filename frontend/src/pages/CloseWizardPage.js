@@ -700,7 +700,7 @@ export default function CloseWizardPage() {
                 </div>
               )}
               <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                <p className="text-xs text-slate-500 uppercase font-medium mb-1">Actual Cash Available</p>
+                <p className="text-xs text-slate-500 uppercase font-medium mb-1">Actual Funds Available</p>
                 <p className="text-3xl font-bold font-mono">{formatPHP(parseFloat(actualCash) || 0)}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">

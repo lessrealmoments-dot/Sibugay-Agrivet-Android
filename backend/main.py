@@ -96,6 +96,14 @@ api_router.include_router(setup_router)
 @app.on_event("startup")
 async def startup():
     """Initialize database indexes. User/branch creation moved to setup wizard."""
+    # ── Security check ────────────────────────────────────────────────────────
+    if len(JWT_SECRET) < 32:
+        logger.warning(
+            "⚠️  JWT_SECRET is too short (%d chars). "
+            "Generate a strong key with: openssl rand -hex 32",
+            len(JWT_SECRET)
+        )
+
     # Check if setup is needed (no auto-creation of users)
     user_count = await db.users.count_documents({})
     if user_count == 0:

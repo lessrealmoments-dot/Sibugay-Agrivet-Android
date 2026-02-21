@@ -607,9 +607,12 @@ export default function ProductsPage() {
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 flex items-start gap-2">
                       <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                       <span>
-                        This directly sets the stock count for <strong>{currentBranch?.name}</strong>.
-                        Use only to correct counting errors. Every change is logged.
-                        {user?.role !== 'admin' && ' Requires TOTP verification.'}
+                        {!currentBranch
+                          ? 'Please select a specific branch first (not "All Branches") to correct inventory.'
+                          : <>This directly sets the stock count for <strong>{currentBranch?.name}</strong>.
+                            Use only to correct counting errors. Every change is logged.
+                            {user?.role !== 'admin' && ' Requires TOTP verification.'}</>
+                        }
                       </span>
                     </div>
 

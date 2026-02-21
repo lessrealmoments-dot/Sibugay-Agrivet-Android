@@ -228,8 +228,11 @@ export default function SettingsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="outline" size="sm" data-testid={`perms-btn-${u.id}`} onClick={() => openPerms(u)}>
+                          <Button variant="outline" size="sm" data-testid={`perms-btn-${u.id}`}
+                            onClick={() => navigate('/user-permissions')}
+                            title="Manage full permissions in the User Permissions page">
                             <Shield size={12} className="mr-1" /> Permissions
+                            <ExternalLink size={10} className="ml-1 opacity-50" />
                           </Button>
                           <Button variant="outline" size="sm" data-testid={`reset-pw-${u.id}`} onClick={() => openResetPw(u)}>
                             <Key size={12} className="mr-1" /> Reset PW

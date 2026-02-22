@@ -344,38 +344,7 @@ export default function PurchaseOrderPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };
 
-  // ── Pay Supplier tab ───────────────────────────────────────────────────
-  const selectPayVendor = async (vendor) => {
-    setPayVendor(vendor); setVendorSearch(vendor);
-    try {
-      const [posRes, fundsRes] = await Promise.all([
-        api.get('/purchase-orders/by-vendor', { params: { vendor } }),
-        api.get('/purchase-orders/fund-balances', { params: { branch_id: currentBranch?.id } }),
-      ]);
-      setVendorPOs(posRes.data.filter(p => p.payment_status !== 'paid'));
-      setPaySupFunds({ cashier: fundsRes.data.cashier || 0, safe: fundsRes.data.safe || 0 });
-    } catch { setVendorPOs([]); }
-  };
-
-  const handlePaySupplier = async () => {
-    if (!paySupForm.selected_po) { toast.error('Select a PO to pay'); return; }
-    if (!paySupForm.amount || paySupForm.amount <= 0) { toast.error('Enter amount'); return; }
-    try {
-      await api.post(`/purchase-orders/${paySupForm.selected_po}/pay`, {
-        amount: paySupForm.amount,
-        fund_source: paySupForm.fund_source,
-        method: paySupForm.payment_method,
-        check_number: paySupForm.check_number,
-        payment_date: paySupForm.payment_date,
-        check_date: paySupForm.check_date,
-      });
-      toast.success('Payment recorded!');
-      selectPayVendor(payVendor);
-      fetchOrders();
-      setPaySupForm(f => ({ ...f, amount: 0, check_number: '', selected_po: '' }));
-    } catch (e) { toast.error(e.response?.data?.detail || 'Payment failed'); }
-  };
-
+  // ── Pay Supplier tab (now standalone page) ────────────────────────────
   const openSupplierHistory = async (vendor) => {
     setHistoryVendor(vendor);
     try {

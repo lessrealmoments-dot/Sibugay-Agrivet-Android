@@ -908,11 +908,15 @@ export default function PurchaseOrderPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-0.5">
-                          <Badge className={`text-[10px] ${payStatusColor(po.payment_status || (po.payment_method === 'cash' ? 'paid' : 'unpaid'))}`}>
-                            {po.po_type === 'cash' || po.payment_method === 'cash' ? 'Cash' : 'Terms'} · {po.payment_status || (po.payment_method === 'cash' ? 'paid' : 'unpaid')}
-                          </Badge>
+                          {po.status === 'draft' ? (
+                            <Badge className="text-[10px] bg-slate-100 text-slate-500">Draft — pending</Badge>
+                          ) : (
+                            <Badge className={`text-[10px] ${payStatusColor(po.payment_status || (po.payment_method === 'cash' ? 'paid' : 'unpaid'))}`}>
+                              {po.po_type === 'cash' || po.payment_method === 'cash' ? 'Cash' : 'Terms'} · {po.payment_status || (po.payment_method === 'cash' ? 'paid' : 'unpaid')}
+                            </Badge>
+                          )}
                           {po.balance > 0 && <span className="text-[10px] text-red-600 font-mono">{formatPHP(po.balance)}</span>}
-                          {po.due_date && po.payment_status !== 'paid' && (
+                          {po.due_date && po.payment_status !== 'paid' && po.status !== 'draft' && (
                             <span className={`text-[9px] ${new Date(po.due_date) < new Date() ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
                               {new Date(po.due_date) < new Date() ? '⚠ ' : ''}Due {po.due_date}
                             </span>

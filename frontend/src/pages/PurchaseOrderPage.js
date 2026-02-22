@@ -660,9 +660,15 @@ export default function PurchaseOrderPage() {
                 {f.label}
               </button>
             ))}
-            <Button variant="outline" size="sm" onClick={fetchOrders} className="ml-auto h-7">
-              <RefreshCw size={12} className="mr-1" /> Refresh
-            </Button>
+            <div className="ml-auto flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate('/pay-supplier')}
+                className="h-7 border-[#1A4D2E] text-[#1A4D2E] hover:bg-[#1A4D2E]/5">
+                <Banknote size={12} className="mr-1" /> Pay Supplier
+              </Button>
+              <Button variant="outline" size="sm" onClick={fetchOrders} className="h-7">
+                <RefreshCw size={12} className="mr-1" /> Refresh
+              </Button>
+            </div>
           </div>
 
           <Card className="border-slate-200">

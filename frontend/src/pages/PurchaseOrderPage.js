@@ -735,7 +735,7 @@ export default function PurchaseOrderPage() {
                             </Button>
                           )}
                           {po.payment_status !== 'paid' && (po.po_type === 'terms' || po.payment_method === 'credit') && po.status !== 'cancelled' && (
-                            <Button size="sm" variant="outline" onClick={() => { setPayVendor(po.vendor); selectPayVendor(po.vendor); setTab('pay'); }}
+                            <Button size="sm" variant="outline" onClick={() => navigate('/pay-supplier')}
                               className="h-7 text-[11px]" data-testid={`pay-po-${po.id}`}>
                               <DollarSign size={11} className="mr-0.5" /> Pay
                             </Button>

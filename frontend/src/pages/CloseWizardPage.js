@@ -74,12 +74,34 @@ export default function CloseWizardPage() {
   const [saleSchemes, setSaleSchemes] = useState([]);
 
   // Quick-add expense form
-  const [expForm, setExpForm] = useState({ description: '', amount: '', category: 'Operational', expenseType: 'other' });
+  const EXPENSE_CATEGORIES = [
+    "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
+    "Repairs & Maintenance", "Marketing", "Salaries & Wages", "Communication",
+    "Insurance", "Professional Fees", "Taxes & Licenses", "Office Supplies",
+    "Equipment", "Miscellaneous"
+  ];
+  const PAYMENT_METHODS = ["Cash", "Check", "Bank Transfer", "GCash", "Maya", "Credit Card"];
+
+  const [expForm, setExpForm] = useState({
+    expenseType: 'regular', category: 'Miscellaneous',
+    description: '', notes: '', amount: '',
+    payment_method: 'Cash', reference_number: '',
+  });
   const [expSaving, setExpSaving] = useState(false);
+
+  // Customer picker (farm / cashout)
   const [expCustomerSearch, setExpCustomerSearch] = useState('');
   const [expCustomerMatches, setExpCustomerMatches] = useState([]);
   const [expCustomerSelected, setExpCustomerSelected] = useState(null);
   const expCustomerTimer = useRef(null);
+
+  // Employee picker (advance)
+  const [expEmployees, setExpEmployees] = useState([]);
+  const [expEmployeeSelected, setExpEmployeeSelected] = useState(null);
+  const [expCaSummary, setExpCaSummary] = useState(null);
+  const [expCaPinNeeded, setExpCaPinNeeded] = useState(false);
+  const [expCaPin, setExpCaPin] = useState('');
+  const [expCaPinVerified, setExpCaPinVerified] = useState(false);
 
   // Quick receive payment form
   const [pmtAmount, setPmtAmount] = useState('');

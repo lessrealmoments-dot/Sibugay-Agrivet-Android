@@ -208,7 +208,7 @@ export default function PriceScanManager() {
           data-testid="price-scan-alert-btn"
         >
           <AlertTriangle size={16} />
-          {lastScanCount} pricing issue{lastScanCount !== 1 ? 's' : ''} found
+          {lastScanCount} product{lastScanCount !== 1 ? 's' : ''}: price below cost
         </button>
       )}
 

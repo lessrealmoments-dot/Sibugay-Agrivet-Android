@@ -214,17 +214,48 @@ export default function CloseWizardPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to add sale'); }
   };
 
+  // ── Search customers for expense form ─────────────────────────────────────
+  const searchExpCustomer = (q) => {
+    setExpCustomerSearch(q);
+    setExpCustomerSelected(null);
+    if (expCustomerTimer.current) clearTimeout(expCustomerTimer.current);
+    if (!q || q.length < 1) { setExpCustomerMatches([]); return; }
+    expCustomerTimer.current = setTimeout(async () => {
+      try {
+        const res = await api.get('/customers', { params: { search: q, branch_id: currentBranch?.id, limit: 8 } });
+        setExpCustomerMatches(res.data.customers || res.data || []);
+      } catch { setExpCustomerMatches([]); }
+    }, 200);
+  };
+
   // ── Quick add expense ───────────────────────────────────────────────────────
   const quickAddExpense = async () => {
     if (!expForm.description || !expForm.amount) { toast.error('Description and amount required'); return; }
+    const needsCustomer = expForm.expenseType === 'farm' || expForm.expenseType === 'cashout';
+    if (needsCustomer && !expCustomerSelected) { toast.error('Please select a customer'); return; }
     setExpSaving(true);
     try {
       const endpoint = expForm.expenseType === 'farm' ? '/expenses/farm'
-        : expForm.expenseType === 'advance' ? '/expenses/employee-advance' : '/expenses';
-      await api.post(endpoint, { ...expForm, amount: parseFloat(expForm.amount), branch_id: currentBranch.id, date });
+        : expForm.expenseType === 'cashout' ? '/expenses/customer-cashout'
+        : expForm.expenseType === 'advance' ? '/expenses/employee-advance'
+        : '/expenses';
+      const payload = {
+        ...expForm,
+        amount: parseFloat(expForm.amount),
+        branch_id: currentBranch.id,
+        date,
+      };
+      if (needsCustomer && expCustomerSelected) {
+        payload.customer_id = expCustomerSelected.id;
+        payload.customer_name = expCustomerSelected.name;
+      }
+      await api.post(endpoint, payload);
       toast.success('Expense added');
       setExpDialog(false);
       setExpForm({ description: '', amount: '', category: 'Operational', expenseType: 'other' });
+      setExpCustomerSearch('');
+      setExpCustomerMatches([]);
+      setExpCustomerSelected(null);
       loadWizardData();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setExpSaving(false);

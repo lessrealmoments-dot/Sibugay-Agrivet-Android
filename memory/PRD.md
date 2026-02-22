@@ -24,6 +24,53 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Purchase Order System Redesign - COMPLETE ✅ (Feb 2026)
+
+**Replaced the old cash/credit payment dropdown with 3 clear action buttons:**
+- **Save as Draft** — saves PO without inventory or fund changes (for orders not yet arrived)
+- **Receive on Terms** → dialog: choose payment terms (COD/Net 7/15/30/45/60), creates Accounts Payable immediately, updates inventory immediately
+- **Pay in Cash** → dialog: shows live Safe + Cashier balances, pick fund source, payment method (Cash/Check/GCash/Maya), creates expense, deducts fund, updates inventory immediately
+
+**New PO fields added:**
+- DR / Reference # — supplier's delivery receipt number
+- Unit column in line items (Box, Sack, etc.)
+- Per-line discount (₱ or % toggle per row)
+- Overall PO discount (₱ or %)
+- Freight / Shipping Cost (optional toggle)
+- VAT (optional toggle, configurable rate e.g. 12%)
+- Grand Total computed from: subtotal → line discounts → overall discount → freight → VAT
+
+**PO List improvements:**
+- Filter chips: All | Draft | Ordered | Received | Unpaid
+- Split badges: Receive status + Payment status separately
+- DR# column, Grand Total column
+- Draft POs show "Draft — pending" in payment column (no confusing badge)
+- Quick Receive button for draft/ordered POs inline
+
+**Pay Supplier tab:**
+- Live Safe + Cashier balance cards (click to select fund source)
+- Payment method selector: Cash/Check/GCash/Maya/Bank Transfer
+- Check number field appears when Check is selected
+- Balance shortfall warning per payment amount entered
+
+**Backend changes (purchase_orders.py):**
+- `_apply_po_inventory()` helper — shared receive logic (both create and receive endpoint)
+- `_get_fund_balances()` helper — returns cashier + safe balances
+- `GET /fund-balances?branch_id=` — new endpoint for live balance display
+- `create_purchase_order`: handles `po_type: draft|cash|terms`, all new fields, validates fund balance before deducting
+- `receive_purchase_order`: simplified to use shared helper
+- `pay_purchase_order`: updated to use `grand_total` (not just subtotal)
+
+**Connections (what this affects):**
+- Expenses: cash PO creates expense "Purchase Payment" → shows in daily expenses/Z-report
+- Payables: terms PO creates payable → visible in Pay Supplier + Accounting page
+- Inventory: both cash and terms update stock immediately on creation
+- Product cost: receiving updates cost_price and moving_average_cost
+- Movement log: "purchase" type movement logged
+- Dashboard: supplier payables widget shows due dates
+
+**Testing: 53/53 backend tests pass · 95% frontend flows verified**
+
 ### P0 Reports (AR Aging, Sales, Expense) - COMPLETE ✅ (Feb 2026)
 
 **3 new report endpoints in `backend/routes/reports.py`:**

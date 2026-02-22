@@ -76,6 +76,10 @@ export default function CloseWizardPage() {
   // Quick-add expense form
   const [expForm, setExpForm] = useState({ description: '', amount: '', category: 'Operational', expenseType: 'other' });
   const [expSaving, setExpSaving] = useState(false);
+  const [expCustomerSearch, setExpCustomerSearch] = useState('');
+  const [expCustomerMatches, setExpCustomerMatches] = useState([]);
+  const [expCustomerSelected, setExpCustomerSelected] = useState(null);
+  const expCustomerTimer = useRef(null);
 
   // Quick receive payment form
   const [pmtAmount, setPmtAmount] = useState('');

@@ -365,7 +365,7 @@ export default function PaySupplierPage() {
                             const newAmounts = {};
                             for (const po of selected.pos) {
                               if (rem <= 0) break;
-                              const bal = po.balance ?? po.subtotal ?? 0;
+                              const bal = po.balance ?? po.grand_total ?? po.subtotal ?? 0;
                               const apply = Math.min(rem, bal);
                               if (apply > 0) { newAmounts[po.id] = apply.toFixed(2); rem -= apply; }
                             }

@@ -404,16 +404,16 @@ export default function PriceScanManager() {
                         );
                       })}
 
-                      {/* Other schemes */}
+                      {/* Other schemes — optional, lighter styling */}
                       {otherSchemes.map(s => {
                         const isBad = problemKeys.has(s.key);
                         const currentPrice = issue.prices[s.key] || 0;
                         const editVal = editPrices[issue.product_id]?.[s.key] ?? '';
                         const editNum = parseFloat(editVal);
                         return (
-                          <td key={s.key} className="px-2 py-2">
+                          <td key={s.key} className="px-2 py-2 bg-slate-50/30">
                             <div>
-                              <div className={`text-[10px] mb-0.5 font-mono ${isBad ? 'text-red-500 line-through' : 'text-slate-400'}`}>
+                              <div className={`text-[10px] mb-0.5 font-mono ${isBad ? 'text-amber-500 line-through' : 'text-slate-400'}`}>
                                 {formatPHP(currentPrice)}
                               </div>
                               <Input
@@ -422,14 +422,17 @@ export default function PriceScanManager() {
                                 step="0.01"
                                 value={editVal}
                                 onChange={e => updatePrice(issue.product_id, s.key, e.target.value)}
-                                placeholder="0.00"
-                                className={`h-8 text-sm text-right font-mono w-full ${
+                                placeholder="optional"
+                                className={`h-8 text-sm text-right font-mono w-full text-slate-600 ${
                                   isBad && (!editNum || editNum < issue.effective_cost)
-                                    ? 'border-red-400 bg-red-50'
+                                    ? 'border-amber-300 bg-amber-50/50'
                                     : 'border-slate-200'
                                 }`}
                                 data-testid={`price-${issue.product_id}-${s.key}`}
                               />
+                              {isBad && (
+                                <p className="text-[9px] text-amber-500 mt-0.5 text-right">optional to fix</p>
+                              )}
                             </div>
                           </td>
                         );

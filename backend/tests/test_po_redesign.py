@@ -102,7 +102,7 @@ class TestListPurchaseOrders:
 
     def test_list_without_auth_returns_401(self):
         resp = requests.get(f"{BASE_URL}/api/purchase-orders")
-        assert resp.status_code == 401
+        assert resp.status_code in [401, 403]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

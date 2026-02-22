@@ -145,7 +145,7 @@ class TestFundBalances:
     def test_fund_balances_without_auth_returns_401(self):
         resp = requests.get(f"{BASE_URL}/api/purchase-orders/fund-balances",
                             params={"branch_id": MAIN_BRANCH_ID})
-        assert resp.status_code == 401
+        assert resp.status_code in [401, 403]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -974,23 +974,79 @@ export default function CloseWizardPage() {
       </Dialog>
 
       {/* ── Quick Add Expense Dialog ── */}
-      <Dialog open={expDialog} onOpenChange={setExpDialog}>
+      <Dialog open={expDialog} onOpenChange={v => {
+        setExpDialog(v);
+        if (!v) { setExpCustomerSearch(''); setExpCustomerMatches([]); setExpCustomerSelected(null); }
+      }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Add Expense</DialogTitle></DialogHeader>
           <div className="space-y-3 mt-2">
             <div>
               <Label>Type</Label>
-              <Select value={expForm.expenseType} onValueChange={v => setExpForm(f => ({ ...f, expenseType: v }))}>
+              <Select value={expForm.expenseType} onValueChange={v => {
+                setExpForm(f => ({ ...f, expenseType: v }));
+                setExpCustomerSearch(''); setExpCustomerMatches([]); setExpCustomerSelected(null);
+              }}>
                 <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="other">Operational</SelectItem>
-                  <SelectItem value="farm">Farm Service</SelectItem>
+                  <SelectItem value="farm">Farm Service (bill to customer)</SelectItem>
+                  <SelectItem value="cashout">Customer Cash Out</SelectItem>
                   <SelectItem value="advance">Employee Advance</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Customer picker for Farm / Cash Out */}
+            {(expForm.expenseType === 'farm' || expForm.expenseType === 'cashout') && (
+              <div className="relative">
+                <Label>Customer <span className="text-red-500">*</span></Label>
+                {expCustomerSelected ? (
+                  <div className="mt-1 flex items-center justify-between p-2 rounded border border-emerald-300 bg-emerald-50">
+                    <div>
+                      <p className="text-sm font-medium text-emerald-800">{expCustomerSelected.name}</p>
+                      <p className="text-xs text-emerald-600">Balance: {formatPHP(expCustomerSelected.balance || 0)}</p>
+                    </div>
+                    <button onClick={() => { setExpCustomerSelected(null); setExpCustomerSearch(''); }}
+                      className="text-slate-400 hover:text-red-500 text-xs px-2">×</button>
+                  </div>
+                ) : (
+                  <div>
+                    <Input
+                      value={expCustomerSearch}
+                      onChange={e => searchExpCustomer(e.target.value)}
+                      placeholder="Search customer name..."
+                      className="h-9 mt-1"
+                      autoFocus
+                    />
+                    {expCustomerMatches.length > 0 && (
+                      <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                        {expCustomerMatches.map(c => (
+                          <button key={c.id} onMouseDown={() => {
+                            setExpCustomerSelected(c);
+                            setExpCustomerSearch(c.name);
+                            setExpCustomerMatches([]);
+                          }} className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b last:border-0 text-sm">
+                            <span className="font-medium">{c.name}</span>
+                            <span className="text-xs text-slate-400 ml-2">Bal: {formatPHP(c.balance || 0)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {expForm.expenseType === 'farm' && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">An invoice will be created and billed to this customer.</p>
+                )}
+                {expForm.expenseType === 'cashout' && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">A cash advance invoice will be created for this customer.</p>
+                )}
+              </div>
+            )}
+
             <div><Label>Description</Label>
-              <Input value={expForm.description} onChange={e => setExpForm(f => ({ ...f, description: e.target.value }))} className="h-9 mt-1" autoFocus /></div>
+              <Input value={expForm.description} onChange={e => setExpForm(f => ({ ...f, description: e.target.value }))} className="h-9 mt-1"
+                autoFocus={expForm.expenseType === 'other' || expForm.expenseType === 'advance'} /></div>
             <div><Label>Amount</Label>
               <Input type="number" min={0} value={expForm.amount} onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))} className="h-9 mt-1 font-mono" /></div>
             <div className="flex gap-2 pt-1">

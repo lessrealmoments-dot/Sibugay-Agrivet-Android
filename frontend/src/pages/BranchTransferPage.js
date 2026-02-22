@@ -1093,6 +1093,29 @@ export default function BranchTransferPage() {
                                   <CheckCircle2 size={13} />
                                 </Button>
                               )}
+                              {/* Disputed: destination can re-submit */}
+                              {o.status === 'disputed' && isDestBranch && (
+                                <Button variant="ghost" size="sm" onClick={() => openReceive(o)}
+                                  className="h-7 px-2 text-amber-600" title="Re-submit Receipt"
+                                  data-testid={`resubmit-btn-${o.id}`}>
+                                  <RefreshCw size={13} />
+                                </Button>
+                              )}
+                              {/* Accept / Dispute pending receipt — source branch only */}
+                              {o.status === 'received_pending' && isSourceBranch && (
+                                <>
+                                  <Button variant="ghost" size="sm" onClick={() => setAcceptDialog(o)}
+                                    className="h-7 px-2 text-emerald-600" title="Accept Receipt"
+                                    data-testid={`accept-btn-${o.id}`}>
+                                    <CheckCircle2 size={13} />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => { setDisputeDialog(o); setDisputeNote(''); }}
+                                    className="h-7 px-2 text-red-500" title="Dispute Receipt"
+                                    data-testid={`dispute-btn-${o.id}`}>
+                                    <XCircle size={13} />
+                                  </Button>
+                                </>
+                              )}
                               {/* Cancel — source branch only */}
                               {(o.status === 'draft' || o.status === 'sent') && isSourceBranch && (
                                 <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}

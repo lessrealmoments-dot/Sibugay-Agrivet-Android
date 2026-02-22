@@ -438,12 +438,14 @@ export default function PriceScanManager() {
                         );
                       })}
 
-                      {/* Issue badges */}
+                      {/* Issue badges — critical in red, optional in amber */}
                       <td className="px-3 py-2 text-center">
                         <div className="flex flex-col gap-0.5 items-center">
                           {issue.problem_schemes.map(p => (
-                            <Badge key={p.scheme_key} className="text-[9px] bg-red-100 text-red-700 px-1.5">
+                            <Badge key={p.scheme_key}
+                              className={`text-[9px] px-1.5 ${p.is_critical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                               {p.scheme_name}: -{formatPHP(p.deficit)}
+                              {!p.is_critical && <span className="ml-1 opacity-60">(opt)</span>}
                             </Badge>
                           ))}
                         </div>

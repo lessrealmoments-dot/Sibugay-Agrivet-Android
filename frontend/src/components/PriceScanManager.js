@@ -79,7 +79,7 @@ export default function PriceScanManager() {
 
       const res = await api.get(`${BACKEND_URL}/api/products/pricing-scan?${params}`);
       const data = res.data;
-      setLastScanCount(data.total);
+      setLastScanCount(data.critical_total || 0);  // only count critical (retail/wholesale)
 
       if (data.total > 0) {
         setIssues(data.issues);

@@ -264,14 +264,18 @@ async def pricing_scan(
         for key in scheme_keys:
             price_val = effective_prices.get(key, 0)
             if price_val > 0 and price_val < effective_cost:
+                is_critical = key in ('retail', 'wholesale')
                 problem_schemes.append({
                     "scheme_key": key,
                     "scheme_name": next((s["name"] for s in schemes if s["key"] == key), key),
                     "current_price": price_val,
                     "deficit": round(effective_cost - price_val, 2),
+                    "is_critical": is_critical,
                 })
 
-        if not problem_schemes:
+        # Only flag the product if at least one CRITICAL scheme (retail/wholesale) is below cost
+        critical_problems = [p for p in problem_schemes if p["is_critical"]]
+        if not critical_problems:
             continue
 
         all_purchases = await db.movements.find(

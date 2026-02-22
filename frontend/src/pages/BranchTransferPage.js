@@ -359,6 +359,11 @@ export default function BranchTransferPage() {
   };
   const [receiveQtys, setReceiveQtys] = useState({});
   const [receiveNotes, setReceiveNotes] = useState('');
+  const [receiveConfirmStep, setReceiveConfirmStep] = useState(false); // double-check step
+  const [acceptDialog, setAcceptDialog] = useState(null); // order to accept
+  const [disputeDialog, setDisputeDialog] = useState(null); // order to dispute
+  const [disputeNote, setDisputeNote] = useState('');
+  const [actionSaving, setActionSaving] = useState(false);
 
   const openReceive = (order) => {
     setViewOrder(order);

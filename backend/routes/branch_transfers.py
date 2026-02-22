@@ -753,8 +753,8 @@ async def cancel_transfer(transfer_id: str, user=Depends(get_current_user)):
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Transfer not found")
-    if order["status"] == "received":
-        raise HTTPException(status_code=400, detail="Cannot cancel a received transfer")
+    if order["status"] in ["received", "received_pending"]:
+        raise HTTPException(status_code=400, detail="Cannot cancel a received or pending-confirmation transfer")
     await db.branch_transfer_orders.update_one(
         {"id": transfer_id}, {"$set": {"status": "cancelled", "cancelled_at": now_iso()}}
     )

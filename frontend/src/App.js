@@ -33,6 +33,7 @@ import EmployeesPage from './pages/EmployeesPage';
 import PaySupplierPage from './pages/PaySupplierPage';
 import ImportPage from './pages/ImportPage';
 import ReportsPage from './pages/ReportsPage';
+import PriceScanManager from './components/PriceScanManager';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

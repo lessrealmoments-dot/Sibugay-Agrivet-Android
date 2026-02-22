@@ -4,7 +4,7 @@ Supports multi-branch data isolation.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 from config import db
 from utils import (
@@ -16,7 +16,83 @@ from utils import (
 router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
 
 
-@router.get("")
+# ── Shared inventory-receive helper ──────────────────────────────────────────
+async def _apply_po_inventory(po: dict, user: dict):
+    """Update inventory + product costs from a PO's items. Safe to call on creation."""
+    branch_id = po.get("branch_id", "")
+    for item in po.get("items", []):
+        pid = item.get("product_id")
+        if not pid:
+            continue
+        qty = float(item.get("quantity", 0))
+        price = float(item.get("unit_price", 0))
+
+        # Update inventory
+        existing = await db.inventory.find_one({"product_id": pid, "branch_id": branch_id})
+        if existing:
+            await db.inventory.update_one(
+                {"product_id": pid, "branch_id": branch_id},
+                {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}}
+            )
+        else:
+            await db.inventory.insert_one({
+                "id": new_id(), "product_id": pid, "branch_id": branch_id,
+                "quantity": qty, "updated_at": now_iso()
+            })
+
+        # Log movement
+        await log_movement(
+            pid, branch_id, "purchase", qty, po["id"], po["po_number"],
+            price, user["id"], user.get("full_name", user["username"]),
+            f"PO received from {po['vendor']}"
+        )
+
+        # Update product cost + moving average
+        all_purchases = await db.movements.find(
+            {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
+        ).to_list(10000)
+        total_pqty = sum(m["quantity_change"] for m in all_purchases)
+        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
+        product_update = {"last_vendor": po["vendor"], "cost_price": price}
+        if total_pqty > 0:
+            product_update["moving_average_cost"] = round(total_pcost / total_pqty, 2)
+        await db.products.update_one({"id": pid}, {"$set": product_update})
+
+        # Update vendor last_price
+        await db.product_vendors.update_many(
+            {"product_id": pid, "vendor_name": po["vendor"]},
+            {"$set": {"last_price": price, "last_order_date": now_iso()[:10]}}
+        )
+
+
+# ── Fund balance helper ────────────────────────────────────────────────────────
+async def _get_fund_balances(branch_id: str) -> dict:
+    cashier_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
+    cashier_balance = float(cashier_wallet.get("balance", 0)) if cashier_wallet else 0.0
+    cashier_id = cashier_wallet.get("id") if cashier_wallet else None
+
+    safe_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0})
+    safe_balance = 0.0
+    safe_id = safe_wallet.get("id") if safe_wallet else None
+    if safe_wallet:
+        lots = await db.safe_lots.find(
+            {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).to_list(500)
+        safe_balance = sum(lot["remaining_amount"] for lot in lots)
+
+    return {
+        "cashier": round(cashier_balance, 2), "cashier_id": cashier_id,
+        "safe": round(safe_balance, 2), "safe_id": safe_id,
+    }
+
+
+@router.get("/fund-balances")
+async def get_fund_balances(branch_id: str = "", user=Depends(get_current_user)):
+    """Get live fund balances (cashier + safe) for a branch. Used before PO payment."""
+    return await _get_fund_balances(branch_id)
+
+
+
 async def list_purchase_orders(
     user=Depends(get_current_user),
     status: Optional[str] = None,

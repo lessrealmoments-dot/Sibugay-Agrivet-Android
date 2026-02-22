@@ -111,6 +111,11 @@ export default function ProductsPage() {
       retailPrice: '', retailError: null, rowError: null,
       hasRepack,
     });
+    // Auto-focus and select the repack name input so user can type immediately
+    setTimeout(() => {
+      const nameInput = document.querySelector(`[data-testid="qr-name-${rowId}"]`);
+      if (nameInput) { nameInput.focus(); nameInput.select(); }
+    }, 80);
     if (hasRepack) {
       toast.warning(`"${p.name}" already has a repack. You can still create another (e.g. a different size).`);
     }

@@ -720,7 +720,11 @@ export default function CloseWizardPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-sm text-slate-500">All expenses recorded today. Employee advances show monthly totals.</p>
-                <Button size="sm" variant="outline" onClick={() => setExpDialog(true)} data-testid="quick-add-expense-btn">
+                <Button size="sm" variant="outline" onClick={() => {
+                  setExpDialog(true);
+                  // Load employees for advance type
+                  api.get('/employees', { params: { active: true } }).then(r => setExpEmployees(r.data.employees || r.data || [])).catch(() => {});
+                }} data-testid="quick-add-expense-btn">
                   <Plus size={13} className="mr-1" /> Add Expense
                 </Button>
               </div>

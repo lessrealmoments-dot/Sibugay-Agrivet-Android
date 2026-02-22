@@ -283,18 +283,18 @@ export default function PriceScanManager() {
             </div>
           </div>
 
-          {/* Legend */}
           <div className="px-6 py-2 flex items-center gap-4 text-xs border-b bg-slate-50">
             <span className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-red-100 border border-red-400" />
-              <span className="text-slate-600">Below capital — needs fixing</span>
+              <span className="text-slate-600">Below capital — <b>must fix</b> (Retail / Wholesale)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-amber-50 border border-amber-300" />
+              <span className="text-slate-600">Below capital — <i>optional</i> (Special / Gov't)</span>
             </span>
             <span className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" />
               <span className="text-slate-600">Valid price</span>
-            </span>
-            <span className="text-slate-400 ml-auto">
-              Retail & Wholesale are primary. Other schemes adjust per customer.
             </span>
           </div>
 

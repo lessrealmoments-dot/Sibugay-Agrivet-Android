@@ -396,6 +396,144 @@ async def delete_product(product_id: str, user=Depends(get_current_user)):
     return {"message": "Product and repacks deleted"}
 
 
+@router.get("/pricing-scan")
+async def pricing_scan(
+    branch_id: Optional[str] = None,
+    notify: bool = False,
+    user=Depends(get_current_user),
+):
+    """
+    Scan for products where any price scheme is below cost.
+    Returns list of issues with product details, cost references, and current prices.
+    If notify=true, creates a system notification for admins + branch managers.
+    """
+    from utils import new_id, now_iso
+
+    # Load all active non-repack products
+    products = await db.products.find(
+        {"active": True, "is_repack": {"$ne": True}},
+        {"_id": 0}
+    ).to_list(5000)
+
+    # Load all price schemes to know the keys
+    schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
+    scheme_keys = [s["key"] for s in schemes]
+
+    # Pre-load branch_prices for the branch
+    bp_map = {}
+    if branch_id:
+        bp_docs = await db.branch_prices.find(
+            {"branch_id": branch_id}, {"_id": 0}
+        ).to_list(5000)
+        bp_map = {d["product_id"]: d for d in bp_docs}
+
+    issues = []
+    for p in products:
+        # Effective cost (branch-specific or global)
+        effective_cost = float(p.get("cost_price", 0))
+        bp = bp_map.get(p["id"])
+        if bp and bp.get("cost_price") is not None:
+            effective_cost = float(bp["cost_price"])
+
+        if effective_cost <= 0:
+            continue  # no cost recorded yet, skip
+
+        # Effective prices
+        global_prices = {k: float(v or 0) for k, v in (p.get("prices") or {}).items()}
+        effective_prices = dict(global_prices)
+        if bp and bp.get("prices"):
+            for k, v in bp["prices"].items():
+                effective_prices[k] = float(v or 0)
+
+        # Find problem schemes (price > 0 but < cost)
+        problem_schemes = []
+        for key in scheme_keys:
+            price_val = effective_prices.get(key, 0)
+            if price_val > 0 and price_val < effective_cost:
+                problem_schemes.append({
+                    "scheme_key": key,
+                    "scheme_name": next((s["name"] for s in schemes if s["key"] == key), key),
+                    "current_price": price_val,
+                    "deficit": round(effective_cost - price_val, 2),
+                })
+
+        if not problem_schemes:
+            continue
+
+        # Get cost references from movement history
+        all_purchases = await db.movements.find(
+            {"product_id": p["id"], "type": "purchase", "quantity_change": {"$gt": 0}},
+            {"_id": 0, "quantity_change": 1, "price_at_time": 1, "created_at": 1}
+        ).to_list(1000)
+        total_qty = sum(m["quantity_change"] for m in all_purchases)
+        total_cost_val = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
+        moving_avg = round(total_cost_val / total_qty, 2) if total_qty > 0 else effective_cost
+
+        last_purchase_entry = await db.movements.find_one(
+            {"product_id": p["id"], "type": "purchase", "quantity_change": {"$gt": 0}},
+            {"_id": 0, "price_at_time": 1},
+            sort=[("created_at", -1)]
+        )
+        last_purchase = float(last_purchase_entry.get("price_at_time", effective_cost)) if last_purchase_entry else effective_cost
+
+        issues.append({
+            "product_id": p["id"],
+            "product_name": p["name"],
+            "sku": p.get("sku", ""),
+            "category": p.get("category", ""),
+            "unit": p.get("unit", ""),
+            "effective_cost": effective_cost,
+            "global_cost": float(p.get("cost_price", 0)),
+            "moving_average": moving_avg,
+            "last_purchase": last_purchase,
+            "prices": effective_prices,
+            "problem_schemes": problem_schemes,
+            "is_branch_specific_cost": bp is not None and bp.get("cost_price") is not None,
+        })
+
+    # Optionally create a system notification
+    if notify and issues:
+        admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+        managers = []
+        if branch_id:
+            managers = await db.users.find(
+                {"branch_id": branch_id, "active": True, "role": {"$in": ["manager"]}},
+                {"_id": 0, "id": 1}
+            ).to_list(50)
+        target_ids = list({u["id"] for u in admins + managers})
+
+        branch_doc = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1}) if branch_id else None
+        branch_name = branch_doc.get("name", branch_id) if branch_doc else "All Branches"
+
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "pricing_issue",
+            "title": f"Pricing Issue Detected — {len(issues)} product(s)",
+            "message": (
+                f"{len(issues)} product(s) in {branch_name} have prices below capital. "
+                f"Products: {', '.join(i['product_name'] for i in issues[:3])}"
+                f"{' and more...' if len(issues) > 3 else '.'}"
+            ),
+            "branch_id": branch_id,
+            "branch_name": branch_name,
+            "metadata": {
+                "issue_count": len(issues),
+                "product_ids": [i["product_id"] for i in issues],
+            },
+            "target_user_ids": target_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
+
+    return {
+        "issues": issues,
+        "total": len(issues),
+        "branch_id": branch_id,
+        "scanned_at": now_iso(),
+        "schemes": [{"key": s["key"], "name": s["name"]} for s in schemes],
+    }
+
+
 @router.post("/{product_id}/generate-repack")
 async def generate_repack(product_id: str, data: dict, user=Depends(get_current_user)):
     """Generate a repack product from a parent product."""

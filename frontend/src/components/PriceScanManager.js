@@ -307,16 +307,18 @@ export default function PriceScanManager() {
                   <th className="text-right px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold" style={{minWidth:'90px'}}>Last Purchase</th>
                   <th className="text-right px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold" style={{minWidth:'90px'}}>Moving Avg</th>
                   <th className="px-1 py-2.5 w-px bg-slate-200" />
-                  {/* Primary: Retail + Wholesale */}
+                  {/* Primary: Retail + Wholesale — REQUIRED */}
                   {primarySchemes.map(s => (
                     <th key={s.key} className="text-center px-3 py-2.5 text-xs uppercase font-semibold text-[#1A4D2E] bg-emerald-50/50" style={{minWidth:'130px'}}>
-                      {s.name} <span className="font-normal text-slate-400">(new)</span>
+                      {s.name}
+                      <span className="ml-1 text-[9px] bg-red-100 text-red-700 px-1 py-0.5 rounded font-bold">Required</span>
                     </th>
                   ))}
-                  {/* Other schemes */}
+                  {/* Other schemes — OPTIONAL */}
                   {otherSchemes.map(s => (
-                    <th key={s.key} className="text-center px-3 py-2.5 text-xs uppercase font-semibold text-slate-500" style={{minWidth:'120px'}}>
+                    <th key={s.key} className="text-center px-3 py-2.5 text-xs uppercase font-semibold text-slate-400" style={{minWidth:'120px'}}>
                       {s.name}
+                      <span className="ml-1 text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded">Optional</span>
                     </th>
                   ))}
                   <th className="text-center px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold w-24">Issues</th>

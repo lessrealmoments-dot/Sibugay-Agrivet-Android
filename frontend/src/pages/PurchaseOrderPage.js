@@ -371,10 +371,6 @@ export default function PurchaseOrderPage() {
     return orders;
   }, [orders, listFilter]);
 
-  const filteredVendors = vendorSearch
-    ? vendorsList.filter(v => v.toLowerCase().includes(vendorSearch.toLowerCase()))
-    : vendorsList;
-
   const poTotal = (po) => po.grand_total || po.subtotal || 0;
 
   // ── RENDER ─────────────────────────────────────────────────────────────

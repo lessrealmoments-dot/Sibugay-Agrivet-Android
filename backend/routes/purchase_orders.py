@@ -117,87 +117,217 @@ async def list_purchase_orders(
 
 @router.post("")
 async def create_purchase_order(data: dict, user=Depends(get_current_user)):
-    """Create a new purchase order."""
+    """
+    Create a purchase order.
+    po_type:
+      'draft'  — save only, no inventory/fund change (goods not yet arrived)
+      'cash'   — receive immediately + deduct from fund + create expense
+      'terms'  — receive immediately + create accounts payable
+    Legacy: payment_method='cash'|'credit' still accepted for backward compatibility.
+    """
     check_perm(user, "inventory", "adjust")
-    
-    items = data.get("items", [])
-    subtotal = sum(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)) for i in items)
-    payment_method = data.get("payment_method", "cash")
+
     branch_id = data.get("branch_id", "")
-    
-    # Compute due_date from purchase_date + terms_days
+    po_type = data.get("po_type", None)
+
+    # Backward-compat: map old payment_method to po_type
+    if po_type is None:
+        pm = data.get("payment_method", "cash")
+        po_type = "cash" if pm == "cash" else "terms"
+
+    # ── Compute line-item totals ───────────────────────────────────────────
     purchase_date = data.get("purchase_date", now_iso()[:10])
+    items_raw = data.get("items", [])
+    items = []
+    line_subtotal = 0.0
+    for i in items_raw:
+        qty = float(i.get("quantity", 0))
+        unit_price = float(i.get("unit_price", 0))
+        disc_type = i.get("discount_type", "amount")
+        disc_val = float(i.get("discount_value", 0))
+        disc_amt = round(qty * unit_price * disc_val / 100, 2) if disc_type == "percent" else round(disc_val, 2)
+        total = round(qty * unit_price - disc_amt, 2)
+        items.append({
+            "product_id": i.get("product_id", ""),
+            "product_name": i.get("product_name", ""),
+            "unit": i.get("unit", ""),
+            "description": i.get("description", ""),
+            "quantity": qty,
+            "unit_price": unit_price,
+            "discount_type": disc_type,
+            "discount_value": disc_val,
+            "discount_amount": disc_amt,
+            "total": total,
+        })
+        line_subtotal += total
+
+    # ── Overall discount ───────────────────────────────────────────────────
+    od_type = data.get("overall_discount_type", "amount")
+    od_val = float(data.get("overall_discount_value", 0))
+    overall_disc_amt = round(line_subtotal * od_val / 100, 2) if od_type == "percent" else round(od_val, 2)
+    after_discount = round(line_subtotal - overall_disc_amt, 2)
+
+    # ── Freight + Tax ──────────────────────────────────────────────────────
+    freight = float(data.get("freight", 0))
+    pre_tax = round(after_discount + freight, 2)
+    tax_rate = float(data.get("tax_rate", 0))
+    tax_amount = round(pre_tax * tax_rate / 100, 2) if tax_rate > 0 else 0.0
+    grand_total = round(pre_tax + tax_amount, 2)
+
+    # ── Due date ───────────────────────────────────────────────────────────
     terms_days = int(data.get("terms_days", 0))
     if terms_days > 0:
-        from datetime import timedelta
         pd = datetime.strptime(purchase_date, "%Y-%m-%d")
         due_date = (pd + timedelta(days=terms_days)).strftime("%Y-%m-%d")
     else:
         due_date = data.get("due_date", "")
 
+    # ── Determine status ───────────────────────────────────────────────────
+    if po_type == "draft":
+        status = "draft"
+        payment_status = "unpaid"
+        amount_paid = 0.0
+        balance = grand_total
+    elif po_type == "cash":
+        status = "received"
+        payment_status = "paid"
+        amount_paid = grand_total
+        balance = 0.0
+    else:  # terms
+        status = "received"
+        payment_status = "unpaid"
+        amount_paid = 0.0
+        balance = grand_total
+
     po = {
         "id": new_id(),
         "po_number": data.get("po_number", "").strip() or f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
         "vendor": data["vendor"],
+        "dr_number": data.get("dr_number", ""),
         "branch_id": branch_id,
-        "items": [{
-            "product_id": i["product_id"],
-            "product_name": i.get("product_name", ""),
-            "quantity": float(i["quantity"]),
-            "unit_price": float(i.get("unit_price", 0)),
-            "total": float(i["quantity"]) * float(i.get("unit_price", 0))
-        } for i in items],
-        "subtotal": subtotal,
-        "status": data.get("status", "ordered"),
+        "items": items,
+        "line_subtotal": round(line_subtotal, 2),
+        "subtotal": round(line_subtotal, 2),       # backward compat alias
+        "overall_discount_type": od_type,
+        "overall_discount_value": od_val,
+        "overall_discount_amount": overall_disc_amt,
+        "freight": freight,
+        "tax_rate": tax_rate,
+        "tax_amount": tax_amount,
+        "grand_total": grand_total,
+        "status": status,
+        "po_type": po_type,
+        "payment_method": data.get("payment_method", "cash" if po_type == "cash" else "credit"),
+        "payment_method_detail": data.get("payment_method_detail", "Cash"),
+        "payment_status": payment_status,
+        "amount_paid": amount_paid,
+        "balance": balance,
         "purchase_date": purchase_date,
         "due_date": due_date,
         "terms_days": terms_days,
-        "payment_method": payment_method,
-        "payment_status": "paid" if payment_method == "cash" else "unpaid",
-        "amount_paid": subtotal if payment_method == "cash" else 0,
-        "balance": 0 if payment_method == "cash" else subtotal,
-        "received_date": None,
+        "terms_label": data.get("terms_label", ""),
+        "received_date": now_iso() if po_type in ("cash", "terms") else None,
         "notes": data.get("notes", ""),
         "created_by": user["id"],
         "created_by_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),
     }
-    
+
     await db.purchase_orders.insert_one(po)
     del po["_id"]
-    
-    # Cash payment: deduct from cashier drawer + create expense record
-    if payment_method == "cash" and subtotal > 0:
-        await update_cashier_wallet(branch_id, -subtotal, f"PO Payment {po['po_number']} - {data['vendor']}")
+
+    # ── Cash: validate fund + deduct + expense ─────────────────────────────
+    if po_type == "cash" and grand_total > 0:
+        fund_source = data.get("fund_source", "cashier")
+        balances = await _get_fund_balances(branch_id)
+
+        if fund_source == "safe" and balances["safe"] < grand_total:
+            await db.purchase_orders.delete_one({"id": po["id"]})
+            raise HTTPException(status_code=400, detail={
+                "type": "insufficient_funds",
+                "message": f"Safe has only ₱{balances['safe']:,.2f}. Need ₱{grand_total:,.2f}.",
+                "cashier_balance": balances["cashier"], "safe_balance": balances["safe"],
+                "shortfall": round(grand_total - balances["safe"], 2),
+            })
+        if fund_source != "safe" and balances["cashier"] < grand_total:
+            await db.purchase_orders.delete_one({"id": po["id"]})
+            raise HTTPException(status_code=400, detail={
+                "type": "insufficient_funds",
+                "message": f"Cashier has only ₱{balances['cashier']:,.2f}. Need ₱{grand_total:,.2f}.",
+                "cashier_balance": balances["cashier"], "safe_balance": balances["safe"],
+                "shortfall": round(grand_total - balances["cashier"], 2),
+                "can_use_safe": balances["safe"] >= grand_total,
+            })
+
+        ref_text = f"PO {po['po_number']} — {data['vendor']}"
+        if data.get("check_number"):
+            ref_text += f" | Check #{data['check_number']}"
+
+        if fund_source == "safe" and balances["safe_id"]:
+            remaining = grand_total
+            for lot in await db.safe_lots.find(
+                {"wallet_id": balances["safe_id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+            ).sort("remaining_amount", -1).to_list(500):
+                if remaining <= 0: break
+                take = min(lot["remaining_amount"], remaining)
+                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                remaining -= take
+        else:
+            await update_cashier_wallet(branch_id, -grand_total, ref_text)
+
+        payment_record = {
+            "id": new_id(), "amount": grand_total,
+            "date": purchase_date,
+            "method": data.get("payment_method_detail", "Cash"),
+            "fund_source": fund_source,
+            "check_number": data.get("check_number", ""),
+            "reference": data.get("dr_number", ""),
+            "recorded_by": user.get("full_name", user["username"]),
+            "recorded_at": now_iso(),
+        }
+        await db.purchase_orders.update_one(
+            {"id": po["id"]},
+            {"$push": {"payment_history": payment_record},
+             "$set": {"fund_source": fund_source}}
+        )
+
         await db.expenses.insert_one({
             "id": new_id(), "branch_id": branch_id,
             "category": "Purchase Payment",
             "description": f"PO {po['po_number']} — {data['vendor']}",
-            "notes": data.get("notes", ""),
-            "amount": subtotal, "payment_method": "Cash",
+            "notes": f"DR#{data.get('dr_number','')} | {data.get('notes','')}".strip(" |"),
+            "amount": grand_total,
+            "payment_method": data.get("payment_method_detail", "Cash"),
             "reference_number": po["po_number"],
             "date": purchase_date,
             "po_id": po["id"], "po_number": po["po_number"], "vendor": data["vendor"],
+            "fund_source": fund_source,
             "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
             "created_at": now_iso(),
         })
-    
-    # Credit: create payable
-    if payment_method == "credit" and subtotal > 0:
+
+    # ── Terms: create accounts payable ────────────────────────────────────
+    if po_type == "terms" and grand_total > 0:
         await db.payables.insert_one({
             "id": new_id(),
             "supplier": data["vendor"],
             "branch_id": branch_id,
             "description": f"Purchase Order {po['po_number']}",
             "po_id": po["id"],
-            "amount": subtotal,
+            "amount": grand_total,
             "paid": 0,
-            "balance": subtotal,
+            "balance": grand_total,
             "due_date": due_date,
+            "terms_days": terms_days,
+            "terms_label": data.get("terms_label", ""),
             "status": "pending",
             "created_at": now_iso(),
         })
-    
+
+    # ── Receive inventory for cash + terms ────────────────────────────────
+    if po_type in ("cash", "terms"):
+        await _apply_po_inventory(po, user)
+
     return po
 
 

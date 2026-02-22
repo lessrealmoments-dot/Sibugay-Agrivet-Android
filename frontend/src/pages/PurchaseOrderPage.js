@@ -431,9 +431,6 @@ export default function PurchaseOrderPage() {
           <TabsTrigger value="create" data-testid="tab-create-po">
             <Plus size={14} className="mr-1.5" /> New PO
           </TabsTrigger>
-          <TabsTrigger value="pay" data-testid="tab-pay-supplier">
-            <Banknote size={14} className="mr-1.5" /> Pay Supplier
-          </TabsTrigger>
           <TabsTrigger value="list" data-testid="tab-list-po">
             <FileText size={14} className="mr-1.5" /> PO List ({totalOrders})
           </TabsTrigger>

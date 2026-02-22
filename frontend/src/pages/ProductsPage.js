@@ -935,9 +935,12 @@ export default function ProductsPage() {
                                 <Search size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                                 <Input value={row.parentSearch} placeholder="Search parent..."
                                   onChange={e => searchParent(row.id, e.target.value)}
+                                  onKeyDown={e => handleParentKeyDown(e, row)}
+                                  onBlur={() => setTimeout(() => updateRow(row.id, { parentMatches: [], activeSearchIndex: -1 }), 150)}
                                   className={`h-8 pl-7 text-sm ${hasErr ? 'border-red-400 bg-red-50/50' : ''}`}
                                   data-testid={`qr-parent-${row.id}`}
                                   ref={el => { dropdownRefs.current[row.id] = el; }}
+                                  autoComplete="off"
                                 />
                                 {row.parentMatches.length > 0 && (() => {
                                   const inputEl = dropdownRefs.current[row.id];
@@ -954,9 +957,13 @@ export default function ProductsPage() {
                                       }}
                                       className="bg-white border border-slate-200 rounded-lg shadow-xl max-h-44 overflow-y-auto"
                                     >
-                                      {row.parentMatches.map(p => (
+                                      {row.parentMatches.map((p, idx) => (
                                         <button key={p.id} onMouseDown={() => selectParent(row.id, p)}
-                                          className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                          className={`w-full text-left px-3 py-2 border-b border-slate-100 last:border-0 transition-colors ${
+                                            idx === row.activeSearchIndex
+                                              ? 'bg-emerald-50 border-l-[3px] border-l-emerald-700'
+                                              : 'hover:bg-slate-50'
+                                          }`}>
                                           <div className="font-medium text-sm truncate flex items-center gap-1.5">
                                             {p.name}
                                             {repackParentIds.has(p.id) && (
@@ -968,6 +975,9 @@ export default function ProductsPage() {
                                           <div className="text-xs text-slate-400">{p.unit} · Cost ₱{p.cost_price}</div>
                                         </button>
                                       ))}
+                                      <div className="px-3 py-1 bg-slate-50 border-t text-[10px] text-slate-400 flex gap-3">
+                                        <span>↑↓ navigate</span><span>Enter to select</span><span>Esc to close</span>
+                                      </div>
                                     </div>,
                                     document.body
                                   );

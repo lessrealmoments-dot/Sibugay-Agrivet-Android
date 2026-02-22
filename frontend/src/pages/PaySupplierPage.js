@@ -293,10 +293,11 @@ export default function PaySupplierPage() {
                     <tr>
                       <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">PO #</th>
                       <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Date</th>
+                      <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">DR #</th>
                       <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Status</th>
                       <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Due</th>
                       <th className="text-left px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Items</th>
-                      <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Total</th>
+                      <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Grand Total</th>
                       <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Paid</th>
                       <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase">Balance</th>
                       <th className="text-right px-3 py-2 text-[11px] font-semibold text-slate-500 uppercase w-32">Payment ↓</th>

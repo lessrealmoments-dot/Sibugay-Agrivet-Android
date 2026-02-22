@@ -690,16 +690,8 @@ export default function PurchaseOrderPage() {
         {/* ── PO LIST TAB ───────────────────────────────────────────── */}
         <TabsContent value="list" className="mt-4 space-y-3">
           {/* Unpaid POs banner → link to Pay Supplier page */}
-          {orders.filter(o => o.payment_status !== 'paid' && o.status !== 'cancelled' && o.status === 'received').length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
-              <p className="text-sm text-amber-800 font-medium">
-                {orders.filter(o => o.payment_status !== 'paid' && o.status !== 'cancelled' && o.status === 'received').length} received PO(s) have unpaid balances.
-              </p>
-              <Button size="sm" onClick={() => navigate('/pay-supplier')} className="bg-amber-700 hover:bg-amber-800 text-white">
-                <Banknote size={14} className="mr-1.5" /> Go to Pay Supplier
-              </Button>
-            </div>
-          )}
+          {/* Filter chips */}
+          <div className="flex items-center gap-2 flex-wrap">
             {[
               { key: 'all', label: `All (${orders.length})` },
               { key: 'draft', label: `Draft (${orders.filter(o => o.status === 'draft').length})` },

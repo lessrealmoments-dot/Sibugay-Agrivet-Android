@@ -376,12 +376,10 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
 @router.post("/{transfer_id}/receive")
 async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_current_user)):
     """
-    Confirm receipt of a branch transfer.
-    - Deducts inventory from source branch
-    - Adds inventory to destination branch
-    - Sets branch_prices (transfer_capital as cost, branch_retail as retail price)
-    - Updates price memory for future transfers
-    Supports partial quantities via qty_received per item.
+    Submit received quantities for a branch transfer.
+    - If ALL quantities match ordered: update inventory immediately → status 'received'
+    - If ANY variance (shortage/excess): save pending receipt WITHOUT updating inventory
+      → status 'received_pending', notify source to confirm or dispute
     """
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
@@ -392,20 +390,361 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     from_branch_id = order["from_branch_id"]
     to_branch_id = order["to_branch_id"]
 
-    # Look up branch names for readable log notes and notifications
     from_branch = await db.branches.find_one({"id": from_branch_id}, {"_id": 0, "name": 1})
     to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
     from_name = from_branch.get("name", from_branch_id) if from_branch else from_branch_id
     to_name = to_branch.get("name", to_branch_id) if to_branch else to_branch_id
 
-    # Optional qty overrides from receiving party
     qty_overrides = {item["product_id"]: float(item.get("qty_received", item["qty"]))
                      for item in data.get("items", [])}
 
-    received_items = []
+    pending_items = []
     shortages = []
     excesses = []
+
     for item in order["items"]:
+        product_id = item["product_id"]
+        qty_ordered = float(item["qty"])
+        qty_received = qty_overrides.get(product_id, qty_ordered)
+        transfer_capital = float(item["transfer_capital"])
+        branch_retail = float(item["branch_retail"])
+
+        pending_items.append({
+            **item,
+            "qty_ordered": qty_ordered,
+            "qty_received": qty_received,
+        })
+
+        variance = qty_ordered - qty_received   # positive = short, negative = excess
+        if variance != 0:
+            var_entry = {
+                "product_id": product_id,
+                "product_name": item["product_name"],
+                "sku": item.get("sku", ""),
+                "unit": item.get("unit", ""),
+                "qty_ordered": qty_ordered,
+                "qty_received": qty_received,
+                "variance": variance,
+                "transfer_capital": transfer_capital,
+                "branch_retail": branch_retail,
+                "capital_variance": round(abs(variance) * transfer_capital, 2),
+                "retail_variance": round(abs(variance) * branch_retail, 2),
+            }
+            if variance > 0:
+                shortages.append(var_entry)
+            else:
+                excesses.append(var_entry)
+
+    has_variance = len(shortages) > 0 or len(excesses) > 0
+
+    if has_variance:
+        # ── PENDING PATH: store claim, do NOT touch inventory yet ────────────
+        await db.branch_transfer_orders.update_one(
+            {"id": transfer_id},
+            {"$set": {
+                "status": "received_pending",
+                "pending_receipt_at": now_iso(),
+                "pending_receipt_by": user["id"],
+                "pending_receipt_by_name": user.get("full_name", user["username"]),
+                "receive_notes": data.get("notes", ""),
+                "pending_items": pending_items,
+                "shortages": shortages,
+                "excesses": excesses,
+                "has_shortage": len(shortages) > 0,
+                "has_excess": len(excesses) > 0,
+            }}
+        )
+
+        # Notify source branch + admins to review
+        src_users = await db.users.find(
+            {"branch_id": from_branch_id, "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        admins = await db.users.find(
+            {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        notify_ids = list({u["id"] for u in src_users + admins})
+
+        variance_parts = []
+        if shortages:
+            variance_parts.append(f"{len(shortages)} short")
+        if excesses:
+            variance_parts.append(f"{len(excesses)} excess")
+
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "transfer_variance_review",
+            "title": "Transfer Receipt — Variance Needs Review",
+            "message": (
+                f"{to_name} received {order['order_number']} with discrepancy ({', '.join(variance_parts)}). "
+                f"Please verify and Accept or Dispute."
+            ),
+            "branch_id": from_branch_id,
+            "branch_name": from_name,
+            "metadata": {
+                "transfer_id": transfer_id,
+                "order_number": order["order_number"],
+                "shortages": shortages,
+                "excesses": excesses,
+            },
+            "target_user_ids": notify_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
+
+        return {
+            "message": "Receipt submitted — waiting for source branch to confirm the variance.",
+            "status": "received_pending",
+            "has_variance": True,
+            "shortages": shortages,
+            "excesses": excesses,
+        }
+
+    # ── EXACT MATCH PATH: update inventory immediately ───────────────────────
+    return await _apply_receipt(
+        order, pending_items, shortages, excesses, from_branch_id, to_branch_id,
+        from_name, to_name, transfer_id, user, data.get("notes", "")
+    )
+
+
+async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_branch_id,
+                          from_name, to_name, transfer_id, user, notes=""):
+    """Apply the inventory movement for a confirmed receipt."""
+    for item in items:
+        product_id = item["product_id"]
+        qty_received = float(item.get("qty_received", item["qty"]))
+        transfer_capital = float(item["transfer_capital"])
+        branch_retail = float(item["branch_retail"])
+
+        if qty_received <= 0:
+            continue
+
+        # Check source has enough
+        source_inv = await db.inventory.find_one(
+            {"product_id": product_id, "branch_id": from_branch_id}, {"_id": 0}
+        )
+        source_stock = float(source_inv["quantity"]) if source_inv else 0
+        if source_stock < qty_received:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient stock for '{item['product_name']}' in source branch: "
+                       f"have {source_stock:.0f}, need {qty_received:.0f}"
+            )
+
+        await db.inventory.update_one(
+            {"product_id": product_id, "branch_id": from_branch_id},
+            {"$inc": {"quantity": -qty_received}, "$set": {"updated_at": now_iso()}}
+        )
+        await db.inventory.update_one(
+            {"product_id": product_id, "branch_id": to_branch_id},
+            {"$inc": {"quantity": qty_received}, "$set": {"updated_at": now_iso()}},
+            upsert=True
+        )
+
+        # Set branch_prices at destination
+        await db.branch_prices.update_one(
+            {"product_id": product_id, "branch_id": to_branch_id},
+            {"$set": {
+                "product_id": product_id, "branch_id": to_branch_id,
+                "cost_price": transfer_capital,
+                "prices": {"retail": branch_retail},
+                "updated_at": now_iso(),
+                "source": "branch_transfer",
+                "transfer_order": order["order_number"],
+            }},
+            upsert=True
+        )
+
+        await db.branch_transfer_price_memory.update_one(
+            {"product_id": product_id, "branch_id": to_branch_id},
+            {"$set": {
+                "product_id": product_id, "branch_id": to_branch_id,
+                "last_retail_price": branch_retail, "last_transfer_capital": transfer_capital,
+                "last_order_number": order["order_number"], "updated_at": now_iso(),
+            }},
+            upsert=True
+        )
+
+        await log_movement(
+            product_id, from_branch_id, "transfer_out", -qty_received,
+            transfer_id, order["order_number"], transfer_capital,
+            user["id"], user.get("full_name", user["username"]),
+            f"Branch transfer to {to_name}"
+        )
+        await log_movement(
+            product_id, to_branch_id, "transfer_in", qty_received,
+            transfer_id, order["order_number"], transfer_capital,
+            user["id"], user.get("full_name", user["username"]),
+            f"Branch transfer from {from_name}"
+        )
+
+    await db.branch_transfer_orders.update_one(
+        {"id": transfer_id},
+        {"$set": {
+            "status": "received",
+            "received_at": now_iso(),
+            "received_by": user["id"],
+            "received_by_name": user.get("full_name", user["username"]),
+            "receive_notes": notes,
+            "items": items,
+            "shortages": shortages,
+            "excesses": excesses,
+            "has_shortage": len(shortages) > 0,
+            "has_excess": len(excesses) > 0,
+        }}
+    )
+
+    return {
+        "message": f"Transfer received. {len(items)} product(s) updated.",
+        "order_number": order["order_number"],
+        "status": "received",
+        "shortages": shortages,
+        "excesses": excesses,
+        "has_shortage": len(shortages) > 0,
+        "has_excess": len(excesses) > 0,
+    }
+
+
+@router.post("/{transfer_id}/accept-receipt")
+async def accept_receipt(transfer_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Source branch accepts the destination's claimed quantities.
+    Triggers the actual inventory movement and finalises the transfer.
+    Only the source branch (or admin) can accept.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    if order["status"] != "received_pending":
+        raise HTTPException(status_code=400, detail="Transfer is not pending receipt confirmation")
+
+    user_branch = user.get("branch_id")
+    if user.get("role") != "admin" and user_branch and user_branch != order["from_branch_id"]:
+        raise HTTPException(status_code=403, detail="Only the source branch can accept this receipt")
+
+    from_branch_id = order["from_branch_id"]
+    to_branch_id = order["to_branch_id"]
+    from_branch = await db.branches.find_one({"id": from_branch_id}, {"_id": 0, "name": 1})
+    to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+    from_name = from_branch.get("name", from_branch_id) if from_branch else from_branch_id
+    to_name = to_branch.get("name", to_branch_id) if to_branch else to_branch_id
+
+    items = order.get("pending_items", order["items"])
+    shortages = order.get("shortages", [])
+    excesses = order.get("excesses", [])
+
+    result = await _apply_receipt(
+        order, items, shortages, excesses, from_branch_id, to_branch_id,
+        from_name, to_name, transfer_id, user,
+        notes=order.get("receive_notes", "")
+    )
+
+    # Record who accepted and when
+    await db.branch_transfer_orders.update_one(
+        {"id": transfer_id},
+        {"$set": {
+            "accepted_by": user["id"],
+            "accepted_by_name": user.get("full_name", user["username"]),
+            "accepted_at": now_iso(),
+            "accept_note": data.get("note", ""),
+        }}
+    )
+
+    # Notify destination that the receipt was accepted
+    dest_users = await db.users.find(
+        {"branch_id": to_branch_id, "active": True}, {"_id": 0, "id": 1}
+    ).to_list(50)
+    admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+    notify_ids = list({u["id"] for u in dest_users + admins})
+    await db.notifications.insert_one({
+        "id": new_id(),
+        "type": "transfer_accepted",
+        "title": "Transfer Receipt Accepted",
+        "message": f"{from_name} accepted the receipt for {order['order_number']}. Inventory has been updated.",
+        "branch_id": to_branch_id,
+        "branch_name": to_name,
+        "metadata": {"transfer_id": transfer_id, "order_number": order["order_number"]},
+        "target_user_ids": notify_ids,
+        "read_by": [],
+        "created_at": now_iso(),
+    })
+
+    return result
+
+
+@router.post("/{transfer_id}/dispute-receipt")
+async def dispute_receipt(transfer_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Source branch disputes the destination's claimed quantities.
+    Inventory is NOT updated. Destination is notified to re-count.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    if order["status"] != "received_pending":
+        raise HTTPException(status_code=400, detail="Transfer is not pending receipt confirmation")
+
+    user_branch = user.get("branch_id")
+    if user.get("role") != "admin" and user_branch and user_branch != order["from_branch_id"]:
+        raise HTTPException(status_code=403, detail="Only the source branch can dispute this receipt")
+
+    dispute_note = data.get("note", "").strip()
+    if not dispute_note:
+        raise HTTPException(status_code=400, detail="Dispute reason is required")
+
+    from_branch_id = order["from_branch_id"]
+    to_branch_id = order["to_branch_id"]
+    from_branch = await db.branches.find_one({"id": from_branch_id}, {"_id": 0, "name": 1})
+    to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+    from_name = from_branch.get("name", from_branch_id) if from_branch else from_branch_id
+    to_name = to_branch.get("name", to_branch_id) if to_branch else to_branch_id
+
+    await db.branch_transfer_orders.update_one(
+        {"id": transfer_id},
+        {"$set": {
+            "status": "disputed",
+            "disputed_at": now_iso(),
+            "disputed_by": user["id"],
+            "disputed_by_name": user.get("full_name", user["username"]),
+            "dispute_note": dispute_note,
+        }}
+    )
+
+    # Notify destination to re-count
+    dest_users = await db.users.find(
+        {"branch_id": to_branch_id, "active": True}, {"_id": 0, "id": 1}
+    ).to_list(50)
+    admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+    notify_ids = list({u["id"] for u in dest_users + admins})
+    await db.notifications.insert_one({
+        "id": new_id(),
+        "type": "transfer_disputed",
+        "title": "Transfer Receipt Disputed",
+        "message": (
+            f"{from_name} disputes the quantities for {order['order_number']}. "
+            f"Reason: {dispute_note}. Please re-count and re-submit."
+        ),
+        "branch_id": to_branch_id,
+        "branch_name": to_name,
+        "metadata": {
+            "transfer_id": transfer_id,
+            "order_number": order["order_number"],
+            "dispute_note": dispute_note,
+        },
+        "target_user_ids": notify_ids,
+        "read_by": [],
+        "created_at": now_iso(),
+    })
+
+    return {
+        "message": f"Receipt disputed. {to_name} has been notified to re-count.",
+        "status": "disputed",
+    }
         product_id = item["product_id"]
         qty_ordered = float(item["qty"])
         qty_received = qty_overrides.get(product_id, qty_ordered)

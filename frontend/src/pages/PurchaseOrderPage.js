@@ -61,6 +61,7 @@ function TotalsRow({ label, value, bold, accent }) {
 
 export default function PurchaseOrderPage() {
   const { currentBranch } = useAuth();
+  const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
 
   // ── Header state ────────────────────────────────────────────────────────

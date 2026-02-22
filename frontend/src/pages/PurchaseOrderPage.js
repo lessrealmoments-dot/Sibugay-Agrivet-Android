@@ -687,175 +687,19 @@ export default function PurchaseOrderPage() {
           </div>
         </TabsContent>
 
-        {/* ── PAY SUPPLIER TAB ──────────────────────────────────────── */}
-        <TabsContent value="pay" className="mt-4 space-y-4">
-          <div className="grid lg:grid-cols-3 gap-5">
-            {/* Supplier List */}
-            <Card className="border-slate-200">
-              <CardContent className="p-4 space-y-3">
-                <Label className="text-xs text-slate-500 font-semibold uppercase">Supplier</Label>
-                <div className="relative">
-                  <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <Input value={vendorSearch}
-                    onChange={e => { setVendorSearch(e.target.value); setPayVendor(''); setVendorPOs([]); }}
-                    placeholder="Search supplier..." className="pl-8 h-9" data-testid="pay-vendor-search" />
-                </div>
-                <div className="max-h-[350px] overflow-y-auto space-y-0.5">
-                  {filteredVendors.map(v => (
-                    <button key={v} onClick={() => selectPayVendor(v)}
-                      className={`w-full text-left px-3 py-2 text-sm rounded transition-colors ${payVendor === v ? 'bg-[#1A4D2E]/5 border-l-2 border-l-[#1A4D2E] font-medium' : 'hover:bg-slate-50'}`}>
-                      {v}
-                    </button>
-                  ))}
-                  {!filteredVendors.length && <p className="text-xs text-slate-400 text-center py-4">No suppliers found</p>}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payment Form */}
-            <div className="lg:col-span-2 space-y-4">
-              {payVendor ? (
-                <>
-                  <Card className="border-slate-200">
-                    <CardContent className="p-5 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-lg" style={{ fontFamily: 'Manrope' }}>{payVendor}</h3>
-                        <Button variant="outline" size="sm" onClick={() => openSupplierHistory(payVendor)}>
-                          <History size={13} className="mr-1" /> Full History
-                        </Button>
-                      </div>
-
-                      {/* Live Fund Balances */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => setPaySupForm(f => ({ ...f, fund_source: 'cashier' }))}
-                          className={`p-3 rounded-lg border text-left transition-colors ${paySupForm.fund_source === 'cashier' ? 'border-[#1A4D2E] bg-emerald-50' : 'border-slate-200 hover:border-slate-300'}`}>
-                          <p className="text-[10px] text-slate-500 uppercase font-medium">Cashier</p>
-                          <p className="text-lg font-bold font-mono text-[#1A4D2E]">{formatPHP(paySupFunds.cashier)}</p>
-                          {paySupForm.fund_source === 'cashier' && <p className="text-[10px] text-emerald-600 mt-0.5">Selected</p>}
-                        </button>
-                        <button onClick={() => setPaySupForm(f => ({ ...f, fund_source: 'safe' }))}
-                          className={`p-3 rounded-lg border text-left transition-colors ${paySupForm.fund_source === 'safe' ? 'border-[#1A4D2E] bg-emerald-50' : 'border-slate-200 hover:border-slate-300'}`}>
-                          <p className="text-[10px] text-slate-500 uppercase font-medium">Safe</p>
-                          <p className="text-lg font-bold font-mono text-[#1A4D2E]">{formatPHP(paySupFunds.safe)}</p>
-                          {paySupForm.fund_source === 'safe' && <p className="text-[10px] text-emerald-600 mt-0.5">Selected</p>}
-                        </button>
-                      </div>
-
-                      <Separator />
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <div>
-                          <Label className="text-xs">Amount</Label>
-                          <Input data-testid="pay-sup-amount" type="number" value={paySupForm.amount}
-                            onChange={e => setPaySupForm(f => ({ ...f, amount: parseFloat(e.target.value) || 0 }))}
-                            className="h-10 text-lg font-bold font-mono" />
-                          {paySupForm.amount > 0 && paySupForm.fund_source === 'cashier' && paySupForm.amount > paySupFunds.cashier && (
-                            <p className="text-[10px] text-red-600 mt-0.5">Short ₱{(paySupForm.amount - paySupFunds.cashier).toFixed(2)}</p>
-                          )}
-                          {paySupForm.amount > 0 && paySupForm.fund_source === 'safe' && paySupForm.amount > paySupFunds.safe && (
-                            <p className="text-[10px] text-red-600 mt-0.5">Short ₱{(paySupForm.amount - paySupFunds.safe).toFixed(2)}</p>
-                          )}
-                        </div>
-                        <div>
-                          <Label className="text-xs">Payment Method</Label>
-                          <Select value={paySupForm.payment_method} onValueChange={v => setPaySupForm(f => ({ ...f, payment_method: v }))}>
-                            <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Payment Date</Label>
-                          <Input type="date" value={paySupForm.payment_date}
-                            onChange={e => setPaySupForm(f => ({ ...f, payment_date: e.target.value }))} className="h-10" />
-                        </div>
-                        {(paySupForm.payment_method === 'Check') && (
-                          <>
-                            <div><Label className="text-xs">Check #</Label>
-                              <Input value={paySupForm.check_number}
-                                onChange={e => setPaySupForm(f => ({ ...f, check_number: e.target.value }))} className="h-10" /></div>
-                            <div><Label className="text-xs">Check Date</Label>
-                              <Input type="date" value={paySupForm.check_date}
-                                onChange={e => setPaySupForm(f => ({ ...f, check_date: e.target.value }))} className="h-10" /></div>
-                          </>
-                        )}
-                      </div>
-                      <div>
-                        <Label className="text-xs">Select PO to Pay</Label>
-                        <Select value={paySupForm.selected_po} onValueChange={v => {
-                          const po = vendorPOs.find(p => p.id === v);
-                          setPaySupForm(f => ({ ...f, selected_po: v, amount: po ? (po.balance || poTotal(po)) : f.amount }));
-                        }}>
-                          <SelectTrigger data-testid="pay-sup-po-select" className="h-10">
-                            <SelectValue placeholder="Select unpaid PO..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {vendorPOs.map(po => (
-                              <SelectItem key={po.id} value={po.id}>
-                                {po.po_number} — {formatPHP(poTotal(po))} (bal: {formatPHP(po.balance || poTotal(po))})
-                                {po.due_date && <span className="ml-1 text-slate-400">due {po.due_date}</span>}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button data-testid="confirm-sup-pay" onClick={handlePaySupplier}
-                        className="w-full h-11 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-                        <DollarSign size={16} className="mr-2" />
-                        Pay {formatPHP(paySupForm.amount)} from {paySupForm.fund_source === 'safe' ? 'Safe' : 'Cashier'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Unpaid PO table */}
-                  <Card className="border-slate-200">
-                    <CardContent className="p-0">
-                      <div className="px-4 py-2 bg-slate-50 border-b text-xs font-semibold uppercase text-slate-500">Open Purchase Orders</div>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="text-xs">PO #</TableHead>
-                            <TableHead className="text-xs">Date</TableHead>
-                            <TableHead className="text-xs">DR #</TableHead>
-                            <TableHead className="text-xs text-right">Total</TableHead>
-                            <TableHead className="text-xs text-right">Balance</TableHead>
-                            <TableHead className="text-xs">Due</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {vendorPOs.map(po => (
-                            <TableRow key={po.id}
-                              className={`cursor-pointer ${paySupForm.selected_po === po.id ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
-                              onClick={() => setPaySupForm(f => ({ ...f, selected_po: po.id, amount: po.balance || poTotal(po) }))}>
-                              <TableCell className="font-mono text-xs text-blue-600">{po.po_number}</TableCell>
-                              <TableCell className="text-xs">{po.purchase_date?.slice(0, 10)}</TableCell>
-                              <TableCell className="text-xs text-slate-400">{po.dr_number || '—'}</TableCell>
-                              <TableCell className="text-right text-sm">{formatPHP(poTotal(po))}</TableCell>
-                              <TableCell className="text-right text-sm font-bold text-red-600">{formatPHP(po.balance || poTotal(po))}</TableCell>
-                              <TableCell className="text-xs text-slate-500">{po.due_date || '—'}</TableCell>
-                            </TableRow>
-                          ))}
-                          {!vendorPOs.length && (
-                            <TableRow><TableCell colSpan={6} className="text-center py-6 text-slate-400">No unpaid POs</TableCell></TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-48 text-slate-400 text-sm">
-                  Select a supplier to view and pay their POs
-                </div>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-
         {/* ── PO LIST TAB ───────────────────────────────────────────── */}
         <TabsContent value="list" className="mt-4 space-y-3">
-          {/* Filter chips */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Unpaid POs banner → link to Pay Supplier page */}
+          {orders.filter(o => o.payment_status !== 'paid' && o.status !== 'cancelled' && o.status === 'received').length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-amber-50 border border-amber-200">
+              <p className="text-sm text-amber-800 font-medium">
+                {orders.filter(o => o.payment_status !== 'paid' && o.status !== 'cancelled' && o.status === 'received').length} received PO(s) have unpaid balances.
+              </p>
+              <Button size="sm" onClick={() => navigate('/pay-supplier')} className="bg-amber-700 hover:bg-amber-800 text-white">
+                <Banknote size={14} className="mr-1.5" /> Go to Pay Supplier
+              </Button>
+            </div>
+          )}
             {[
               { key: 'all', label: `All (${orders.length})` },
               { key: 'draft', label: `Draft (${orders.filter(o => o.status === 'draft').length})` },

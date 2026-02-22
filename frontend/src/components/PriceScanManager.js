@@ -223,10 +223,11 @@ export default function PriceScanManager() {
               </div>
               <div>
                 <DialogTitle style={{ fontFamily: 'Manrope' }} className="text-base font-bold text-amber-900">
-                  Smart Price Scan — {issues.length} Issue{issues.length !== 1 ? 's' : ''} Found
+                  Smart Price Scan — {issues.length} Product{issues.length !== 1 ? 's' : ''} Below Cost
                 </DialogTitle>
                 <p className="text-xs text-amber-700 mt-0.5">
-                  These products have selling prices <b>below their capital cost</b>. Update or skip.
+                  <b>Retail & Wholesale</b> are below capital cost and must be fixed.
+                  Other schemes (Special, Government) are optional — skip or update as needed.
                 </p>
               </div>
             </div>

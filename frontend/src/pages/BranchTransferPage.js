@@ -1459,14 +1459,32 @@ export default function BranchTransferPage() {
           </ScrollArea>
 
           <div className="pt-3 border-t flex gap-2 justify-between items-center">
-            <p className="text-xs text-slate-400">Inventory and branch prices update automatically on confirm.</p>
+            <p className="text-xs text-slate-400">
+              {receiveConfirmStep
+                ? 'Quantities differ from the order. Submitting will send to source for confirmation.'
+                : 'Inventory and branch prices update automatically on confirm.'}
+            </p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setReceiveDialog(false)}>Cancel</Button>
-              <Button onClick={handleReceive} disabled={receiveSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                data-testid="confirm-receive-btn">
-                {receiveSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
-                Confirm Receipt
-              </Button>
+              <Button variant="outline" onClick={() => { setReceiveDialog(false); setReceiveConfirmStep(false); }}>Cancel</Button>
+              {receiveConfirmStep ? (
+                <>
+                  <Button variant="outline" onClick={() => setReceiveConfirmStep(false)}>
+                    Back — Edit Quantities
+                  </Button>
+                  <Button onClick={handleReceive} disabled={receiveSaving}
+                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                    data-testid="confirm-receive-variance-btn">
+                    {receiveSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <AlertTriangle size={14} className="mr-1.5" />}
+                    Yes, Submit Variance for Review
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleReceive} disabled={receiveSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  data-testid="confirm-receive-btn">
+                  {receiveSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
+                  Confirm Receipt
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

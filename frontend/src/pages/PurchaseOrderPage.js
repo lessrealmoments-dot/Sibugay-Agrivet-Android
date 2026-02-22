@@ -101,16 +101,6 @@ export default function PurchaseOrderPage() {
   const [detailPO, setDetailPO] = useState(null);
   const [schemes, setSchemes] = useState([]);
 
-  // ── Pay Supplier tab ───────────────────────────────────────────────────
-  const [payVendor, setPayVendor] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
-  const [vendorPOs, setVendorPOs] = useState([]);
-  const [paySupFunds, setPaySupFunds] = useState({ cashier: 0, safe: 0 });
-  const [paySupForm, setPaySupForm] = useState({
-    amount: 0, fund_source: 'cashier', payment_method: 'Cash',
-    check_number: '', payment_date: today, check_date: '', selected_po: ''
-  });
-
   // ── Create product dialog ──────────────────────────────────────────────
   const [createProdDialog, setCreateProdDialog] = useState(false);
   const [newProdForm, setNewProdForm] = useState({ sku: '', name: '', category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });

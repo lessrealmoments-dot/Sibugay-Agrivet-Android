@@ -305,6 +305,7 @@ async def pricing_scan(
             "last_purchase": last_purchase,
             "prices": effective_prices,
             "problem_schemes": problem_schemes,
+            "critical_count": len(critical_problems),
             "is_branch_specific_cost": bp is not None and bp.get("cost_price") is not None,
         })
 

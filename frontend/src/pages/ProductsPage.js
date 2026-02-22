@@ -105,6 +105,7 @@ export default function ProductsPage() {
     const hasRepack = repackParentIds.has(p.id);
     updateRow(rowId, {
       parent: p, parentSearch: p.name, parentMatches: [],
+      activeSearchIndex: -1,
       repackName: `R ${p.name}`,
       unitsPerParent: 1, addOnCost: 0, capital,
       retailPrice: '', retailError: null, rowError: null,
@@ -112,6 +113,28 @@ export default function ProductsPage() {
     });
     if (hasRepack) {
       toast.warning(`"${p.name}" already has a repack. You can still create another (e.g. a different size).`);
+    }
+  };
+
+  const handleParentKeyDown = (e, row) => {
+    const matches = row.parentMatches || [];
+    if (!matches.length) {
+      if (e.key === 'Escape') updateRow(row.id, { parentSearch: '', parentMatches: [], activeSearchIndex: -1 });
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      updateRow(row.id, { activeSearchIndex: Math.min((row.activeSearchIndex ?? -1) + 1, matches.length - 1) });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      updateRow(row.id, { activeSearchIndex: Math.max((row.activeSearchIndex ?? 0) - 1, 0) });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const idx = row.activeSearchIndex ?? -1;
+      if (idx >= 0 && matches[idx]) selectParent(row.id, matches[idx]);
+      else if (matches.length === 1) selectParent(row.id, matches[0]);
+    } else if (e.key === 'Escape') {
+      updateRow(row.id, { parentMatches: [], activeSearchIndex: -1 });
     }
   };
 

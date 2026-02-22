@@ -332,7 +332,7 @@ export default function PaySupplierPage() {
                             ) : <span className="text-[11px] text-slate-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-xs text-slate-500 max-w-[140px] truncate">{itemsSummary}</td>
-                          <td className="px-3 py-2 text-right text-xs">{formatPHP(po.subtotal)}</td>
+                          <td className="px-3 py-2 text-right text-xs">{formatPHP(po.grand_total || po.subtotal)}</td>
                           <td className="px-3 py-2 text-right text-xs text-slate-500">{formatPHP(po.amount_paid || 0)}</td>
                           <td className="px-3 py-2 text-right font-semibold text-sm">{formatPHP(balance)}</td>
                           <td className="px-3 py-2 text-right">

@@ -388,7 +388,7 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
     if po.get("payment_status") == "paid":
         raise HTTPException(status_code=400, detail="PO already paid")
     
-    amount = float(data.get("amount", po.get("balance", po["subtotal"])))
+    amount = float(data.get("amount", po.get("balance", po.get("grand_total", po["subtotal"]))))
     branch_id = po.get("branch_id", "")
     fund_source = data.get("fund_source", "cashier")  # cashier | safe | bank
     

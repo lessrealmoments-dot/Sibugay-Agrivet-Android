@@ -340,6 +340,7 @@ async def pricing_scan(
     return {
         "issues": issues,
         "total": len(issues),
+        "critical_total": sum(i["critical_count"] > 0 for i in issues),
         "branch_id": branch_id,
         "scanned_at": now_iso(),
         "schemes": [{"key": s["key"], "name": s["name"]} for s in schemes],

@@ -350,72 +350,22 @@ async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current
 
 @router.post("/{po_id}/receive")
 async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
-    """Receive a purchase order and update inventory."""
+    """Receive a purchase order (Draft/Ordered) and update inventory. Uses shared helper."""
     check_perm(user, "inventory", "adjust")
-    
+
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")
     if po["status"] == "received":
         raise HTTPException(status_code=400, detail="PO already received")
-    
-    branch_id = po.get("branch_id", "")
-    
-    for item in po.get("items", []):
-        pid = item["product_id"]
-        qty = float(item["quantity"])
-        price = float(item.get("unit_price", 0))
-        
-        # Update inventory
-        existing = await db.inventory.find_one({"product_id": pid, "branch_id": branch_id})
-        if existing:
-            await db.inventory.update_one(
-                {"product_id": pid, "branch_id": branch_id},
-                {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}}
-            )
-        else:
-            await db.inventory.insert_one({
-                "id": new_id(),
-                "product_id": pid,
-                "branch_id": branch_id,
-                "quantity": qty,
-                "updated_at": now_iso()
-            })
-        
-        # Log movement
-        await log_movement(
-            pid, branch_id, "purchase", qty, po["id"], po["po_number"],
-            price, user["id"], user.get("full_name", user["username"]),
-            f"PO received from {po['vendor']}"
-        )
-        
-        # Update product cost: Last Purchase + Moving Average
-        product_update = {"last_vendor": po["vendor"], "cost_price": price}
-        
-        # Recalculate moving average from all purchase movements
-        all_purchases = await db.movements.find(
-            {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
-        ).to_list(10000)
-        
-        total_pqty = sum(m["quantity_change"] for m in all_purchases)
-        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
-        
-        if total_pqty > 0:
-            product_update["moving_average_cost"] = round(total_pcost / total_pqty, 2)
-        
-        await db.products.update_one({"id": pid}, {"$set": product_update})
-        
-        # Update vendor last_price
-        await db.product_vendors.update_many(
-            {"product_id": pid, "vendor_name": po["vendor"]},
-            {"$set": {"last_price": price, "last_order_date": now_iso()[:10]}}
-        )
-    
+
+    await _apply_po_inventory(po, user)
+
     await db.purchase_orders.update_one(
         {"id": po_id},
         {"$set": {"status": "received", "received_date": now_iso()}}
     )
-    
+
     return {"message": "PO received, inventory updated"}
 
 

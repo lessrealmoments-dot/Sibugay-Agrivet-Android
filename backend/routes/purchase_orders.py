@@ -93,6 +93,7 @@ async def get_fund_balances(branch_id: str = "", user=Depends(get_current_user))
 
 
 
+@router.get("")
 async def list_purchase_orders(
     user=Depends(get_current_user),
     status: Optional[str] = None,

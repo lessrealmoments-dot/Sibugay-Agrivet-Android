@@ -250,37 +250,90 @@ export default function CloseWizardPage() {
     }, 200);
   };
 
+  // ── Employee select — load CA summary ─────────────────────────────────────
+  const handleExpEmployeeSelect = async (emp) => {
+    setExpEmployeeSelected(emp);
+    setExpCaSummary(null);
+    setExpCaPinNeeded(false);
+    setExpCaPinVerified(false);
+    if (!emp) return;
+    try {
+      const res = await api.get(`/employees/${emp.id}/ca-summary`);
+      setExpCaSummary(res.data);
+    } catch { setExpCaSummary(null); }
+  };
+
   // ── Quick add expense ───────────────────────────────────────────────────────
   const quickAddExpense = async () => {
     if (!expForm.description || !expForm.amount) { toast.error('Description and amount required'); return; }
     const needsCustomer = expForm.expenseType === 'farm' || expForm.expenseType === 'cashout';
     if (needsCustomer && !expCustomerSelected) { toast.error('Please select a customer'); return; }
+    if (expForm.expenseType === 'advance' && !expEmployeeSelected) { toast.error('Please select an employee'); return; }
+
+    // Check CA limit for employee advance
+    if (expForm.expenseType === 'advance' && expCaSummary && !expCaPinVerified) {
+      const amount = parseFloat(expForm.amount) || 0;
+      const limit = expCaSummary.monthly_ca_limit || 0;
+      const thisMonth = expCaSummary.this_month_total || 0;
+      if (limit > 0 && (thisMonth + amount) > limit) {
+        setExpCaPinNeeded(true);
+        return;
+      }
+    }
+
     setExpSaving(true);
     try {
       const endpoint = expForm.expenseType === 'farm' ? '/expenses/farm'
         : expForm.expenseType === 'cashout' ? '/expenses/customer-cashout'
         : expForm.expenseType === 'advance' ? '/expenses/employee-advance'
         : '/expenses';
+
       const payload = {
-        ...expForm,
+        description: expForm.description,
+        notes: expForm.notes,
         amount: parseFloat(expForm.amount),
+        payment_method: expForm.payment_method || 'Cash',
+        reference_number: expForm.reference_number || '',
         branch_id: currentBranch.id,
         date,
       };
+
+      if (expForm.expenseType === 'regular') {
+        payload.category = expForm.category;
+      }
       if (needsCustomer && expCustomerSelected) {
         payload.customer_id = expCustomerSelected.id;
         payload.customer_name = expCustomerSelected.name;
       }
+      if (expForm.expenseType === 'advance' && expEmployeeSelected) {
+        payload.employee_id = expEmployeeSelected.id;
+        payload.employee_name = expEmployeeSelected.name;
+        if (expCaPinVerified) payload.manager_approved_by = expCaPin;
+      }
+
       await api.post(endpoint, payload);
       toast.success('Expense added');
-      setExpDialog(false);
-      setExpForm({ description: '', amount: '', category: 'Operational', expenseType: 'other' });
-      setExpCustomerSearch('');
-      setExpCustomerMatches([]);
-      setExpCustomerSelected(null);
+      resetExpDialog();
       loadWizardData();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setExpSaving(false);
+  };
+
+  const resetExpDialog = () => {
+    setExpDialog(false);
+    setExpForm({ expenseType: 'regular', category: 'Miscellaneous', description: '', notes: '', amount: '', payment_method: 'Cash', reference_number: '' });
+    setExpCustomerSearch(''); setExpCustomerMatches([]); setExpCustomerSelected(null);
+    setExpEmployeeSelected(null); setExpCaSummary(null); setExpCaPinNeeded(false); setExpCaPin(''); setExpCaPinVerified(false);
+  };
+
+  const verifyExpCaPin = async () => {
+    if (!expCaPin) { toast.error('Enter manager PIN'); return; }
+    try {
+      await api.post('/auth/verify-manager-pin', { pin: expCaPin });
+      setExpCaPinVerified(true);
+      setExpCaPinNeeded(false);
+      toast.success('PIN verified — you can now save the advance');
+    } catch { toast.error('Invalid PIN'); }
   };
 
   // ── Quick receive payment ───────────────────────────────────────────────────

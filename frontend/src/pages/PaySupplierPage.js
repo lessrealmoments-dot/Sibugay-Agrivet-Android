@@ -86,7 +86,7 @@ export default function PaySupplierPage() {
     if (!selected) return;
     const newAmounts = {};
     selected.pos.forEach(po => {
-      const bal = po.balance ?? po.subtotal ?? 0;
+      const bal = po.balance ?? po.grand_total ?? po.subtotal ?? 0;
       if (bal > 0) newAmounts[po.id] = bal.toFixed(2);
     });
     setRowAmounts(newAmounts);

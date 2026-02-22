@@ -1053,22 +1053,22 @@ export default function CloseWizardPage() {
       </Dialog>
 
       {/* ── Quick Add Expense Dialog ── */}
-      <Dialog open={expDialog} onOpenChange={v => {
-        setExpDialog(v);
-        if (!v) { setExpCustomerSearch(''); setExpCustomerMatches([]); setExpCustomerSelected(null); }
-      }}>
-        <DialogContent className="sm:max-w-sm">
+      <Dialog open={expDialog} onOpenChange={v => { if (!v) resetExpDialog(); else setExpDialog(true); }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Add Expense</DialogTitle></DialogHeader>
-          <div className="space-y-3 mt-2">
+          <div className="space-y-3 mt-1">
+
+            {/* Expense Type */}
             <div>
-              <Label>Type</Label>
+              <Label className="text-xs text-slate-500">Type</Label>
               <Select value={expForm.expenseType} onValueChange={v => {
-                setExpForm(f => ({ ...f, expenseType: v }));
+                setExpForm(f => ({ ...f, expenseType: v, category: 'Miscellaneous' }));
                 setExpCustomerSearch(''); setExpCustomerMatches([]); setExpCustomerSelected(null);
+                setExpEmployeeSelected(null); setExpCaSummary(null); setExpCaPinNeeded(false); setExpCaPin(''); setExpCaPinVerified(false);
               }}>
                 <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="other">Operational</SelectItem>
+                  <SelectItem value="regular">Regular Expense</SelectItem>
                   <SelectItem value="farm">Farm Service (bill to customer)</SelectItem>
                   <SelectItem value="cashout">Customer Cash Out</SelectItem>
                   <SelectItem value="advance">Employee Advance</SelectItem>
@@ -1076,36 +1076,40 @@ export default function CloseWizardPage() {
               </Select>
             </div>
 
-            {/* Customer picker for Farm / Cash Out */}
+            {/* Category — Regular only */}
+            {expForm.expenseType === 'regular' && (
+              <div>
+                <Label className="text-xs text-slate-500">Category</Label>
+                <Select value={expForm.category} onValueChange={v => setExpForm(f => ({ ...f, category: v }))}>
+                  <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Customer picker — Farm / Cash Out */}
             {(expForm.expenseType === 'farm' || expForm.expenseType === 'cashout') && (
               <div className="relative">
-                <Label>Customer <span className="text-red-500">*</span></Label>
+                <Label className="text-xs text-slate-500">Customer <span className="text-red-500">*</span></Label>
                 {expCustomerSelected ? (
                   <div className="mt-1 flex items-center justify-between p-2 rounded border border-emerald-300 bg-emerald-50">
                     <div>
                       <p className="text-sm font-medium text-emerald-800">{expCustomerSelected.name}</p>
                       <p className="text-xs text-emerald-600">Balance: {formatPHP(expCustomerSelected.balance || 0)}</p>
                     </div>
-                    <button onClick={() => { setExpCustomerSelected(null); setExpCustomerSearch(''); }}
-                      className="text-slate-400 hover:text-red-500 text-xs px-2">×</button>
+                    <button onClick={() => { setExpCustomerSelected(null); setExpCustomerSearch(''); }} className="text-slate-400 hover:text-red-500 px-2 text-base">×</button>
                   </div>
                 ) : (
                   <div>
-                    <Input
-                      value={expCustomerSearch}
-                      onChange={e => searchExpCustomer(e.target.value)}
-                      placeholder="Search customer name..."
-                      className="h-9 mt-1"
-                      autoFocus
-                    />
+                    <Input value={expCustomerSearch} onChange={e => searchExpCustomer(e.target.value)}
+                      placeholder="Search customer..." className="h-9 mt-1" />
                     {expCustomerMatches.length > 0 && (
-                      <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+                      <div className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-0.5 max-h-36 overflow-y-auto">
                         {expCustomerMatches.map(c => (
-                          <button key={c.id} onMouseDown={() => {
-                            setExpCustomerSelected(c);
-                            setExpCustomerSearch(c.name);
-                            setExpCustomerMatches([]);
-                          }} className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b last:border-0 text-sm">
+                          <button key={c.id} onMouseDown={() => { setExpCustomerSelected(c); setExpCustomerSearch(c.name); setExpCustomerMatches([]); }}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-50 border-b last:border-0 text-sm">
                             <span className="font-medium">{c.name}</span>
                             <span className="text-xs text-slate-400 ml-2">Bal: {formatPHP(c.balance || 0)}</span>
                           </button>
@@ -1114,24 +1118,118 @@ export default function CloseWizardPage() {
                     )}
                   </div>
                 )}
-                {expForm.expenseType === 'farm' && (
-                  <p className="text-[10px] text-slate-400 mt-0.5">An invoice will be created and billed to this customer.</p>
-                )}
-                {expForm.expenseType === 'cashout' && (
-                  <p className="text-[10px] text-slate-400 mt-0.5">A cash advance invoice will be created for this customer.</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {expForm.expenseType === 'farm' ? 'Creates an AR invoice billed to this customer.' : 'Creates a cash advance invoice for this customer.'}
+                </p>
+              </div>
+            )}
+
+            {/* Employee picker — Advance */}
+            {expForm.expenseType === 'advance' && (
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-xs text-slate-500">Employee <span className="text-red-500">*</span></Label>
+                  <Select value={expEmployeeSelected?.id || 'none'} onValueChange={v => {
+                    const emp = expEmployees.find(e => e.id === v);
+                    handleExpEmployeeSelect(emp || null);
+                  }}>
+                    <SelectTrigger className="mt-1 h-9"><SelectValue placeholder="Select employee..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Select employee —</SelectItem>
+                      {expEmployees.filter(e => e.active !== false).map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.name}{e.position ? ` (${e.position})` : ''}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {expCaSummary && (
+                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-[10px] text-slate-400">This Month</p>
+                        <p className={`text-sm font-bold ${expCaSummary.is_over_limit ? 'text-red-600' : 'text-amber-700'}`}>{formatPHP(expCaSummary.this_month_total)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400">Monthly Limit</p>
+                        <p className="text-sm font-bold">{expCaSummary.monthly_ca_limit > 0 ? formatPHP(expCaSummary.monthly_ca_limit) : 'No limit'}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400">Unpaid Balance</p>
+                        <p className="text-sm font-bold text-slate-700">{formatPHP(expCaSummary.total_advance_balance)}</p>
+                      </div>
+                    </div>
+                    {expCaPinVerified && (
+                      <p className="text-xs text-emerald-700 mt-1.5 flex items-center gap-1">✓ Manager PIN verified — over-limit advance allowed</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
-            <div><Label>Description</Label>
-              <Input value={expForm.description} onChange={e => setExpForm(f => ({ ...f, description: e.target.value }))} className="h-9 mt-1"
-                autoFocus={expForm.expenseType === 'other' || expForm.expenseType === 'advance'} /></div>
-            <div><Label>Amount</Label>
-              <Input type="number" min={0} value={expForm.amount} onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))} className="h-9 mt-1 font-mono" /></div>
+            {/* PIN dialog for CA over limit */}
+            {expCaPinNeeded && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 space-y-2">
+                <p className="text-xs font-semibold text-red-800 flex items-center gap-1">
+                  ⚠ Monthly CA limit exceeded — manager PIN required
+                </p>
+                <div className="flex gap-2">
+                  <Input type="password" value={expCaPin} onChange={e => setExpCaPin(e.target.value)}
+                    placeholder="Manager PIN" className="h-8 text-sm flex-1" maxLength={6}
+                    onKeyDown={e => e.key === 'Enter' && verifyExpCaPin()} />
+                  <Button size="sm" onClick={verifyExpCaPin} className="h-8 bg-red-700 text-white">Verify</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Description */}
+            <div>
+              <Label className="text-xs text-slate-500">Description</Label>
+              <Input value={expForm.description} onChange={e => setExpForm(f => ({ ...f, description: e.target.value }))}
+                className="h-9 mt-1" placeholder={
+                  expForm.expenseType === 'farm' ? 'e.g. Spraying, fertilizer application...' :
+                  expForm.expenseType === 'cashout' ? 'e.g. Cash advance for market...' :
+                  expForm.expenseType === 'advance' ? 'e.g. Salary advance...' :
+                  'What is this expense for?'
+                } />
+            </div>
+
+            {/* Amount + Payment Method */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-500">Amount (₱)</Label>
+                <Input type="number" min={0} value={expForm.amount}
+                  onChange={e => setExpForm(f => ({ ...f, amount: e.target.value }))}
+                  className="h-9 mt-1 font-mono" placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Payment Method</Label>
+                <Select value={expForm.payment_method} onValueChange={v => setExpForm(f => ({ ...f, payment_method: v }))}>
+                  <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Reference # + Notes */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-slate-500">Reference # (optional)</Label>
+                <Input value={expForm.reference_number} onChange={e => setExpForm(f => ({ ...f, reference_number: e.target.value }))}
+                  className="h-9 mt-1 text-sm" placeholder="OR / Check #" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Notes (optional)</Label>
+                <Input value={expForm.notes} onChange={e => setExpForm(f => ({ ...f, notes: e.target.value }))}
+                  className="h-9 mt-1 text-sm" placeholder="Additional details..." />
+              </div>
+            </div>
+
             <div className="flex gap-2 pt-1">
-              <Button variant="outline" className="flex-1" onClick={() => setExpDialog(false)}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={resetExpDialog}>Cancel</Button>
               <Button className="flex-1 bg-[#1A4D2E] text-white" onClick={quickAddExpense} disabled={expSaving}>
-                {expSaving ? <RefreshCw size={13} className="animate-spin mr-1" /> : null} Add
+                {expSaving ? <RefreshCw size={13} className="animate-spin mr-1" /> : null} Add Expense
               </Button>
             </div>
           </div>

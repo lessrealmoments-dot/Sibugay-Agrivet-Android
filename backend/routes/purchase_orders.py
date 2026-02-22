@@ -548,7 +548,7 @@ async def get_payables_by_supplier(user=Depends(get_current_user), branch_id: Op
         v = po["vendor"]
         if v not in by_vendor:
             by_vendor[v] = {"vendor": v, "total_owed": 0, "pos": [], "has_overdue": False}
-        balance = po.get("balance", po.get("subtotal", 0))
+        balance = po.get("balance", po.get("grand_total", po.get("subtotal", 0)))
         by_vendor[v]["total_owed"] = round(by_vendor[v]["total_owed"] + balance, 2)
         by_vendor[v]["pos"].append(po)
         due = po.get("due_date", "")

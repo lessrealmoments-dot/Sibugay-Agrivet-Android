@@ -73,6 +73,7 @@ export default function ProductsPage() {
   const newRow = () => ({
     id: Math.random().toString(36).slice(2),
     parentSearch: '', parentMatches: [], parent: null,
+    activeSearchIndex: -1,
     repackName: '', unit: 'Pack',
     unitsPerParent: 1, addOnCost: 0,
     capital: 0,

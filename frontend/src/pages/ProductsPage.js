@@ -1045,9 +1045,17 @@ export default function ProductsPage() {
                               onKeyDown={e => {
                                 if (e.key === 'Tab' && !e.shiftKey) {
                                   e.preventDefault();
-                                  const next = newRow();
-                                  pendingFocusRowId.current = next.id;
-                                  setQrRows(rows => [...rows, next]);
+                                  // Only add a new row if ALL existing rows have a parent selected
+                                  // If there's already an empty row, focus it instead
+                                  const emptyRow = qrRows.find(r => !r.parent);
+                                  if (emptyRow) {
+                                    const input = document.querySelector(`[data-testid="qr-parent-${emptyRow.id}"]`);
+                                    if (input) input.focus();
+                                  } else {
+                                    const next = newRow();
+                                    pendingFocusRowId.current = next.id;
+                                    setQrRows(rows => [...rows, next]);
+                                  }
                                 }
                               }}
                               className={`h-8 text-sm text-right font-mono font-bold ${

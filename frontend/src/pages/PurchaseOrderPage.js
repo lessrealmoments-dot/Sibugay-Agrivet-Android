@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { formatPHP } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';

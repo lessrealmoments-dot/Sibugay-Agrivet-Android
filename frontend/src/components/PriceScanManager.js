@@ -1,0 +1,487 @@
+/**
+ * PriceScanManager — Global smart price scanner.
+ * Runs every 5 minutes. Detects products where any price scheme is below cost.
+ * Shows a dialog with editable price table. Skip stores a cooldown in localStorage.
+ * Even when skipped, a notification is created for admins/managers.
+ */
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth, api } from '../contexts/AuthContext';
+import { formatPHP } from '../lib/utils';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { AlertTriangle, RefreshCw, Check, Clock, ChevronDown, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const SCAN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const SKIP_KEY = 'agribooks_price_scan_skip';
+
+const SKIP_OPTIONS = [
+  { label: '30 minutes', ms: 30 * 60 * 1000 },
+  { label: '1 hour', ms: 60 * 60 * 1000 },
+  { label: '4 hours', ms: 4 * 60 * 60 * 1000 },
+  { label: '6 hours', ms: 6 * 60 * 60 * 1000 },
+];
+
+export default function PriceScanManager() {
+  const { user, selectedBranchId, currentBranch, branches } = useAuth();
+  const [dialog, setDialog] = useState(false);
+  const [issues, setIssues] = useState([]);
+  const [schemes, setSchemes] = useState([]);
+  const [editPrices, setEditPrices] = useState({}); // { product_id: { scheme_key: value } }
+  const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [showSkipMenu, setShowSkipMenu] = useState(false);
+  const [skipUntil, setSkipUntil] = useState(null); // timestamp
+  const [lastScanCount, setLastScanCount] = useState(null);
+  const scanTimerRef = useRef(null);
+  const skipMenuRef = useRef(null);
+
+  // Load skip state from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(SKIP_KEY);
+    if (stored) {
+      const until = parseInt(stored, 10);
+      if (until > Date.now()) setSkipUntil(until);
+      else localStorage.removeItem(SKIP_KEY);
+    }
+  }, []);
+
+  // Click outside skip menu
+  useEffect(() => {
+    const h = (e) => { if (skipMenuRef.current && !skipMenuRef.current.contains(e.target)) setShowSkipMenu(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const isInSkipWindow = () => {
+    const stored = localStorage.getItem(SKIP_KEY);
+    if (!stored) return false;
+    const until = parseInt(stored, 10);
+    if (until > Date.now()) return true;
+    localStorage.removeItem(SKIP_KEY);
+    return false;
+  };
+
+  const runScan = useCallback(async (showDialogIfFound = true) => {
+    if (!user) return;
+    setScanning(true);
+    try {
+      const branchId = currentBranch?.id || '';
+      const inSkip = isInSkipWindow();
+      // Always notify if issues found (even during skip, creates notification)
+      const params = new URLSearchParams();
+      if (branchId) params.set('branch_id', branchId);
+      if (!inSkip) params.set('notify', 'true'); // only notify outside skip window
+
+      const res = await api.get(`${BACKEND_URL}/api/products/pricing-scan?${params}`);
+      const data = res.data;
+      setLastScanCount(data.total);
+
+      if (data.total > 0) {
+        setIssues(data.issues);
+        setSchemes(data.schemes || []);
+        // Initialize edit prices from current values
+        const init = {};
+        data.issues.forEach(issue => {
+          init[issue.product_id] = {};
+          (data.schemes || []).forEach(s => {
+            init[issue.product_id][s.key] = issue.prices[s.key] || '';
+          });
+        });
+        setEditPrices(init);
+
+        if (showDialogIfFound && !inSkip) {
+          setDialog(true);
+        }
+      } else {
+        setIssues([]);
+        setLastScanCount(0);
+      }
+    } catch (e) {
+      // Silent fail — don't alert user on background scan errors
+    }
+    setScanning(false);
+  }, [user, currentBranch?.id]);
+
+  // Start scan timer
+  useEffect(() => {
+    if (!user) return;
+    // Initial scan after 30 seconds (let app load first)
+    const initialDelay = setTimeout(() => runScan(true), 30_000);
+    // Then every 5 minutes
+    scanTimerRef.current = setInterval(() => runScan(true), SCAN_INTERVAL_MS);
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(scanTimerRef.current);
+    };
+  }, [user, runScan]);
+
+  // Re-scan when branch changes
+  useEffect(() => {
+    if (user && currentBranch?.id) {
+      runScan(false); // silent rescan on branch switch
+    }
+  }, [currentBranch?.id]); // eslint-disable-line
+
+  const handleSkip = (skipMs) => {
+    const until = Date.now() + skipMs;
+    localStorage.setItem(SKIP_KEY, String(until));
+    setSkipUntil(until);
+    setShowSkipMenu(false);
+    setDialog(false);
+    // Still notify in the background
+    const branchId = currentBranch?.id || '';
+    const params = new URLSearchParams({ notify: 'true' });
+    if (branchId) params.set('branch_id', branchId);
+    api.get(`${BACKEND_URL}/api/products/pricing-scan?${params}`).catch(() => {});
+    toast.info(`Price issue alert snoozed. Notification created for your records.`);
+  };
+
+  const updatePrice = (productId, schemeKey, value) => {
+    setEditPrices(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], [schemeKey]: value },
+    }));
+  };
+
+  const handleSaveProduct = async (issue) => {
+    const prices = editPrices[issue.product_id] || {};
+    const cleaned = {};
+    Object.entries(prices).forEach(([k, v]) => {
+      const num = parseFloat(v);
+      if (!isNaN(num) && num > 0) cleaned[k] = num;
+    });
+    try {
+      await api.put(`${BACKEND_URL}/api/products/${issue.product_id}`, { prices: cleaned });
+      toast.success(`${issue.product_name} prices updated`);
+      // Remove from issues list
+      setIssues(prev => prev.filter(i => i.product_id !== issue.product_id));
+      if (issues.length <= 1) {
+        setDialog(false);
+        toast.success('All pricing issues resolved!');
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to update prices');
+    }
+  };
+
+  const handleSaveAll = async () => {
+    if (!issues.length) return;
+    setSaving(true);
+    let fixed = 0;
+    for (const issue of issues) {
+      const prices = editPrices[issue.product_id] || {};
+      const cleaned = {};
+      Object.entries(prices).forEach(([k, v]) => {
+        const num = parseFloat(v);
+        if (!isNaN(num) && num > 0) cleaned[k] = num;
+      });
+      try {
+        await api.put(`${BACKEND_URL}/api/products/${issue.product_id}`, { prices: cleaned });
+        fixed++;
+      } catch {}
+    }
+    toast.success(`${fixed} product(s) updated`);
+    setDialog(false);
+    setIssues([]);
+    setLastScanCount(0);
+    setSaving(false);
+  };
+
+  // Primary schemes to show prominently
+  const primarySchemes = schemes.filter(s => ['retail', 'wholesale'].includes(s.key));
+  const otherSchemes = schemes.filter(s => !['retail', 'wholesale'].includes(s.key));
+
+  if (!user) return null;
+
+  return (
+    <>
+      {/* Floating scan indicator — shows when issues exist and dialog is closed */}
+      {lastScanCount !== null && lastScanCount > 0 && !dialog && (
+        <button
+          onClick={() => setDialog(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-full shadow-lg text-sm font-medium transition-all animate-bounce"
+          data-testid="price-scan-alert-btn"
+        >
+          <AlertTriangle size={16} />
+          {lastScanCount} pricing issue{lastScanCount !== 1 ? 's' : ''} found
+        </button>
+      )}
+
+      {/* Price Scan Dialog */}
+      <Dialog open={dialog} onOpenChange={v => { if (!v) setDialog(false); }}>
+        <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b bg-amber-50">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-600 flex items-center justify-center">
+                <AlertTriangle size={18} className="text-white" />
+              </div>
+              <div>
+                <DialogTitle style={{ fontFamily: 'Manrope' }} className="text-base font-bold text-amber-900">
+                  Smart Price Scan — {issues.length} Issue{issues.length !== 1 ? 's' : ''} Found
+                </DialogTitle>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  These products have selling prices <b>below their capital cost</b>. Update or skip.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => runScan(true)} disabled={scanning}
+                className="h-8 text-xs border-amber-300 text-amber-800 hover:bg-amber-100"
+                data-testid="rescan-btn"
+              >
+                <RefreshCw size={12} className={`mr-1.5 ${scanning ? 'animate-spin' : ''}`} />
+                Re-scan
+              </Button>
+              <Button
+                onClick={handleSaveAll} disabled={saving}
+                className="h-8 text-xs bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                data-testid="fix-all-btn"
+              >
+                {saving ? <RefreshCw size={12} className="animate-spin mr-1.5" /> : <Check size={12} className="mr-1.5" />}
+                Fix All
+              </Button>
+              {/* Skip button with dropdown */}
+              <div className="relative" ref={skipMenuRef}>
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => setShowSkipMenu(v => !v)}
+                  className="h-8 text-xs border-slate-300 text-slate-600"
+                  data-testid="skip-btn"
+                >
+                  <Clock size={12} className="mr-1" />
+                  Skip
+                  <ChevronDown size={12} className="ml-1" />
+                </Button>
+                {showSkipMenu && (
+                  <div className="absolute right-0 top-9 z-50 bg-white border border-slate-200 rounded-lg shadow-xl w-44 py-1">
+                    <p className="text-[10px] text-slate-400 px-3 py-1.5 font-medium uppercase">Snooze for...</p>
+                    {SKIP_OPTIONS.map(opt => (
+                      <button key={opt.ms} onClick={() => handleSkip(opt.ms)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-2">
+                        <Clock size={12} className="text-slate-400" />
+                        {opt.label}
+                      </button>
+                    ))}
+                    <p className="text-[9px] text-slate-400 px-3 py-1.5 border-t mt-1">
+                      Notification stays in your bell even when snoozed.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setDialog(false)} className="text-slate-400 hover:text-slate-600 ml-1">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="px-6 py-2 flex items-center gap-4 text-xs border-b bg-slate-50">
+            <span className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-red-100 border border-red-400" />
+              <span className="text-slate-600">Below capital — needs fixing</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded bg-emerald-100 border border-emerald-300" />
+              <span className="text-slate-600">Valid price</span>
+            </span>
+            <span className="text-slate-400 ml-auto">
+              Retail & Wholesale are primary. Other schemes adjust per customer.
+            </span>
+          </div>
+
+          {/* Table */}
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-sm border-collapse" data-testid="price-scan-table">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-100 border-b-2 border-slate-300">
+                  <th className="text-left px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold" style={{minWidth:'200px'}}>Product</th>
+                  <th className="text-right px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold" style={{minWidth:'90px'}}>Last Purchase</th>
+                  <th className="text-right px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold" style={{minWidth:'90px'}}>Moving Avg</th>
+                  <th className="px-1 py-2.5 w-px bg-slate-200" />
+                  {/* Primary: Retail + Wholesale */}
+                  {primarySchemes.map(s => (
+                    <th key={s.key} className="text-center px-3 py-2.5 text-xs uppercase font-semibold text-[#1A4D2E] bg-emerald-50/50" style={{minWidth:'130px'}}>
+                      {s.name} <span className="font-normal text-slate-400">(new)</span>
+                    </th>
+                  ))}
+                  {/* Other schemes */}
+                  {otherSchemes.map(s => (
+                    <th key={s.key} className="text-center px-3 py-2.5 text-xs uppercase font-semibold text-slate-500" style={{minWidth:'120px'}}>
+                      {s.name}
+                    </th>
+                  ))}
+                  <th className="text-center px-3 py-2.5 text-xs uppercase text-slate-600 font-semibold w-24">Issues</th>
+                  <th className="w-20 px-3 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {issues.map((issue) => {
+                  const problemKeys = new Set(issue.problem_schemes.map(p => p.scheme_key));
+                  return (
+                    <tr key={issue.product_id} className="border-b border-slate-100 hover:bg-amber-50/20">
+                      {/* Product info */}
+                      <td className="px-3 py-2">
+                        <p className="font-semibold text-sm text-slate-800">{issue.product_name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{issue.sku} · {issue.category}</p>
+                        <p className="text-[10px] text-amber-700 font-semibold mt-0.5">
+                          Capital: {formatPHP(issue.effective_cost)}
+                          {issue.is_branch_specific_cost && (
+                            <span className="ml-1 text-slate-400">(branch)</span>
+                          )}
+                        </p>
+                      </td>
+
+                      {/* Last purchase */}
+                      <td className="px-3 py-2 text-right">
+                        <span className="text-sm font-mono font-medium">{formatPHP(issue.last_purchase)}</span>
+                        {issue.last_purchase > 0 && issue.last_purchase !== issue.effective_cost && (
+                          <p className="text-[9px] text-slate-400">LP cost</p>
+                        )}
+                      </td>
+
+                      {/* Moving average */}
+                      <td className="px-3 py-2 text-right">
+                        <span className="text-sm font-mono font-medium">{formatPHP(issue.moving_average)}</span>
+                        <p className="text-[9px] text-slate-400">Avg cost</p>
+                      </td>
+
+                      {/* Divider */}
+                      <td className="px-1 bg-slate-100 w-px" />
+
+                      {/* Primary schemes (Retail, Wholesale) — editable */}
+                      {primarySchemes.map(s => {
+                        const isBad = problemKeys.has(s.key);
+                        const currentPrice = issue.prices[s.key] || 0;
+                        const editVal = editPrices[issue.product_id]?.[s.key] ?? '';
+                        const editNum = parseFloat(editVal);
+                        const isFixed = !isNaN(editNum) && editNum > 0 && editNum >= issue.effective_cost;
+                        return (
+                          <td key={s.key} className="px-2 py-2 bg-emerald-50/30">
+                            <div>
+                              {/* Current price (old) */}
+                              <div className={`text-[10px] mb-0.5 font-mono ${isBad ? 'text-red-500 line-through' : 'text-slate-400'}`}>
+                                was: {formatPHP(currentPrice)}
+                              </div>
+                              {/* New price input */}
+                              <Input
+                                type="number"
+                                min={issue.effective_cost}
+                                step="0.01"
+                                value={editVal}
+                                onChange={e => updatePrice(issue.product_id, s.key, e.target.value)}
+                                placeholder={`min ₱${issue.effective_cost.toFixed(2)}`}
+                                className={`h-8 text-sm text-right font-mono font-bold w-full ${
+                                  isBad && (!editNum || editNum < issue.effective_cost)
+                                    ? 'border-red-400 bg-red-50 text-red-700'
+                                    : isFixed
+                                    ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
+                                    : 'border-slate-200'
+                                }`}
+                                data-testid={`price-${issue.product_id}-${s.key}`}
+                              />
+                              {/* Margin indicator */}
+                              {isFixed && (
+                                <p className="text-[9px] text-emerald-600 mt-0.5 text-right font-mono">
+                                  +{formatPHP(editNum - issue.effective_cost)} margin
+                                </p>
+                              )}
+                              {isBad && editNum > 0 && editNum < issue.effective_cost && (
+                                <p className="text-[9px] text-red-500 mt-0.5 text-right">still below cost</p>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+
+                      {/* Other schemes */}
+                      {otherSchemes.map(s => {
+                        const isBad = problemKeys.has(s.key);
+                        const currentPrice = issue.prices[s.key] || 0;
+                        const editVal = editPrices[issue.product_id]?.[s.key] ?? '';
+                        const editNum = parseFloat(editVal);
+                        return (
+                          <td key={s.key} className="px-2 py-2">
+                            <div>
+                              <div className={`text-[10px] mb-0.5 font-mono ${isBad ? 'text-red-500 line-through' : 'text-slate-400'}`}>
+                                {formatPHP(currentPrice)}
+                              </div>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={editVal}
+                                onChange={e => updatePrice(issue.product_id, s.key, e.target.value)}
+                                placeholder="0.00"
+                                className={`h-8 text-sm text-right font-mono w-full ${
+                                  isBad && (!editNum || editNum < issue.effective_cost)
+                                    ? 'border-red-400 bg-red-50'
+                                    : 'border-slate-200'
+                                }`}
+                                data-testid={`price-${issue.product_id}-${s.key}`}
+                              />
+                            </div>
+                          </td>
+                        );
+                      })}
+
+                      {/* Issue badges */}
+                      <td className="px-3 py-2 text-center">
+                        <div className="flex flex-col gap-0.5 items-center">
+                          {issue.problem_schemes.map(p => (
+                            <Badge key={p.scheme_key} className="text-[9px] bg-red-100 text-red-700 px-1.5">
+                              {p.scheme_name}: -{formatPHP(p.deficit)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* Per-row fix button */}
+                      <td className="px-2 py-2 text-center">
+                        <Button size="sm" variant="outline"
+                          onClick={() => handleSaveProduct(issue)}
+                          className="h-7 text-[11px] text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                          data-testid={`fix-${issue.product_id}`}>
+                          Fix
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-3 border-t bg-slate-50 flex items-center justify-between">
+            <p className="text-xs text-slate-500">
+              Scans run every 5 minutes. Notifications sent to owner and branch managers.
+              {skipUntil && skipUntil > Date.now() && (
+                <span className="ml-2 text-amber-600">
+                  Next popup: {new Date(skipUntil).toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setDialog(false)}>
+                Close
+              </Button>
+              <Button size="sm" onClick={handleSaveAll} disabled={saving}
+                className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                {saving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Check size={13} className="mr-1.5" />}
+                Update All ({issues.length})
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

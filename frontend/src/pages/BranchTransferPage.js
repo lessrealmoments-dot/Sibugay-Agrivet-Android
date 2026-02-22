@@ -1489,6 +1489,95 @@ export default function BranchTransferPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* ── Accept Receipt Dialog ── */}
+      <Dialog open={!!acceptDialog} onOpenChange={() => setAcceptDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Accept Receipt — {acceptDialog?.order_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+              <p className="font-semibold mb-1">Accepting will:</p>
+              <ul className="list-disc list-inside text-xs space-y-0.5">
+                <li>Deduct received quantities from your branch inventory</li>
+                <li>Add received quantities to destination branch</li>
+                <li>Record the variance in the audit trail</li>
+              </ul>
+            </div>
+            {/* Show variance summary */}
+            {acceptDialog?.shortages?.length > 0 && (
+              <div className="text-xs p-2 rounded bg-amber-50 border border-amber-200">
+                <p className="font-semibold text-amber-800 mb-1">Shortages (destination received less):</p>
+                {acceptDialog.shortages.map((s, i) => (
+                  <p key={i} className="text-amber-700">{s.product_name}: ordered {s.qty_ordered}, received {s.qty_received} (short {Math.abs(s.variance)})</p>
+                ))}
+              </div>
+            )}
+            {acceptDialog?.excesses?.length > 0 && (
+              <div className="text-xs p-2 rounded bg-blue-50 border border-blue-200">
+                <p className="font-semibold text-blue-800 mb-1">Excesses (destination received more):</p>
+                {acceptDialog.excesses.map((e, i) => (
+                  <p key={i} className="text-blue-700">{e.product_name}: ordered {e.qty_ordered}, received {e.qty_received} (excess {Math.abs(e.variance)})</p>
+                ))}
+              </div>
+            )}
+            <div>
+              <label className="text-xs text-slate-500 font-medium block mb-1">Accept note (optional)</label>
+              <input type="text" placeholder="e.g. Verified with packing list, shortfall noted..."
+                className="w-full text-sm border border-slate-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                id="accept-note-input" data-testid="accept-note" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2 border-t mt-2">
+            <Button variant="outline" onClick={() => setAcceptDialog(null)}>Cancel</Button>
+            <Button onClick={() => {
+              const note = document.getElementById('accept-note-input')?.value || '';
+              handleAcceptReceipt(acceptDialog.id, note);
+            }} disabled={actionSaving} className="bg-emerald-600 text-white" data-testid="confirm-accept-btn">
+              {actionSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
+              Accept & Update Inventory
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dispute Receipt Dialog ── */}
+      <Dialog open={!!disputeDialog} onOpenChange={() => { setDisputeDialog(null); setDisputeNote(''); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Dispute Receipt — {disputeDialog?.order_number}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+              <p className="font-semibold mb-1">Disputing will:</p>
+              <ul className="list-disc list-inside text-xs space-y-0.5">
+                <li>NOT update any inventory</li>
+                <li>Notify the destination branch to re-count</li>
+                <li>Allow them to re-submit corrected quantities</li>
+              </ul>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 font-medium block mb-1">Reason for dispute <span className="text-red-500">*</span></label>
+              <textarea
+                value={disputeNote}
+                onChange={e => setDisputeNote(e.target.value)}
+                placeholder="e.g. Our records show we packed 10 cases, please re-count..."
+                rows={3}
+                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                data-testid="dispute-note"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2 border-t mt-2">
+            <Button variant="outline" onClick={() => { setDisputeDialog(null); setDisputeNote(''); }}>Cancel</Button>
+            <Button onClick={handleDisputeReceipt} disabled={actionSaving || !disputeNote.trim()}
+              className="bg-red-600 text-white" data-testid="confirm-dispute-btn">
+              {actionSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <XCircle size={14} className="mr-1.5" />}
+              Send Dispute
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

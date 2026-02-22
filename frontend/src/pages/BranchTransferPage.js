@@ -371,11 +371,34 @@ export default function BranchTransferPage() {
     order.items.forEach(item => { qtys[item.product_id] = item.qty; });
     setReceiveQtys(qtys);
     setReceiveNotes('');
+    setReceiveConfirmStep(false);
     setReceiveDialog(true);
+  };
+
+  // Compute variance for current receiveQtys
+  const getVariances = (items) => {
+    if (!items) return { hasVariance: false, shortages: [], excesses: [] };
+    const shortages = [], excesses = [];
+    items.forEach(item => {
+      const ordered = parseFloat(item.qty) || 0;
+      const received = parseFloat(receiveQtys[item.product_id] ?? ordered) || 0;
+      const diff = received - ordered;
+      if (diff < 0) shortages.push({ ...item, qty_received: received, diff });
+      else if (diff > 0) excesses.push({ ...item, qty_received: received, diff });
+    });
+    return { hasVariance: shortages.length > 0 || excesses.length > 0, shortages, excesses };
   };
 
   const handleReceive = async () => {
     if (!viewOrder) return;
+    const { hasVariance } = getVariances(viewOrder.items);
+
+    // First click with variance: show double-check step
+    if (hasVariance && !receiveConfirmStep) {
+      setReceiveConfirmStep(true);
+      return;
+    }
+
     setReceiveSaving(true);
     try {
       const items = viewOrder.items.map(item => ({
@@ -386,17 +409,41 @@ export default function BranchTransferPage() {
         branch_retail: item.branch_retail,
       }));
       const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, { items, notes: receiveNotes });
-      const msg = res.data.has_shortage
-        ? `${res.data.message} — shortage on ${res.data.shortages?.length} item(s)`
-        : res.data.has_excess
-        ? `${res.data.message} — excess on ${res.data.excesses?.length} item(s)`
-        : res.data.message;
-      toast.success(msg);
+      if (res.data.status === 'received_pending') {
+        toast.warning('Quantities have variance — submitted for source branch confirmation.');
+      } else {
+        toast.success(res.data.message || 'Transfer received!');
+      }
       setReceiveDialog(false);
+      setReceiveConfirmStep(false);
       setViewOrder(null);
       loadOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Receive failed'); }
     setReceiveSaving(false);
+  };
+
+  const handleAcceptReceipt = async (orderId, note = '') => {
+    setActionSaving(true);
+    try {
+      await api.post(`/branch-transfers/${orderId}/accept-receipt`, { note });
+      toast.success('Receipt accepted — inventory updated.');
+      setAcceptDialog(null);
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to accept'); }
+    setActionSaving(false);
+  };
+
+  const handleDisputeReceipt = async () => {
+    if (!disputeDialog || !disputeNote.trim()) { toast.error('Dispute reason is required'); return; }
+    setActionSaving(true);
+    try {
+      await api.post(`/branch-transfers/${disputeDialog.id}/dispute-receipt`, { note: disputeNote });
+      toast.success('Receipt disputed — destination has been notified to re-count.');
+      setDisputeDialog(null);
+      setDisputeNote('');
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to dispute'); }
+    setActionSaving(false);
   };
 
   const handleSend = async (orderId) => {

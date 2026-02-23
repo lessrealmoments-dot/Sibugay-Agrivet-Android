@@ -72,6 +72,7 @@ export default function ReturnRefundWizard() {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [completed, setCompleted] = useState(null);
+  const [uploadQROpen, setUploadQROpen] = useState(false);
 
   // Step 1
   const [customerName, setCustomerName] = useState('');

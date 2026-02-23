@@ -683,27 +683,53 @@ export default function PurchaseOrderPage() {
                 <TotalsRow label="Grand Total" value={computed.grandTotal} bold accent="text-[#1A4D2E]" />
               </div>
 
-              {/* 3 Action Buttons */}
-              <div className="grid grid-cols-3 gap-2">
-                <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}
-                  data-testid="save-draft-btn" className="flex flex-col h-14 gap-0.5">
-                  <Save size={16} /><span className="text-[10px] leading-tight text-center">Save Draft</span>
-                </Button>
-                <Button size="sm" onClick={openTermsDialog} disabled={saving}
-                  data-testid="receive-terms-btn"
-                  className="flex flex-col h-14 gap-0.5 bg-blue-600 hover:bg-blue-700 text-white">
-                  <CreditCard size={16} /><span className="text-[10px] leading-tight text-center">Receive on Terms</span>
-                </Button>
-                <Button size="sm" onClick={openCashDialog} disabled={saving || cashLoading}
-                  data-testid="pay-cash-btn"
-                  className="flex flex-col h-14 gap-0.5 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-                  {cashLoading ? <RefreshCw size={16} className="animate-spin" /> : <Wallet size={16} />}
-                  <span className="text-[10px] leading-tight text-center">Pay in Cash</span>
-                </Button>
-              </div>
-              <p className="text-[10px] text-slate-400 text-center">
-                Both "Receive" options immediately update inventory
-              </p>
+              {/* Action Buttons — change based on source type */}
+              {sourceType === 'branch_request' ? (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}
+                    className="flex-1 h-14 flex-col gap-0.5">
+                    <Save size={16} /><span className="text-[10px]">Save Draft</span>
+                  </Button>
+                  <Button size="sm" onClick={async () => {
+                    const valid = validate(); if (!valid) return;
+                    setSaving(true);
+                    try {
+                      const res = await api.post('/purchase-orders', buildPayload(valid, { po_type: 'branch_request' }));
+                      toast.success(`Stock request ${res.data.po_number} sent! ${branches.find(b => b.id === supplyBranchId)?.name || ''} has been notified.`);
+                      resetForm(); fetchOrders(); setTab('list');
+                    } catch (e) { toast.error(e.response?.data?.detail || 'Error sending request'); }
+                    setSaving(false);
+                  }} disabled={saving}
+                    className="flex-1 h-14 flex-col gap-0.5 bg-blue-600 hover:bg-blue-700 text-white"
+                    data-testid="send-request-btn">
+                    {saving ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                    <span className="text-[10px] text-center">Send Stock Request</span>
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}
+                      data-testid="save-draft-btn" className="flex flex-col h-14 gap-0.5">
+                      <Save size={16} /><span className="text-[10px] leading-tight text-center">Save Draft</span>
+                    </Button>
+                    <Button size="sm" onClick={openTermsDialog} disabled={saving}
+                      data-testid="receive-terms-btn"
+                      className="flex flex-col h-14 gap-0.5 bg-blue-600 hover:bg-blue-700 text-white">
+                      <CreditCard size={16} /><span className="text-[10px] leading-tight text-center">Receive on Terms</span>
+                    </Button>
+                    <Button size="sm" onClick={openCashDialog} disabled={saving || cashLoading}
+                      data-testid="pay-cash-btn"
+                      className="flex flex-col h-14 gap-0.5 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                      {cashLoading ? <RefreshCw size={16} className="animate-spin" /> : <Wallet size={16} />}
+                      <span className="text-[10px] leading-tight text-center">Pay in Cash</span>
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 text-center">
+                    Both "Receive" options immediately update inventory
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </TabsContent>

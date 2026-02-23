@@ -34,6 +34,7 @@ import PaySupplierPage from './pages/PaySupplierPage';
 import ImportPage from './pages/ImportPage';
 import ReportsPage from './pages/ReportsPage';
 import PriceScanManager from './components/PriceScanManager';
+import ReturnRefundWizard from './pages/ReturnRefundWizard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

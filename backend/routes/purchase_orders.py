@@ -493,6 +493,169 @@ async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current
     return await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
 
 
+@router.post("/{po_id}/adjust-payment")
+async def adjust_po_payment(po_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Adjust a PO's payment status after an edit changed the grand_total.
+
+    Standard ERP adjustment pattern:
+      Δ = new_grand_total - old_grand_total
+
+      If Δ > 0 (total increased — more owed):
+        - Cash PO: deduct Δ from fund, create additional expense record
+        - Terms PO: increase balance by Δ (auto, no fund movement)
+
+      If Δ < 0 (total decreased — overpaid):
+        - Cash PO: refund |Δ| back to fund, create credit expense record
+        - Terms PO: reduce balance by |Δ| (auto, no fund movement)
+
+    This creates a full audit trail: original payment + adjustment record.
+    Requires manager or admin.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+
+    new_total = float(data.get("new_grand_total", po.get("grand_total", po.get("subtotal", 0))))
+    old_total = float(data.get("old_grand_total", po.get("grand_total", po.get("subtotal", 0))))
+    amount_paid = float(po.get("amount_paid", 0))
+    delta = round(new_total - old_total, 2)
+    reason = data.get("reason", "PO edit — payment adjusted")
+    fund_source = data.get("fund_source", "cashier")
+    branch_id = po.get("branch_id", "")
+    po_type = po.get("po_type", po.get("payment_method", ""))
+
+    if delta == 0:
+        return {"message": "No payment adjustment needed (amount unchanged)", "delta": 0}
+
+    adjustment_entry = {
+        "id": new_id(),
+        "amount": abs(delta),
+        "delta": delta,
+        "date": now_iso()[:10],
+        "method": data.get("payment_method", "Cash"),
+        "fund_source": fund_source,
+        "type": "additional_payment" if delta > 0 else "overpayment_refund",
+        "reason": reason,
+        "recorded_by": user.get("full_name", user["username"]),
+        "recorded_at": now_iso(),
+    }
+
+    # ── Terms PO: just update balance (no fund movement) ─────────────────
+    if po_type in ("terms", "credit") or po.get("payment_method") == "credit":
+        new_balance = round(max(0, new_total - amount_paid), 2)
+        new_payment_status = "paid" if new_balance == 0 else ("partial" if amount_paid > 0 else "unpaid")
+        await db.purchase_orders.update_one(
+            {"id": po_id},
+            {"$set": {
+                "grand_total": new_total, "subtotal": new_total,
+                "balance": new_balance,
+                "payment_status": new_payment_status,
+            }, "$push": {"payment_adjustments": adjustment_entry}}
+        )
+        return {
+            "message": f"Payable {'increased' if delta > 0 else 'reduced'} by ₱{abs(delta):.2f}. New balance: ₱{new_balance:.2f}",
+            "delta": delta,
+            "new_balance": new_balance,
+            "payment_status": new_payment_status,
+        }
+
+    # ── Cash PO: move funds ────────────────────────────────────────────────
+    balances = await _get_fund_balances(branch_id)
+    ref_text = f"PO {po['po_number']} payment adjustment — {po['vendor']} (reason: {reason})"
+
+    if delta > 0:
+        # More owed — check fund has enough
+        avail = balances["safe"] if fund_source == "safe" else balances["cashier"]
+        if avail < delta:
+            raise HTTPException(status_code=400, detail={
+                "type": "insufficient_funds",
+                "message": f"{fund_source.title()} has ₱{avail:,.2f}, need ₱{delta:,.2f} more to settle the adjustment.",
+                "shortfall": round(delta - avail, 2),
+            })
+        # Deduct from fund
+        if fund_source == "safe" and balances["safe_id"]:
+            remaining = delta
+            for lot in await db.safe_lots.find(
+                {"wallet_id": balances["safe_id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+            ).sort("remaining_amount", -1).to_list(500):
+                if remaining <= 0: break
+                take = min(lot["remaining_amount"], remaining)
+                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                remaining -= take
+        else:
+            await update_cashier_wallet(branch_id, -delta, ref_text)
+
+        # Create additional expense
+        await db.expenses.insert_one({
+            "id": new_id(), "branch_id": branch_id,
+            "category": "Purchase Payment",
+            "description": f"Additional payment — PO {po['po_number']} — {po['vendor']}",
+            "notes": f"Reason: {reason} | Δ +₱{delta:.2f}",
+            "amount": delta, "payment_method": data.get("payment_method", "Cash"),
+            "fund_source": fund_source, "reference_number": po["po_number"],
+            "date": now_iso()[:10], "po_id": po_id,
+            "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        })
+
+        new_amount_paid = round(amount_paid + delta, 2)
+        new_balance = max(0, round(new_total - new_amount_paid, 2))
+
+    else:
+        # Overpaid — refund |delta| back to fund
+        if fund_source == "safe" and balances["safe_id"]:
+            await db.safe_lots.insert_one({
+                "id": new_id(), "wallet_id": balances["safe_id"],
+                "amount": abs(delta), "remaining_amount": abs(delta),
+                "source": "po_adjustment_refund", "notes": ref_text,
+                "created_at": now_iso(),
+            })
+        else:
+            await update_cashier_wallet(branch_id, abs(delta), ref_text)
+
+        # Create credit/refund expense (negative amount adjusts the books)
+        await db.expenses.insert_one({
+            "id": new_id(), "branch_id": branch_id,
+            "category": "Purchase Payment",
+            "description": f"Overpayment refund — PO {po['po_number']} — {po['vendor']}",
+            "notes": f"Reason: {reason} | Δ ₱{delta:.2f} (refund)",
+            "amount": delta,  # negative amount
+            "payment_method": data.get("payment_method", "Cash"),
+            "fund_source": fund_source, "reference_number": po["po_number"],
+            "date": now_iso()[:10], "po_id": po_id,
+            "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        })
+
+        new_amount_paid = round(amount_paid + delta, 2)  # delta is negative
+        new_balance = max(0, round(new_total - new_amount_paid, 2))
+
+    new_payment_status = "paid" if new_balance == 0 else "partial"
+    await db.purchase_orders.update_one(
+        {"id": po_id},
+        {"$set": {
+            "grand_total": new_total, "subtotal": new_total,
+            "amount_paid": new_amount_paid,
+            "balance": new_balance,
+            "payment_status": new_payment_status,
+        }, "$push": {"payment_adjustments": adjustment_entry}}
+    )
+
+    direction = "additional payment collected" if delta > 0 else "overpayment refunded"
+    return {
+        "message": f"₱{abs(delta):.2f} {direction} {'from' if delta > 0 else 'to'} {fund_source}. New status: {new_payment_status}.",
+        "delta": delta,
+        "new_amount_paid": new_amount_paid,
+        "new_balance": new_balance,
+        "payment_status": new_payment_status,
+    }
+
+
+
 @router.post("/{po_id}/receive")
 async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
     """Receive a purchase order (Draft/Ordered) and update inventory. Uses shared helper."""

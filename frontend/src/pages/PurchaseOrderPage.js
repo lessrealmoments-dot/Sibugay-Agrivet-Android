@@ -114,6 +114,12 @@ export default function PurchaseOrderPage() {
   const [detailSaving, setDetailSaving] = useState(false);
   const [uploadQROpen, setUploadQROpen] = useState(false);
   const [uploadRecordId, setUploadRecordId] = useState(null);
+  const [payAdjDialog, setPayAdjDialog] = useState(false);
+  const [payAdjData, setPayAdjData] = useState(null); // { po, delta, oldTotal, newTotal }
+  const [payAdjFundSource, setPayAdjFundSource] = useState('cashier');
+  const [payAdjReason, setPayAdjReason] = useState('');
+  const [payAdjFunds, setPayAdjFunds] = useState({ cashier: 0, safe: 0 });
+  const [payAdjSaving, setPayAdjSaving] = useState(false);
   const [schemes, setSchemes] = useState([]);
 
   // ── Create product dialog ──────────────────────────────────────────────

@@ -1031,21 +1031,29 @@ export default function BranchTransferPage() {
 
         {/* ── HISTORY TAB ── */}
         <TabsContent value="history" className="mt-4">
-          {/* Outgoing / Incoming sub-tabs */}
+          {/* Outgoing / Incoming / Requests sub-tabs */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-              {['outgoing', 'incoming'].map(ht => {
-                const effectiveBranchId = currentBranch?.id || user?.branch_id || '';
-                const count = isConsolidatedView
+              {[
+                { key: 'outgoing', label: 'Outgoing' },
+                { key: 'incoming', label: 'Incoming' },
+                { key: 'requests', label: 'Stock Requests', badge: stockRequests.filter(r => r.status === 'requested').length },
+              ].map(ht => {
+                const effectiveBranchId2 = currentBranch?.id || user?.branch_id || '';
+                const count = ht.key === 'requests'
+                  ? stockRequests.length
+                  : isConsolidatedView
                   ? orders.length
-                  : orders.filter(o => ht === 'outgoing' ? o.from_branch_id === effectiveBranchId : o.to_branch_id === effectiveBranchId).length;
+                  : orders.filter(o => ht.key === 'outgoing' ? o.from_branch_id === effectiveBranchId2 : o.to_branch_id === effectiveBranchId2).length;
                 return (
-                  <button key={ht}
-                    onClick={() => setHistoryTab(ht)}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${historyTab === ht ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-                    data-testid={`history-${ht}-tab`}
+                  <button key={ht.key}
+                    onClick={() => { setHistoryTab(ht.key); if (ht.key === 'requests') loadRequests(); }}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors capitalize flex items-center gap-1.5 ${historyTab === ht.key ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                    data-testid={`history-${ht.key}-tab`}
                   >
-                    {ht} <span className="ml-1 text-xs text-slate-400">({count})</span>
+                    {ht.label}
+                    <span className="text-xs text-slate-400">({count})</span>
+                    {ht.badge > 0 && <span className="w-4 h-4 bg-blue-500 text-white text-[9px] rounded-full flex items-center justify-center">{ht.badge}</span>}
                   </button>
                 );
               })}

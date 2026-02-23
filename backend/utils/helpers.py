@@ -84,8 +84,11 @@ async def get_active_date(branch_id):
     return today
 
 
-async def update_cashier_wallet(branch_id, amount, reference=""):
-    """Update cashier drawer wallet balance. Positive = cash in, negative = cash out."""
+async def update_cashier_wallet(branch_id, amount, reference="", allow_negative=False):
+    """
+    Update cashier drawer wallet balance. Positive = cash in, negative = cash out.
+    Raises ValueError if deduction would cause a negative balance (unless allow_negative=True).
+    """
     wallet = await db.fund_wallets.find_one(
         {"branch_id": branch_id, "type": "cashier", "active": True},
         {"_id": 0}
@@ -102,7 +105,23 @@ async def update_cashier_wallet(branch_id, amount, reference=""):
         }
         await db.fund_wallets.insert_one(wallet)
         del wallet["_id"]
-    
+
+    current_balance = float(wallet.get("balance", 0))
+    new_balance = round(current_balance + amount, 2)
+
+    # Guard against negative balance on cash-out operations
+    if amount < 0 and new_balance < 0 and not allow_negative:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail={
+            "type": "insufficient_funds",
+            "message": f"Cashier has ₱{current_balance:,.2f} but ₱{abs(amount):,.2f} is needed. "
+                       f"Use the Safe or add a deposit to the cashier first.",
+            "cashier_balance": current_balance,
+            "required": abs(amount),
+            "shortfall": round(abs(new_balance), 2),
+            "suggestion": "safe",
+        })
+
     await db.fund_wallets.update_one(
         {"id": wallet["id"]},
         {"$inc": {"balance": round(amount, 2)}}
@@ -114,6 +133,7 @@ async def update_cashier_wallet(branch_id, amount, reference=""):
         "type": "cash_in" if amount >= 0 else "cash_out",
         "amount": round(amount, 2),
         "reference": reference,
+        "balance_after": new_balance,
         "created_at": now_iso()
     })
 

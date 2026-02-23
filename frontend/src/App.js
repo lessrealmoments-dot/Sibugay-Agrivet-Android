@@ -36,6 +36,7 @@ import ReportsPage from './pages/ReportsPage';
 import PriceScanManager from './components/PriceScanManager';
 import ReturnRefundWizard from './pages/ReturnRefundWizard';
 import AuditCenterPage from './pages/AuditCenterPage';
+import UploadPage from './pages/UploadPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)

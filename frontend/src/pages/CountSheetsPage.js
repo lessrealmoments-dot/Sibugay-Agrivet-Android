@@ -101,7 +101,7 @@ export default function CountSheetsPage() {
       const res = await api.post('/count-sheets', payload);
       toast.success(`Created ${res.data.count_sheet_number}`);
       setShowCreate(false);
-      setNewSheet({ capital_price_source: 'manual', filter_category: null });
+      setNewSheet({ capital_price_source: 'manual', filter_category: null, audit_mode: false });
       await loadSheet(res.data.id);
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to create count sheet');

@@ -61,6 +61,8 @@ export default function CloseWizardPage() {
   // Quick-action dialogs
   const [saleDialog, setSaleDialog]   = useState(false);
   const [expDialog, setExpDialog]     = useState(false);
+  const [wizUploadQROpen, setWizUploadQROpen] = useState(false);
+  const [wizUploadExpenseId, setWizUploadExpenseId] = useState(null);
   const [pmtDialog, setPmtDialog]     = useState({ open: false, invoice: null });
 
   // 1-click report dialogs

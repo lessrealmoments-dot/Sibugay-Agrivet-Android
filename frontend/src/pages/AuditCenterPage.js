@@ -724,7 +724,7 @@ export default function AuditCenterPage() {
 
               {/* Section 6: Transfers */}
               <SectionCard title="Branch Transfers" icon={<ArrowRight size={16} className="text-blue-600" />}
-                sev={auditData.transfers?.severity} data_testid="audit-transfers-section">
+                sev={auditData.transfers?.severity} insight={getInsight('transfers', auditData.transfers)} data_testid="audit-transfers-section">
                 <div className="space-y-1 mt-2">
                   <StatRow label="Total Transfers (period)" value={auditData.transfers.total_transfers} />
                   <StatRow label="Successfully Received" value={auditData.transfers.received_count} highlight="text-emerald-600" />

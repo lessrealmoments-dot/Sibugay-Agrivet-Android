@@ -1718,6 +1718,14 @@ export default function BranchTransferPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── BRANCH TRANSFER UPLOAD QR ─────────────────────────────────── */}
+      <UploadQRDialog
+        open={btUploadQROpen}
+        onClose={(count) => { setBtUploadQROpen(false); if (count > 0) toast.success(`${count} photo(s) attached to transfer.`); }}
+        recordType="branch_transfer"
+        recordId={btUploadOrderId}
+      />
     </div>
   );
 }

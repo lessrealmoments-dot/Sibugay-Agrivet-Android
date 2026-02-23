@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Plus, DollarSign, ArrowDown, ArrowUp, Search, Filter, Edit2, Tractor, FileText, Banknote, AlertTriangle, Shield } from 'lucide-react';
+import { Plus, DollarSign, ArrowDown, ArrowUp, Search, Filter, Edit2, Tractor, FileText, Banknote, AlertTriangle, Shield, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import UploadQRDialog from '../components/UploadQRDialog';
 
 const EXPENSE_CATEGORIES = [
   "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",

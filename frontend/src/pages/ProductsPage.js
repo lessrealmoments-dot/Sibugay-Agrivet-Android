@@ -48,6 +48,8 @@ export default function ProductsPage() {
   const [totpOpen, setTotpOpen] = useState(false);
   const [pendingCorrection, setPendingCorrection] = useState(null); // { new_qty, reason }
   const [correctionSaving, setCorrectionSaving] = useState(false);
+  const [corrUploadQROpen, setCorrUploadQROpen] = useState(false);
+  const [corrUploadId, setCorrUploadId] = useState(null);
 
   // ── Batch Quick Repack ──────────────────────────────────────────────────────
   const [qrOpen, setQrOpen] = useState(false);

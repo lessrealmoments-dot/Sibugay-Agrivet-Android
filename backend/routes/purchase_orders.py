@@ -93,6 +93,27 @@ async def get_fund_balances(branch_id: str = "", user=Depends(get_current_user))
 
 
 
+@router.get("/incoming-requests")
+async def get_incoming_requests(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+):
+    """Get stock requests directed TO this branch (supply_branch_id = branch_id)."""
+    supply_branch = branch_id or user.get("branch_id", "")
+    if not supply_branch and user.get("role") != "admin":
+        return []
+
+    query = {"po_type": "branch_request", "status": {"$nin": ["cancelled"]}}
+    if supply_branch:
+        query["supply_branch_id"] = supply_branch
+    # Admin sees all
+    if user.get("role") == "admin" and not supply_branch:
+        del query["supply_branch_id"] if "supply_branch_id" in query else None
+
+    requests = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"requests": requests, "total": len(requests)}
+
+
 @router.get("")
 async def list_purchase_orders(
     user=Depends(get_current_user),

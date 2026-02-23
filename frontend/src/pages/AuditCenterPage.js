@@ -694,7 +694,7 @@ export default function AuditCenterPage() {
 
               {/* Section 4: AR */}
               <SectionCard title="Accounts Receivable" icon={<FileText size={16} className="text-purple-600" />}
-                sev={auditData.ar?.severity} data_testid="audit-ar-section">
+                sev={auditData.ar?.severity} insight={getInsight('ar', auditData.ar)} data_testid="audit-ar-section">
                 <div className="space-y-1 mt-2">
                   <StatRow label="Total Outstanding AR" value={formatPHP(auditData.ar.total_outstanding_ar)} highlight="font-bold" />
                   <StatRow label="Open Invoices" value={auditData.ar.open_invoices_count} />

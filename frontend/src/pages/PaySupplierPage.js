@@ -220,16 +220,21 @@ export default function PaySupplierPage() {
                 {[
                   { key: 'cashier', label: 'Cashier', balance: cashierBalance, icon: Wallet },
                   { key: 'safe', label: 'Safe', balance: safeBalance, icon: Shield },
-                ].map(fund => (
-                  <button key={fund.key} onClick={() => setFundSource(fund.key)}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${fundSource === fund.key ? 'border-[#1A4D2E] bg-[#1A4D2E]/5' : 'border-slate-200 hover:border-slate-300'}`}>
-                    <fund.icon size={15} className={fundSource === fund.key ? 'text-[#1A4D2E]' : 'text-slate-400'} />
-                    <div>
-                      <p className="text-xs font-medium">{fund.label}</p>
-                      <p className={`text-[11px] font-bold ${fund.balance < totalApplied && totalApplied > 0 ? 'text-red-500' : 'text-slate-600'}`}>{formatPHP(fund.balance)}</p>
-                    </div>
-                  </button>
-                ))}
+                ].map(fund => {
+                  const isNeg = fund.key === 'cashier' && cashierBalance < 0;
+                  const insuff = fund.balance < totalApplied && totalApplied > 0;
+                  return (
+                    <button key={fund.key} onClick={() => setFundSource(fund.key)}
+                      className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${fundSource === fund.key ? 'border-[#1A4D2E] bg-[#1A4D2E]/5' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <fund.icon size={15} className={fundSource === fund.key ? 'text-[#1A4D2E]' : 'text-slate-400'} />
+                      <div>
+                        <p className="text-xs font-medium">{fund.label}</p>
+                        <p className={`text-[11px] font-bold ${isNeg ? 'text-red-600' : insuff ? 'text-red-500' : 'text-slate-600'}`}>{formatPHP(fund.balance)}</p>
+                        {isNeg && <p className="text-[9px] text-red-600 font-semibold">Negative — use Safe</p>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Cashier insufficient warning */}

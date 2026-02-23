@@ -711,7 +711,7 @@ export default function AuditCenterPage() {
 
               {/* Section 5: Payables */}
               <SectionCard title="Accounts Payable" icon={<Building2 size={16} className="text-orange-600" />}
-                sev={auditData.payables?.severity} data_testid="audit-payables-section">
+                sev={auditData.payables?.severity} insight={getInsight('payables', auditData.payables)} data_testid="audit-payables-section">
                 <div className="space-y-1 mt-2">
                   <StatRow label="Total Outstanding AP" value={formatPHP(auditData.payables.total_outstanding_ap)} highlight="font-bold" />
                   <StatRow label="Unpaid POs" value={auditData.payables.unpaid_po_count} />

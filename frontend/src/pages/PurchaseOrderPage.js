@@ -1037,15 +1037,53 @@ export default function PurchaseOrderPage() {
       </Dialog>
 
       {/* ── PO DETAIL DIALOG ─────────────────────────────────────────── */}
-      <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>PO Detail — {detailPO?.po_number}</DialogTitle></DialogHeader>
+      <Dialog open={detailDialog} onOpenChange={v => { setDetailDialog(v); if (!v) { setDetailEditMode(false); } }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle style={{ fontFamily: 'Manrope' }}>
+                {detailEditMode ? `Edit PO — ${detailPO?.po_number}` : `PO Detail — ${detailPO?.po_number}`}
+              </DialogTitle>
+              <div className="flex gap-2">
+                {/* Upload Receipt button */}
+                <Button size="sm" variant="outline" className="h-7 text-xs"
+                  onClick={() => { setUploadRecordId(detailPO?.id); setUploadQROpen(true); }}>
+                  <Upload size={12} className="mr-1" /> Upload Receipt
+                </Button>
+                {/* Edit button for reopened POs */}
+                {detailPO?.status === 'ordered' && detailPO?.reopened_at && !detailEditMode && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-300"
+                    onClick={() => openDetailForEdit(detailPO)}>
+                    <Pencil size={12} className="mr-1" /> Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
           {detailPO && (
             <div className="space-y-4 mt-2">
+              {/* Reopened banner */}
+              {detailPO.reopened_at && (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+                  <AlertTriangle size={12} className="shrink-0 text-amber-600" />
+                  <span>This PO was reopened by <b>{detailPO.reopened_by}</b>. Inventory was reversed. Edit then click <b>Receive</b> to re-add stock.</span>
+                </div>
+              )}
+
+              {/* Receipts gallery (if uploaded) */}
+              <ReceiptGallery recordType="purchase_order" recordId={detailPO.id} />
+
+              {/* Header info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-slate-500">Vendor:</span> <b>{detailPO.vendor}</b></div>
                 <div><span className="text-slate-500">Date:</span> {detailPO.purchase_date}</div>
-                {detailPO.dr_number && <div><span className="text-slate-500">DR #:</span> <b>{detailPO.dr_number}</b></div>}
+                <div>
+                  <span className="text-slate-500">DR #:</span>{' '}
+                  {detailEditMode ? (
+                    <Input value={detailEditDR} onChange={e => setDetailEditDR(e.target.value)}
+                      className="h-7 text-sm mt-0.5 w-full" placeholder="DR number" />
+                  ) : <b>{detailPO.dr_number || '—'}</b>}
+                </div>
                 <div><span className="text-slate-500">Status:</span> <Badge className={`${statusColor(detailPO.status)} text-[10px]`}>{detailPO.status}</Badge></div>
                 <div className="flex items-center gap-1"><span className="text-slate-500">Payment:</span>
                   <Badge className={`text-[10px] ${payStatusColor(detailPO.payment_status || 'unpaid')}`}>
@@ -1055,59 +1093,129 @@ export default function PurchaseOrderPage() {
                 {detailPO.balance > 0 && <div><span className="text-slate-500">Balance:</span> <b className="text-red-600">{formatPHP(detailPO.balance)}</b></div>}
                 {detailPO.due_date && <div><span className="text-slate-500">Due:</span> {detailPO.due_date}</div>}
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Product</TableHead>
-                    <TableHead className="text-xs">Unit</TableHead>
-                    <TableHead className="text-xs text-right">Qty</TableHead>
-                    <TableHead className="text-xs text-right">Price</TableHead>
-                    <TableHead className="text-xs text-right">Disc</TableHead>
-                    <TableHead className="text-xs text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailPO.items?.map((item, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-sm">{item.product_name}</TableCell>
-                      <TableCell className="text-xs text-slate-500">{item.unit || '—'}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right font-mono">{formatPHP(item.unit_price)}</TableCell>
-                      <TableCell className="text-right text-xs text-emerald-600">{item.discount_amount > 0 ? `-${formatPHP(item.discount_amount)}` : '—'}</TableCell>
-                      <TableCell className="text-right font-semibold font-mono">{formatPHP(item.total || item.quantity * item.unit_price)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="text-sm space-y-1 border-t pt-3">
-                <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-mono">{formatPHP(detailPO.line_subtotal || detailPO.subtotal)}</span></div>
-                {detailPO.overall_discount_amount > 0 && <div className="flex justify-between text-emerald-600"><span>Overall Discount</span><span className="font-mono">-{formatPHP(detailPO.overall_discount_amount)}</span></div>}
-                {detailPO.freight > 0 && <div className="flex justify-between"><span className="text-slate-500">Freight</span><span className="font-mono">{formatPHP(detailPO.freight)}</span></div>}
-                {detailPO.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-500">VAT ({detailPO.tax_rate}%)</span><span className="font-mono">{formatPHP(detailPO.tax_amount)}</span></div>}
-                <div className="flex justify-between font-bold text-base pt-1 border-t"><span>Grand Total</span><span className="font-mono text-[#1A4D2E]">{formatPHP(detailPO.grand_total || detailPO.subtotal)}</span></div>
-              </div>
-              {detailPO.notes && <p className="text-sm text-slate-500 border-t pt-2">Notes: {detailPO.notes}</p>}
-              {detailPO.payment_history?.length > 0 && (
-                <div className="border-t pt-2">
-                  <p className="text-xs font-semibold uppercase text-slate-400 mb-2">Payment History</p>
-                  {detailPO.payment_history.map((pay, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
-                      <div className="flex items-center gap-2">
-                        <Check size={10} className="text-emerald-500" />
-                        <span>{pay.date}</span>
-                        <span className="text-slate-400">{pay.method}</span>
-                        {pay.check_number && <span className="text-slate-400">#{pay.check_number}</span>}
-                        <span className="text-slate-400">{pay.fund_source || ''}</span>
+
+              {/* Items table — view or edit mode */}
+              {detailEditMode ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 font-medium uppercase">Edit Items</p>
+                  {detailEditItems.map((item, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-1.5 items-center p-2 bg-slate-50 rounded-lg border border-slate-200">
+                      <div className="col-span-5 text-xs font-medium truncate">{item.product_name}</div>
+                      <div className="col-span-3">
+                        <Label className="text-[9px] text-slate-400">Qty</Label>
+                        <Input type="number" min={0} value={item.quantity}
+                          onChange={e => { const n = [...detailEditItems]; n[i] = { ...n[i], quantity: parseFloat(e.target.value) || 0 }; setDetailEditItems(n); }}
+                          className="h-7 text-sm text-right font-mono" />
                       </div>
-                      <span className="font-bold text-emerald-600">{formatPHP(pay.amount)}</span>
+                      <div className="col-span-4">
+                        <Label className="text-[9px] text-slate-400">Unit Price</Label>
+                        <Input type="number" min={0} value={item.unit_price}
+                          onChange={e => { const n = [...detailEditItems]; n[i] = { ...n[i], unit_price: parseFloat(e.target.value) || 0 }; setDetailEditItems(n); }}
+                          className="h-7 text-sm text-right font-mono" />
+                      </div>
                     </div>
                   ))}
+                  <div className="mt-2">
+                    <Label className="text-xs text-slate-500">Reason for Edit <span className="text-red-500">*</span></Label>
+                    <Input value={detailEditReason}
+                      onChange={e => setDetailEditReason(e.target.value)}
+                      placeholder="e.g. Supplier corrected quantity on actual DR, price was wrong on original..."
+                      className="mt-1 h-9 text-sm" />
+                    <p className="text-[10px] text-slate-400 mt-0.5">This reason will be saved in the edit history.</p>
+                  </div>
+                  <div className="flex gap-2 pt-2 border-t">
+                    <Button variant="outline" onClick={() => setDetailEditMode(false)} className="flex-1">Cancel Edit</Button>
+                    <Button onClick={saveDetailEdit} disabled={detailSaving}
+                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white">
+                      {detailSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Check size={13} className="mr-1.5" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-amber-600 text-center">After saving, use the Receive button in the PO list to re-add inventory.</p>
                 </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Product</TableHead>
+                      <TableHead className="text-xs">Unit</TableHead>
+                      <TableHead className="text-xs text-right">Qty</TableHead>
+                      <TableHead className="text-xs text-right">Price</TableHead>
+                      <TableHead className="text-xs text-right">Disc</TableHead>
+                      <TableHead className="text-xs text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detailPO.items?.map((item, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-sm">{item.product_name}</TableCell>
+                        <TableCell className="text-xs text-slate-500">{item.unit || '—'}</TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right font-mono">{formatPHP(item.unit_price)}</TableCell>
+                        <TableCell className="text-right text-xs text-emerald-600">{item.discount_amount > 0 ? `-${formatPHP(item.discount_amount)}` : '—'}</TableCell>
+                        <TableCell className="text-right font-semibold font-mono">{formatPHP(item.total || item.quantity * item.unit_price)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+
+              {!detailEditMode && (
+                <>
+                  <div className="text-sm space-y-1 border-t pt-3">
+                    <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-mono">{formatPHP(detailPO.line_subtotal || detailPO.subtotal)}</span></div>
+                    {detailPO.overall_discount_amount > 0 && <div className="flex justify-between text-emerald-600"><span>Overall Discount</span><span className="font-mono">-{formatPHP(detailPO.overall_discount_amount)}</span></div>}
+                    {detailPO.freight > 0 && <div className="flex justify-between"><span className="text-slate-500">Freight</span><span className="font-mono">{formatPHP(detailPO.freight)}</span></div>}
+                    {detailPO.tax_amount > 0 && <div className="flex justify-between"><span className="text-slate-500">VAT ({detailPO.tax_rate}%)</span><span className="font-mono">{formatPHP(detailPO.tax_amount)}</span></div>}
+                    <div className="flex justify-between font-bold text-base pt-1 border-t"><span>Grand Total</span><span className="font-mono text-[#1A4D2E]">{formatPHP(detailPO.grand_total || detailPO.subtotal)}</span></div>
+                  </div>
+                  {detailPO.notes && <p className="text-sm text-slate-500 border-t pt-2">Notes: {detailPO.notes}</p>}
+                  {detailPO.edit_history?.length > 0 && (
+                    <div className="border-t pt-2">
+                      <p className="text-xs font-semibold uppercase text-slate-400 mb-2">Edit History</p>
+                      {detailPO.edit_history.map((edit, i) => (
+                        <div key={i} className="text-xs p-2 bg-amber-50 rounded mb-1.5 border border-amber-100">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="font-semibold text-amber-800">{edit.changed_by}</span>
+                            <span className="text-slate-400">{edit.changed_at?.slice(0, 10)}</span>
+                          </div>
+                          <p className="text-slate-600 italic">"{edit.reason}"</p>
+                          <p className="text-slate-500 mt-0.5">{edit.change_summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {detailPO.payment_history?.length > 0 && (
+                    <div className="border-t pt-2">
+                      <p className="text-xs font-semibold uppercase text-slate-400 mb-2">Payment History</p>
+                      {detailPO.payment_history.map((pay, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                          <div className="flex items-center gap-2">
+                            <Check size={10} className="text-emerald-500" />
+                            <span>{pay.date}</span>
+                            <span className="text-slate-400">{pay.method}</span>
+                            {pay.check_number && <span className="text-slate-400">#{pay.check_number}</span>}
+                            <span className="text-slate-400">{pay.fund_source || ''}</span>
+                          </div>
+                          <span className="font-bold text-emerald-600">{formatPHP(pay.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── UPLOAD QR DIALOG ────────────────────────────────────────────── */}
+      <UploadQRDialog
+        open={uploadQROpen}
+        onClose={(count) => { setUploadQROpen(false); if (count > 0) toast.success(`${count} receipt photo(s) uploaded!`); }}
+        recordType="purchase_order"
+        recordId={uploadRecordId}
+      />
 
       {/* ── CREATE PRODUCT DIALOG ────────────────────────────────────── */}
       <Dialog open={createProdDialog} onOpenChange={setCreateProdDialog}>

@@ -194,7 +194,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Consolidated KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
             { label: 'Total Sales Today', value: formatPHP(totals.today_revenue || 0), icon: DollarSign, color: { bg: 'bg-emerald-50', text: 'text-emerald-700' }, sub: `${branches.reduce((s, b) => s + (b.today_sales_count || 0), 0)} transactions` },
             { label: 'Total Cash Position', value: formatPHP(totals.total_cash || 0), icon: Wallet, color: { bg: 'bg-blue-50', text: 'text-blue-700' }, sub: 'Cashier + Safe (all branches)' },
@@ -203,6 +203,14 @@ export default function DashboardPage() {
           ].map(kpi => (
             <KpiCard key={kpi.label} {...kpi} testId={`kpi-${kpi.label.replace(/\s+/g, '-').toLowerCase()}`} />
           ))}
+          {/* Audit Score KPI */}
+          <div
+            className="cursor-pointer"
+            onClick={() => navigate('/audit')}
+            title="Go to Audit Center"
+          >
+            <AuditScoreCard lastAudit={stats?.last_audit} daysAgo={stats?.days_since_audit} priceIssues={stats?.price_issue_count || 0} />
+          </div>
         </div>
 
         {/* Branch Cards */}

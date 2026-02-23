@@ -374,6 +374,33 @@ export default function PurchaseOrderPage() {
   };
 
   // ── Pay Supplier tab (now standalone page) ────────────────────────────
+  const openDetailForEdit = (po) => {
+    setDetailPO(po);
+    setDetailEditItems(po.items?.map(i => ({ ...i })) || []);
+    setDetailEditDR(po.dr_number || '');
+    setDetailEditReason('');
+    setDetailEditMode(true);
+    setDetailDialog(true);
+  };
+
+  const saveDetailEdit = async () => {
+    if (!detailEditReason.trim()) { toast.error('Please enter a reason for the edit'); return; }
+    setDetailSaving(true);
+    try {
+      const res = await api.put(`/purchase-orders/${detailPO.id}`, {
+        items: detailEditItems,
+        dr_number: detailEditDR,
+        notes: detailPO.notes,
+        edit_reason: detailEditReason,
+      });
+      setDetailPO(res.data);
+      setDetailEditMode(false);
+      toast.success('PO updated! Remember to click Receive to update inventory.');
+      fetchOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save'); }
+    setDetailSaving(false);
+  };
+
   const openSupplierHistory = async (vendor) => {
     setHistoryVendor(vendor);
     try {

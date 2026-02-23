@@ -34,7 +34,7 @@ export default function CountSheetsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [capitalSources, setCapitalSources] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [newSheet, setNewSheet] = useState({ capital_price_source: 'manual', filter_category: null });
+  const [newSheet, setNewSheet] = useState({ capital_price_source: 'manual', filter_category: null, audit_mode: false });
   
   // Cancel dialog
   const [showCancel, setShowCancel] = useState(false);

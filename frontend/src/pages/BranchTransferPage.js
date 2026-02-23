@@ -69,7 +69,10 @@ export default function BranchTransferPage() {
 
   // ── Lists / history ────────────────────────────────────────────────────────
   const [tab, setTab] = useState('new');
-  const [historyTab, setHistoryTab] = useState('outgoing'); // outgoing | incoming
+  const [historyTab, setHistoryTab] = useState('outgoing'); // outgoing | incoming | requests
+  const [stockRequests, setStockRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [generatingTransfer, setGeneratingTransfer] = useState(null); // request id being processed
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [viewOrder, setViewOrder] = useState(null);

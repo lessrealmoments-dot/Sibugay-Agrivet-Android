@@ -222,26 +222,37 @@ export default function PurchaseOrderPage() {
   const validate = () => {
     const valid = lines.filter(l => l.product_id);
     if (!valid.length) { toast.error('Add at least one product'); return null; }
-    if (!header.vendor) { toast.error('Enter supplier name'); return null; }
+    if (sourceType === 'external' && !header.vendor) { toast.error('Enter supplier name'); return null; }
+    if (sourceType === 'branch_request' && !supplyBranchId) { toast.error('Select the branch to request from'); return null; }
     if (!currentBranch) { toast.error('Select a branch'); return null; }
     return valid;
   };
 
-  const buildPayload = (validLines, extra = {}) => ({
-    vendor: header.vendor,
-    dr_number: header.dr_number,
-    po_number: header.po_number,
-    purchase_date: header.purchase_date,
-    notes: header.notes,
-    branch_id: currentBranch.id,
-    items: validLines,
-    overall_discount_type: header.overall_discount_type,
-    overall_discount_value: parseFloat(header.overall_discount_value) || 0,
-    freight: header.show_freight ? (parseFloat(header.freight) || 0) : 0,
-    tax_rate: header.show_vat ? header.tax_rate : 0,
-    grand_total: computed.grandTotal,
-    ...extra,
-  });
+  const buildPayload = (validLines, extra = {}) => {
+    const base = {
+      vendor: sourceType === 'branch_request'
+        ? `Branch Request → ${branches.find(b => b.id === supplyBranchId)?.name || supplyBranchId}`
+        : header.vendor,
+      dr_number: header.dr_number,
+      po_number: header.po_number,
+      purchase_date: header.purchase_date,
+      notes: header.notes,
+      branch_id: currentBranch.id,
+      items: validLines,
+      overall_discount_type: header.overall_discount_type,
+      overall_discount_value: parseFloat(header.overall_discount_value) || 0,
+      freight: header.show_freight ? (parseFloat(header.freight) || 0) : 0,
+      tax_rate: header.show_vat ? header.tax_rate : 0,
+      grand_total: computed.grandTotal,
+      ...extra,
+    };
+    if (sourceType === 'branch_request') {
+      base.po_type = 'branch_request';
+      base.supply_branch_id = supplyBranchId;
+      base.show_retail = showRetailToggle;
+    }
+    return base;
+  };
 
   // ── Save as Draft ──────────────────────────────────────────────────────
   const handleSaveDraft = async () => {

@@ -276,12 +276,58 @@ async def dashboard_stats(
         {"_id": 0}
     ).to_list(100)
 
+    # ── Last audit session ────────────────────────────────────────────────────
+    audit_query = {"status": "completed"}
+    if effective_branch_id:
+        audit_query["branch_id"] = effective_branch_id
+    last_audit = await db.audits.find_one(
+        audit_query, {"_id": 0, "overall_score": 1, "created_at": 1, "audit_type": 1,
+                      "sections_status": 1, "period_from": 1, "period_to": 1},
+        sort=[("created_at", -1)]
+    )
+    days_since_audit = None
+    if last_audit:
+        try:
+            days_since_audit = (datetime.now(timezone.utc).date() -
+                                datetime.strptime(last_audit["created_at"][:10], "%Y-%m-%d").date()).days
+        except Exception:
+            pass
+
+    # ── Price issue count (retail/wholesale below cost) ───────────────────────
+    price_issue_count = 0
+    if effective_branch_id:
+        bp_list = await db.branch_prices.find(
+            {"branch_id": effective_branch_id}, {"_id": 0, "product_id": 1, "cost_price": 1, "prices": 1}
+        ).to_list(5000)
+        bp_map = {d["product_id"]: d for d in bp_list}
+        prods_for_scan = await db.products.find(
+            {"active": True, "is_repack": {"$ne": True}},
+            {"_id": 0, "id": 1, "cost_price": 1, "prices": 1}
+        ).to_list(5000)
+        for p in prods_for_scan:
+            cost = float(p.get("cost_price", 0))
+            if cost <= 0:
+                continue
+            bp = bp_map.get(p["id"])
+            prices = {k: float(v or 0) for k, v in (p.get("prices") or {}).items()}
+            if bp and bp.get("prices"):
+                prices.update({k: float(v or 0) for k, v in bp["prices"].items()})
+            for key in ("retail", "wholesale"):
+                val = prices.get(key, 0)
+                if 0 < val < cost:
+                    price_issue_count += 1
+                    break
+
     return {
         # Meta
         "today": today,
         "day_of_week": now_dt.strftime("%A"),
         "last_close_date": last_close_date,
         "days_since_close": days_since_close,
+        # Audit
+        "last_audit": last_audit,
+        "days_since_audit": days_since_audit,
+        "price_issue_count": price_issue_count,
         # Sales
         "today_revenue": today_revenue,
         "today_sales_count": today_count,

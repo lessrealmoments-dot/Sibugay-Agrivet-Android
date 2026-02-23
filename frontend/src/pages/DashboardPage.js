@@ -29,6 +29,47 @@ function KpiCard({ label, value, sub, icon: Icon, color, trend, testId }) {
   );
 }
 
+function AuditScoreCard({ lastAudit, daysAgo, priceIssues }) {
+  const score = lastAudit?.overall_score;
+  const scoreColor = !score ? 'text-slate-400' : score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-red-600';
+  const scoreBg = !score ? 'bg-slate-50' : score >= 80 ? 'bg-emerald-50' : score >= 50 ? 'bg-amber-50' : 'bg-red-50';
+  const needsAudit = !lastAudit || (daysAgo !== null && daysAgo > 30);
+  return (
+    <Card className={`border-2 ${needsAudit ? 'border-amber-300' : score >= 80 ? 'border-emerald-200' : score >= 50 ? 'border-amber-200' : 'border-red-200'} hover:shadow-sm transition-shadow h-full`}>
+      <CardContent className="p-4 flex flex-col justify-between h-full">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-slate-500 font-medium">Audit Health</span>
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${scoreBg}`}>
+            <ShieldCheck size={14} className={scoreColor} />
+          </div>
+        </div>
+        {lastAudit ? (
+          <>
+            <p className={`text-2xl font-bold tracking-tight ${scoreColor}`} style={{ fontFamily: 'Manrope' }}>{score}/100</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {daysAgo === 0 ? 'Audited today' : daysAgo === 1 ? 'Audited yesterday' : `${daysAgo}d ago`}
+              {lastAudit.audit_type === 'full' ? ' · Full' : ' · Partial'}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-lg font-bold text-slate-400" style={{ fontFamily: 'Manrope' }}>No Audit</p>
+            <p className="text-[11px] text-amber-500 mt-0.5">Run your first audit →</p>
+          </>
+        )}
+        {priceIssues > 0 && (
+          <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-600">
+            <AlertTriangle size={9} /> {priceIssues} price {priceIssues === 1 ? 'issue' : 'issues'}
+          </div>
+        )}
+        {needsAudit && lastAudit && (
+          <div className="mt-1 text-[10px] text-amber-600 font-medium">⚠ Audit overdue (&gt;30d)</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function AgingBar({ aging }) {
   const total = aging?.total || 1;
   const pct = (n) => Math.round((n / total) * 100);

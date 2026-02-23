@@ -24,6 +24,36 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Branch-to-Branch PO Request + Return & Refund Wizard - COMPLETE ✅ (Feb 2026)
+
+**Branch-to-Branch Stock Request:**
+- New "Source" toggle in New PO form: External Supplier ↔ Branch Stock Request
+- "Show Retail Price to Supply Branch" toggle — ON by default for admin/owner, OFF for managers (configurable)
+- Selecting "Branch Stock Request" replaces the supplier field with a branch selector
+- Submit creates `po_type: 'branch_request'` PO, notifies the supply branch users + admins
+- Supply branch sees pending requests in Branch Transfers → History → **Requests tab** (blue badge count)
+- Requests tab shows product list with qty from each requesting branch
+- "Generate Transfer" button pre-fills the New Transfer form with all requested items (prices need to be set)
+- `GET /purchase-orders/incoming-requests?branch_id=` — new endpoint for supply branch
+- `POST /purchase-orders/{id}/generate-branch-transfer` — converts request → pre-filled transfer data
+
+**Return & Refund Wizard (`/returns`):**
+- 6-step guided wizard accessible from sidebar under Sales
+- **Step 1** — Customer name (optional), customer type (walk-in/credit), return reason (7 options), original invoice #, notes
+- **Step 2** — Product search with arrow-key navigation; add multiple items with quantity; Veterinary items auto-flagged
+- **Step 3** — Condition assessment: Sellable | Damaged | Expired | Defective — manager decides (except Veterinary = always Pull Out)
+- **Step 4** — Inventory decision: Return to Shelf (inventory +qty) OR Pull Out (loss, NOT added back)
+- **Step 5** — Refund: per-item price selector (Retail or Wholesale), Full/Partial/No Refund, fund source (Cashier/Safe with live balances)
+- **Step 6** — Confirmation + printable receipt
+- **On completion:** expense record "Customer Return Refund" created, owner notified of pull-out losses with value, audit logged in `inventory_corrections`
+- RMA numbers: RTN-YYYYMMDD-0001 format
+- **Collections:** `returns`, uses existing `expenses`, `inventory_corrections`, `notifications`
+
+**Backend: `routes/returns.py`**
+- `GET /returns` — list with date/branch filters
+- `GET /returns/{id}` — single return detail
+- `POST /returns` — complete return processing (validates fund balance, updates inventory, creates expense, sends notifications)
+
 ### Purchase Order System Redesign - COMPLETE ✅ (Feb 2026)
 
 **Replaced the old cash/credit payment dropdown with 3 clear action buttons:**

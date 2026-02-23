@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { path: '/count-sheets', label: 'Count Sheets', icon: ClipboardList, perm: 'count_sheets.view' },
   { path: '/import', label: 'Import Center', icon: Upload, perm: 'products.create' },
   { path: '/sales-new', label: 'Sales', icon: ShoppingCart, perm: 'sales.view' },
+  { path: '/returns', label: 'Return & Refund', icon: RotateCcw, perm: 'sales.view' },
   { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'purchase_orders.view' },
   { path: '/pay-supplier', label: 'Pay Supplier', icon: Building2, perm: 'purchase_orders.view' },
   { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view' },

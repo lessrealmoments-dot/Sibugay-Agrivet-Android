@@ -1,15 +1,14 @@
 /**
- * UploadQRDialog — generates a QR code for a record.
- * User scans with phone → opens UploadPage → uploads photos.
- * Shows real-time file count via polling.
+ * UploadQRDialog — clean, properly stacked layout for QR-based receipt upload.
+ * Shows record summary → QR code → link → expiry → file count.
  */
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../contexts/AuthContext';
-import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { QRCodeSVG } from 'qrcode.react';
-import { Upload, RefreshCw, Check, Copy, Clock, X } from 'lucide-react';
+import { Upload, RefreshCw, Check, Copy, Clock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -19,6 +18,7 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
   const [session, setSession] = useState(null);
   const [fileCount, setFileCount] = useState(0);
   const [timeLeft, setTimeLeft] = useState(3600);
+  const [expired, setExpired] = useState(false);
   const pollRef = useRef(null);
   const timerRef = useRef(null);
 
@@ -27,8 +27,14 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
     : '';
 
   useEffect(() => {
-    if (open && recordType && recordId) generateLink();
-    return () => { clearInterval(pollRef.current); clearInterval(timerRef.current); };
+    if (open && recordType && recordId) {
+      setExpired(false);
+      generateLink();
+    }
+    return () => {
+      clearInterval(pollRef.current);
+      clearInterval(timerRef.current);
+    };
   }, [open, recordType, recordId]); // eslint-disable-line
 
   const generateLink = async () => {
@@ -36,48 +42,46 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
     setSession(null);
     setFileCount(0);
     setTimeLeft(3600);
+    setExpired(false);
     try {
       const res = await api.post(`${BACKEND_URL}/api/uploads/generate-link`, {
         record_type: recordType,
         record_id: recordId,
       });
       setSession(res.data);
-      startPolling(res.data.token);
+      startPolling();
       startTimer();
-    } catch (e) {
+    } catch {
       toast.error('Failed to generate upload link');
     }
     setLoading(false);
   };
 
-  const startPolling = (token) => {
+  const startPolling = () => {
     clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
         const res = await api.get(`${BACKEND_URL}/api/uploads/record/${recordType}/${recordId}`);
         setFileCount(res.data.total_files || 0);
       } catch {}
-    }, 5000);
+    }, 4000);
   };
 
   const startTimer = () => {
     clearInterval(timerRef.current);
     let secs = 3600;
     timerRef.current = setInterval(() => {
-      secs--;
+      secs -= 1;
       setTimeLeft(secs);
-      if (secs <= 0) clearInterval(timerRef.current);
+      if (secs <= 0) {
+        clearInterval(timerRef.current);
+        setExpired(true);
+      }
     }, 1000);
   };
 
   const copyLink = () => {
-    navigator.clipboard.writeText(uploadUrl);
-    toast.success('Link copied!');
-  };
-
-  const fmtTime = (s) => {
-    const m = Math.floor(s / 60), sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
+    navigator.clipboard.writeText(uploadUrl).then(() => toast.success('Link copied!'));
   };
 
   const handleClose = () => {
@@ -87,83 +91,116 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
     onClose(fileCount);
   };
 
+  const fmtTime = (s) => {
+    const m = Math.floor(Math.max(0, s) / 60);
+    const sec = Math.max(0, s) % 60;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  };
+
+  const php = (n) => '₱' + (parseFloat(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+  const summary = session?.record_summary || {};
+
   return (
     <Dialog open={open} onOpenChange={() => handleClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
-            <Upload size={18} className="text-[#1A4D2E]" /> Upload Receipt / Proof
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-xs w-[340px] p-0 overflow-hidden">
+        {/* Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-slate-100 flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#1A4D2E] flex items-center justify-center shrink-0">
+            <Upload size={15} className="text-white" />
+          </div>
+          <div className="min-w-0">
+            <DialogTitle className="text-sm font-bold text-slate-800 leading-tight" style={{ fontFamily: 'Manrope' }}>
+              Upload Receipt / Proof
+            </DialogTitle>
+            <p className="text-[10px] text-slate-400 leading-tight mt-0.5">Scan QR or share link</p>
+          </div>
+        </div>
 
-        <div className="space-y-4 mt-1">
+        <div className="p-4 space-y-3">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw size={20} className="animate-spin text-slate-400" />
+            <div className="flex items-center justify-center py-10">
+              <RefreshCw size={22} className="animate-spin text-[#1A4D2E]" />
             </div>
           ) : session ? (
             <>
-              {/* Record summary */}
-              {session.record_summary && (
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-0.5">
-                  <p className="font-semibold text-slate-700">{session.record_summary.type_label}</p>
-                  <p className="font-mono text-slate-600">{session.record_summary.title}</p>
-                  <p className="text-slate-500">{session.record_summary.description}</p>
-                  {session.record_summary.amount > 0 && (
-                    <p className="font-bold text-[#1A4D2E]">₱{parseFloat(session.record_summary.amount).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</p>
-                  )}
+              {/* Record summary — compact, contained */}
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 space-y-0.5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{summary.type_label || recordType}</p>
+                <p className="text-sm font-bold text-slate-800 leading-snug truncate">{summary.title || '—'}</p>
+                {summary.description && (
+                  <p className="text-[11px] text-slate-500 leading-snug truncate">{summary.description}</p>
+                )}
+                {summary.amount > 0 && (
+                  <p className="text-sm font-bold text-[#1A4D2E] font-mono">{php(summary.amount)}</p>
+                )}
+                {summary.date && (
+                  <p className="text-[10px] text-slate-400">{summary.date}</p>
+                )}
+              </div>
+
+              {/* QR code — centered, properly constrained */}
+              {!expired ? (
+                <div className="flex flex-col items-center gap-2 py-2">
+                  <div className="p-2.5 bg-white border-[3px] border-[#1A4D2E] rounded-xl shadow-sm inline-block">
+                    <QRCodeSVG
+                      value={uploadUrl}
+                      size={160}
+                      level="M"
+                      fgColor="#1A4D2E"
+                      bgColor="#FFFFFF"
+                    />
+                  </div>
+                  <p className="text-[11px] text-center text-slate-500 leading-snug">
+                    Scan with your phone camera
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-4">
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                    <AlertTriangle size={22} className="text-amber-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-amber-700">Link Expired</p>
+                  <Button size="sm" variant="outline" onClick={generateLink} className="h-8 text-xs">
+                    Generate New Link
+                  </Button>
                 </div>
               )}
 
-              {/* QR Code */}
-              <div className="flex flex-col items-center gap-3 py-2">
-                <div className="p-3 bg-white border-2 border-[#1A4D2E] rounded-xl shadow-sm">
-                  <QRCodeSVG value={uploadUrl} size={180} level="M"
-                    fgColor="#1A4D2E" bgColor="#FFFFFF" />
+              {/* URL + copy */}
+              {!expired && (
+                <div className="flex gap-1.5 items-center">
+                  <div className="flex-1 min-w-0 bg-slate-100 rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-slate-600 truncate">
+                    {uploadUrl}
+                  </div>
+                  <button onClick={copyLink}
+                    className="shrink-0 w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                    <Copy size={13} className="text-slate-600" />
+                  </button>
                 </div>
-                <p className="text-xs text-center text-slate-500">
-                  Scan with your phone camera to open the upload page
-                </p>
-              </div>
-
-              {/* Link + copy */}
-              <div className="flex gap-2">
-                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-xs text-slate-600 font-mono truncate">
-                  {uploadUrl}
-                </div>
-                <Button size="sm" variant="outline" onClick={copyLink} className="h-9 px-3">
-                  <Copy size={13} />
-                </Button>
-              </div>
+              )}
 
               {/* Status row */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <Clock size={12} />
-                  <span>Expires in {fmtTime(timeLeft)}</span>
+                <div className={`flex items-center gap-1 text-[10px] ${timeLeft < 300 && !expired ? 'text-amber-600' : 'text-slate-400'}`}>
+                  <Clock size={11} />
+                  <span>{expired ? 'Expired' : `Expires in ${fmtTime(timeLeft)}`}</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  {fileCount > 0 && <Check size={13} className="text-emerald-600" />}
-                  <Badge className={`text-[10px] ${fileCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                    {fileCount} file{fileCount !== 1 ? 's' : ''} uploaded
-                  </Badge>
-                </div>
+                <Badge className={`text-[10px] px-2 py-0.5 ${fileCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {fileCount > 0 && <Check size={10} className="inline mr-0.5" />}
+                  {fileCount} file{fileCount !== 1 ? 's' : ''} uploaded
+                </Badge>
               </div>
-
-              {timeLeft <= 0 && (
-                <div className="text-center">
-                  <p className="text-xs text-amber-600 mb-2">Link expired. Generate a new one if needed.</p>
-                  <Button size="sm" variant="outline" onClick={generateLink}>Generate New Link</Button>
-                </div>
-              )}
             </>
           ) : null}
 
-          <div className="flex gap-2 pt-1">
-            <Button variant="outline" className="flex-1" onClick={handleClose}>
-              {fileCount > 0 ? `Done (${fileCount} uploaded)` : 'Close'}
-            </Button>
-          </div>
+          {/* Action button */}
+          <Button className="w-full h-9" variant={fileCount > 0 ? 'default' : 'outline'}
+            onClick={handleClose}
+            style={fileCount > 0 ? { backgroundColor: '#1A4D2E' } : {}}>
+            {fileCount > 0 ? (
+              <><Check size={14} className="mr-1.5 text-white" /><span className="text-white">Done — {fileCount} photo{fileCount !== 1 ? 's' : ''} saved</span></>
+            ) : 'Close'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

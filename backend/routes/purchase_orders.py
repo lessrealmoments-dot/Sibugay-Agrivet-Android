@@ -395,18 +395,101 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
 
 @router.put("/{po_id}")
 async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current_user)):
-    """Update a purchase order."""
-    check_perm(user, "inventory", "adjust")
-    
-    allowed = ["vendor", "items", "purchase_date", "notes", "status", "branch_id"]
-    update = {k: v for k, v in data.items() if k in allowed}
-    
-    if "items" in update:
-        update["subtotal"] = sum(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)) for i in update["items"])
-    
-    update["updated_at"] = now_iso()
-    await db.purchase_orders.update_one({"id": po_id}, {"$set": update})
-    
+    """
+    Edit a PO. Only reopened (ordered/draft) POs can be edited.
+    For reopened POs (was received, then reopened): auto-generates a change log.
+    Manager reason required.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po["status"] not in ("draft", "ordered", "in_progress"):
+        raise HTTPException(status_code=400, detail="Only draft or reopened (ordered) POs can be edited")
+
+    # ── Build change log for reopened POs ────────────────────────────────
+    change_log = None
+    was_reopened = po.get("status") == "ordered" and po.get("reopened_at")
+    if was_reopened:
+        changes = []
+        old_map = {i["product_id"]: i for i in po.get("items", [])}
+        for new_i in data.get("items", po.get("items", [])):
+            pid = new_i.get("product_id", "")
+            old_i = old_map.get(pid)
+            if old_i:
+                old_qty = float(old_i.get("quantity", 0))
+                new_qty = float(new_i.get("quantity", old_qty))
+                old_price = float(old_i.get("unit_price", 0))
+                new_price = float(new_i.get("unit_price", old_price))
+                if old_qty != new_qty:
+                    changes.append({"field": "quantity", "product": new_i.get("product_name", pid),
+                                    "old": old_qty, "new": new_qty,
+                                    "display": f"{new_i.get('product_name', pid)}: qty {old_qty} → {new_qty}"})
+                if round(old_price, 4) != round(new_price, 4):
+                    changes.append({"field": "unit_price", "product": new_i.get("product_name", pid),
+                                    "old": old_price, "new": new_price,
+                                    "display": f"{new_i.get('product_name', pid)}: ₱{old_price:.2f} → ₱{new_price:.2f}"})
+            else:
+                changes.append({"field": "item_added", "product": new_i.get("product_name", pid),
+                                 "new": new_i.get("quantity"),
+                                 "display": f"Added: {new_i.get('product_name', pid)} × {new_i.get('quantity')}"})
+        if po.get("dr_number") != data.get("dr_number", po.get("dr_number")):
+            changes.append({"field": "dr_number", "old": po.get("dr_number", ""), "new": data.get("dr_number", ""),
+                             "display": f"DR# {po.get('dr_number') or 'none'} → {data.get('dr_number')}"})
+        if changes:
+            change_log = {"changed_at": now_iso(), "changed_by": user.get("full_name", user["username"]),
+                          "reason": data.get("edit_reason", "No reason provided"),
+                          "changes": changes,
+                          "change_summary": "; ".join(c["display"] for c in changes[:5])}
+
+    # ── Recompute totals ─────────────────────────────────────────────────
+    items_raw = data.get("items", po.get("items", []))
+    items = []
+    line_subtotal = 0.0
+    for i in items_raw:
+        qty = float(i.get("quantity", 0))
+        unit_price = float(i.get("unit_price", 0))
+        disc_type = i.get("discount_type", "amount")
+        disc_val = float(i.get("discount_value", 0))
+        disc_amt = round(qty * unit_price * disc_val / 100, 2) if disc_type == "percent" else round(disc_val, 2)
+        total = round(qty * unit_price - disc_amt, 2)
+        items.append({**i, "quantity": qty, "unit_price": unit_price, "discount_amount": disc_amt, "total": total})
+        line_subtotal += total
+
+    od_type = data.get("overall_discount_type", po.get("overall_discount_type", "amount"))
+    od_val = float(data.get("overall_discount_value", po.get("overall_discount_value", 0)))
+    overall_disc = round(line_subtotal * od_val / 100, 2) if od_type == "percent" else round(od_val, 2)
+    freight = float(data.get("freight", po.get("freight", 0)))
+    tax_rate = float(data.get("tax_rate", po.get("tax_rate", 0)))
+    pre_tax = round(line_subtotal - overall_disc + freight, 2)
+    tax_amount = round(pre_tax * tax_rate / 100, 2)
+    grand_total = round(pre_tax + tax_amount, 2)
+
+    update = {
+        "items": items,
+        "line_subtotal": round(line_subtotal, 2),
+        "subtotal": round(line_subtotal, 2),
+        "overall_discount_type": od_type,
+        "overall_discount_value": od_val,
+        "overall_discount_amount": overall_disc,
+        "freight": freight,
+        "tax_rate": tax_rate,
+        "tax_amount": tax_amount,
+        "grand_total": grand_total,
+        "balance": grand_total if po.get("payment_status") != "paid" else 0,
+        "dr_number": data.get("dr_number", po.get("dr_number", "")),
+        "notes": data.get("notes", po.get("notes", "")),
+        "updated_at": now_iso(),
+        "updated_by": user.get("full_name", user["username"]),
+    }
+
+    if change_log:
+        await db.purchase_orders.update_one({"id": po_id}, {"$set": update, "$push": {"edit_history": change_log}})
+    else:
+        await db.purchase_orders.update_one({"id": po_id}, {"$set": update})
+
     return await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
 
 

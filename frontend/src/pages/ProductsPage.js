@@ -722,9 +722,17 @@ export default function ProductsPage() {
                                 </span>
                                 <span className="text-slate-500 truncate">{c.reason}</span>
                               </div>
-                              <div className="text-right text-slate-400 shrink-0 ml-2">
-                                <p>{c.performed_by_name}</p>
-                                <p>{c.auth_mode === 'totp' ? '🔐 TOTP' : c.auth_mode === 'password' ? '🔑 PW' : '👤 Admin'}</p>
+                              <div className="flex items-center gap-2 text-right text-slate-400 shrink-0 ml-2">
+                                <div>
+                                  <p>{c.performed_by_name}</p>
+                                  <p>{c.auth_mode === 'totp' ? '🔐 TOTP' : c.auth_mode === 'password' ? '🔑 PW' : '👤 Admin'}</p>
+                                </div>
+                                {c.id && (
+                                  <button onClick={() => { setCorrUploadId(c.id); setCorrUploadQROpen(true); }}
+                                    className="w-6 h-6 rounded bg-blue-50 hover:bg-blue-100 flex items-center justify-center" title="Upload damage photo">
+                                    <Upload size={10} className="text-blue-600" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))}

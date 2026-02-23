@@ -34,7 +34,11 @@ export default function ReceiptGallery({ recordType, recordId, onClose }) {
   const fileUrl = (f) =>
     `${BACKEND_URL}/api/uploads/file/${recordType}/${recordId}/${f.id}`;
 
-  const isPdf = (f) => f.content_type === 'application/pdf' || f.filename?.endsWith('.pdf');
+  // Flatten all files for lightbox navigation
+  const allFiles = sessions.flatMap((s, si) =>
+    (s.files || []).map((f, fi) => ({ ...f, sessionIdx: si, fileIdx: fi, session: s }))
+  );
+  const currentLbFile = lightbox !== null ? allFiles[lightbox] : null;
 
   return (
     <div className="space-y-3">

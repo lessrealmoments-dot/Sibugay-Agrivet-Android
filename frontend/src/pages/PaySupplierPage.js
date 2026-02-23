@@ -141,6 +141,12 @@ export default function PaySupplierPage() {
       toast.error(`${errors.length} payment(s) failed: ${errors[0]}`);
     } else {
       toast.success(`₱${totalPaid.toFixed(2)} paid to ${selected.vendor} from ${fundSource}`);
+      // Offer to upload payment proof
+      const paidPOs = Object.keys(rowAmounts).filter(id => parseFloat(rowAmounts[id]) > 0);
+      if (paidPOs.length === 1) {
+        setPsUploadPOId(paidPOs[0]);
+        toast.info('Payment recorded. Tap to upload proof (check, receipt).', { action: { label: 'Upload', onClick: () => setPsUploadQROpen(true) } });
+      }
     }
 
     setRowAmounts({});

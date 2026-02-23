@@ -611,7 +611,7 @@ export default function AuditCenterPage() {
 
               {/* Section 2: Cash */}
               <SectionCard title="Cash & Fund Reconciliation" icon={<Banknote size={16} className="text-emerald-700" />}
-                sev={auditData.cash?.severity} defaultOpen data_testid="audit-cash-section">
+                sev={auditData.cash?.severity} defaultOpen insight={getInsight('cash', auditData.cash)} data_testid="audit-cash-section">
                 <div className="space-y-1 mt-2">
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 mb-3">
                     <p className="text-[10px] text-slate-500 font-medium uppercase mb-2">Formula: Starting Float + Cash Sales + AR Collected − All Expenses = Expected Cash</p>

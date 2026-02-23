@@ -24,6 +24,28 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Dashboard Configuration + Reconcile Now Button - COMPLETE ✅ (Feb 2026)
+
+**"Reconcile Now" button in Audit Center:**
+- Cash section of the Audit Center now has a `Reconcile Now` button (amber)  
+- Clicking it navigates directly to `/close-wizard` for immediate cash reconciliation
+- Button appears inline with the actual cash count input for natural workflow
+
+**Dashboard — Audit Health + Operations widgets (branch view):**
+New row of 4 action cards below the Inventory Value section:
+- **Audit Health**: Shows last audit score (0–100) with color coding (green/amber/red). If no audit, shows "No Audit · Run your first audit →". "Overdue (>30d)" warning. Clicking navigates to `/audit`
+- **Price Issues**: Count of products with retail/wholesale below cost. Green if 0. Links to `/products` to fix. Computed from branch_prices + global prices
+- **Low Stock**: Count of products ≤10 units. Red if >0. Links to `/inventory`
+- **Days Since Close**: Color-coded (green if today, red if >1d). "Run Close Wizard →" quick link
+
+**Dashboard — Owner consolidated view:**
+- 5th KPI card added: **Audit Health** (was 4 cards, now 5) — shows last audit score across all branches with "No Audit · Run your first audit →" CTA and price issue count badge
+
+**Backend — `dashboard.py` `/stats` endpoint additions:**
+- `last_audit`: last completed audit session (score, type, dates)
+- `days_since_audit`: days since last audit
+- `price_issue_count`: count of products where retail or wholesale < cost (branch-specific)
+
 ### Audit Center + Legacy Cleanup - COMPLETE ✅ (Feb 2026)
 
 **Audit Center (`/audit` — in sidebar under Reports):**

@@ -970,19 +970,25 @@ export default function PurchaseOrderPage() {
                   { key: 'safe', label: 'Safe / Vault', balance: cashFunds.safe },
                 ].map(f => {
                   const sufficient = f.balance >= computed.grandTotal;
+                  const isNegative = f.key === 'cashier' && cashFunds.cashier_is_negative;
                   return (
                     <button key={f.key} onClick={() => setCashForm(c => ({ ...c, fund_source: f.key }))}
-                      className={`p-3 rounded-lg border-2 text-left transition-all ${cashForm.fund_source === f.key ? 'border-[#1A4D2E] bg-emerald-50' : 'border-slate-200 hover:border-slate-300'} ${!sufficient ? 'opacity-60' : ''}`}>
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${cashForm.fund_source === f.key ? 'border-[#1A4D2E] bg-emerald-50' : 'border-slate-200 hover:border-slate-300'} ${(isNegative || !sufficient) ? 'opacity-80' : ''}`}>
                       <p className="text-xs font-medium text-slate-600">{f.label}</p>
-                      <p className={`text-xl font-bold font-mono mt-0.5 ${sufficient ? 'text-[#1A4D2E]' : 'text-red-600'}`}>
+                      <p className={`text-xl font-bold font-mono mt-0.5 ${isNegative ? 'text-red-600' : sufficient ? 'text-[#1A4D2E]' : 'text-red-600'}`}>
                         {formatPHP(f.balance)}
                       </p>
-                      {!sufficient && (
+                      {isNegative && (
+                        <p className="text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5 font-semibold">
+                          <AlertTriangle size={10} /> Cashier is already negative — use Safe instead
+                        </p>
+                      )}
+                      {!isNegative && !sufficient && (
                         <p className="text-[10px] text-red-500 mt-0.5 flex items-center gap-0.5">
                           <AlertTriangle size={10} /> Short {formatPHP(computed.grandTotal - f.balance)}
                         </p>
                       )}
-                      {sufficient && cashForm.fund_source === f.key && (
+                      {!isNegative && sufficient && cashForm.fund_source === f.key && (
                         <p className="text-[10px] text-emerald-600 mt-0.5">
                           Balance after: {formatPHP(f.balance - computed.grandTotal)}
                         </p>

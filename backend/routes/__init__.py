@@ -27,6 +27,7 @@ from .notifications import router as notifications_router
 from .reports import router as reports_router
 from .returns import router as returns_router
 from .audit import router as audit_router
+from .uploads import router as uploads_router
 
 __all__ = [
     'auth_router', 'branches_router', 'users_router', 'products_router',

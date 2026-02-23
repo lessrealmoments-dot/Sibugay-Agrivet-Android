@@ -108,7 +108,7 @@ async def get_incoming_requests(
         query["supply_branch_id"] = supply_branch
     # Admin sees all
     if user.get("role") == "admin" and not supply_branch:
-        del query["supply_branch_id"] if "supply_branch_id" in query else None
+        query.pop("supply_branch_id", None)
 
     requests = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
     return {"requests": requests, "total": len(requests)}

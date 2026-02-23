@@ -12,9 +12,10 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import {
   Search, AlertTriangle, Zap, Building2, FileText, CheckCircle2,
-  Wallet, Shield, Info, ChevronRight, Clock, Package
+  Wallet, Shield, Info, ChevronRight, Clock, Package, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
+import UploadQRDialog from '../components/UploadQRDialog';
 
 const METHODS = ['Cash', 'Check', 'Bank Transfer', 'GCash'];
 

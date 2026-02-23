@@ -799,7 +799,7 @@ export default function AuditCenterPage() {
               {auditData.inventory?.available && (
                 <SectionCard title={`Inventory Physical Count (${auditData.inventory.baseline_date} → ${auditData.inventory.current_date})`}
                   icon={<Package size={16} className="text-[#1A4D2E]" />}
-                  sev={auditData.inventory.severity} data_testid="audit-inventory-section">
+                  sev={auditData.inventory.severity} insight={getInsight('inventory', auditData.inventory)} data_testid="audit-inventory-section">
                   <div className="space-y-2 mt-2">
                     <div className="grid grid-cols-3 gap-3 mb-3">
                       <div className="text-center p-2 rounded bg-slate-50 border">

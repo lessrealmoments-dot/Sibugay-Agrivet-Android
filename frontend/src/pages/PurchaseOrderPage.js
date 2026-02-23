@@ -1357,6 +1357,108 @@ export default function PurchaseOrderPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── PAYMENT ADJUSTMENT DIALOG ───────────────────────────────────── */}
+      {payAdjDialog && payAdjData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full space-y-4 max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${payAdjData.delta > 0 ? 'bg-amber-100' : 'bg-blue-100'}`}>
+                <Banknote size={20} className={payAdjData.delta > 0 ? 'text-amber-700' : 'text-blue-700'} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800" style={{ fontFamily: 'Manrope' }}>
+                  {payAdjData.delta > 0 ? 'Additional Payment Required' : 'Overpayment — Refund Due'}
+                </h3>
+                <p className="text-xs text-slate-500">{payAdjData.po.po_number} · {payAdjData.po.vendor}</p>
+              </div>
+            </div>
+
+            {/* What changed */}
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm space-y-1">
+              <div className="flex justify-between"><span className="text-slate-500">Original total</span><span className="font-mono">{formatPHP(payAdjData.oldTotal)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">New total (after edit)</span><span className="font-mono font-bold">{formatPHP(payAdjData.newTotal)}</span></div>
+              <div className="flex justify-between pt-1 border-t font-bold">
+                <span>{payAdjData.delta > 0 ? 'Still owed' : 'Overpaid'}</span>
+                <span className={`font-mono text-base ${payAdjData.delta > 0 ? 'text-amber-700' : 'text-blue-700'}`}>
+                  {payAdjData.delta > 0 ? '' : '-'}{formatPHP(Math.abs(payAdjData.delta))}
+                </span>
+              </div>
+            </div>
+
+            {/* Explanation */}
+            <div className={`p-3 rounded-xl text-xs ${payAdjData.delta > 0 ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-blue-50 border border-blue-200 text-blue-800'}`}>
+              {payAdjData.delta > 0
+                ? `The edited PO total increased by ₱${Math.abs(payAdjData.delta).toFixed(2)}. You need to pay the difference from a fund.`
+                : `You previously paid ₱${Math.abs(payAdjData.delta).toFixed(2)} more than the new total. This will be returned to the selected fund.`
+              }
+            </div>
+
+            {/* Fund source — always ask explicitly, show balances with warnings */}
+            <div>
+              <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Where to {payAdjData.delta > 0 ? 'get the funds from' : 'return the funds to'}?
+              </Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {[
+                  { k: 'cashier', label: 'Cashier Drawer', bal: payAdjFunds.cashier },
+                  { k: 'safe', label: 'Safe / Vault', bal: payAdjFunds.safe },
+                ].map(f => {
+                  const isNegative = f.k === 'cashier' && payAdjFunds.cashier < 0;
+                  const wouldGoNeg = payAdjData.delta > 0 && f.bal < Math.abs(payAdjData.delta);
+                  const selected = payAdjFundSource === f.k;
+                  return (
+                    <button key={f.k} onClick={() => setPayAdjFundSource(f.k)}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${selected ? 'border-[#1A4D2E] bg-emerald-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                      <p className="text-xs font-medium text-slate-600 mb-0.5">{f.label}</p>
+                      <p className={`text-lg font-bold font-mono ${isNegative ? 'text-red-600' : wouldGoNeg ? 'text-amber-600' : 'text-[#1A4D2E]'}`}>
+                        {formatPHP(f.bal)}
+                      </p>
+                      {isNegative && (
+                        <p className="text-[9px] text-red-600 mt-0.5 font-semibold flex items-center gap-0.5">
+                          <AlertTriangle size={9} /> Already negative — use Safe
+                        </p>
+                      )}
+                      {!isNegative && wouldGoNeg && payAdjData.delta > 0 && (
+                        <p className="text-[9px] text-amber-600 mt-0.5 flex items-center gap-0.5">
+                          <AlertTriangle size={9} /> Short ₱{(Math.abs(payAdjData.delta) - f.bal).toFixed(2)}
+                        </p>
+                      )}
+                      {selected && !isNegative && !wouldGoNeg && payAdjData.delta > 0 && (
+                        <p className="text-[9px] text-emerald-600 mt-0.5">After: {formatPHP(f.bal - Math.abs(payAdjData.delta))}</p>
+                      )}
+                      {selected && payAdjData.delta < 0 && (
+                        <p className="text-[9px] text-blue-600 mt-0.5">After: {formatPHP(f.bal + Math.abs(payAdjData.delta))}</p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <Label className="text-xs text-slate-500">Reason for Adjustment</Label>
+              <Input value={payAdjReason} onChange={e => setPayAdjReason(e.target.value)}
+                className="mt-1 h-9 text-sm" placeholder="e.g. Corrected quantity per supplier's DR" />
+            </div>
+
+            <div className="flex gap-2 pt-1 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => setPayAdjDialog(false)}>
+                Skip for Now
+              </Button>
+              <Button onClick={handlePayAdjustment} disabled={payAdjSaving || !payAdjReason.trim()}
+                className={`flex-1 text-white ${payAdjData.delta > 0 ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {payAdjSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Check size={13} className="mr-1.5" />}
+                {payAdjData.delta > 0 ? `Pay ${formatPHP(Math.abs(payAdjData.delta))}` : `Refund ${formatPHP(Math.abs(payAdjData.delta))}`}
+              </Button>
+            </div>
+            <p className="text-[10px] text-slate-400 text-center">
+              Creates an audit-traceable adjustment record. You can also settle later via Pay Supplier.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

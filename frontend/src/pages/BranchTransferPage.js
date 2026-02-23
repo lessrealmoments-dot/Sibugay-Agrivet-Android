@@ -413,6 +413,8 @@ export default function BranchTransferPage() {
   const [disputeDialog, setDisputeDialog] = useState(null); // order to dispute
   const [disputeNote, setDisputeNote] = useState('');
   const [actionSaving, setActionSaving] = useState(false);
+  const [btUploadQROpen, setBtUploadQROpen] = useState(false);
+  const [btUploadOrderId, setBtUploadOrderId] = useState(null);
 
   const openReceive = (order) => {
     setViewOrder(order);

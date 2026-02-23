@@ -744,7 +744,7 @@ export default function AuditCenterPage() {
 
               {/* Section 7: Returns */}
               <SectionCard title="Returns & Losses" icon={<RotateCcw size={16} className="text-amber-600" />}
-                sev={auditData.returns?.severity} data_testid="audit-returns-section">
+                sev={auditData.returns?.severity} insight={getInsight('returns', auditData.returns)} data_testid="audit-returns-section">
                 <div className="space-y-1 mt-2">
                   <StatRow label="Total Returns (period)" value={auditData.returns.total_returns} />
                   <StatRow label="Total Refunded" value={formatPHP(auditData.returns.total_refunded)} highlight="text-red-600" />

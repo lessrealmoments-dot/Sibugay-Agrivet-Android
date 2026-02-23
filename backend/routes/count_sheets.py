@@ -173,6 +173,7 @@ async def create_count_sheet(data: dict, user=Depends(get_current_user)):
         "count_sheet_number": count_sheet_number,
         "branch_id": branch_id,
         "status": "draft",
+        "audit_mode": data.get("audit_mode", False),  # True = hide system qty until complete
         "capital_price_source": data.get("capital_price_source", "manual"),
         "filter_category": data.get("filter_category"),  # null = all categories
         "created_at": now_iso(),

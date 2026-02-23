@@ -1065,6 +1065,83 @@ export default function BranchTransferPage() {
 
           {(() => {
             const effectiveBranchId = currentBranch?.id || user?.branch_id || '';
+
+            // Stock Requests tab
+            if (historyTab === 'requests') {
+              return (
+                <Card className="border-slate-200">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50">
+                        <TableHead className="text-xs uppercase text-slate-500">Request #</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">From Branch</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Items</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Notes</TableHead>
+                        <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
+                        <TableHead className="w-40"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {requestsLoading && (
+                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">Loading requests...</TableCell></TableRow>
+                      )}
+                      {!requestsLoading && stockRequests.length === 0 && (
+                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">No stock requests pending for this branch.</TableCell></TableRow>
+                      )}
+                      {stockRequests.map(req => {
+                        const reqBranch = branches.find(b => b.id === req.branch_id);
+                        const statusColors = {
+                          requested: 'bg-blue-100 text-blue-700',
+                          draft: 'bg-slate-100 text-slate-600',
+                          in_progress: 'bg-amber-100 text-amber-700',
+                          cancelled: 'bg-red-100 text-red-600',
+                        };
+                        return (
+                          <TableRow key={req.id} className="hover:bg-slate-50">
+                            <TableCell className="font-mono text-xs text-blue-600">{req.po_number}</TableCell>
+                            <TableCell className="font-medium text-sm">{reqBranch?.name || req.branch_id?.slice(0,8)}</TableCell>
+                            <TableCell>
+                              <div className="space-y-0.5">
+                                {(req.items || []).slice(0,3).map((item, i) => (
+                                  <p key={i} className="text-xs text-slate-600">{item.product_name} <span className="text-slate-400">×{item.quantity} {item.unit}</span></p>
+                                ))}
+                                {req.items?.length > 3 && <p className="text-[10px] text-slate-400">+{req.items.length - 3} more...</p>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-400">{req.purchase_date}</TableCell>
+                            <TableCell className="text-xs text-slate-500 max-w-[120px] truncate">{req.notes || '—'}</TableCell>
+                            <TableCell>
+                              <Badge className={`text-[10px] ${statusColors[req.status] || 'bg-slate-100 text-slate-600'}`}>
+                                {req.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {(req.status === 'requested' || req.status === 'draft') && (
+                                <Button size="sm"
+                                  onClick={() => handleGenerateTransfer(req)}
+                                  disabled={generatingTransfer === req.id}
+                                  className="h-8 bg-[#1A4D2E] hover:bg-[#14532d] text-white text-xs"
+                                  data-testid={`gen-transfer-${req.id}`}>
+                                  {generatingTransfer === req.id
+                                    ? <RefreshCw size={12} className="animate-spin mr-1.5" />
+                                    : <ArrowRight size={12} className="mr-1.5" />}
+                                  Generate Transfer
+                                </Button>
+                              )}
+                              {req.status === 'in_progress' && (
+                                <Badge className="text-[10px] bg-amber-100 text-amber-700">Transfer In Progress</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </Card>
+              );
+            }
+
             const filteredOrders = isConsolidatedView
               ? orders
               : orders.filter(o => historyTab === 'outgoing'

@@ -53,11 +53,11 @@
   "seed_data_creation": "Test PO created via UI: PO-20260222093739-BC58 (SUPPLIER 1, draft, ₱50.00). Multiple test POs created/deleted by backend tests (all cleaned up with delete).",
   "retest_needed": false,
   "should_main_agent_self_test": true,
-  "context_for_next_testing_agent": "PO redesign is complete and working. Key details: Main Branch Downtown branch_id=da114e26-fd00-467f-8728-6b8047a244b5, Cashier=2810, Safe=54999. GET /purchase-orders had missing decorator bug - was fixed. All 3 PO types (draft/terms/cash) work correctly. UI: branch switching requires JS click on dropdown item (not button text click). Product selection: use ArrowDown+Enter after typing in SmartProductSearch. Draft PO UI test PO-20260222093739-BC58 may still be in DB (draft status).",
+  "context_for_next_testing_agent": "PO redesign is complete and working. Key details: Main Branch Downtown branch_id=agribooks-preview, Cashier=2810, Safe=54999. GET /purchase-orders had missing decorator bug - was fixed. All 3 PO types (draft/terms/cash) work correctly. UI: branch switching requires JS click on dropdown item (not button text click). Product selection: use ArrowDown+Enter after typing in SmartProductSearch. Draft PO UI test PO-20260222093739-BC58 may still be in DB (draft status).",
   "rca_of_issue": {
     "bug": "GET /purchase-orders returns 405 Method Not Allowed",
     "root_cause": "The async def list_purchase_orders() function in /app/backend/routes/purchase_orders.py was defined WITHOUT the @router.get('') decorator. The function existed but was never registered as a GET route handler.",
-    "reproduction": "curl GET https://agri-ledger-system.preview.emergentagent.com/api/purchase-orders → {detail: Method Not Allowed}",
+    "reproduction": "curl GET https://agribooks-preview.preview.emergentagent.com/api/purchase-orders → {detail: Method Not Allowed}",
     "mitigation": "Added @router.get('') decorator immediately before the function definition at line 96 of purchase_orders.py. Server hot-reloaded automatically. Now returns 200 with purchase_orders list and total."
   }
 }

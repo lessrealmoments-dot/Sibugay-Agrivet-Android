@@ -1133,6 +1133,12 @@ export default function ProductsPage() {
           }
         }}
       />
+      <UploadQRDialog
+        open={corrUploadQROpen}
+        onClose={(count) => { setCorrUploadQROpen(false); if (count > 0) toast.success(`${count} photo(s) attached to correction.`); }}
+        recordType="inventory_correction"
+        recordId={corrUploadId}
+      />
     </div>
   );
 }

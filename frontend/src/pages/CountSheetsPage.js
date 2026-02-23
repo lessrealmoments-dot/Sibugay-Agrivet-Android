@@ -381,6 +381,28 @@ export default function CountSheetsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* Audit Mode Toggle */}
+              <div className="col-span-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Audit Mode</p>
+                    <p className="text-xs text-amber-700 mt-0.5">
+                      System quantities are hidden during counting — ensures an honest, unbiased physical count.
+                      Quantities are revealed after completion for comparison.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setNewSheet(p => ({ ...p, audit_mode: !p.audit_mode }))}
+                    className={`relative inline-flex h-6 w-11 rounded-full transition-colors shrink-0 ml-4 ${newSheet.audit_mode ? 'bg-amber-600' : 'bg-slate-300'}`}>
+                    <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5 ${newSheet.audit_mode ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                {newSheet.audit_mode && (
+                  <p className="text-[10px] text-amber-700 mt-1.5 font-medium">
+                    ✓ Auditors will count products WITHOUT seeing system quantities. Use for monthly audits.
+                  </p>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>

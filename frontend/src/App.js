@@ -119,6 +119,8 @@ function AppRoutes() {
       <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
       <Route path="/returns" element={<ProtectedRoute><ReturnRefundWizard /></ProtectedRoute>} />
       <Route path="/audit" element={<ProtectedRoute><AuditCenterPage /></ProtectedRoute>} />
+      {/* Public upload page — no auth, token-based */}
+      <Route path="/upload/:token" element={<UploadPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

@@ -384,7 +384,7 @@ export default function AuditCenterPage() {
                     <StatRow label="Current Cashier Balance" value={formatPHP(auditData.cash.current_cashier_balance)} />
                     <StatRow label="Safe Balance" value={formatPHP(auditData.cash.safe_balance)} />
                   </div>
-                  {/* Actual cash count entry */}
+                  {/* Cash actual count entry + Reconcile Now */}
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
                     <div className="flex-1">
                       <Label className="text-xs text-amber-800 font-medium">Enter Actual Cash Count (Cashier Drawer Only)</Label>
@@ -393,13 +393,21 @@ export default function AuditCenterPage() {
                         placeholder="0.00" className="mt-1 h-8 font-mono" />
                     </div>
                     {actualCashCount && (
-                      <div className="text-right">
+                      <div className="text-right shrink-0">
                         <p className="text-xs text-slate-500">Discrepancy vs Expected</p>
                         <p className={`text-lg font-bold font-mono ${parseFloat(actualCashCount) >= auditData.cash.expected_cash ? 'text-emerald-600' : 'text-red-600'}`}>
                           {parseFloat(actualCashCount) >= auditData.cash.expected_cash ? '+' : ''}{formatPHP(parseFloat(actualCashCount) - auditData.cash.expected_cash)}
                         </p>
                       </div>
                     )}
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/close-wizard')}
+                      className="h-9 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
+                      data-testid="reconcile-now-btn"
+                    >
+                      <Banknote size={14} className="mr-1.5" /> Reconcile Now
+                    </Button>
                   </div>
                   {auditData.cash.expense_breakdown?.length > 0 && (
                     <details className="mt-2">

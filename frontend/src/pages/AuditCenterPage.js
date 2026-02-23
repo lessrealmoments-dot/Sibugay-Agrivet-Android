@@ -92,6 +92,7 @@ function StatRow({ label, value, highlight, sub }) {
 export default function AuditCenterPage() {
   const { currentBranch, branches, user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
   const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 

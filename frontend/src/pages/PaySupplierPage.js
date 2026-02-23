@@ -487,6 +487,12 @@ export default function PaySupplierPage() {
           )}
         </DialogContent>
       </Dialog>
+      <UploadQRDialog
+        open={psUploadQROpen}
+        onClose={(count) => { setPsUploadQROpen(false); if (count > 0) toast.success(`${count} payment proof photo(s) saved!`); }}
+        recordType="payment"
+        recordId={psUploadPOId}
+      />
     </div>
   );
 }

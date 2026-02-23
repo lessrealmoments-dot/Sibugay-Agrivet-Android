@@ -24,6 +24,33 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### PO Edit (Reopened) + Receipt Upload QR System - COMPLETE ✅ (Feb 2026)
+
+**PO Edit for Reopened POs:**
+- Click any PO in the list → detail dialog now shows **"Upload Receipt"** button and **"Edit"** button (only for reopened/ordered POs)
+- Edit mode shows inline editable fields: qty, unit price, DR#
+- **Reason field required** — saved in `edit_history` on the PO document
+- Auto-generated **change log**: compares old vs new values, records who changed what and why
+- After saving: user clicks "Receive" button in PO list to re-add inventory (clean flow: Reopen → Inventory reversed → Edit → Receive → Inventory re-added)
+- Edit history displayed in detail dialog: editor name, date, reason, change summary
+- Backend: `PUT /purchase-orders/{id}` fully updated to support change-log generation
+
+**Receipt Upload QR System:**
+- Works for: **Purchase Orders** ✓, **Expenses** ✓ (P1: returns, branch transfers, inventory corrections)
+- **Flow**: Click "Upload Receipt" → dialog shows QR code + link + record summary → scan with phone → upload page opens → upload up to 10 photos → photos saved to record
+- **Upload link expires in 1 hour** (token-based, no login required)
+- **Public upload page** (`/upload/:token`) — mobile-optimized with "Take Photo" and "Choose from Gallery" buttons, shows record summary (type, amount, vendor/description) for confirmation before uploading
+- **ReceiptGallery** component displays uploaded photos with thumbnail grid + lightbox viewer
+- **QRCodeSVG** (qrcode.react already installed) generates the QR code client-side
+- Files stored in `/app/uploads/` (swap to Cloudflare R2 later — zero code change needed)
+
+**Backend: `routes/uploads.py`**
+- `POST /uploads/generate-link` → creates 1-hour token linked to record
+- `GET /uploads/preview/{token}` → public, returns record summary for upload page
+- `POST /uploads/upload/{token}` → public, accepts up to 10 files per record
+- `GET /uploads/record/{type}/{id}` → list all upload sessions for a record (auth)
+- `GET /uploads/file/{type}/{id}/{file_id}` → serve a file (auth)
+
 ### Dashboard Configuration + Reconcile Now Button - COMPLETE ✅ (Feb 2026)
 
 **"Reconcile Now" button in Audit Center:**

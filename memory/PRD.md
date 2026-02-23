@@ -24,6 +24,40 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Audit Center + Legacy Cleanup - COMPLETE ✅ (Feb 2026)
+
+**Audit Center (`/audit` — in sidebar under Reports):**
+- Two audit types: **Partial** (financial only, manager can run) | **Full** (includes inventory, admin only)
+- 8-section dashboard with traffic lights: Cash · Sales · AR · Payables · Transfers · Returns · Activity · Inventory
+- **Overall Audit Score** (0–100) shown prominently
+- **Section 1 (Inventory)** — Full audit only: uses two count sheets (auto-detected last 2 completed). Formula: `Baseline Count + All Movements = Expected · Physical - Expected = Variance`. Shows per-product breakdown with severity
+- **Section 2 (Cash)** — Formula: `Starting Float + Cash Sales + AR Collected − All Expenses = Expected Cash`. Cashier can enter actual count, shows real-time discrepancy
+- **Sections 3–8** — Sales (voided/edited flags), AR aging, Payables, Transfers (shortage/pending), Returns (pullout losses), User Activity (corrections, edits, off-hours)
+- **Print Report** — professional printable audit report with all sections
+- **Finalize Audit** — saves with score to audit history
+- **Audit History** tab — all past audits with scores, comparable over time
+- Severity: 🟢 ≤1% variance | 🟡 1–5% | 🔴 >5% (cash: >₱100 = critical)
+- Backend: `routes/audit.py` with `GET /audit/compute`, `POST/GET/PUT /audit/sessions`
+
+**Count Sheet — Audit Mode:**
+- New "Audit Mode" toggle when creating a count sheet
+- When enabled: system quantities are **hidden** during counting (auditor counts blind, no bias)
+- Quantities revealed after completion for comparison
+- Backend: `audit_mode: bool` field, masked response for `in_progress` + `audit_mode=True`
+
+**Legacy Cleanup:**
+- Removed `/sales` "Sales History" from sidebar nav (covered by Reports → Sales Report)
+- `POSPage.js` (`/pos`) and `SalesOrderPage.js` (`/sales-order`) kept as fallback routes but removed from nav (replaced by `UnifiedSalesPage`)
+- Route cleanup documented in `App.js`
+
+**Backend: `routes/audit.py`**
+- `GET /audit/compute?branch_id=&period_from=&period_to=&audit_type=` — full 8-section computation
+- `POST /audit/sessions` — create and save audit session  
+- `GET /audit/sessions` — list with branch filter
+- `PUT /audit/sessions/{id}` — save section notes, finalize
+
+**Tested:** Audit compute returns real data (Main Branch, Feb 2026): Cash Critical, Sales Good, AR ₱23k, Payables ₱30k, Activity Critical (8 inventory corrections). Score: 60/100.
+
 ### Branch-to-Branch PO Request + Return & Refund Wizard - COMPLETE ✅ (Feb 2026)
 
 **Branch-to-Branch Stock Request:**

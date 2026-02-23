@@ -24,6 +24,37 @@ Build an Accounting, Inventory, and POS website for multibranch management, simi
 
 ## Latest Updates (Feb 2026)
 
+### Fund Balance Guard + Payment Adjustment + Image Fix - COMPLETE ✅ (Feb 2026)
+
+**Broken Image Fix:**
+- File serving endpoint `GET /uploads/file/{type}/{id}/{file_id}` is now **public** (no auth required)
+- `<img src>` never sends Authorization headers → 403 → broken images was root cause
+- UUID file IDs (128-bit random) provide security through obscurity — same model as S3/R2 pre-signed URLs
+- `isPdf()` function added to ReceiptGallery (was accidentally missing)
+
+**Negative Fund Balance Guard:**
+- `update_cashier_wallet()` in `helpers.py` now validates before deducting: if `amount < 0` and result would be negative, raises `HTTPException` with `type: "insufficient_funds"` detail
+- Returns structured error: `cashier_balance`, `required`, `shortfall`, `suggestion: "safe"`
+- `allow_negative=True` parameter for the rare cases where override is needed
+- `_get_fund_balances()` now returns `cashier_is_negative` flag and `cashier_warning` message
+- **B1 already has -₱48,600** cashier (from test data) — future deductions to B1 cashier will be blocked
+
+**Payment Adjustment Dialog (after PO edit):**
+- When editing a reopened PO changes the grand_total, system automatically detects Δ = new_total − old_total
+- For cash POs: shows "Payment Adjustment Required" dialog immediately after save
+- For terms POs: auto-recalculates balance = new_total − amount_paid
+- Dialog explicitly asks **"Where to get the funds from?"** with both Cashier and Safe cards showing current balances + warnings
+- **Negative cashier warning**: "Already negative — use Safe" badge on the cashier card
+- For increases (Δ > 0): deducts Δ from chosen fund, creates additional expense record
+- For decreases (Δ < 0): refunds |Δ| to chosen fund, creates credit expense record
+- Backend: `POST /purchase-orders/{id}/adjust-payment` — full audit trail in `payment_adjustments` array
+
+**Pay in Cash dialog improvements:**
+- `openCashDialog` now auto-selects Safe when cashier is negative OR insufficient
+- Fund cards show "Already negative — use Safe" warning
+- `handlePayInCash` validates fund selection before proceeding
+- PaySupplierPage fund cards also show "Negative — use Safe" label
+
 ### PO Edit (Reopened) + Receipt Upload QR System - COMPLETE ✅ (Feb 2026)
 
 **PO Edit for Reopened POs:**

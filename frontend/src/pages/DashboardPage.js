@@ -491,6 +491,71 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* Row 2c: Audit Health + Pricing Issues */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="col-span-1 cursor-pointer" onClick={() => navigate('/audit')}>
+          <AuditScoreCard lastAudit={stats?.last_audit} daysAgo={stats?.days_since_audit} priceIssues={stats?.price_issue_count || 0} />
+        </div>
+        <Card className="border-slate-200 col-span-1">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-slate-500 font-medium">Price Issues</span>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${(stats?.price_issue_count || 0) > 0 ? 'bg-amber-50' : 'bg-emerald-50'}`}>
+                <AlertTriangle size={14} className={(stats?.price_issue_count || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'} />
+              </div>
+            </div>
+            <p className={`text-xl font-bold ${(stats?.price_issue_count || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`} style={{ fontFamily: 'Manrope' }}>
+              {stats?.price_issue_count || 0}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {(stats?.price_issue_count || 0) > 0 ? 'Products priced below cost' : 'All prices above cost'}
+            </p>
+            {(stats?.price_issue_count || 0) > 0 && (
+              <button onClick={e => { e.stopPropagation(); navigate('/products'); }}
+                className="text-[10px] text-amber-600 hover:underline mt-1">Fix in Products →</button>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 col-span-1">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-slate-500 font-medium">Low Stock</span>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${(stats?.low_stock_count || 0) > 0 ? 'bg-red-50' : 'bg-emerald-50'}`}>
+                <Package size={14} className={(stats?.low_stock_count || 0) > 0 ? 'text-red-600' : 'text-emerald-600'} />
+              </div>
+            </div>
+            <p className={`text-xl font-bold ${(stats?.low_stock_count || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`} style={{ fontFamily: 'Manrope' }}>
+              {stats?.low_stock_count || 0}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Products ≤10 units</p>
+            {(stats?.low_stock_count || 0) > 0 && (
+              <button onClick={e => { e.stopPropagation(); navigate('/inventory'); }}
+                className="text-[10px] text-red-600 hover:underline mt-1">Check Inventory →</button>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-slate-200 col-span-1">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-slate-500 font-medium">Days Since Close</span>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${(daysSinceClose || 0) > 1 ? 'bg-red-50' : 'bg-emerald-50'}`}>
+                <Lock size={14} className={(daysSinceClose || 0) > 1 ? 'text-red-600' : 'text-emerald-600'} />
+              </div>
+            </div>
+            <p className={`text-xl font-bold ${(daysSinceClose || 0) > 1 ? 'text-red-600' : 'text-emerald-600'}`} style={{ fontFamily: 'Manrope' }}>
+              {daysSinceClose !== null ? daysSinceClose : '—'}
+            </p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {daysSinceClose === 0 ? 'Closed today ✓' : lastClose ? `Last: ${lastClose}` : 'Never closed'}
+            </p>
+            {(daysSinceClose || 0) > 0 && (
+              <button onClick={e => { e.stopPropagation(); navigate('/close-wizard'); }}
+                className="text-[10px] text-amber-600 hover:underline mt-1">Run Close Wizard →</button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Row 3: Credits today + Recent payments */}
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Credit customers today */}

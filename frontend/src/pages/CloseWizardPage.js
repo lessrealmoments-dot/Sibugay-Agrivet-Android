@@ -1378,6 +1378,12 @@ export default function CloseWizardPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <UploadQRDialog
+        open={wizUploadQROpen}
+        onClose={(count) => { setWizUploadQROpen(false); if (count > 0) toast.success(`Receipt saved!`); }}
+        recordType="expense"
+        recordId={wizUploadExpenseId}
+      />
     </div>
   );
 }

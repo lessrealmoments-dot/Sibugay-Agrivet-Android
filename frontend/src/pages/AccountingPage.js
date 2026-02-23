@@ -1070,5 +1070,11 @@ export default function AccountingPage() {
         </DialogContent>
       </Dialog>
     </div>
+      <UploadQRDialog
+        open={uploadQROpen}
+        onClose={(count) => { setUploadQROpen(false); if (count > 0) toast.success(`${count} receipt photo(s) saved!`); }}
+        recordType="expense"
+        recordId={uploadExpenseId}
+      />
   );
 }

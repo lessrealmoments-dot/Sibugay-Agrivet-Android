@@ -481,8 +481,25 @@ export default function PurchaseOrderPage() {
                     </div>
                   )}
                 </div>
-
-                {/* Date */}
+                ) : (
+                  /* Branch Request — pick supply branch */
+                  <div className="lg:col-span-2">
+                    <Label className="text-xs text-slate-500">Request Stock From Branch <span className="text-red-500">*</span></Label>
+                    <Select value={supplyBranchId} onValueChange={setSupplyBranchId}>
+                      <SelectTrigger className="mt-1 h-9" data-testid="supply-branch-select">
+                        <SelectValue placeholder="Select branch to request from..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(branches || []).filter(b => b.id !== currentBranch?.id).map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-blue-600 mt-0.5">
+                      That branch gets notified and can generate a Branch Transfer with one click.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <Label className="text-xs text-slate-500">Purchase Date</Label>
                   <Input className="h-9 mt-1" type="date" value={header.purchase_date}

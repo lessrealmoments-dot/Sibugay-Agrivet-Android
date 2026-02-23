@@ -1286,6 +1286,10 @@ export default function BranchTransferPage() {
                 <Badge className="ml-2 text-[10px] bg-red-100 text-red-700">Shortage</Badge>
               )}
             </DialogTitle>
+            <Button size="sm" variant="outline" className="h-7 text-xs mt-1"
+              onClick={() => { setBtUploadOrderId(viewOrder?.id); setBtUploadQROpen(true); }}>
+              <Upload size={12} className="mr-1" /> Upload DR / Proof
+            </Button>
           </DialogHeader>
           <ScrollArea className="flex-1">
             {/* Reconciliation view for received orders */}

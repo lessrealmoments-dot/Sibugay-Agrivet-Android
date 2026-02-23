@@ -34,6 +34,8 @@ export default function AccountingPage() {
   const [caSummary, setCaSummary] = useState(null);
   const [caManagerPin, setCaManagerPin] = useState('');
   const [caManagerPinDialog, setCaManagerPinDialog] = useState(false);
+  const [uploadQROpen, setUploadQROpen] = useState(false);
+  const [uploadExpenseId, setUploadExpenseId] = useState(null);
   
   // Dialog states
   const [expenseDialog, setExpenseDialog] = useState(false);

@@ -765,7 +765,7 @@ export default function AuditCenterPage() {
 
               {/* Section 8: Activity */}
               <SectionCard title="User Activity" icon={<Users size={16} className="text-slate-600" />}
-                sev={auditData.activity?.severity} data_testid="audit-activity-section">
+                sev={auditData.activity?.severity} insight={getInsight('activity', auditData.activity)} data_testid="audit-activity-section">
                 <div className="space-y-1 mt-2">
                   <p className="text-xs text-slate-500 font-medium mb-2">Sales by User</p>
                   {auditData.activity.sales_by_user?.map(u => (

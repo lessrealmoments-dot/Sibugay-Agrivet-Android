@@ -25,6 +25,7 @@ from .import_data import router as import_router
 from .branch_transfers import router as branch_transfers_router
 from .notifications import router as notifications_router
 from .reports import router as reports_router
+from .returns import router as returns_router
 
 __all__ = [
     'auth_router', 'branches_router', 'users_router', 'products_router',
@@ -33,4 +34,5 @@ __all__ = [
     'daily_ops_router', 'suppliers_router', 'sync_router', 'employees_router',
     'settings_router', 'count_sheets_router', 'setup_router', 'branch_prices_router',
     'import_router', 'notifications_router', 'branch_transfers_router', 'reports_router',
+    'returns_router',
 ]

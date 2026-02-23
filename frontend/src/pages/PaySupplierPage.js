@@ -42,6 +42,8 @@ export default function PaySupplierPage() {
   // PO detail dialog
   const [poDetailDialog, setPoDetailDialog] = useState(false);
   const [poDetail, setPoDetail] = useState(null);
+  const [psUploadQROpen, setPsUploadQROpen] = useState(false);
+  const [psUploadPOId, setPsUploadPOId] = useState(null);
 
   const [processing, setProcessing] = useState(false);
 

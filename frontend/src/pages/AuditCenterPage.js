@@ -235,6 +235,53 @@ function getInsight(key, data) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Insight Box — renders contextual explanation for a section
+// ─────────────────────────────────────────────────────────────────────────────
+function InsightBox({ insight }) {
+  if (!insight) return null;
+  const bg = insight.type === 'ok'
+    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+    : insight.type === 'critical'
+    ? 'bg-red-50 border-red-200 text-red-800'
+    : 'bg-amber-50 border-amber-200 text-amber-800';
+  const icon = insight.type === 'ok'
+    ? <Check size={13} className="text-emerald-600 shrink-0 mt-0.5" />
+    : <AlertTriangle size={13} className={`shrink-0 mt-0.5 ${insight.type === 'critical' ? 'text-red-600' : 'text-amber-600'}`} />;
+
+  return (
+    <div className={`rounded-lg border p-3 mb-3 ${bg}`}>
+      <div className="flex gap-2">
+        {icon}
+        <div className="space-y-1.5 flex-1">
+          <p className="text-xs font-semibold leading-snug">{insight.text}</p>
+          {insight.causes?.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold opacity-70 uppercase tracking-wide mb-0.5">Possible reasons:</p>
+              <ul className="space-y-0.5">
+                {insight.causes.map((c, i) => (
+                  <li key={i} className="text-[11px] flex gap-1.5">
+                    <span className="opacity-50 shrink-0">•</span>
+                    <span>{c}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {insight.action && (
+            <div className="mt-1.5 pt-1.5 border-t border-current/10">
+              <p className="text-[11px]">
+                <span className="font-semibold">What to do: </span>
+                {insight.action}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Section Card
 // ─────────────────────────────────────────────────────────────────────────────
 function SectionCard({ icon, title, sev, children, defaultOpen = false, data_testid }) {

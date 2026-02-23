@@ -399,12 +399,64 @@ export default function PurchaseOrderPage() {
         notes: detailPO.notes,
         edit_reason: detailEditReason,
       });
-      setDetailPO(res.data);
+      const updatedPO = res.data;
+      setDetailPO(updatedPO);
       setDetailEditMode(false);
-      toast.success('PO updated! Remember to click Receive to update inventory.');
+      toast.success('PO updated!');
       fetchOrders();
+
+      // Check if payment adjustment is needed
+      const oldTotal = poTotal(detailPO);
+      const newTotal = poTotal(updatedPO);
+      const delta = Math.round((newTotal - oldTotal) * 100) / 100;
+      const isPaid = detailPO.payment_status === 'paid' || detailPO.po_type === 'cash' || detailPO.payment_method === 'cash';
+
+      if (Math.abs(delta) > 0.01 && isPaid) {
+        // Fetch fund balances for the dialog
+        try {
+          const fundsRes = await api.get('/purchase-orders/fund-balances', { params: { branch_id: currentBranch?.id } });
+          setPayAdjFunds({ cashier: fundsRes.data.cashier || 0, safe: fundsRes.data.safe || 0 });
+        } catch {}
+        setPayAdjData({ po: updatedPO, delta, oldTotal, newTotal });
+        setPayAdjReason(detailEditReason);
+        setPayAdjFundSource('cashier');
+        setPayAdjDialog(true);
+        toast.info(`Payment adjustment of ₱${Math.abs(delta).toFixed(2)} ${delta > 0 ? 'needed' : 'to be refunded'} — see the adjustment dialog.`);
+      } else if (Math.abs(delta) > 0.01) {
+        toast.success('PO updated! Remember to click Receive to update inventory.');
+      }
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save'); }
     setDetailSaving(false);
+  };
+
+  const handlePayAdjustment = async () => {
+    if (!payAdjReason.trim()) { toast.error('Please enter a reason'); return; }
+    if (!payAdjData) return;
+    setPayAdjSaving(true);
+    try {
+      const res = await api.post(`/purchase-orders/${payAdjData.po.id}/adjust-payment`, {
+        new_grand_total: payAdjData.newTotal,
+        old_grand_total: payAdjData.oldTotal,
+        fund_source: payAdjFundSource,
+        reason: payAdjReason,
+        payment_method: 'Cash',
+      });
+      toast.success(res.data.message);
+      setPayAdjDialog(false);
+      setPayAdjData(null);
+      // Refresh the detail PO
+      const updated = await api.get(`/purchase-orders/${payAdjData.po.id}`).catch(() => null);
+      if (updated) setDetailPO(updated.data);
+      fetchOrders();
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      if (typeof detail === 'object' && detail?.type === 'insufficient_funds') {
+        toast.error(detail.message);
+      } else {
+        toast.error(typeof detail === 'string' ? detail : 'Adjustment failed');
+      }
+    }
+    setPayAdjSaving(false);
   };
 
   const openSupplierHistory = async (vendor) => {

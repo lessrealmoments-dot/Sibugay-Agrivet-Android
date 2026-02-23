@@ -11,9 +11,10 @@ import { Separator } from '../components/ui/separator';
 import {
   RotateCcw, Search, Check, X, AlertTriangle, Package,
   ChevronRight, ChevronLeft, Printer, RefreshCw,
-  Trash2, ShoppingBag, Banknote, FileText, ArrowDown
+  Trash2, ShoppingBag, Banknote, FileText, ArrowDown, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
+import UploadQRDialog from '../components/UploadQRDialog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

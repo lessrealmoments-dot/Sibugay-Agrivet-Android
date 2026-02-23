@@ -234,6 +234,9 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         "terms_label": data.get("terms_label", ""),
         "received_date": now_iso() if po_type in ("cash", "terms") else None,
         "notes": data.get("notes", ""),
+        # Branch request fields
+        "supply_branch_id": data.get("supply_branch_id", ""),  # which branch will supply
+        "show_retail": data.get("show_retail", True),           # whether to show retail price suggestion
         "created_by": user["id"],
         "created_by_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),
@@ -241,6 +244,38 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
 
     await db.purchase_orders.insert_one(po)
     del po["_id"]
+
+    # ── Branch request: notify supply branch ──────────────────────────────
+    if po_type == "branch_request":
+        supply_branch_id = data.get("supply_branch_id", "")
+        requesting_branch = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
+        req_name = requesting_branch.get("name", branch_id) if requesting_branch else branch_id
+        supply_users = await db.users.find(
+            {"branch_id": supply_branch_id, "active": True}, {"_id": 0, "id": 1}
+        ).to_list(50)
+        admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+        target_ids = list({u["id"] for u in supply_users + admins})
+        item_summary = ", ".join(f"{i['product_name']} ×{i['quantity']}" for i in items[:3])
+        if len(items) > 3:
+            item_summary += f" +{len(items)-3} more"
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "branch_stock_request",
+            "title": f"Stock Request from {req_name}",
+            "message": f"{req_name} requested: {item_summary}. Generate a Branch Transfer to fulfill.",
+            "branch_id": supply_branch_id,
+            "branch_name": req_name,
+            "metadata": {
+                "po_id": po["id"],
+                "po_number": po["po_number"],
+                "requesting_branch_id": branch_id,
+                "requesting_branch_name": req_name,
+                "item_count": len(items),
+            },
+            "target_user_ids": target_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
 
     # ── Cash: validate fund + deduct + expense ─────────────────────────────
     if po_type == "cash" and grand_total > 0:

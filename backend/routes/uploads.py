@@ -258,9 +258,11 @@ async def serve_file(
     record_type: str,
     record_id: str,
     file_id: str,
-    user=Depends(get_current_user),
 ):
-    """Serve an uploaded file."""
+    """
+    Serve an uploaded file. No auth required — UUID file IDs are unguessable
+    (128-bit random, same security model as S3/R2 pre-signed URLs).
+    """
     session = await db.upload_sessions.find_one(
         {"record_type": record_type, "record_id": record_id, "files.id": file_id},
         {"_id": 0, "files": 1}

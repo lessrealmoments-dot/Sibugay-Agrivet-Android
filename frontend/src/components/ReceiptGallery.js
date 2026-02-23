@@ -30,12 +30,7 @@ export default function ReceiptGallery({ recordType, recordId, onClose }) {
     setLoading(false);
   };
 
-  // Flatten all files for lightbox navigation
-  const allFiles = sessions.flatMap((s, si) =>
-    (s.files || []).map((f, fi) => ({ ...f, sessionIdx: si, fileIdx: fi, session: s }))
-  );
-  const currentLbFile = lightbox !== null ? allFiles[lightbox] : null;
-
+  // File URL is now public (UUID-based security, no auth header needed)
   const fileUrl = (f) =>
     `${BACKEND_URL}/api/uploads/file/${recordType}/${recordId}/${f.id}`;
 

@@ -45,6 +45,196 @@ function SevBadge({ sev }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Insight Engine — rule-based contextual explanations, no AI needed
+// ─────────────────────────────────────────────────────────────────────────────
+function getInsight(key, data) {
+  if (!data) return null;
+  const php = (n) => '₱' + Math.abs(parseFloat(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+
+  switch (key) {
+    case 'cash': {
+      const disc = parseFloat(data.discrepancy) || 0;
+      const expected = parseFloat(data.expected_cash) || 0;
+      const cashier = parseFloat(data.current_cashier_balance) || 0;
+      if (data.severity === 'ok') return { type: 'ok', text: `Cash is balanced. Cashier has ${php(cashier)} which matches the expected ${php(expected)} (± ₱100).` };
+      if (data.severity === 'warning') return {
+        type: 'warning',
+        text: `Minor discrepancy of ${php(disc)} detected. Expected ${php(expected)} but cashier shows ${php(cashier)}.`,
+        causes: ['Small unrecorded expenses (e.g. change given without receipt)', 'Rounding differences across multiple transactions', 'A pending expense not yet entered into the system'],
+      };
+      // critical
+      if (disc < 0) return {
+        type: 'critical',
+        text: `Cash is SHORT by ${php(disc)}. Expected ${php(expected)} but cashier only has ${php(cashier)}.`,
+        causes: [
+          `Expenses totaling ${php(data.total_expenses)} were recorded — check if all were properly authorized`,
+          'A cash payment to a supplier may have been made without being entered as a PO payment',
+          'Change was given to a customer but the sale was logged at a higher amount',
+          'Opening float may have been set incorrectly — check the last Close Wizard entry',
+          'Possible unrecorded employee cash advance',
+        ],
+        action: 'Run the Close Wizard and count the physical cash. Enter the actual count in the field above to pinpoint the exact discrepancy.',
+      };
+      return {
+        type: 'critical',
+        text: `Cash is OVER by ${php(disc)}. More cash than expected — possible unrecorded sales or deposits.`,
+        causes: ['An unrecorded walk-in sale (paid outside the system)', 'Safe deposit added to cashier without being logged', 'AR collection received but not entered as a payment'],
+        action: 'Count the physical cash and enter it above. Then trace all cash-in transactions for the period.',
+      };
+    }
+
+    case 'sales': {
+      const voided = data.voided_count || 0;
+      const edited = data.edited_count || 0;
+      if (data.severity === 'ok') return { type: 'ok', text: `Sales are clean — no voided or edited transactions found for the period. Total: ${php(data.grand_total_sales)} across ${data.total_transactions} transactions.` };
+      const parts = [];
+      if (voided > 0) parts.push(`${voided} voided transaction${voided > 1 ? 's' : ''}`);
+      if (edited > 0) parts.push(`${edited} edited invoice${edited > 1 ? 's' : ''}`);
+      return {
+        type: 'warning',
+        text: `Found ${parts.join(' and ')} this period. Each one changes the sales record after it was created.`,
+        causes: [
+          voided > 0 && 'Voided transactions: common for entry mistakes, but repeated voids from the same cashier may need review',
+          edited > 0 && 'Edited invoices: price or quantity was changed after posting — this could be legitimate corrections or unauthorized changes',
+        ].filter(Boolean),
+        action: 'Check the edited invoices list below. Verify each change had a valid reason. If an edit changed the total significantly, cross-check with the customer\'s payment record.',
+      };
+    }
+
+    case 'ar': {
+      const total = parseFloat(data.total_outstanding_ar) || 0;
+      const over90 = parseFloat(data.aging?.b90plus) || 0;
+      const d61 = parseFloat(data.aging?.b61_90) || 0;
+      if (data.severity === 'ok') return { type: 'ok', text: `AR is healthy. All ${php(total)} outstanding is within 30 days — customers are paying on time.` };
+      if (data.severity === 'critical') return {
+        type: 'critical',
+        text: `${php(over90)} of receivables are MORE THAN 90 DAYS OVERDUE. These accounts are at high risk of becoming uncollectible.`,
+        causes: ['Customer may have financial difficulty and cannot pay', 'Invoice was sent but customer disputes the amount', 'No follow-up was done after 30 days — collection process wasn\'t followed'],
+        action: `Immediately contact the customers in the 90+ day bucket. Consider requiring cash-on-delivery for future sales to these accounts until the balance is cleared.`,
+      };
+      return {
+        type: 'warning',
+        text: `${php(d61)} is in the 61–90 day range — approaching critical. Total outstanding AR is ${php(total)}.`,
+        causes: ['Customers are taking longer than agreed payment terms', 'No formal collection reminder was sent at 30 and 60 days'],
+        action: 'Send collection reminders to customers with 61+ day balances. Check if any of the top debtors below have recent activity.',
+      };
+    }
+
+    case 'payables': {
+      const overdue = data.overdue_count || 0;
+      const overdueVal = parseFloat(data.overdue_value) || 0;
+      const total = parseFloat(data.total_outstanding_ap) || 0;
+      if (data.severity === 'ok') {
+        if (total === 0) return { type: 'ok', text: 'No outstanding payables. All supplier POs are fully paid.' };
+        return { type: 'ok', text: `${php(total)} owed to suppliers — all within payment terms. No overdue POs.` };
+      }
+      return {
+        type: 'critical',
+        text: `${overdue} supplier PO${overdue > 1 ? 's' : ''} worth ${php(overdueVal)} ${overdue > 1 ? 'are' : 'is'} PAST DUE.`,
+        causes: ['Payment was not made on time — supplier may charge interest or penalties', 'PO was received on terms but the "Pay Supplier" step was skipped', 'Insufficient cashier/safe balance to make the payment'],
+        action: 'Go to Pay Supplier → select the overdue supplier → pay now. Check your cash position first to ensure you have enough funds.',
+      };
+    }
+
+    case 'transfers': {
+      const shortage = data.with_shortage || 0;
+      const pending = data.pending_count || 0;
+      const shortVal = parseFloat(data.total_shortage_value) || 0;
+      const requests = data.pending_requests || 0;
+      if (data.severity === 'ok') return { type: 'ok', text: `All transfers received in full — no shortages or pending issues found for the period.` };
+      const parts = [];
+      if (shortage > 0) parts.push(`${shortage} transfer${shortage > 1 ? 's' : ''} had shortage (${php(shortVal)} in missing stock)`);
+      if (pending > 0) parts.push(`${pending} transfer${pending > 1 ? 's' : ''} still awaiting confirmation`);
+      if (requests > 0) parts.push(`${requests} stock request${requests > 1 ? 's' : ''} waiting to be fulfilled`);
+      return {
+        type: data.severity,
+        text: `${parts.join('; ')}.`,
+        causes: [
+          shortage > 0 && 'Stock was short upon arrival — the sending branch packed less than the order, or items were lost/damaged in transit',
+          pending > 0 && 'Receiving branch has not confirmed the receipt yet — inventory is suspended until they accept or dispute',
+          requests > 0 && 'Another branch needs stock but no transfer was generated yet',
+        ].filter(Boolean),
+        action: shortage > 0
+          ? 'Go to Branch Transfers → find the orders with "Shortage" badge → the source branch must Accept or Dispute the claimed quantities.'
+          : 'Go to Branch Transfers → check pending transfers for confirmation.',
+      };
+    }
+
+    case 'returns': {
+      const pullouts = data.pullout_count || 0;
+      const lossVal = parseFloat(data.total_loss_value) || 0;
+      const refunded = parseFloat(data.total_refunded) || 0;
+      if (data.severity === 'ok') {
+        if (data.total_returns === 0) return { type: 'ok', text: 'No customer returns this period.' };
+        return { type: 'ok', text: `${data.total_returns} return${data.total_returns > 1 ? 's' : ''} processed, ${php(refunded)} refunded. All items returned to shelf — no losses.` };
+      }
+      return {
+        type: 'warning',
+        text: `${pullouts} return${pullouts > 1 ? 's' : ''} resulted in STOCK PULL-OUT — ${php(lossVal)} worth of unsellable products removed from inventory.`,
+        causes: [
+          'Products were returned defective, expired, or damaged — they cannot be resold',
+          'Veterinary products are always pulled out per policy (cannot resell opened/returned vet supplies)',
+          `Most common return reason: "${data.top_reasons?.[0]?.reason || 'N/A'}"`,
+        ].filter(Boolean),
+        action: `These losses are already recorded in your expense report under "Customer Return Refund". Total ${php(refunded)} was refunded to customers. The pull-out losses of ${php(lossVal)} reduce your inventory value.`,
+      };
+    }
+
+    case 'activity': {
+      const corrections = data.inventory_corrections_count || 0;
+      const edits = data.invoice_edits_count || 0;
+      const offhours = data.off_hours_count || 0;
+      if (data.severity === 'ok') return { type: 'ok', text: 'No unusual user activity detected — no inventory corrections, invoice edits, or off-hours transactions.' };
+      const flags = [];
+      if (corrections > 0) flags.push(`${corrections} manual inventory correction${corrections > 1 ? 's' : ''}`);
+      if (edits > 0) flags.push(`${edits} invoice edit${edits > 1 ? 's' : ''}`);
+      if (offhours > 0) flags.push(`${offhours} off-hours transaction${offhours > 1 ? 's' : ''} (before 7am or after 10pm)`);
+      return {
+        type: data.severity,
+        text: `${flags.join(', ')} found this period.`,
+        causes: [
+          corrections > 0 && `Manual corrections bypass the normal purchase/sales workflow. Each correction should have a documented reason (e.g. damage, count error).`,
+          edits > 0 && `Edited invoices change the financial record after posting. Large or frequent edits are worth reviewing.`,
+          offhours > 0 && `Transactions outside business hours (before 7am, after 10pm) may be legitimate late entries — or unauthorized access. Check who processed them.`,
+        ].filter(Boolean),
+        action: offhours > 0
+          ? 'Immediately review the off-hours transactions listed below. Verify with the cashier listed that these were legitimate.'
+          : `Review each correction/edit. Ask the responsible user for the reason. If you use TOTP security, confirm it was used for these sensitive actions.`,
+      };
+    }
+
+    case 'inventory': {
+      const accuracy = data.summary?.inventory_accuracy_pct;
+      const critical = data.summary?.items_critical || 0;
+      const warning = data.summary?.items_warning || 0;
+      const varianceVal = parseFloat(data.summary?.total_variance_capital) || 0;
+      if (data.severity === 'ok') return { type: 'ok', text: `Inventory accuracy is ${accuracy}% — all products counted within 1% of the expected quantity. No significant discrepancies.` };
+      if (data.severity === 'critical') return {
+        type: 'critical',
+        text: `Inventory accuracy is ${accuracy}%. ${critical} product${critical > 1 ? 's' : ''} have variance >5% from expected. Total capital impact: ${php(varianceVal)}.`,
+        causes: [
+          'Products were sold or transferred but not recorded in the system (off-book sales)',
+          'PO was received but items were not properly counted during receiving',
+          'Products were damaged or expired and removed from stock without logging a correction',
+          'Count sheet counting error — the auditor may have miscounted',
+          'Branch transfer shortage that was accepted without verifying the actual missing items',
+        ],
+        action: `Focus on the "${critical > 0 ? 'Critical' : 'Warning'}" items in the table below. For each discrepancy, trace the movement history: check recent PO receipts, sales, and transfers. If the variance is unexplained, use Admin → Inventory Correction to document it.`,
+      };
+      return {
+        type: 'warning',
+        text: `Inventory accuracy is ${accuracy}%. ${warning} product${warning > 1 ? 's' : ''} have 1–5% variance from expected.`,
+        causes: ['Minor counting differences during physical count', 'Small unrecorded movements (returns, samples, damaged items)'],
+        action: 'Review the flagged items in the table. Small variances (1–5%) may be acceptable — document them as known variances and recount on the next audit.',
+      };
+    }
+
+    default:
+      return null;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Section Card
 // ─────────────────────────────────────────────────────────────────────────────
 function SectionCard({ icon, title, sev, children, defaultOpen = false, data_testid }) {

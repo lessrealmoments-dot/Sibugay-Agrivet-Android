@@ -139,11 +139,24 @@ async def get_count_sheet(sheet_id: str, user=Depends(get_current_user)):
     sheet = await db.count_sheets.find_one({"id": sheet_id}, {"_id": 0})
     if not sheet:
         raise HTTPException(status_code=404, detail="Count sheet not found")
-    
+
     # Add branch name
     branch = await db.branches.find_one({"id": sheet.get("branch_id")}, {"_id": 0, "name": 1})
     sheet["branch_name"] = branch["name"] if branch else ""
-    
+
+    # Audit mode: mask system quantities while in progress so counters are blind
+    if sheet.get("audit_mode") and sheet["status"] == "in_progress":
+        masked_items = []
+        for item in sheet.get("items", []):
+            masked_items.append({
+                **item,
+                "system_quantity": None,
+                "system_whole": None,
+                "system_loose": None,
+                "audit_mode_masked": True,
+            })
+        sheet = {**sheet, "items": masked_items}
+
     return sheet
 
 

@@ -284,7 +284,7 @@ function InsightBox({ insight }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Section Card
 // ─────────────────────────────────────────────────────────────────────────────
-function SectionCard({ icon, title, sev, children, defaultOpen = false, data_testid }) {
+function SectionCard({ icon, title, sev, children, defaultOpen = false, data_testid, insight }) {
   const [open, setOpen] = useState(defaultOpen || sev === 'critical');
   return (
     <Card className={`border-2 ${sev ? SEV_COLORS[sev] : 'border-slate-200'} transition-all`} data-testid={data_testid}>
@@ -304,6 +304,7 @@ function SectionCard({ icon, title, sev, children, defaultOpen = false, data_tes
       </button>
       {open && (
         <CardContent className="px-4 pb-4 pt-0 border-t border-current/10">
+          <InsightBox insight={insight} />
           {children}
         </CardContent>
       )}

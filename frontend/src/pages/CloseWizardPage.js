@@ -744,7 +744,17 @@ export default function CloseWizardPage() {
                           </div>
                         )}
                       </div>
-                      <p className="font-mono font-semibold text-red-600 ml-4">{formatPHP(e.amount)}</p>
+                      <div className="flex items-center gap-2 ml-4">
+                        <p className="font-mono font-semibold text-red-600">{formatPHP(e.amount)}</p>
+                        {e.id && (
+                          <button
+                            onClick={() => { setWizUploadExpenseId(e.id); setWizUploadQROpen(true); }}
+                            className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
+                            title="Upload receipt for this expense">
+                            <Upload size={11} className="text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {!(preview?.expenses?.length) && (

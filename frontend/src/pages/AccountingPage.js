@@ -483,6 +483,10 @@ export default function AccountingPage() {
                           <Button variant="ghost" size="sm" onClick={() => openEditExpense(e)} className="text-slate-500 h-7 px-2">
                             <Edit2 size={12} />
                           </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setUploadExpenseId(e.id); setUploadQROpen(true); }}
+                            className="text-blue-500 h-7 px-2" title="Upload Receipt">
+                            <Upload size={12} />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => deleteExpense(e.id)} className="text-red-500 h-7 px-2">Del</Button>
                         </div>
                       </TableCell>

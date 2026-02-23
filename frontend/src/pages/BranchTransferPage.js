@@ -147,6 +147,51 @@ export default function BranchTransferPage() {
 
   useEffect(() => { if (tab === 'history') loadOrders(); }, [tab, loadOrders]);
 
+  // Load incoming stock requests (branch request POs directed at this branch)
+  const loadRequests = useCallback(async () => {
+    setRequestsLoading(true);
+    try {
+      const effectiveBranch = currentBranch?.id || user?.branch_id || '';
+      const params = effectiveBranch ? { branch_id: effectiveBranch } : {};
+      const res = await api.get('/purchase-orders/incoming-requests', { params });
+      setStockRequests(res.data.requests || []);
+    } catch { }
+    setRequestsLoading(false);
+  }, [currentBranch?.id, user?.branch_id]);
+
+  useEffect(() => { if (tab === 'history' && historyTab === 'requests') loadRequests(); }, [tab, historyTab, loadRequests]);
+
+  // Generate a branch transfer from a stock request
+  const handleGenerateTransfer = async (request) => {
+    setGeneratingTransfer(request.id);
+    try {
+      const res = await api.post(`/purchase-orders/${request.id}/generate-branch-transfer`);
+      const transferData = res.data;
+      // Pre-load the New Transfer form with the data
+      setFromBranchId(transferData.from_branch_id || '');
+      setToBranchId(transferData.to_branch_id || '');
+      setMinMargin(20);
+      const editRows = transferData.items.map(item => ({
+        ...newRow(),
+        product: { id: item.product_id, name: item.product_name, sku: item.sku, category: item.category, unit: item.unit },
+        productSearch: item.product_name,
+        qty: item.qty,
+        branch_capital: item.branch_capital || 0,
+        global_cost_price: item.branch_capital || 0,
+        is_branch_specific_cost: false,
+        transfer_capital: String(item.transfer_capital || item.branch_capital || ''),
+        branch_retail: item.show_retail === false ? '' : String(item.branch_retail || ''),
+        override: false, override_reason: '',
+      }));
+      setRows(editRows.length ? editRows : [newRow()]);
+      setTab('new');
+      toast.success(`Transfer pre-filled from ${request.po_number}! Set pricing and send.`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to generate transfer');
+    }
+    setGeneratingTransfer(null);
+  };
+
   // ── Row helpers ─────────────────────────────────────────────────────────────
   const updateRow = (id, updates) =>
     setRows(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));

@@ -229,12 +229,8 @@ export default function ReturnRefundWizard() {
     setSaving(false);
   };
 
-      const handleClose = () => {
-        clearInterval(pollRef.current);
-        clearInterval(timerRef.current);
-        setSession(null);
-        onClose(fileCount);
-      };
+  const resetWizard = () => {
+    setStep(1); setCompleted(null); setUploadQROpen(false);
     setCustomerName(''); setCustomerType('walkin'); setReason(''); setInvoiceNumber(''); setNotes('');
     setReturnItems([]); setRefundMethod('full'); setCustomRefund(''); setFundSource('cashier');
   };

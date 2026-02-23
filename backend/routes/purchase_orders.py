@@ -83,6 +83,8 @@ async def _get_fund_balances(branch_id: str) -> dict:
     return {
         "cashier": round(cashier_balance, 2), "cashier_id": cashier_id,
         "safe": round(safe_balance, 2), "safe_id": safe_id,
+        "cashier_is_negative": cashier_balance < 0,
+        "cashier_warning": f"Cashier is at ₱{cashier_balance:,.2f} (negative). Use the Safe instead." if cashier_balance < 0 else None,
     }
 
 

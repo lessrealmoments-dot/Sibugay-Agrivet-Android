@@ -410,6 +410,83 @@ async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
     return {"message": "PO received, inventory updated"}
 
 
+@router.post("/{po_id}/generate-branch-transfer")
+async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_current_user)):
+    """
+    Convert a branch_request PO into a Branch Transfer order.
+    Pre-loads all items from the PO into a new branch transfer.
+    Returns the pre-filled transfer data for the frontend to open in Branch Transfer form.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po.get("po_type") != "branch_request":
+        raise HTTPException(status_code=400, detail="Only branch request POs can be converted to transfers")
+    if po.get("status") not in ("requested", "draft"):
+        raise HTTPException(status_code=400, detail="Request has already been processed")
+
+    # The supply branch is the "from" branch, the requesting branch is "to" branch
+    from_branch_id = po.get("supply_branch_id", "")
+    to_branch_id = po.get("branch_id", "")
+
+    if not from_branch_id or not to_branch_id:
+        raise HTTPException(status_code=400, detail="Branch IDs missing from request")
+
+    # Build pre-filled transfer items — fetch branch capital for each product
+    transfer_items = []
+    for item in po.get("items", []):
+        product_id = item.get("product_id", "")
+        product = await db.products.find_one({"id": product_id}, {"_id": 0})
+        if not product:
+            continue
+
+        # Get effective cost from source branch
+        bp = await db.branch_prices.find_one(
+            {"product_id": product_id, "branch_id": from_branch_id}, {"_id": 0}
+        )
+        branch_capital = float(bp["cost_price"]) if bp and bp.get("cost_price") else float(product.get("cost_price", 0))
+
+        # Get last retail at destination (price memory)
+        mem = await db.branch_transfer_price_memory.find_one(
+            {"product_id": product_id, "branch_id": to_branch_id}, {"_id": 0}
+        )
+
+        transfer_items.append({
+            "product_id": product_id,
+            "product_name": product.get("name", item.get("product_name", "")),
+            "sku": product.get("sku", ""),
+            "category": product.get("category", "General"),
+            "unit": product.get("unit", item.get("unit", "")),
+            "qty": float(item.get("quantity", 1)),
+            "branch_capital": branch_capital,
+            "transfer_capital": branch_capital,  # default = source cost, manager can adjust
+            "branch_retail": mem.get("last_retail_price") if mem else 0.0,
+            "last_branch_retail": mem.get("last_retail_price") if mem else None,
+            "show_retail": po.get("show_retail", True),
+        })
+
+    # Mark the PO as "in_progress"
+    await db.purchase_orders.update_one(
+        {"id": po_id},
+        {"$set": {"status": "in_progress", "fulfillment_started_at": now_iso(),
+                  "fulfillment_started_by": user.get("full_name", user["username"])}}
+    )
+
+    return {
+        "message": "Transfer pre-filled from request",
+        "po_id": po_id,
+        "po_number": po["po_number"],
+        "from_branch_id": from_branch_id,
+        "to_branch_id": to_branch_id,
+        "show_retail": po.get("show_retail", True),
+        "items": transfer_items,
+        "notes": po.get("notes", ""),
+    }
+
+
 @router.delete("/{po_id}")
 async def cancel_purchase_order(po_id: str, user=Depends(get_current_user)):
     """Cancel a purchase order."""

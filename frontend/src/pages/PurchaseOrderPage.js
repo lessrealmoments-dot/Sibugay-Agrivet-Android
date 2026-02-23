@@ -287,10 +287,17 @@ export default function PurchaseOrderPage() {
     setCashLoading(true);
     try {
       const res = await api.get('/purchase-orders/fund-balances', { params: { branch_id: currentBranch.id } });
-      setCashFunds({ cashier: res.data.cashier || 0, safe: res.data.safe || 0 });
-      // Default to safe if cashier insufficient
-      if ((res.data.cashier || 0) < computed.grandTotal && (res.data.safe || 0) >= computed.grandTotal) {
-        setCashForm(f => ({ ...f, fund_source: 'safe' }));
+      const funds = { cashier: res.data.cashier || 0, safe: res.data.safe || 0, cashier_is_negative: res.data.cashier_is_negative };
+      setCashFunds(funds);
+      // Auto-select Safe if: cashier is negative, or cashier doesn't have enough
+      if (funds.cashier_is_negative || funds.cashier < computed.grandTotal) {
+        if (funds.safe >= computed.grandTotal) {
+          setCashForm(f => ({ ...f, fund_source: 'safe' }));
+        } else if (funds.cashier_is_negative) {
+          setCashForm(f => ({ ...f, fund_source: 'safe' })); // Safe even if insufficient, user can see warning
+        } else {
+          setCashForm(f => ({ ...f, fund_source: 'cashier' }));
+        }
       } else {
         setCashForm(f => ({ ...f, fund_source: 'cashier' }));
       }

@@ -35,6 +35,11 @@ import ImportPage from './pages/ImportPage';
 import ReportsPage from './pages/ReportsPage';
 import PriceScanManager from './components/PriceScanManager';
 import ReturnRefundWizard from './pages/ReturnRefundWizard';
+import AuditCenterPage from './pages/AuditCenterPage';
+
+// Legacy pages (keep files but not in primary nav)
+// POSPage → replaced by UnifiedSalesPage (/sales-new)
+// SalesOrderPage → replaced by UnifiedSalesPage order mode
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

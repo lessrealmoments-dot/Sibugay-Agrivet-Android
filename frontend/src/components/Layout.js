@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3
+  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 import NotificationBell from './NotificationBell';

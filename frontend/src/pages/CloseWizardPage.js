@@ -17,6 +17,7 @@ import {
   AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
+import UploadQRDialog from '../components/UploadQRDialog';
 
 const STEPS = [
   { id: 1, title: 'Sales Log',        icon: Receipt,      desc: 'Verify all cash & credit sales' },

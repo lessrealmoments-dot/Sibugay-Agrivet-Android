@@ -96,6 +96,7 @@ export default function CountSheetsPage() {
         branch_id: currentBranch.id,
         capital_price_source: newSheet.capital_price_source,
         filter_category: newSheet.filter_category === 'all' ? null : newSheet.filter_category,
+        audit_mode: newSheet.audit_mode,
       };
       const res = await api.post('/count-sheets', payload);
       toast.success(`Created ${res.data.count_sheet_number}`);

@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import {
   Plus, Trash2, Send, CheckCircle2, Search, RefreshCw, Settings2,
   AlertTriangle, ChevronDown, ChevronUp, Building2, Package, X,
-  TrendingUp, Clock, ArrowRight, Eye, XCircle, Pencil
+  TrendingUp, Clock, ArrowRight, Eye, XCircle, Pencil, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 

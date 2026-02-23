@@ -664,7 +664,7 @@ export default function AuditCenterPage() {
 
               {/* Section 3: Sales */}
               <SectionCard title="Sales Audit" icon={<TrendingUp size={16} className="text-blue-600" />}
-                sev={auditData.sales?.severity} data_testid="audit-sales-section">
+                sev={auditData.sales?.severity} insight={getInsight('sales', auditData.sales)} data_testid="audit-sales-section">
                 <div className="space-y-1 mt-2">
                   <StatRow label="Total Sales (period)" value={formatPHP(auditData.sales.grand_total_sales)} highlight="font-bold" />
                   <StatRow label="Total Transactions" value={auditData.sales.total_transactions} />

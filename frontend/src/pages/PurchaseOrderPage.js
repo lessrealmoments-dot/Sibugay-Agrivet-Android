@@ -19,7 +19,7 @@ import {
   FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign,
   Search, History, ArrowRight, Receipt, UserPlus, Package,
   Wallet, Banknote, CreditCard, AlertTriangle, ChevronDown, RefreshCw,
-  ShieldCheck, Clock
+  ShieldCheck, Clock, Pencil, Upload, ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 

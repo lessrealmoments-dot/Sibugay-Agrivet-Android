@@ -30,11 +30,12 @@ const NAV_ITEMS = [
   { path: '/daily-ops', label: 'Daily Operations', icon: Receipt, perm: 'reports.view' },
   { path: '/close-wizard', label: 'Close Wizard', icon: Lock, perm: 'reports.close_day' },
   { path: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view' },
+  { path: '/audit', label: 'Audit Center', icon: ShieldCheck, perm: 'reports.view' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view' },
   { path: '/payments', label: 'Receive Payments', icon: Tags, perm: 'accounting.view' },
   { path: '/price-schemes', label: 'Price Schemes', icon: Tags, perm: 'price_schemes.view' },
   { path: '/fund-management', label: 'Fund Mgmt', icon: Calculator, perm: 'accounting.manage_funds' },
-  { path: '/sales', label: 'Sales History', icon: Receipt, perm: 'reports.view' },
+  // /sales is legacy (Sales History) — covered by Reports > Sales Report
   { path: '/accounting', label: 'Accounting', icon: Calculator, perm: 'accounting.view' },
   { path: '/employees', label: 'Employees', icon: Briefcase, perm: 'settings.manage_users' },
   { path: '/accounts', label: 'Accounts', icon: UserCog, perm: 'settings.manage_users' },

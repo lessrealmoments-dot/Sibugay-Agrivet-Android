@@ -60,9 +60,15 @@ function TotalsRow({ label, value, bold, accent }) {
 }
 
 export default function PurchaseOrderPage() {
-  const { currentBranch } = useAuth();
+  const { currentBranch, branches, user } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
   const today = new Date().toISOString().slice(0, 10);
+
+  // ── Source type: external supplier vs internal branch request ──────────
+  const [sourceType, setSourceType] = useState('external'); // 'external' | 'branch_request'
+  const [supplyBranchId, setSupplyBranchId] = useState(''); // for branch_request
+  const [showRetailToggle, setShowRetailToggle] = useState(isAdmin); // admin default ON, manager default OFF
 
   // ── Header state ────────────────────────────────────────────────────────
   const [tab, setTab] = useState('create');

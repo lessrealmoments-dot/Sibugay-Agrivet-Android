@@ -105,6 +105,13 @@ export default function PurchaseOrderPage() {
   const [listFilter, setListFilter] = useState('all');
   const [detailDialog, setDetailDialog] = useState(false);
   const [detailPO, setDetailPO] = useState(null);
+  const [detailEditMode, setDetailEditMode] = useState(false);
+  const [detailEditItems, setDetailEditItems] = useState([]);
+  const [detailEditReason, setDetailEditReason] = useState('');
+  const [detailEditDR, setDetailEditDR] = useState('');
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [uploadQROpen, setUploadQROpen] = useState(false);
+  const [uploadRecordId, setUploadRecordId] = useState(null);
   const [schemes, setSchemes] = useState([]);
 
   // ── Create product dialog ──────────────────────────────────────────────

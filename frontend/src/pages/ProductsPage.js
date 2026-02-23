@@ -13,6 +13,7 @@ import { Package, Plus, Pencil, Trash2, Search, Link2, ChevronRight, Eye, Upload
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatPHP } from '../lib/utils';
+import UploadQRDialog from '../components/UploadQRDialog';
 import { TotpVerifyDialog } from '../components/TotpVerifyDialog';
 
 export default function ProductsPage() {

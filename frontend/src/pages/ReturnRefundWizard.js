@@ -664,10 +664,20 @@ export default function ReturnRefundWizard() {
                 <Button variant="outline" onClick={printReceipt}>
                   <Printer size={14} className="mr-1.5" /> Print Receipt
                 </Button>
+                <Button variant="outline" onClick={() => setUploadQROpen(true)}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50">
+                  <Upload size={14} className="mr-1.5" /> Upload Product Photos
+                </Button>
                 <Button onClick={resetWizard} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
                   <RotateCcw size={14} className="mr-1.5" /> New Return
                 </Button>
               </div>
+              <UploadQRDialog
+                open={uploadQROpen}
+                onClose={(count) => { setUploadQROpen(false); if (count > 0) toast.success(`${count} photo(s) saved to return ${completed?.rma_number}`); }}
+                recordType="return"
+                recordId={completed?.id}
+              />
             </div>
           )}
 

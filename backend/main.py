@@ -108,6 +108,9 @@ api_router.include_router(reports_router)
 # Returns & Refunds
 api_router.include_router(returns_router)
 
+# Audit Center
+api_router.include_router(audit_router)
+
 
 # =============================================================================
 # STARTUP & SHUTDOWN

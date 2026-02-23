@@ -14,7 +14,7 @@ import { Separator } from '../components/ui/separator';
 import {
   CheckCircle2, Circle, ChevronRight, ChevronLeft, Receipt, CreditCard,
   Banknote, ReceiptText, Calculator, Wallet, Lock, Sun, Plus, RefreshCw,
-  AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search
+  AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 

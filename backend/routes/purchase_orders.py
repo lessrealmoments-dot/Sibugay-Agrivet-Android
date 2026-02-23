@@ -194,6 +194,11 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         payment_status = "paid"
         amount_paid = grand_total
         balance = 0.0
+    elif po_type == "branch_request":
+        status = "requested"
+        payment_status = "n/a"
+        amount_paid = 0.0
+        balance = 0.0
     else:  # terms
         status = "received"
         payment_status = "unpaid"

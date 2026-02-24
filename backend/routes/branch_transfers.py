@@ -299,6 +299,8 @@ async def create_transfer(data: dict, user=Depends(get_current_user)):
         "total_at_branch_capital": total_at_branch_capital,
         "total_at_transfer_capital": total_at_transfer_capital,
         "total_at_branch_retail": total_at_branch_retail,
+        # Repack price updates: applied to destination branch on receive
+        "repack_price_updates": data.get("repack_price_updates", []),
         "created_by": user["id"],
         "created_by_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),

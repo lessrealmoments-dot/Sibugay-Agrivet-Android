@@ -438,20 +438,24 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Unpaid POs */}
+          {/* Upcoming Payables */}
           <Card className="border-slate-200">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Truck size={14} className="text-red-600" /> Supplier Payables
+                  <CalendarClock size={14} className="text-red-600" /> Upcoming Payables
                 </CardTitle>
-                {poSummary?.total_unpaid > 0 && <span className="text-xs font-bold text-red-600">{formatPHP(poSummary.total_unpaid)}</span>}
+                {poSummary?.total_unpaid > 0 && (
+                  <span className={`text-xs font-bold ${(poSummary.overdue || []).length > 0 ? 'text-red-600' : 'text-amber-600'}`}>
+                    {(poSummary.overdue || []).length > 0 ? `${(poSummary.overdue || []).length} overdue` : `${poSummary.total_count} pending`}
+                  </span>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              {!poSummary || poSummary.total_count === 0 ? (
-                <p className="text-xs text-slate-400">All POs paid</p>
-              ) : (
+              <UpcomingPayablesWidget poSummary={poSummary} onNavigate={navigate} today={today} />
+            </CardContent>
+          </Card>
                 <div className="space-y-1">
                   {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
                     <div key={po.id} className="flex justify-between text-xs bg-slate-50 rounded px-2 py-1.5">

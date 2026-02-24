@@ -352,8 +352,23 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
             })
 
     elif transfer_type == "capital_add":
-        # Admin adds capital directly to cashier — full audit trail
-        await update_cashier_wallet(branch_id, amount, f"Capital injection — {note or 'Admin deposit'}")
+        # Admin adds capital to cashier or safe — full audit trail
+        target = data.get("target_wallet", "cashier")  # 'cashier' | 'safe'
+        ref_text_cap = f"Capital injection ({target}) — {note or 'Admin deposit'}"
+        if target == "safe":
+            safe_w = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_w:
+                await db.safe_lots.insert_one({
+                    "id": new_id(), "branch_id": branch_id, "wallet_id": safe_w["id"],
+                    "date_received": now_iso()[:10],
+                    "original_amount": amount, "remaining_amount": amount,
+                    "source_reference": ref_text_cap,
+                    "created_by": user["id"], "created_at": now_iso(),
+                })
+        else:
+            await update_cashier_wallet(branch_id, amount, ref_text_cap)
 
     # ── Record transfer log ────────────────────────────────────────────────────
     transfer_log = {

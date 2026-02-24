@@ -1318,6 +1318,39 @@ export default function PurchaseOrderPage() {
         recordId={uploadRecordId}
       />
 
+      {/* ── VIEW QR DIALOG ────────────────────────────────────────────── */}
+      <ViewQRDialog
+        open={viewQROpen}
+        onClose={() => setViewQROpen(false)}
+        recordType="purchase_order"
+        recordId={detailPO?.id}
+        fileCount={viewQRFileCount}
+      />
+
+      {/* ── VERIFY PIN DIALOG ─────────────────────────────────────────── */}
+      <VerifyPinDialog
+        open={verifyDialogOpen}
+        onClose={() => setVerifyDialogOpen(false)}
+        docType="purchase_order"
+        docId={detailPO?.id}
+        docLabel={detailPO?.po_number}
+        onVerified={(result) => {
+          setVerifyDialogOpen(false);
+          // Refresh the PO detail and list
+          if (detailPO) {
+            setDetailPO(prev => ({
+              ...prev,
+              verified: true,
+              verified_by_name: result.verified_by,
+              verified_at: new Date().toISOString(),
+              verification_status: result.status,
+              has_discrepancy: result.status === 'discrepancy',
+            }));
+          }
+          fetchOrders();
+        }}
+      />
+
       {/* ── CREATE PRODUCT DIALOG ────────────────────────────────────── */}
       <Dialog open={createProdDialog} onOpenChange={setCreateProdDialog}>
         <DialogContent className="sm:max-w-lg">

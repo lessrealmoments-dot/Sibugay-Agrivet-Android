@@ -177,3 +177,9 @@ Build a comprehensive Accounting, Inventory, and Point of Sale (POS) web applica
 ### Phase 6 — Upcoming Payables Widget + PO Terms + Offline Suite (2026-02-24)
 - **Upcoming Payables Dashboard Widget** — Replaces flat "Supplier Payables" card in both single-branch and owner-consolidated views. Shows: total payable amount, visual urgency bar (proportional colored segments), bucket legend (Overdue/Today/7d/14d/30d/Later), clickable bucket expansion showing PO entries with days-left indicator, "Manage all payables" quick link. Available on both single-branch and owner-consolidated views.
 - **PO Terms in Creation Form** — Payment Type (Cash/Credit) + Terms (Net 7/15/30/45/60) in PO header; action buttons highlight pre-selected type; Terms button pre-fills dialog.
+
+### Phase 7 — Sales History + Void & Reopen (2026-02-24)
+- **Sales History Tab** on the Sales page: running totals (Cash/Credit/Grand Total/Transactions), date picker, search, list with Cash/Credit badges and time/amount/status.
+- **Sale Detail Modal**: full items table, totals breakdown, interest accrual info.
+- **Void & Reopen**: Manager PIN authorization, reverses inventory + cashflow + AR balance, preserves original invoice_date for interest continuity. Automatically pre-fills New Sale with voided items so cashier can re-process.
+- Backend: `GET /api/invoices/history/by-date`, `POST /api/invoices/{id}/void`.

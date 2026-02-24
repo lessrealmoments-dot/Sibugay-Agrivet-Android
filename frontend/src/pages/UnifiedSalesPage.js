@@ -176,6 +176,89 @@ export default function UnifiedSalesPage() {
 
   useEffect(() => { loadData(); getPendingSaleCount().then(setPendingCount); }, []);
 
+  // Load history when tab becomes active or date/search changes
+  const loadHistory = useCallback(async () => {
+    if (!isOnline) return;
+    setHistoryLoading(true);
+    try {
+      const params = { date: historyDate, include_voided: true };
+      if (currentBranch?.id && currentBranch.id !== 'all') params.branch_id = currentBranch.id;
+      if (historySearch) params.search = historySearch;
+      const res = await api.get('/invoices/history/by-date', { params });
+      setHistoryList(res.data.invoices || []);
+      setHistoryTotals(res.data.totals || null);
+    } catch { toast.error('Failed to load sales history'); }
+    setHistoryLoading(false);
+  }, [historyDate, historySearch, isOnline, currentBranch?.id]); // eslint-disable-line
+
+  useEffect(() => {
+    if (mainTab === 'history') loadHistory();
+  }, [mainTab, loadHistory]);
+
+  const handleVoidInvoice = async () => {
+    if (!voidReason.trim()) { toast.error('Please enter a reason'); return; }
+    if (!voidPin) { toast.error('Manager PIN required'); return; }
+    setVoidSaving(true);
+    try {
+      const res = await api.post(`/invoices/${selectedInvoice.id}/void`, {
+        reason: voidReason,
+        manager_pin: voidPin,
+      });
+      toast.success(`${selectedInvoice.invoice_number} voided — authorized by ${res.data.authorized_by}`);
+      setVoidDialog(false);
+      setVoidReason('');
+      setVoidPin('');
+      // Option to reopen (pre-fill new sale)
+      const snap = res.data.snapshot;
+      setSelectedInvoice(null);
+      loadHistory();
+      // Ask if they want to reopen
+      if (window.confirm(`Void successful. Would you like to re-process this sale with the original items?`)) {
+        reopenAsSale(snap);
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Void failed');
+    }
+    setVoidSaving(false);
+  };
+
+  const reopenAsSale = (snapshot) => {
+    // Switch to new sale tab and pre-fill
+    setMainTab('sale');
+    setMode('order');
+    // Pre-fill header with original date (preserves interest calculation)
+    setHeader(h => ({
+      ...h,
+      order_date: snapshot.invoice_date || snapshot.order_date || h.order_date,
+      terms: snapshot.terms || 'COD',
+      terms_days: snapshot.terms_days || 0,
+    }));
+    // Pre-fill customer
+    if (snapshot.customer_id) {
+      setCustSearch(snapshot.customer_name || '');
+      // Will be resolved when customer search fires
+    }
+    // Pre-fill lines from snapshot items
+    const newLines = (snapshot.items || []).map(item => ({
+      product_id: item.product_id || '',
+      product_name: item.product_name || item.name || '',
+      description: item.description || '',
+      quantity: item.quantity || 1,
+      rate: item.rate || item.price || 0,
+      original_rate: item.rate || item.price || 0,
+      cost_price: item.cost_price || 0,
+      moving_average_cost: 0,
+      last_purchase_cost: 0,
+      effective_capital: item.cost_price || 0,
+      capital_method: 'manual',
+      discount_type: item.discount_type || 'amount',
+      discount_value: item.discount_value || 0,
+      is_repack: item.is_repack || false,
+    }));
+    setLines(newLines.length ? newLines : [{ ...EMPTY_LINE }]);
+    toast.success('Sale re-opened — original date preserved for interest calculation');
+  };
+
   // Filter products
   useEffect(() => {
     if (!search) { setFilteredProducts(allProducts); return; }

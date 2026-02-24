@@ -255,6 +255,8 @@ async def update_transfer(transfer_id: str, data: dict, user=Depends(get_current
         "total_at_branch_capital": total_at_branch_capital,
         "total_at_transfer_capital": total_at_transfer_capital,
         "total_at_branch_retail": total_at_branch_retail,
+        # Preserve / update repack price changes
+        "repack_price_updates": data.get("repack_price_updates", order.get("repack_price_updates", [])),
         "updated_at": now_iso(),
         "updated_by": user.get("full_name", user["username"]),
     }

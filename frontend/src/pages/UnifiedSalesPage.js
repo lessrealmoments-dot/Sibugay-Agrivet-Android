@@ -1468,6 +1468,7 @@ export default function UnifiedSalesPage() {
                 </div>
               </div>
             )}
+            {paymentType === 'partial' && (
               <div>
                 <Label>Amount Paid Now</Label>
                 <Input

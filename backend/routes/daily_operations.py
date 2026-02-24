@@ -537,6 +537,22 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     ]).to_list(1)
     total_ar_at_close = round(ar_total_result[0]["total"] if ar_total_result else 0, 2)
 
+    # ── Digital payments today ──────────────────────────────────────────────
+    digital_invs_today = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "fund_source": {"$in": ["digital", "split"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "invoice_number": 1, "customer_name": 1, "amount_paid": 1,
+         "digital_amount": 1, "digital_platform": 1, "digital_ref_number": 1, "fund_source": 1}
+    ).to_list(500)
+    digital_by_platform: dict = {}
+    total_digital_today = 0.0
+    for inv in digital_invs_today:
+        # For split payments, only count the digital portion
+        amt = float(inv.get("digital_amount", 0) if inv.get("fund_source") == "split" and inv.get("digital_amount") else inv.get("amount_paid", 0))
+        platform = inv.get("digital_platform", "Digital") or "Digital"
+        digital_by_platform[platform] = round(digital_by_platform.get(platform, 0) + amt, 2)
+        total_digital_today = round(total_digital_today + amt, 2)
+
     close_record = {
         "id": new_id(), "branch_id": branch_id, "date": date, "status": "closed",
         "starting_float": starting_float,

@@ -536,6 +536,7 @@ export default function UnifiedSalesPage() {
     const actualTendered = pendingCreditSale?.amountTendered || amountTendered;
     
     const saleId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const envelopeId = newEnvelopeId(); // separate idempotency key for resilient sync
     const today = new Date().toISOString().slice(0, 10);
     
     // Calculate amounts

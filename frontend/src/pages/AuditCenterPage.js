@@ -743,6 +743,16 @@ export default function AuditCenterPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="run"><ShieldCheck size={14} className="mr-1.5" />Run Audit</TabsTrigger>
+          <TabsTrigger value="discrepancies" data-testid="discrepancies-tab">
+            <ShieldAlert size={14} className="mr-1.5" />Discrepancies
+            {discrepancies.length > 0 && (
+              <span className="ml-1.5 bg-amber-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{discrepancies.length}</span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="prepare" data-testid="prepare-audit-tab">
+            <Download size={14} className="mr-1.5" />Prepare for Audit
+            {prepStats && <span className="ml-1.5 bg-emerald-500 text-white text-[10px] rounded-full px-1.5 py-0.5">✓</span>}
+          </TabsTrigger>
           <TabsTrigger value="history" data-testid="audit-history-tab"><History size={14} className="mr-1.5" />Audit History</TabsTrigger>
         </TabsList>
 

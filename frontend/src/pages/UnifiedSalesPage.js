@@ -798,6 +798,97 @@ export default function UnifiedSalesPage() {
         </div>
       </div>
 
+      {/* ─── HISTORY TAB ─────────────────────────────────────────────────── */}
+      {mainTab === 'history' && (
+        <div className="flex-1 overflow-auto px-1">
+          {/* Running totals */}
+          {historyTotals && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              {[
+                { label: 'Cash Sales', value: formatPHP(historyTotals.cash), color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+                { label: 'Credit Sales', value: formatPHP(historyTotals.credit), color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
+                { label: 'Grand Total', value: formatPHP(historyTotals.grand_total), color: 'text-[#1A4D2E]', bg: 'bg-emerald-50', border: 'border-[#1A4D2E]/30' },
+                { label: 'Transactions', value: historyTotals.count, color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200', sub: historyTotals.voided_count > 0 ? `${historyTotals.voided_count} voided` : null },
+              ].map(k => (
+                <div key={k.label} className={`rounded-xl border ${k.border} ${k.bg} px-4 py-3`}>
+                  <p className="text-[11px] text-slate-500 font-medium">{k.label}</p>
+                  <p className={`text-lg font-bold font-mono ${k.color}`}>{k.value}</p>
+                  {k.sub && <p className="text-[10px] text-slate-400">{k.sub}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="flex gap-2 mb-3">
+            <Input type="date" value={historyDate} onChange={e => setHistoryDate(e.target.value)}
+              className="h-9 w-40 text-sm" />
+            <Input placeholder="Search invoice # or customer..." value={historySearch}
+              onChange={e => setHistorySearch(e.target.value)} className="h-9 flex-1 text-sm" />
+            <Button variant="outline" size="sm" onClick={loadHistory} disabled={historyLoading || !isOnline} className="h-9">
+              <RefreshCw size={13} className={historyLoading ? 'animate-spin' : ''} />
+            </Button>
+          </div>
+
+          {/* Sales list */}
+          {!isOnline ? (
+            <div className="text-center py-12 text-slate-400">
+              <WifiOff size={20} className="mx-auto mb-2" />
+              <p className="text-sm">History requires internet connection</p>
+            </div>
+          ) : historyLoading ? (
+            <div className="text-center py-12"><RefreshCw size={20} className="animate-spin mx-auto text-slate-400" /></div>
+          ) : historyList.length === 0 ? (
+            <div className="text-center py-12 text-slate-400">
+              <FileText size={28} className="mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No sales found for {historyDate}</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {historyList.map(inv => {
+                const isVoided = inv.status === 'voided';
+                const isCash = inv.payment_type === 'cash' || !inv.customer_id;
+                const hasBalance = inv.balance > 0 && !isVoided;
+                const time = inv.created_at?.slice(11, 16) || '';
+                return (
+                  <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
+                    data-testid={`history-row-${inv.id}`}
+                    className={`w-full text-left rounded-xl border px-4 py-3 transition-all hover:shadow-sm ${isVoided ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-[#1A4D2E]/30'}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-[11px] text-slate-400 font-mono w-10 shrink-0">{time}</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-semibold text-blue-700">{inv.invoice_number}</span>
+                            {isVoided ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-500">VOIDED</span>
+                            ) : isCash ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Cash</span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Credit</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 truncate max-w-[180px]">{inv.customer_name || 'Walk-in'}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={`font-bold font-mono ${isVoided ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{formatPHP(inv.grand_total)}</p>
+                        {hasBalance && <p className="text-[10px] text-amber-600">bal {formatPHP(inv.balance)}</p>}
+                        {!hasBalance && !isVoided && <p className="text-[10px] text-emerald-600">paid</p>}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── NEW SALE TAB (existing content) ─────────────────────────────── */}
+      {mainTab === 'sale' && (
+      <>
+
       {/* Customer Selection */}
       <div className="px-1 pb-3">
         <Card className="border-slate-200">

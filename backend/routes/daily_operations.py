@@ -571,6 +571,16 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "variance_notes": variance_notes,
         "cash_to_safe": cash_to_safe,
         "cash_to_drawer": cash_to_drawer,
+        # Digital payments today (separate from cashier reconciliation)
+        "total_digital_today": total_digital_today,
+        "digital_by_platform": digital_by_platform,
+        "digital_transactions": [
+            {"invoice_number": inv.get("invoice_number"), "customer_name": inv.get("customer_name"),
+             "platform": inv.get("digital_platform", "Digital"),
+             "ref_number": inv.get("digital_ref_number", ""),
+             "amount": float(inv.get("digital_amount", 0) if inv.get("fund_source") == "split" and inv.get("digital_amount") else inv.get("amount_paid", 0))}
+            for inv in digital_invs_today
+        ],
         # New credit extended today
         "credit_sales_today": [
             {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],

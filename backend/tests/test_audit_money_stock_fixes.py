@@ -63,7 +63,6 @@ def session():
 @pytest.fixture(scope="module")
 def db_conn():
     """Direct MongoDB connection for setup/teardown."""
-    from dotenv import load_dotenv
     load_dotenv("/app/backend/.env")
     mongo_url = os.environ.get("MONGO_URL")
     db_name = os.environ.get("DB_NAME", "agribooks")

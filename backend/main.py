@@ -218,6 +218,16 @@ async def startup():
     await db.notifications.create_index("target_user_ids")
     logger.info("Database indexes created")
 
+    # ── Provision 4-wallet system for all existing branches ──────────────────
+    from utils import provision_branch_wallets
+    branches = await db.branches.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    provisioned = 0
+    for branch in branches:
+        await provision_branch_wallets(branch["id"], branch.get("name", ""))
+        provisioned += 1
+    if provisioned:
+        logger.info("Wallet provisioning complete — %d branches checked", provisioned)
+
     # ── Daily backup scheduler ────────────────────────────────────────────────
     from services.backup_service import create_backup, delete_old_local_backups
     db_name = os.environ.get("DB_NAME", "agripos_production")

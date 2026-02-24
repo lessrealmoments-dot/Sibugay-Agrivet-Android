@@ -138,6 +138,100 @@ async def update_cashier_wallet(branch_id, amount, reference="", allow_negative=
     })
 
 
+# ── Digital Wallet ────────────────────────────────────────────────────────────
+
+# Payment methods that route to digital wallet (everything non-cash except check)
+DIGITAL_PAYMENT_METHODS = {
+    "gcash", "maya", "paymaya", "bank transfer", "instapay", "pesonet",
+    "paypal", "shopee pay", "grabpay", "coins.ph", "seabank",
+    "digital", "e-wallet", "online transfer", "mobile payment",
+}
+
+def is_digital_payment(method: str) -> bool:
+    """Return True if the payment method should route to the digital wallet."""
+    if not method:
+        return False
+    m = method.lower().strip()
+    # Cash and Check stay in cashier
+    if m in ("cash", "check", "cheque"):
+        return False
+    return m in DIGITAL_PAYMENT_METHODS or m not in ("cash", "check", "cheque", "credit", "")
+
+
+async def update_digital_wallet(branch_id: str, amount: float, reference: str = "",
+                                platform: str = "", sender: str = "", ref_number: str = ""):
+    """
+    Update the branch digital wallet balance (GCash, Maya, Bank Transfer, etc.).
+    Positive = collection in, negative = reversal.
+    Auto-creates the digital wallet if it doesn't exist.
+    """
+    wallet = await db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "digital", "active": True}, {"_id": 0}
+    )
+    if not wallet:
+        wallet = {
+            "id": new_id(),
+            "branch_id": branch_id,
+            "type": "digital",
+            "name": "Digital / E-Wallet",
+            "balance": 0.0,
+            "active": True,
+            "created_at": now_iso(),
+        }
+        await db.fund_wallets.insert_one(wallet)
+        del wallet["_id"]
+
+    new_balance = round(float(wallet.get("balance", 0)) + amount, 2)
+    await db.fund_wallets.update_one(
+        {"id": wallet["id"]},
+        {"$inc": {"balance": round(amount, 2)}}
+    )
+    await db.wallet_movements.insert_one({
+        "id": new_id(),
+        "wallet_id": wallet["id"],
+        "branch_id": branch_id,
+        "type": "digital_in" if amount >= 0 else "digital_reversal",
+        "amount": round(amount, 2),
+        "reference": reference,
+        "platform": platform,
+        "sender": sender,
+        "ref_number": ref_number,
+        "balance_after": new_balance,
+        "created_at": now_iso(),
+    })
+
+
+# ── Branch Wallet Provisioning ────────────────────────────────────────────────
+
+WALLET_TEMPLATES = [
+    {"type": "cashier", "name": "Cashier Drawer"},
+    {"type": "safe",    "name": "Physical Safe"},
+    {"type": "digital", "name": "Digital / E-Wallet"},
+    {"type": "bank",    "name": "Bank Deposit Account"},
+]
+
+
+async def provision_branch_wallets(branch_id: str, branch_name: str = ""):
+    """
+    Ensure all 4 standard wallets exist for a branch.
+    Safe to call multiple times — only creates missing wallets.
+    """
+    for tmpl in WALLET_TEMPLATES:
+        exists = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": tmpl["type"], "active": True}, {"_id": 0}
+        )
+        if not exists:
+            await db.fund_wallets.insert_one({
+                "id": new_id(),
+                "branch_id": branch_id,
+                "type": tmpl["type"],
+                "name": tmpl["name"],
+                "balance": 0.0,
+                "active": True,
+                "created_at": now_iso(),
+            })
+
+
 async def get_product_price(product: dict, branch_id: str, scheme: str) -> float:
     """
     Get the effective price for a product at a specific branch.

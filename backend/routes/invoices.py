@@ -719,7 +719,7 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
     Reverses: inventory, cashflow, customer AR balance.
     The original invoice_date is preserved in the void snapshot for interest continuity.
     """
-    check_perm(user, "pos", "void")
+    check_perm(user, "sales", "void")
 
     # 1. Verify manager PIN
     manager_pin = data.get("manager_pin", "")

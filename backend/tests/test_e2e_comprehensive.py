@@ -1309,10 +1309,10 @@ class TestReports:
         """Verify Lakewood dashboard shows correct KPIs."""
         assert "lakewood_id" in state
         resp = requests.get(
-            f"{BASE_URL}/api/dashboard?branch_id={state['lakewood_id']}",
+            f"{BASE_URL}/api/dashboard/stats?branch_id={state['lakewood_id']}",
             headers=hdr
         )
-        assert resp.status_code == 200, f"Dashboard failed: {resp.text}"
+        assert resp.status_code == 200, f"Dashboard stats failed: {resp.text}"
         data = resp.json()
         print(f"Dashboard KPIs: {list(data.keys())}")
 
@@ -1320,13 +1320,13 @@ class TestReports:
         """Check Upcoming Payables widget shows Terms POs."""
         assert "lakewood_id" in state
         resp = requests.get(
-            f"{BASE_URL}/api/purchase-orders?branch_id={state['lakewood_id']}&payment_terms=net30",
+            f"{BASE_URL}/api/purchase-orders?branch_id={state['lakewood_id']}",
             headers=hdr
         )
         assert resp.status_code == 200
         data = resp.json()
-        orders = data.get("orders", data) if isinstance(data, dict) else data
-        terms_pos = [o for o in orders if o.get("payment_terms") not in ("cash", "COD") and o.get("status") == "received"]
+        orders = data.get("purchase_orders", []) if isinstance(data, dict) else data
+        terms_pos = [o for o in orders if isinstance(o, dict) and o.get("po_type") == "terms" and o.get("status") == "received"]
         print(f"Terms POs at Lakewood: {len(terms_pos)}")
 
 

@@ -1328,14 +1328,15 @@ export default function UnifiedSalesPage() {
             {/* Payment Type */}
             <div className="space-y-2">
               <Label className="text-sm">Payment Type</Label>
-              <Tabs value={paymentType} onValueChange={setPaymentType}>
-                <TabsList className="grid grid-cols-3 w-full">
+              <Tabs value={paymentType} onValueChange={v => { setPaymentType(v); setDigitalRefNumber(''); setDigitalSender(''); }}>
+                <TabsList className="grid grid-cols-4 w-full">
                   <TabsTrigger value="cash" data-testid="pay-cash">Cash</TabsTrigger>
+                  <TabsTrigger value="digital" data-testid="pay-digital">Digital</TabsTrigger>
                   <TabsTrigger value="partial" data-testid="pay-partial">Partial</TabsTrigger>
                   <TabsTrigger value="credit" data-testid="pay-credit" disabled={!selectedCustomer}>Credit</TabsTrigger>
                 </TabsList>
               </Tabs>
-              {!selectedCustomer && paymentType !== 'cash' && (
+              {!selectedCustomer && paymentType !== 'cash' && paymentType !== 'digital' && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
                   <AlertTriangle size={12} /> Select a customer for credit/partial payment
                 </p>
@@ -1356,6 +1357,54 @@ export default function UnifiedSalesPage() {
                 {change > 0 && (
                   <p className="text-right mt-2 text-lg font-bold text-emerald-600">Change: {formatPHP(change)}</p>
                 )}
+              </div>
+            )}
+
+            {paymentType === 'digital' && (
+              <div className="space-y-3 rounded-xl bg-blue-50 border border-blue-200 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                    <span className="text-white text-[10px] font-bold">₱</span>
+                  </div>
+                  <span className="text-sm font-semibold text-blue-800">Digital Payment → Digital Wallet</span>
+                </div>
+                <div>
+                  <Label className="text-xs text-blue-700">Platform *</Label>
+                  <select
+                    value={digitalPlatform}
+                    onChange={e => setDigitalPlatform(e.target.value)}
+                    className="w-full mt-1 h-9 rounded-lg border border-blue-200 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    data-testid="digital-platform"
+                  >
+                    {['GCash', 'Maya', 'PayMaya', 'Bank Transfer', 'Instapay', 'Pesonet', 'ShopeePay', 'GrabPay', 'Coins.ph', 'SeaBank', 'Other'].map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs text-blue-700">Reference / Transaction # *</Label>
+                  <Input
+                    value={digitalRefNumber}
+                    onChange={e => setDigitalRefNumber(e.target.value)}
+                    placeholder="e.g. GC2026XXXXXXXX"
+                    className="mt-1 h-9 border-blue-200 focus:ring-blue-300"
+                    data-testid="digital-ref-number"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-blue-700">Sender Name / Number (optional)</Label>
+                  <Input
+                    value={digitalSender}
+                    onChange={e => setDigitalSender(e.target.value)}
+                    placeholder="e.g. Juan Dela Cruz / 09XX-XXX-XXXX"
+                    className="mt-1 h-9 border-blue-200 focus:ring-blue-300"
+                    data-testid="digital-sender"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-blue-600 bg-blue-100 rounded-lg px-2.5 py-1.5">
+                  <span>After sale: QR code will appear to upload the {digitalPlatform} receipt screenshot</span>
+                </div>
+                <p className="text-lg font-bold text-blue-800 text-center">{formatPHP(grandTotal)}</p>
               </div>
             )}
 

@@ -100,12 +100,12 @@ export default function VerifyPinDialog({ open, onClose, docType, docId, docLabe
             <div className="relative">
               <input
                 type={showPin ? 'text' : 'password'}
+                ref={pinRef}
                 value={pin}
                 onChange={e => setPin(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
                 placeholder="Enter PIN..."
                 className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-[#1A4D2E]/30"
-                autoFocus
               />
               <button
                 onClick={() => setShowPin(v => !v)}

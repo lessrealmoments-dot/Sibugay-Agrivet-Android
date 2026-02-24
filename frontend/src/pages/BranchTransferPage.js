@@ -1745,6 +1745,25 @@ export default function BranchTransferPage() {
         recordType="branch_transfer"
         recordId={btUploadOrderId}
       />
+      <ViewQRDialog
+        open={btViewQROpen}
+        onClose={() => setBtViewQROpen(false)}
+        recordType="branch_transfer"
+        recordId={viewOrder?.id}
+      />
+      <VerifyPinDialog
+        open={btVerifyOpen}
+        onClose={() => setBtVerifyOpen(false)}
+        docType="branch_transfer"
+        docId={btVerifyId}
+        docLabel={viewOrder?.order_number}
+        onVerified={(result) => {
+          setBtVerifyOpen(false);
+          if (viewOrder) {
+            setViewOrder(prev => ({ ...prev, verified: true, verified_by_name: result.verified_by, verification_status: result.status }));
+          }
+        }}
+      />
     </div>
   );
 }

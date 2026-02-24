@@ -1340,15 +1340,16 @@ export default function UnifiedSalesPage() {
             {/* Payment Type */}
             <div className="space-y-2">
               <Label className="text-sm">Payment Type</Label>
-              <Tabs value={paymentType} onValueChange={v => { setPaymentType(v); setDigitalRefNumber(''); setDigitalSender(''); }}>
-                <TabsList className="grid grid-cols-4 w-full">
+              <Tabs value={paymentType} onValueChange={v => { setPaymentType(v); setDigitalRefNumber(''); setDigitalSender(''); setSplitCash(''); setSplitDigital(''); }}>
+                <TabsList className="grid grid-cols-5 w-full">
                   <TabsTrigger value="cash" data-testid="pay-cash">Cash</TabsTrigger>
                   <TabsTrigger value="digital" data-testid="pay-digital">Digital</TabsTrigger>
+                  <TabsTrigger value="split" data-testid="pay-split">Split</TabsTrigger>
                   <TabsTrigger value="partial" data-testid="pay-partial">Partial</TabsTrigger>
                   <TabsTrigger value="credit" data-testid="pay-credit" disabled={!selectedCustomer}>Credit</TabsTrigger>
                 </TabsList>
               </Tabs>
-              {!selectedCustomer && paymentType !== 'cash' && paymentType !== 'digital' && (
+              {!selectedCustomer && paymentType !== 'cash' && paymentType !== 'digital' && paymentType !== 'split' && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
                   <AlertTriangle size={12} /> Select a customer for credit/partial payment
                 </p>

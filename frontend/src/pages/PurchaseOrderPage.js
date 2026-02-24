@@ -623,6 +623,39 @@ export default function PurchaseOrderPage() {
                     onChange={e => setHeader(h => ({ ...h, dr_number: e.target.value }))}
                     placeholder="Supplier's Delivery Receipt #" />
                 </div>
+
+                {/* Payment Type */}
+                <div>
+                  <Label className="text-xs text-slate-500">Payment Type</Label>
+                  <Select value={header.payment_type} onValueChange={v => setHeader(h => ({ ...h, payment_type: v }))}>
+                    <SelectTrigger className="mt-1 h-9" data-testid="po-payment-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash (Pay on Receive)</SelectItem>
+                      <SelectItem value="terms">Credit / Terms</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Terms selector — only when credit/terms */}
+                {header.payment_type === 'terms' && (
+                  <div>
+                    <Label className="text-xs text-slate-500">Payment Terms</Label>
+                    <Select value={header.terms_label}
+                      onValueChange={v => {
+                        const opt = TERMS_OPTIONS.find(o => o.label === v) || { label: v, days: 30 };
+                        setHeader(h => ({ ...h, terms_label: opt.label, terms_days: opt.days }));
+                      }}>
+                      <SelectTrigger className="mt-1 h-9" data-testid="po-terms-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TERMS_OPTIONS.map(o => <SelectItem key={o.label} value={o.label}>{o.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

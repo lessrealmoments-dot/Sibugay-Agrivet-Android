@@ -180,7 +180,10 @@ async def compute_audit(
     # ── Section 7: Returns & Losses ──────────────────────────────────────────
     result["returns"] = await _compute_returns(b_id, period_from, period_to)
 
-    # ── Section 8: User Activity ─────────────────────────────────────────────
+    # ── Section 8: Digital Payments ──────────────────────────────────────────
+    result["digital"] = await _compute_digital(b_id, period_from, period_to)
+
+    # ── Section 9: User Activity ─────────────────────────────────────────────
     result["activity"] = await _compute_activity(b_id, period_from, period_to)
 
     # ── Section 1: Inventory (full audit — needs count sheets) ───────────────

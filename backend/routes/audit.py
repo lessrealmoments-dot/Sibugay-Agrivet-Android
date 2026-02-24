@@ -565,7 +565,6 @@ async def _compute_returns(branch_id: str, date_from: str, date_to: str) -> dict
     total_loss = sum(float(r.get("total_loss_value", 0)) for r in returns)
     pullout_count = len([r for r in returns if r.get("has_pullout")])
 
-    # Top reasons
     reasons = {}
     for r in returns:
         reasons[r.get("reason", "Other")] = reasons.get(r.get("reason", "Other"), 0) + 1
@@ -577,6 +576,66 @@ async def _compute_returns(branch_id: str, date_from: str, date_to: str) -> dict
         "pullout_count": pullout_count,
         "top_reasons": sorted([{"reason": k, "count": v} for k, v in reasons.items()], key=lambda x: -x["count"]),
         "severity": "warning" if pullout_count > 0 else "ok",
+    }
+
+
+async def _compute_digital(branch_id: str, date_from: str, date_to: str) -> dict:
+    """
+    Digital payment audit: total digital collected, by platform, with reference tracking.
+    Compares against digital wallet balance for discrepancy detection.
+    """
+    # All digital invoices in period (pure digital + split)
+    digital_invs = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": {"$gte": date_from, "$lte": date_to},
+         "fund_source": {"$in": ["digital", "split"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "invoice_number": 1, "customer_name": 1, "order_date": 1,
+         "amount_paid": 1, "digital_amount": 1, "cash_amount": 1,
+         "digital_platform": 1, "digital_ref_number": 1, "digital_sender": 1,
+         "fund_source": 1, "grand_total": 1}
+    ).to_list(1000)
+
+    by_platform: dict = {}
+    total_digital = 0.0
+    missing_ref = 0
+    transactions = []
+
+    for inv in digital_invs:
+        is_split = inv.get("fund_source") == "split"
+        digital_amt = float(inv.get("digital_amount", 0)) if is_split and inv.get("digital_amount") else float(inv.get("amount_paid", 0))
+        platform = inv.get("digital_platform", "Digital") or "Digital"
+        ref = inv.get("digital_ref_number", "")
+        by_platform[platform] = round(by_platform.get(platform, 0) + digital_amt, 2)
+        total_digital = round(total_digital + digital_amt, 2)
+        if not ref:
+            missing_ref += 1
+        transactions.append({
+            "invoice_number": inv.get("invoice_number"),
+            "customer_name": inv.get("customer_name"),
+            "date": inv.get("order_date"),
+            "platform": platform,
+            "ref_number": ref,
+            "sender": inv.get("digital_sender", ""),
+            "amount": digital_amt,
+            "is_split": is_split,
+            "has_ref": bool(ref),
+        })
+
+    # Compare against digital wallet balance
+    digital_wallet = await db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "digital", "active": True}, {"_id": 0}
+    )
+    wallet_balance = float(digital_wallet.get("balance", 0)) if digital_wallet else 0.0
+
+    sev = "critical" if missing_ref > 0 else "ok"
+
+    return {
+        "total_digital_collected": round(total_digital, 2),
+        "by_platform": by_platform,
+        "transaction_count": len(digital_invs),
+        "missing_ref_count": missing_ref,
+        "digital_wallet_balance": round(wallet_balance, 2),
+        "transactions": sorted(transactions, key=lambda x: x.get("date", ""), reverse=True)[:50],
+        "severity": sev,
     }
 
 

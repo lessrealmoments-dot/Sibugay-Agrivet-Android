@@ -108,10 +108,8 @@ export async function syncPendingSales() {
         await removePendingSale(sale.id);
         synced++;
       } else {
-        // Permanent failure — mark in IndexedDB for visibility, don't remove
-        try {
-          await putOne('pending_sales', { ...sale, _sync_failed: true, _fail_reason: 'Server rejected sale' });
-        } catch {}
+        // Permanent failure — remove from queue (bad data, don't retry forever)
+        await removePendingSale(sale.id);
         skipped++;
       }
     }

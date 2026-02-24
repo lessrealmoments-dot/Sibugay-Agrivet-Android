@@ -1421,7 +1421,53 @@ export default function UnifiedSalesPage() {
               </div>
             )}
 
-            {paymentType === 'partial' && (
+            {paymentType === 'split' && (
+              <div className="space-y-3 rounded-xl bg-gradient-to-br from-emerald-50 to-blue-50 border border-slate-200 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-slate-700">Split: Cash + {digitalPlatform}</span>
+                  <span className="text-xs text-slate-400">Total: {formatPHP(grandTotal)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-emerald-700">Cash Amount</Label>
+                    <Input type="number" value={splitCash} data-testid="split-cash"
+                      onChange={e => { setSplitCash(e.target.value); setSplitDigital(String(Math.max(0, grandTotal - (parseFloat(e.target.value)||0)))); }}
+                      placeholder="0.00" className="mt-1 h-9 border-emerald-200" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-blue-700">{digitalPlatform} Amount</Label>
+                    <Input type="number" value={splitDigital} data-testid="split-digital"
+                      onChange={e => { setSplitDigital(e.target.value); setSplitCash(String(Math.max(0, grandTotal - (parseFloat(e.target.value)||0)))); }}
+                      placeholder="0.00" className="mt-1 h-9 border-blue-200" />
+                  </div>
+                </div>
+                {(parseFloat(splitCash||0) + parseFloat(splitDigital||0)) !== grandTotal && (
+                  <p className="text-xs text-amber-600 text-center">
+                    Cash + Digital must equal {formatPHP(grandTotal)}
+                    {' '} (currently {formatPHP(parseFloat(splitCash||0) + parseFloat(splitDigital||0))})
+                  </p>
+                )}
+                <div>
+                  <Label className="text-xs text-blue-700">Platform *</Label>
+                  <select value={digitalPlatform} onChange={e => setDigitalPlatform(e.target.value)}
+                    className="w-full mt-1 h-9 rounded-lg border border-blue-200 bg-white px-2.5 text-sm focus:outline-none">
+                    {['GCash', 'Maya', 'PayMaya', 'Bank Transfer', 'Instapay', 'Pesonet', 'ShopeePay', 'GrabPay', 'Other'].map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-xs text-blue-700">Digital Ref # *</Label>
+                  <Input value={digitalRefNumber} onChange={e => setDigitalRefNumber(e.target.value)}
+                    placeholder="e.g. GC2026XXXXXXXX" className="mt-1 h-9 border-blue-200" data-testid="split-ref-number" />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Sender (optional)</Label>
+                  <Input value={digitalSender} onChange={e => setDigitalSender(e.target.value)}
+                    placeholder="Name / number" className="mt-1 h-9" />
+                </div>
+              </div>
+            )}
               <div>
                 <Label>Amount Paid Now</Label>
                 <Input

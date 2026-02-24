@@ -622,3 +622,125 @@ async def _compute_activity(branch_id: str, date_from: str, date_to: str) -> dic
         "off_hours_count": len(off_hours),
         "severity": sev,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  AUDIT OFFLINE PACKAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/offline-package")
+async def get_offline_package(
+    branch_id: Optional[str] = None,
+    period_from: Optional[str] = None,
+    period_to: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """
+    Returns all transactions + file metadata for a branch/period.
+    Period auto-detected from last two completed count sheets if not provided.
+    Used by frontend to cache data for offline audit.
+    """
+    b_id = branch_id or user.get("branch_id", "")
+
+    # Auto-detect period from count sheets
+    auto_detected = False
+    if not period_from or not period_to:
+        cs_list = await db.count_sheets.find(
+            {"branch_id": b_id, "status": "completed"},
+            {"_id": 0, "id": 1, "count_sheet_number": 1, "completed_at": 1, "started_at": 1}
+        ).sort("completed_at", -1).limit(2).to_list(2)
+
+        if len(cs_list) >= 2:
+            # Period = from oldest to newest
+            dates = sorted([cs_list[0]["completed_at"][:10], cs_list[1]["completed_at"][:10]])
+            period_from = period_from or dates[0]
+            period_to = period_to or dates[1]
+            auto_detected = True
+            cs_refs = {
+                "baseline": cs_list[1]["count_sheet_number"],
+                "current": cs_list[0]["count_sheet_number"],
+            }
+        else:
+            # Fallback: current month
+            today = datetime.now(timezone.utc)
+            period_from = period_from or today.strftime("%Y-%m-01")
+            period_to = period_to or today.strftime("%Y-%m-%d")
+            cs_refs = None
+    else:
+        cs_refs = None
+
+    # Fetch POs in period
+    pos = await db.purchase_orders.find(
+        {
+            "branch_id": b_id,
+            "purchase_date": {"$gte": period_from, "$lte": period_to},
+            "status": {"$nin": ["draft", "cancelled"]},
+        },
+        {"_id": 0, "items": 0, "change_log": 0}
+    ).sort("purchase_date", -1).to_list(500)
+
+    # Fetch Expenses in period
+    expenses = await db.expenses.find(
+        {"branch_id": b_id, "date": {"$gte": period_from, "$lte": period_to}},
+        {"_id": 0}
+    ).sort("date", -1).to_list(500)
+
+    # Fetch Branch Transfers in period
+    transfers = await db.branch_transfer_orders.find(
+        {
+            "$or": [{"from_branch_id": b_id}, {"to_branch_id": b_id}],
+            "created_at": {"$gte": f"{period_from}T00:00:00", "$lte": f"{period_to}T23:59:59"},
+        },
+        {"_id": 0, "items": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    # Collect all record IDs to fetch upload sessions
+    all_ids = (
+        [("purchase_order", p["id"]) for p in pos] +
+        [("expense", e["id"]) for e in expenses] +
+        [("branch_transfer", t["id"]) for t in transfers]
+    )
+
+    # Fetch upload sessions for all records
+    uploads_map = {}
+    for rec_type, rec_id in all_ids:
+        sessions = await db.upload_sessions.find(
+            {"record_type": rec_type, "record_id": rec_id},
+            {"_id": 0, "token": 0}
+        ).to_list(10)
+        if sessions:
+            uploads_map[rec_id] = sessions
+
+    # Build file URL list for prefetching
+    file_urls = []
+    for rec_id, sessions in uploads_map.items():
+        for session in sessions:
+            for file in session.get("files", []):
+                file_urls.append({
+                    "record_id": rec_id,
+                    "record_type": session.get("record_type"),
+                    "file_id": file["id"],
+                    "filename": file.get("filename"),
+                    "content_type": file.get("content_type"),
+                    "size": file.get("size", 0),
+                })
+
+    return {
+        "branch_id": b_id,
+        "period_from": period_from,
+        "period_to": period_to,
+        "auto_detected": auto_detected,
+        "count_sheet_refs": cs_refs,
+        "purchase_orders": pos,
+        "expenses": expenses,
+        "branch_transfers": transfers,
+        "uploads_map": uploads_map,
+        "file_urls": file_urls,
+        "totals": {
+            "purchase_orders": len(pos),
+            "expenses": len(expenses),
+            "branch_transfers": len(transfers),
+            "total_files": len(file_urls),
+        },
+    }
+

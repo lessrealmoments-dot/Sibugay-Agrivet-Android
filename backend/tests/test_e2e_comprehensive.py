@@ -450,6 +450,7 @@ class TestPurchaseOrders:
             "supplier_id": state["supp_biogrow_id"],
             "branch_id": state["lakewood_id"],
             "po_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "po_type": "terms",
             "payment_terms": "net30",
             "terms_days": 30,
             "items": [
@@ -457,8 +458,6 @@ class TestPurchaseOrders:
                 {"product_id": state["prod_vet_id"], "product_name": "Vet Antibiotic Vial", "quantity": 30, "unit_price": 120.00},
                 {"product_id": state["prod_fertilizer_id"], "product_name": "Fertilizer Supreme 50kg", "quantity": 5, "unit_price": 800.00}
             ],
-            "status": "received",
-            "fund_source": "safe"
         }, headers=hdr)
         assert resp.status_code in [200, 201], f"Create Terms PO failed: {resp.text}"
         data = resp.json()

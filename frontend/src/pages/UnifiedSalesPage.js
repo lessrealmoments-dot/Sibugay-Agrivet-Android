@@ -52,6 +52,13 @@ export default function UnifiedSalesPage() {
   const [voidReason, setVoidReason] = useState('');
   const [voidPin, setVoidPin] = useState('');
   const [voidSaving, setVoidSaving] = useState(false);
+
+  // ── Digital payment ───────────────────────────────────────────────────────
+  const [digitalPlatform, setDigitalPlatform] = useState('GCash');
+  const [digitalRefNumber, setDigitalRefNumber] = useState('');
+  const [digitalSender, setDigitalSender] = useState('');
+  const [digitalReceiptQR, setDigitalReceiptQR] = useState(null); // { invoice_id, token }
+  const [showDigitalQR, setShowDigitalQR] = useState(false);
   
   // Products & Data
   const [allProducts, setAllProducts] = useState([]);

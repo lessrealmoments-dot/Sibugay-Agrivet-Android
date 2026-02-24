@@ -196,7 +196,7 @@ TRANSFER_DESCRIPTIONS = {
     "cashier_to_safe": "Cashier → Safe transfer",
     "safe_to_cashier": "Safe → Cashier transfer",
     "safe_to_bank": "Safe → Bank deposit",
-    "capital_add": "Capital injection to Cashier",
+    "capital_add": "Capital injection",
 }
 
 

@@ -82,6 +82,8 @@ export default function PurchaseOrderPage() {
     show_freight: false, freight: 0,
     overall_discount_type: 'amount', overall_discount_value: '',
     show_vat: false, tax_rate: 12,
+    payment_type: 'cash', // 'cash' | 'terms'
+    terms_label: 'Net 30', terms_days: 30,
   });
   const [lines, setLines] = useState([{ ...EMPTY_LINE }]);
   const [saving, setSaving] = useState(false);

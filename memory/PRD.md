@@ -229,3 +229,11 @@ All require manager PIN authorization for audit trail.
 **Bank Balance Security**: Non-admin roles see `balance: null, balance_hidden: true` for bank wallet
 
 **Credentials**: owner/521325, manager_pin = 521325
+
+### Phase 10 — Digital Payment Enhancements (2026-02-24)
+- **Split Payment** (Cash + Digital in single transaction): 5-tab checkout (Cash|Digital|Split|Partial|Credit). Split tab: cash amount + digital amount auto-balance, platform, ref#. Two separate fund movements on save (cashier += cash, digital_wallet += digital). Invoice stores `cash_amount`, `digital_amount`, `fund_source: "split"`.
+- **Digital in Close Wizard Z-Report**: Z-report step 7 now shows digital payment summary box with total by platform (GCash, Maya, etc.) and individual transactions. Labeled as "Tracked separately — not part of cashier reconciliation."
+- **Digital Audit Section**: New `_compute_digital()` function in audit.py. Shown in Audit Center as Section 9 with platform breakdown, missing-ref-count flag, wallet balance comparison, transaction drill-down. Missing reference numbers flagged as critical.
+- **Digital Wallet History**: Fund Management page wallet card history shows `platform`, `ref_number`, `sender` per transaction.
+
+**Digital audit data (IPIL test)**: 9 transactions, ₱2,907 collected (GCash: ₱2,040, Maya: ₱867), 0 missing ref#, wallet balance matches.

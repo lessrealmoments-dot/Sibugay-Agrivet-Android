@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="14" skipped="1" tests="16" time="1.931" timestamp="2026-02-24T03:20:31.309803+00:00" hostname="agent-env-6ac3e5e2-9613-422d-b6e9-8f192747e9ab"><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_admin_pin_status_returns_200" time="0.687"><failure message="AssertionError: Expected 200, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_new_features_37.py:39: in test_admin_pin_status_returns_200
+    assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+E   AssertionError: Expected 200, got 401: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_admin_pin_status_configured_field" time="0.069"><failure message="AssertionError: 'configured' key missing in response: {'detail': 'Invalid token'}&#10;assert 'configured' in {'detail': 'Invalid token'}">backend/tests/test_new_features_37.py:45: in test_admin_pin_status_configured_field
+    assert "configured" in data, f"'configured' key missing in response: {data}"
+E   AssertionError: 'configured' key missing in response: {'detail': 'Invalid token'}
+E   assert 'configured' in {'detail': 'Invalid token'}</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_admin_pin_status_is_configured" time="0.062"><failure message="KeyError: 'configured'">backend/tests/test_new_features_37.py:52: in test_admin_pin_status_is_configured
+    assert data["configured"] is True, f"Expected configured=True (PIN 1234 should be set), got: {data}"
+           ^^^^^^^^^^^^^^^^^^
+E   KeyError: 'configured'</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_set_admin_pin_returns_200" time="0.084"><failure message="AssertionError: Expected 200, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_new_features_37.py:57: in test_set_admin_pin_returns_200
+    assert res.status_code == 200, f"Expected 200, got {res.status_code}: {res.text}"
+E   AssertionError: Expected 200, got 401: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_set_admin_pin_success_message" time="0.059"><failure message="AssertionError: No 'message' in response: {'detail': 'Invalid token'}&#10;assert 'message' in {'detail': 'Invalid token'}">backend/tests/test_new_features_37.py:63: in test_set_admin_pin_success_message
+    assert "message" in data, f"No 'message' in response: {data}"
+E   AssertionError: No 'message' in response: {'detail': 'Invalid token'}
+E   assert 'message' in {'detail': 'Invalid token'}</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_set_admin_pin_too_short_returns_400" time="0.058"><failure message="AssertionError: Expected 400 for short PIN, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 400&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_new_features_37.py:68: in test_set_admin_pin_too_short_returns_400
+    assert res.status_code == 400, f"Expected 400 for short PIN, got {res.status_code}: {res.text}"
+E   AssertionError: Expected 400 for short PIN, got 401: {"detail":"Invalid token"}
+E   assert 401 == 400
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_admin_pin_status_after_set" time="0.118"><failure message="KeyError: 'configured'">backend/tests/test_new_features_37.py:75: in test_admin_pin_status_after_set
+    assert data["configured"] is True, f"Expected configured=True after set, got: {data}"
+           ^^^^^^^^^^^^^^^^^^
+E   KeyError: 'configured'</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_admin_pin_non_admin_forbidden" time="0.159" /><testcase classname="backend.tests.test_new_features_37.TestAdminPinEndpoints" name="test_update_admin_pin" time="0.057"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_new_features_37.py:87: in test_update_admin_pin
+    assert res.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAuditorAccess" name="test_get_users_returns_list" time="0.060"><failure message="AssertionError: Got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_new_features_37.py:106: in test_get_users_returns_list
+    assert res.status_code == 200, f"Got {res.status_code}: {res.text}"
+E   AssertionError: Got 401: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAuditorAccess" name="test_user_has_id_field" time="0.068"><failure message="AssertionError: User missing 'id': detail&#10;assert 'id' in 'detail'">backend/tests/test_new_features_37.py:116: in test_user_has_id_field
+    assert "id" in u, f"User missing 'id': {u}"
+E   AssertionError: User missing 'id': detail
+E   assert 'id' in 'detail'</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestAuditorAccess" name="test_set_auditor_access" time="0.059"><failure message="AttributeError: 'str' object has no attribute 'get'">backend/tests/test_new_features_37.py:123: in test_set_auditor_access
+    target = next((u for u in users if u.get("username") != "owner"), None)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_new_features_37.py:123: in &lt;genexpr&gt;
+    target = next((u for u in users if u.get("username") != "owner"), None)
+                                       ^^^^^
+E   AttributeError: 'str' object has no attribute 'get'</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestPOPaymentType" name="test_create_po_cash_type" time="0.058"><failure message="KeyError: 0">backend/tests/test_new_features_37.py:162: in test_create_po_cash_type
+    branch_id, product = self._get_branch_and_product(authed)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_new_features_37.py:154: in _get_branch_and_product
+    branch_id = branches[0]["id"] if branches else None
+                ^^^^^^^^^^^
+E   KeyError: 0</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestPOPaymentType" name="test_create_po_terms_type" time="0.063"><failure message="KeyError: 0">backend/tests/test_new_features_37.py:188: in test_create_po_terms_type
+    branch_id, product = self._get_branch_and_product(authed)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_new_features_37.py:154: in _get_branch_and_product
+    branch_id = branches[0]["id"] if branches else None
+                ^^^^^^^^^^^
+E   KeyError: 0</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestPOPaymentType" name="test_po_list_returns_verification_badge_fields" time="0.065"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_new_features_37.py:217: in test_po_list_returns_verification_badge_fields
+    assert res.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_new_features_37.TestVerifyWithAdminPin" name="test_verify_resolves_admin_pin" time="0.060"><skipped type="pytest.skip" message="No received PO to test verification">/app/backend/tests/test_new_features_37.py:243: No received PO to test verification</skipped></testcase></testsuite></testsuites>

@@ -5,12 +5,136 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Separator } from '../components/ui/separator';
-import {
-  DollarSign, ShoppingCart, Package, Users, AlertTriangle,
+import { DollarSign, ShoppingCart, Package, Users, AlertTriangle,
   TrendingUp, ArrowDown, Building2, Wallet, Receipt, ArrowRight,
   Truck, Clock, CreditCard, Banknote, CheckCircle2, Calendar,
-  BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight, Lock, ShieldCheck
+  BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight, Lock, ShieldCheck,
+  CalendarClock, ChevronDown, ChevronRight
 } from 'lucide-react';import { formatPHP } from '../lib/utils';
+
+// ─────────────────────────────────────────────────────────────────
+// Upcoming Payables Widget — cash flow timeline for supplier payments
+// ─────────────────────────────────────────────────────────────────
+function UpcomingPayablesWidget({ poSummary, onNavigate, today }) {
+  const [expanded, setExpanded] = useState('overdue');
+
+  if (!poSummary || poSummary.total_count === 0) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-emerald-600 py-4">
+        <CheckCircle2 size={15} /> All supplier payments are up to date
+      </div>
+    );
+  }
+
+  const todayDate = today || new Date().toISOString().slice(0, 10);
+
+  // Build enriched items with days-until-due
+  const allItems = [
+    ...(poSummary.overdue || []),
+    ...(poSummary.due_soon || []),
+    ...(poSummary.later || []),
+  ].map(po => {
+    const due = po.due_date || '';
+    const daysLeft = due
+      ? Math.ceil((new Date(due) - new Date(todayDate)) / 86400000)
+      : null;
+    return { ...po, daysLeft };
+  }).sort((a, b) => (a.daysLeft ?? 999) - (b.daysLeft ?? 999));
+
+  // Bucket definition: { key, label, color, bg, border, test }
+  const BUCKETS = [
+    { key: 'overdue',  label: 'Overdue',      color: 'text-red-600',    bg: 'bg-red-500',    border: 'border-red-200',    bgLight: 'bg-red-50',    test: d => d !== null && d < 0 },
+    { key: 'today',    label: 'Due Today',     color: 'text-orange-600', bg: 'bg-orange-500', border: 'border-orange-200', bgLight: 'bg-orange-50', test: d => d === 0 },
+    { key: 'week',     label: 'Next 7 Days',   color: 'text-amber-600',  bg: 'bg-amber-400',  border: 'border-amber-200',  bgLight: 'bg-amber-50',  test: d => d !== null && d > 0 && d <= 7 },
+    { key: 'fortnight',label: 'Next 8–14 Days',color: 'text-blue-600',   bg: 'bg-blue-400',   border: 'border-blue-200',   bgLight: 'bg-blue-50',   test: d => d !== null && d > 7 && d <= 14 },
+    { key: 'month',    label: 'Next 15–30 Days',color: 'text-slate-600', bg: 'bg-slate-400',  border: 'border-slate-200',  bgLight: 'bg-slate-50',  test: d => d !== null && d > 14 && d <= 30 },
+    { key: 'later',    label: '30+ Days',       color: 'text-slate-400', bg: 'bg-slate-200',  border: 'border-slate-100',  bgLight: 'bg-slate-50',  test: d => d === null || d > 30 },
+  ];
+
+  const buckets = BUCKETS.map(b => ({
+    ...b,
+    items: allItems.filter(po => b.test(po.daysLeft)),
+    total: allItems.filter(po => b.test(po.daysLeft)).reduce((s, po) => s + (po.balance || 0), 0),
+  })).filter(b => b.items.length > 0);
+
+  const grandTotal = poSummary.total_unpaid || 0;
+
+  const daysLabel = (d) => {
+    if (d === null) return 'No due date';
+    if (d < 0) return `${Math.abs(d)}d overdue`;
+    if (d === 0) return 'Due today';
+    return `${d}d left`;
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Total */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-slate-500">Total payable</span>
+        <span className="text-lg font-bold text-red-600 font-mono">{formatPHP(grandTotal)}</span>
+      </div>
+
+      {/* Visual urgency bar */}
+      <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5">
+        {buckets.map(b => (
+          <div
+            key={b.key}
+            title={`${b.label}: ${formatPHP(b.total)}`}
+            className={`${b.bg} transition-all cursor-pointer hover:opacity-80`}
+            style={{ width: `${Math.max(4, (b.total / grandTotal) * 100)}%` }}
+            onClick={() => setExpanded(expanded === b.key ? null : b.key)}
+          />
+        ))}
+      </div>
+
+      {/* Bucket legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {buckets.map(b => (
+          <button key={b.key} onClick={() => setExpanded(expanded === b.key ? null : b.key)}
+            className={`flex items-center gap-1 text-[10px] font-medium transition-opacity ${expanded === b.key ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`}>
+            <span className={`w-2 h-2 rounded-full ${b.bg} shrink-0`} />
+            <span className={b.color}>{b.label}</span>
+            <span className="text-slate-400">({b.items.length})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Expanded bucket */}
+      {buckets.filter(b => b.key === expanded).map(bucket => (
+        <div key={bucket.key} className={`rounded-xl border ${bucket.border} ${bucket.bgLight} p-3 space-y-1.5`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className={`text-[11px] font-bold uppercase tracking-wider ${bucket.color}`}>
+              {bucket.label} — {bucket.items.length} PO{bucket.items.length !== 1 ? 's' : ''}
+            </span>
+            <span className={`text-xs font-bold font-mono ${bucket.color}`}>{formatPHP(bucket.total)}</span>
+          </div>
+          {bucket.items.slice(0, 5).map(po => (
+            <div key={po.id} className="flex items-center justify-between bg-white rounded-lg px-2.5 py-2 text-xs shadow-sm">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold truncate">{po.vendor}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="font-mono text-blue-600 text-[10px]">{po.po_number}</span>
+                  <span className={`text-[10px] font-medium ${po.daysLeft !== null && po.daysLeft < 0 ? 'text-red-500' : po.daysLeft === 0 ? 'text-orange-500' : 'text-slate-400'}`}>
+                    {daysLabel(po.daysLeft)}
+                  </span>
+                </div>
+              </div>
+              <span className="font-bold text-red-600 font-mono ml-3 shrink-0">{formatPHP(po.balance)}</span>
+            </div>
+          ))}
+          {bucket.items.length > 5 && (
+            <p className="text-[10px] text-center text-slate-400">+{bucket.items.length - 5} more</p>
+          )}
+        </div>
+      ))}
+
+      <button onClick={() => onNavigate('/pay-supplier')}
+        className="w-full text-xs text-slate-500 hover:text-[#1A4D2E] transition-colors flex items-center justify-center gap-1 py-1">
+        Manage all payables <ChevronRight size={11} />
+      </button>
+    </div>
+  );
+}
 
 function KpiCard({ label, value, sub, icon: Icon, color, trend, testId }) {
   return (

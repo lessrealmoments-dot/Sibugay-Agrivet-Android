@@ -456,23 +456,6 @@ export default function DashboardPage() {
               <UpcomingPayablesWidget poSummary={poSummary} onNavigate={navigate} today={today} />
             </CardContent>
           </Card>
-                <div className="space-y-1">
-                  {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
-                    <div key={po.id} className="flex justify-between text-xs bg-slate-50 rounded px-2 py-1.5">
-                      <div>
-                        <span className="font-mono text-blue-600 mr-2">{po.po_number}</span>
-                        <span className="text-slate-500 truncate max-w-[80px]">{po.vendor}</span>
-                      </div>
-                      <div className="text-right">
-                        {po.due_date && <p className={`${po.due_date < today ? 'text-red-500 font-semibold' : 'text-amber-500'}`}>{po.due_date}</p>}
-                        <p className="font-bold text-red-600">{formatPHP(po.balance)}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
     );

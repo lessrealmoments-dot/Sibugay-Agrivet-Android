@@ -1502,13 +1502,36 @@ export default function BranchTransferPage() {
             )}
           </ScrollArea>
           {viewOrder?.status === 'sent' && (
-            <div className="pt-3 border-t flex justify-between">
-              <Button variant="outline" onClick={() => printTransferOrder(viewOrder)} data-testid="print-transfer-btn">
-                Print Transfer Order
-              </Button>
-              <Button onClick={() => setReceiveDialog(true)} className="bg-emerald-600 text-white">
-                <CheckCircle2 size={15} className="mr-1.5" /> Confirm Receipt
-              </Button>
+            <div className="pt-3 border-t space-y-3">
+              {/* Incoming price updates preview */}
+              {(viewOrder?.repack_price_updates || []).filter(rpu => rpu.new_retail_price).length > 0 && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-xs font-semibold text-blue-800 mb-2 flex items-center gap-1.5">
+                    <span>🏷</span> Price Updates on Receive
+                  </p>
+                  <div className="space-y-1">
+                    {(viewOrder.repack_price_updates || []).filter(rpu => rpu.new_retail_price > 0).map((rpu, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs">
+                        <span className="text-blue-700 font-medium">{rpu.repack_name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400 font-mono line-through">{rpu.current_dest_retail ? `₱${rpu.current_dest_retail}` : '—'}</span>
+                          <span className="text-blue-600">→</span>
+                          <span className="text-emerald-700 font-bold font-mono">₱{rpu.new_retail_price}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-blue-500 mt-1.5">These will be applied when you confirm receipt</p>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => printTransferOrder(viewOrder)} data-testid="print-transfer-btn">
+                  Print Transfer Order
+                </Button>
+                <Button onClick={() => setReceiveDialog(true)} className="bg-emerald-600 text-white">
+                  <CheckCircle2 size={15} className="mr-1.5" /> Confirm Receipt
+                </Button>
+              </div>
             </div>
           )}
           {viewOrder?.status !== 'sent' && (

@@ -116,13 +116,24 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     status = "paid" if balance <= 0 else ("partial" if amount_paid > 0 else "open")
     sale_type = data.get("sale_type", "walk_in")
     payment_method = data.get("payment_method", "Cash")
-    digital = is_digital_payment(payment_method)
+    is_split = data.get("payment_type") == "split"
+    digital = is_split or is_digital_payment(payment_method)
+
+    # Split payment: part cash + part digital
+    cash_amount = float(data.get("cash_amount", 0)) if is_split else (amount_paid if not is_digital_payment(payment_method) else 0)
+    digital_amount = float(data.get("digital_amount", 0)) if is_split else (amount_paid if is_digital_payment(payment_method) else 0)
 
     # Digital payment metadata (reference #, platform, sender name)
     digital_meta = {}
-    if digital:
+    if digital or is_split:
         digital_meta = {
-            "digital_platform": data.get("digital_platform", payment_method),
+            "digital_platform": data.get("digital_platform", payment_method if not is_split else "GCash"),
+            "digital_ref_number": data.get("digital_ref_number", ""),
+            "digital_sender": data.get("digital_sender", ""),
+        }
+        if is_split:
+            digital_meta["cash_amount"] = cash_amount
+            digital_meta["digital_amount"] = digital_amount
             "digital_ref_number": data.get("digital_ref_number", ""),
             "digital_sender": data.get("digital_sender", ""),
         }

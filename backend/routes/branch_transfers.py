@@ -664,12 +664,6 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         "has_excess": len(excesses) > 0,
         "repack_prices_applied": applied_repack_updates,
     }
-        "status": "received",
-        "shortages": shortages,
-        "excesses": excesses,
-        "has_shortage": len(shortages) > 0,
-        "has_excess": len(excesses) > 0,
-    }
 
 
 @router.post("/{transfer_id}/accept-receipt")

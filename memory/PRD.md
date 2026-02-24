@@ -173,3 +173,7 @@ Build a comprehensive Accounting, Inventory, and Point of Sale (POS) web applica
 - **Resilient Offline Sync (Transaction Envelope)** — `envelope_id` added to every offline sale (separate from invoice ID); backend idempotency checks both `id` and `envelope_id`; sync processes one sale at a time; network errors pause sync (don't discard queue); server errors (4xx) skip bad sale and continue; auto-retry on reconnect after 2s; better progress events (sync_start, sync_progress, sync_complete, sync_paused); `newEnvelopeId()` exported from syncManager.
 - **PO Payment Terms in Header** — Payment Type dropdown (Cash / Credit & Terms) added to PO creation form; Terms dropdown (Net 7/15/30/45/60) appears when Credit selected; action buttons highlight selected type; clicking Terms button pre-fills dialog with header selection.
 
+
+### Phase 6 — Upcoming Payables Widget + PO Terms + Offline Suite (2026-02-24)
+- **Upcoming Payables Dashboard Widget** — Replaces flat "Supplier Payables" card in both single-branch and owner-consolidated views. Shows: total payable amount, visual urgency bar (proportional colored segments), bucket legend (Overdue/Today/7d/14d/30d/Later), clickable bucket expansion showing PO entries with days-left indicator, "Manage all payables" quick link. Available on both single-branch and owner-consolidated views.
+- **PO Terms in Creation Form** — Payment Type (Cash/Credit) + Terms (Net 7/15/30/45/60) in PO header; action buttons highlight pre-selected type; Terms button pre-fills dialog.

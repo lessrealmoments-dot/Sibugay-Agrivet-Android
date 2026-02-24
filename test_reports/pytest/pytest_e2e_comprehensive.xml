@@ -1,180 +1,376 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="77" time="10.447" timestamp="2026-02-24T10:06:04.874755+00:00" hostname="agent-env-6ac3e5e2-9613-422d-b6e9-8f192747e9ab"><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_create_lakewood_branch" time="0.676" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_create_riverside_branch" time="0.118" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_lakewood_has_4_wallets" time="0.115" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_riverside_has_4_wallets" time="0.153" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_lakewood_safe" time="0.119" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_lakewood_cashier" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_riverside_safe" time="0.139" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_riverside_cashier" time="0.155" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_fertilizer_supreme" time="0.135" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_rice_premium" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_pesticide_gold" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_animal_feed_deluxe" time="0.161" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_vet_antibiotic" time="0.138" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_fertilizer_1kg" time="0.099"><failure message="AssertionError: assert False is True&#10; +  where False = &lt;built-in method get of dict object at 0xfad079367e40&gt;('is_repack')&#10; +    where &lt;built-in method get of dict object at 0xfad079367e40&gt; = {'active': True, 'barcode': '', 'capital_method': 'moving_average', 'category': 'Fertilizer', ...}.get">tests/test_e2e_comprehensive.py:238: in test_create_repack_fertilizer_1kg
-    assert data.get("is_repack") is True
-E   AssertionError: assert False is True
-E    +  where False = &lt;built-in method get of dict object at 0xfad079367e40&gt;('is_repack')
-E    +    where &lt;built-in method get of dict object at 0xfad079367e40&gt; = {'active': True, 'barcode': '', 'capital_method': 'moving_average', 'category': 'Fertilizer', ...}.get</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_rice_500g" time="0.104" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_pesticide_100ml" time="0.103" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_animal_feed_1kg" time="0.110" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_maria_santos" time="0.109" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_juan_delacruz" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_green_valley_farm" time="0.105" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_hillside_agriculture" time="0.114" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_walkin_general" time="0.099" /><testcase classname="tests.test_e2e_comprehensive.TestSupplierSetup" name="test_create_agritech_supplies" time="0.110" /><testcase classname="tests.test_e2e_comprehensive.TestSupplierSetup" name="test_create_biogrow_intl" time="0.106" /><testcase classname="tests.test_e2e_comprehensive.TestSupplierSetup" name="test_create_farmpro_distributors" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_lakewood_po1_cash" time="0.134" /><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_lakewood_po2_terms" time="0.108"><failure message="AssertionError: Create Terms PO failed: {&quot;detail&quot;:{&quot;type&quot;:&quot;insufficient_funds&quot;,&quot;message&quot;:&quot;Safe has only ₱0.00. Need ₱16,600.00.&quot;,&quot;cashier_balance&quot;:22750.0,&quot;safe_balance&quot;:0,&quot;shortfall&quot;:16600.0}}&#10;assert 400 in [200, 201]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">tests/test_e2e_comprehensive.py:465: in test_create_lakewood_po2_terms
-    assert resp.status_code in [200, 201], f"Create Terms PO failed: {resp.text}"
-E   AssertionError: Create Terms PO failed: {"detail":{"type":"insufficient_funds","message":"Safe has only ₱0.00. Need ₱16,600.00.","cashier_balance":22750.0,"safe_balance":0,"shortfall":16600.0}}
-E   assert 400 in [200, 201]
-E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_riverside_po1_cash" time="0.106" /><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_riverside_po2_terms" time="0.106"><failure message="AssertionError: Create Riverside Terms PO failed: {&quot;detail&quot;:{&quot;type&quot;:&quot;insufficient_funds&quot;,&quot;message&quot;:&quot;Safe has only ₱0.00. Need ₱23,200.00.&quot;,&quot;cashier_balance&quot;:39700.0,&quot;safe_balance&quot;:0,&quot;shortfall&quot;:23200.0}}&#10;assert 400 in [200, 201]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">tests/test_e2e_comprehensive.py:510: in test_create_riverside_po2_terms
-    assert resp.status_code in [200, 201], f"Create Riverside Terms PO failed: {resp.text}"
-E   AssertionError: Create Riverside Terms PO failed: {"detail":{"type":"insufficient_funds","message":"Safe has only ₱0.00. Need ₱23,200.00.","cashier_balance":39700.0,"safe_balance":0,"shortfall":23200.0}}
-E   assert 400 in [200, 201]
-E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_get_lakewood_pos" time="0.098"><failure message="TypeError: string indices must be integers, not 'str'">tests/test_e2e_comprehensive.py:522: in test_get_lakewood_pos
-    lw_ids = {po["id"] for po in pos}
-             ^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_e2e_comprehensive.py:522: in &lt;setcomp&gt;
-    lw_ids = {po["id"] for po in pos}
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="12" skipped="0" tests="77" time="41.676" timestamp="2026-02-24T10:06:35.352540+00:00" hostname="agent-env-6ac3e5e2-9613-422d-b6e9-8f192747e9ab"><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_create_lakewood_branch" time="0.482" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_create_riverside_branch" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_lakewood_has_4_wallets" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_riverside_has_4_wallets" time="0.107" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_lakewood_safe" time="0.110" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_lakewood_cashier" time="0.105" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_riverside_safe" time="0.109" /><testcase classname="tests.test_e2e_comprehensive.TestBranchSetup" name="test_add_capital_riverside_cashier" time="0.104" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_fertilizer_supreme" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_rice_premium" time="0.103" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_pesticide_gold" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_animal_feed_deluxe" time="0.106" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_vet_antibiotic" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_fertilizer_1kg" time="0.109"><failure message="AssertionError: assert False is True&#10; +  where False = &lt;built-in method get of dict object at 0xff146ec5b980&gt;('is_repack')&#10; +    where &lt;built-in method get of dict object at 0xff146ec5b980&gt; = {'active': True, 'barcode': '', 'capital_method': 'moving_average', 'category': 'Fertilizer', ...}.get">self = &lt;test_e2e_comprehensive.TestProductSetup object at 0xff146ec23010&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_create_repack_fertilizer_1kg(self, hdr):
+        """Fertilizer 1kg (50 per bag)."""
+        assert "prod_fertilizer_id" in state
+        resp = requests.post(f"{BASE_URL}/api/products", json={
+            "name": "Fertilizer Supreme 1kg",
+            "category": "Fertilizer",
+            "unit": "Bag",
+            "cost_price": round(800.00 / 50, 2),  # 16.00
+            "prices": {"retail": 20.00, "wholesale": 18.00},
+            "is_repack": True,
+            "parent_id": state["prod_fertilizer_id"],
+            "units_per_parent": 50,
+            "repack_unit": "kg"
+        }, headers=hdr)
+        assert resp.status_code == 200, f"Create repack failed: {resp.text}"
+        data = resp.json()
+&gt;       assert data.get("is_repack") is True
+E       AssertionError: assert False is True
+E        +  where False = &lt;built-in method get of dict object at 0xff146ec5b980&gt;('is_repack')
+E        +    where &lt;built-in method get of dict object at 0xff146ec5b980&gt; = {'active': True, 'barcode': '', 'capital_method': 'moving_average', 'category': 'Fertilizer', ...}.get
+
+tests/test_e2e_comprehensive.py:238: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_rice_500g" time="0.118" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_pesticide_100ml" time="0.095" /><testcase classname="tests.test_e2e_comprehensive.TestProductSetup" name="test_create_repack_animal_feed_1kg" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_maria_santos" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_juan_delacruz" time="0.108" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_green_valley_farm" time="0.096" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_hillside_agriculture" time="0.099" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerSetup" name="test_create_walkin_general" time="0.105" /><testcase classname="tests.test_e2e_comprehensive.TestSupplierSetup" name="test_create_agritech_supplies" time="0.097" /><testcase classname="tests.test_e2e_comprehensive.TestSupplierSetup" name="test_create_biogrow_intl" time="0.108" /><testcase classname="tests.test_e2e_comprehensive.TestSupplierSetup" name="test_create_farmpro_distributors" time="0.116" /><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_lakewood_po1_cash" time="0.123" /><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_lakewood_po2_terms" time="0.112"><failure message="AssertionError: Create Terms PO failed: {&quot;detail&quot;:{&quot;type&quot;:&quot;insufficient_funds&quot;,&quot;message&quot;:&quot;Safe has only ₱0.00. Need ₱16,600.00.&quot;,&quot;cashier_balance&quot;:22750.0,&quot;safe_balance&quot;:0,&quot;shortfall&quot;:16600.0}}&#10;assert 400 in [200, 201]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestPurchaseOrders object at 0xff146ec2f1d0&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_create_lakewood_po2_terms(self, hdr):
+        """Terms/Credit PO at Lakewood from BioGrow."""
+        assert "lakewood_id" in state
+        resp = requests.post(f"{BASE_URL}/api/purchase-orders", json={
+            "vendor": "BioGrow International",
+            "supplier_id": state["supp_biogrow_id"],
+            "branch_id": state["lakewood_id"],
+            "po_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "payment_terms": "net30",
+            "terms_days": 30,
+            "items": [
+                {"product_id": state["prod_animal_feed_id"], "product_name": "Animal Feed Deluxe 20kg", "quantity": 15, "unit_price": 600.00},
+                {"product_id": state["prod_vet_id"], "product_name": "Vet Antibiotic Vial", "quantity": 30, "unit_price": 120.00},
+                {"product_id": state["prod_fertilizer_id"], "product_name": "Fertilizer Supreme 50kg", "quantity": 5, "unit_price": 800.00}
+            ],
+            "status": "received",
+            "fund_source": "safe"
+        }, headers=hdr)
+&gt;       assert resp.status_code in [200, 201], f"Create Terms PO failed: {resp.text}"
+E       AssertionError: Create Terms PO failed: {"detail":{"type":"insufficient_funds","message":"Safe has only ₱0.00. Need ₱16,600.00.","cashier_balance":22750.0,"safe_balance":0,"shortfall":16600.0}}
+E       assert 400 in [200, 201]
+E        +  where 400 = &lt;Response [400]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:465: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_riverside_po1_cash" time="0.098" /><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_create_riverside_po2_terms" time="0.122"><failure message="AssertionError: Create Riverside Terms PO failed: {&quot;detail&quot;:{&quot;type&quot;:&quot;insufficient_funds&quot;,&quot;message&quot;:&quot;Safe has only ₱0.00. Need ₱23,200.00.&quot;,&quot;cashier_balance&quot;:39700.0,&quot;safe_balance&quot;:0,&quot;shortfall&quot;:23200.0}}&#10;assert 400 in [200, 201]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestPurchaseOrders object at 0xff146ec2fc10&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_create_riverside_po2_terms(self, hdr):
+        """Terms/Credit PO at Riverside from AgriTech."""
+        assert "riverside_id" in state
+        resp = requests.post(f"{BASE_URL}/api/purchase-orders", json={
+            "vendor": "AgriTech Supplies Inc",
+            "supplier_id": state["supp_agritech_id"],
+            "branch_id": state["riverside_id"],
+            "po_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "payment_terms": "net15",
+            "terms_days": 15,
+            "items": [
+                {"product_id": state["prod_fertilizer_id"], "product_name": "Fertilizer Supreme 50kg", "quantity": 8, "unit_price": 800.00},
+                {"product_id": state["prod_vet_id"], "product_name": "Vet Antibiotic Vial", "quantity": 20, "unit_price": 120.00},
+                {"product_id": state["prod_rice_id"], "product_name": "Rice Premium 25kg", "quantity": 12, "unit_price": 1200.00}
+            ],
+            "status": "received",
+            "fund_source": "safe"
+        }, headers=hdr)
+&gt;       assert resp.status_code in [200, 201], f"Create Riverside Terms PO failed: {resp.text}"
+E       AssertionError: Create Riverside Terms PO failed: {"detail":{"type":"insufficient_funds","message":"Safe has only ₱0.00. Need ₱23,200.00.","cashier_balance":39700.0,"safe_balance":0,"shortfall":23200.0}}
+E       assert 400 in [200, 201]
+E        +  where 400 = &lt;Response [400]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:510: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_get_lakewood_pos" time="0.095"><failure message="TypeError: string indices must be integers, not 'str'">self = &lt;test_e2e_comprehensive.TestPurchaseOrders object at 0xff146ec302d0&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_get_lakewood_pos(self, hdr):
+        """Verify POs created at Lakewood."""
+        assert "lakewood_id" in state
+        resp = requests.get(f"{BASE_URL}/api/purchase-orders?branch_id={state['lakewood_id']}", headers=hdr)
+        assert resp.status_code == 200
+        data = resp.json()
+        pos = data.get("orders", data) if isinstance(data, dict) else data
+&gt;       lw_ids = {po["id"] for po in pos}
+                 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_e2e_comprehensive.py:522: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = &lt;dict_keyiterator object at 0xff146eaa91c0&gt;
+
+&gt;   lw_ids = {po["id"] for po in pos}
               ^^^^^^^^
-E   TypeError: string indices must be integers, not 'str'</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_reopen_lakewood_po1_and_verify_cashier_returned" time="0.329" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_cash_walkin_1" time="0.127" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_cash_walkin_2" time="0.109" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_gcash_digital" time="0.105" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_split_cash_gcash" time="0.112" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_credit_juan_delacruz" time="0.106" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_partial_green_valley" time="0.139" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sales_history_running_totals" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_void_sale_with_manager_pin" time="0.227" /><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_create_transfer_lakewood_to_riverside" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_send_transfer" time="0.108" /><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_view_incoming_transfer_at_riverside" time="0.109"><failure message="AttributeError: 'str' object has no attribute 'get'">tests/test_e2e_comprehensive.py:787: in test_view_incoming_transfer_at_riverside
-    incoming = [t for t in transfers if t.get("to_branch_id") == state["riverside_id"]]
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_e2e_comprehensive.py:787: in &lt;listcomp&gt;
-    incoming = [t for t in transfers if t.get("to_branch_id") == state["riverside_id"]]
+E   TypeError: string indices must be integers, not 'str'
+
+tests/test_e2e_comprehensive.py:522: TypeError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestPurchaseOrders" name="test_reopen_lakewood_po1_and_verify_cashier_returned" time="0.300" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_cash_walkin_1" time="0.123" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_cash_walkin_2" time="0.106" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_gcash_digital" time="0.122" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_split_cash_gcash" time="0.111" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_credit_juan_delacruz" time="0.099" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sale_partial_green_valley" time="0.104" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_sales_history_running_totals" time="0.114" /><testcase classname="tests.test_e2e_comprehensive.TestSalesModule" name="test_void_sale_with_manager_pin" time="0.213" /><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_create_transfer_lakewood_to_riverside" time="7.312" /><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_send_transfer" time="0.131" /><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_view_incoming_transfer_at_riverside" time="0.116"><failure message="AttributeError: 'str' object has no attribute 'get'">self = &lt;test_e2e_comprehensive.TestBranchTransfers object at 0xff146ec33d50&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_view_incoming_transfer_at_riverside(self, hdr):
+        """View incoming transfer at Riverside - verify repack price updates section."""
+        assert "riverside_id" in state
+        resp = requests.get(
+            f"{BASE_URL}/api/branch-transfers?to_branch_id={state['riverside_id']}&amp;status=sent",
+            headers=hdr
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        transfers = data.get("transfers", data) if isinstance(data, dict) else data
+&gt;       incoming = [t for t in transfers if t.get("to_branch_id") == state["riverside_id"]]
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_e2e_comprehensive.py:787: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = &lt;dict_keyiterator object at 0xff146eaaa9d0&gt;
+
+&gt;   incoming = [t for t in transfers if t.get("to_branch_id") == state["riverside_id"]]
                                         ^^^^^
-E   AttributeError: 'str' object has no attribute 'get'</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_receive_transfer_with_shortage" time="0.102"><failure message="AssertionError: Receive transfer failed: &lt;!DOCTYPE html&gt;&#10;  &lt;!--[if lt IE 7]&gt; &lt;html class=&quot;no-js ie6 oldie&quot; lang=&quot;en-US&quot;&gt; &lt;![endif]--&gt;&#10;  &lt;!--[if IE 7]&gt;    &lt;html class=&quot;no-js ie7 oldie&quot; lang=&quot;en-US&quot;&gt; &lt;![endif]--&gt;&#10;  &lt;!--[if IE 8]&gt;    &lt;html class=&quot;no-js ie8 oldie&quot; lang=&quot;en-US&quot;&gt; &lt;![endif]--&gt;&#10;  &lt;!--[if gt IE 8]&gt;&lt;!--&gt; &lt;html class=&quot;no-js&quot; lang=&quot;en-US&quot;&gt; &lt;!--&lt;![endif]--&gt;&#10;  &lt;head&gt;&#10;  &#10;  &#10;  &lt;title&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud | 520: Web server is returning an unknown error&lt;/title&gt;&#10;  &lt;meta charset=&quot;UTF-8&quot; /&gt;&#10;  &lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=UTF-8&quot; /&gt;&#10;  &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=Edge&quot; /&gt;&#10;  &lt;meta name=&quot;robots&quot; content=&quot;noindex, nofollow&quot; /&gt;&#10;  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot; /&gt;&#10;  &lt;link rel=&quot;stylesheet&quot; id=&quot;cf_styles-css&quot; href=&quot;/cdn-cgi/styles/main.css&quot; /&gt;&#10;  &#10;  &#10;  &lt;/head&gt;&#10;  &lt;body&gt;&#10;  &lt;div id=&quot;cf-wrapper&quot;&gt;&#10;      &lt;div id=&quot;cf-error-details&quot; class=&quot;p-0&quot;&gt;&#10;          &lt;header class=&quot;mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8&quot;&gt;&#10;              &lt;h1 class=&quot;inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2&quot;&gt;&#10;                &lt;span class=&quot;inline-block&quot;&gt;Web server is returning an unknown error&lt;/span&gt;&#10;                &lt;span class=&quot;code-label&quot;&gt;Error code 520&lt;/span&gt;&#10;              &lt;/h1&gt;&#10;              &lt;div&gt;&#10;                 Visit &lt;a href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;cloudflare.com&lt;/a&gt; for more information.&#10;              &lt;/div&gt;&#10;              &lt;div class=&quot;mt-3&quot;&gt;2026-02-24 10:06:10 UTC&lt;/div&gt;&#10;          &lt;/header&gt;&#10;          &lt;div class=&quot;my-8 bg-gradient-gray&quot;&gt;&#10;              &lt;div class=&quot;w-240 lg:w-full mx-auto&quot;&gt;&#10;                  &lt;div class=&quot;clearfix md:px-8&quot;&gt;&#10;                    &#10;  &lt;div id=&quot;cf-browser-status&quot; class=&quot; relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center&quot;&gt;&#10;    &lt;div class=&quot;relative mb-10 md:m-0&quot;&gt;&#10;      &#10;      &lt;span class=&quot;cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat&quot;&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4&quot;&gt;&lt;/span&gt;&#10;      &#10;    &lt;/div&gt;&#10;    &lt;span class=&quot;md:block w-full truncate&quot;&gt;You&lt;/span&gt;&#10;    &lt;h3 class=&quot;md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3&quot;&gt;&#10;      &#10;      Browser&#10;      &#10;    &lt;/h3&gt;&#10;    &lt;span class=&quot;leading-1.3 text-2xl text-green-success&quot;&gt;Working&lt;/span&gt;&#10;  &lt;/div&gt;&#10;  &#10;  &lt;div id=&quot;cf-cloudflare-status&quot; class=&quot; relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center&quot;&gt;&#10;    &lt;div class=&quot;relative mb-10 md:m-0&quot;&gt;&#10;      &lt;a href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;&#10;      &lt;span class=&quot;cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat&quot;&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4&quot;&gt;&lt;/span&gt;&#10;      &lt;/a&gt;&#10;    &lt;/div&gt;&#10;    &lt;span class=&quot;md:block w-full truncate&quot;&gt;Chicago&lt;/span&gt;&#10;    &lt;h3 class=&quot;md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3&quot;&gt;&#10;      &lt;a href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;&#10;      Cloudflare&#10;      &lt;/a&gt;&#10;    &lt;/h3&gt;&#10;    &lt;span class=&quot;leading-1.3 text-2xl text-green-success&quot;&gt;Working&lt;/span&gt;&#10;  &lt;/div&gt;&#10;  &#10;  &lt;div id=&quot;cf-host-status&quot; class=&quot;cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center&quot;&gt;&#10;    &lt;div class=&quot;relative mb-10 md:m-0&quot;&gt;&#10;      &#10;      &lt;span class=&quot;cf-icon-server block md:hidden h-20 bg-center bg-no-repeat&quot;&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4&quot;&gt;&lt;/span&gt;&#10;      &#10;    &lt;/div&gt;&#10;    &lt;span class=&quot;md:block w-full truncate&quot;&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud&lt;/span&gt;&#10;    &lt;h3 class=&quot;md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3&quot;&gt;&#10;      &#10;      Host&#10;      &#10;    &lt;/h3&gt;&#10;    &lt;span class=&quot;leading-1.3 text-2xl text-red-error&quot;&gt;Error&lt;/span&gt;&#10;  &lt;/div&gt;&#10;  &#10;                  &lt;/div&gt;&#10;              &lt;/div&gt;&#10;          &lt;/div&gt;&#10;  &#10;          &lt;div class=&quot;w-240 lg:w-full mx-auto mb-8 lg:px-8&quot;&gt;&#10;              &lt;div class=&quot;clearfix&quot;&gt;&#10;                  &lt;div class=&quot;w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed&quot;&gt;&#10;                      &lt;h2 class=&quot;text-3xl font-normal leading-1.3 mb-4&quot;&gt;What happened?&lt;/h2&gt;&#10;                      &lt;p&gt;There is an unknown connection issue between Cloudflare and the origin web server. As a result, the web page can not be displayed.&lt;/p&gt;&#10;                  &lt;/div&gt;&#10;                  &lt;div class=&quot;w-1/2 md:w-full float-left leading-relaxed&quot;&gt;&#10;                      &lt;h2 class=&quot;text-3xl font-normal leading-1.3 mb-4&quot;&gt;What can I do?&lt;/h2&gt;&#10;                            &lt;h3 class=&quot;text-15 font-semibold mb-2&quot;&gt;If you are a visitor of this website:&lt;/h3&gt;&#10;        &lt;p class=&quot;mb-6&quot;&gt;Please try again in a few minutes.&lt;/p&gt;&#10;  &#10;        &lt;h3 class=&quot;text-15 font-semibold mb-2&quot;&gt;If you are the owner of this website:&lt;/h3&gt;&#10;        &lt;p&gt;&lt;span&gt;There is an issue between Cloudflare's cache and your origin web server. Cloudflare monitors for these errors and automatically investigates the cause. To help support the investigation, you can pull the corresponding error log from your web server and submit it our support team.  Please include the Ray ID (which is at the bottom of this error page).&lt;/span&gt; &lt;a rel=&quot;noopener noreferrer&quot; href=&quot;https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-520/&quot;&gt;Additional troubleshooting resources&lt;/a&gt;.&lt;/p&gt;&#10;                  &lt;/div&gt;&#10;              &lt;/div&gt;&#10;          &lt;/div&gt;&#10;  &#10;          &lt;div class=&quot;cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300&quot;&gt;&#10;    &lt;p class=&quot;text-13&quot;&gt;&#10;      &lt;span class=&quot;cf-footer-item sm:block sm:mb-1&quot;&gt;Cloudflare Ray ID: &lt;strong class=&quot;font-semibold&quot;&gt;9d2e2616136be82c&lt;/strong&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-footer-separator sm:hidden&quot;&gt;&amp;bull;&lt;/span&gt;&#10;      &lt;span id=&quot;cf-footer-item-ip&quot; class=&quot;cf-footer-item hidden sm:block sm:mb-1&quot;&gt;&#10;        Your IP:&#10;        &lt;button type=&quot;button&quot; id=&quot;cf-footer-ip-reveal&quot; class=&quot;cf-footer-ip-reveal-btn&quot;&gt;Click to reveal&lt;/button&gt;&#10;        &lt;span class=&quot;hidden&quot; id=&quot;cf-footer-ip&quot;&gt;35.184.53.215&lt;/span&gt;&#10;        &lt;span class=&quot;cf-footer-separator sm:hidden&quot;&gt;&amp;bull;&lt;/span&gt;&#10;      &lt;/span&gt;&#10;      &lt;span class=&quot;cf-footer-item sm:block sm:mb-1&quot;&gt;&lt;span&gt;Performance &amp;amp; security by&lt;/span&gt; &lt;a rel=&quot;noopener noreferrer&quot; href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; id=&quot;brand_link&quot; target=&quot;_blank&quot;&gt;Cloudflare&lt;/a&gt;&lt;/span&gt;&#10;      &#10;    &lt;/p&gt;&#10;    &lt;script&gt;(function(){function d(){var b=a.getElementById(&quot;cf-footer-item-ip&quot;),c=a.getElementById(&quot;cf-footer-ip-reveal&quot;);b&amp;&amp;&quot;classList&quot;in b&amp;&amp;(b.classList.remove(&quot;hidden&quot;),c.addEventListener(&quot;click&quot;,function(){c.classList.add(&quot;hidden&quot;);a.getElementById(&quot;cf-footer-ip&quot;).classList.remove(&quot;hidden&quot;)}))}var a=document;document.addEventListener&amp;&amp;a.addEventListener(&quot;DOMContentLoaded&quot;,d)})();&lt;/script&gt;&#10;  &lt;/div&gt;&lt;!-- /.error-footer --&gt;&#10;  &#10;  &#10;      &lt;/div&gt;&#10;  &lt;/div&gt;&#10;  &lt;/body&gt;&#10;  &lt;/html&gt;&#10;  &#10;assert 520 == 200&#10; +  where 520 = &lt;Response [520]&gt;.status_code">tests/test_e2e_comprehensive.py:810: in test_receive_transfer_with_shortage
-    assert resp.status_code == 200, f"Receive transfer failed: {resp.text}"
-E   AssertionError: Receive transfer failed: &lt;!DOCTYPE html&gt;
-E     &lt;!--[if lt IE 7]&gt; &lt;html class="no-js ie6 oldie" lang="en-US"&gt; &lt;![endif]--&gt;
-E     &lt;!--[if IE 7]&gt;    &lt;html class="no-js ie7 oldie" lang="en-US"&gt; &lt;![endif]--&gt;
-E     &lt;!--[if IE 8]&gt;    &lt;html class="no-js ie8 oldie" lang="en-US"&gt; &lt;![endif]--&gt;
-E     &lt;!--[if gt IE 8]&gt;&lt;!--&gt; &lt;html class="no-js" lang="en-US"&gt; &lt;!--&lt;![endif]--&gt;
-E     &lt;head&gt;
-E     
-E     
-E     &lt;title&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud | 520: Web server is returning an unknown error&lt;/title&gt;
-E     &lt;meta charset="UTF-8" /&gt;
-E     &lt;meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /&gt;
-E     &lt;meta http-equiv="X-UA-Compatible" content="IE=Edge" /&gt;
-E     &lt;meta name="robots" content="noindex, nofollow" /&gt;
-E     &lt;meta name="viewport" content="width=device-width,initial-scale=1" /&gt;
-E     &lt;link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" /&gt;
-E     
-E     
-E     &lt;/head&gt;
-E     &lt;body&gt;
-E     &lt;div id="cf-wrapper"&gt;
-E         &lt;div id="cf-error-details" class="p-0"&gt;
-E             &lt;header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8"&gt;
-E                 &lt;h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2"&gt;
-E                   &lt;span class="inline-block"&gt;Web server is returning an unknown error&lt;/span&gt;
-E                   &lt;span class="code-label"&gt;Error code 520&lt;/span&gt;
-E                 &lt;/h1&gt;
-E                 &lt;div&gt;
-E                    Visit &lt;a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" target="_blank" rel="noopener noreferrer"&gt;cloudflare.com&lt;/a&gt; for more information.
-E                 &lt;/div&gt;
-E                 &lt;div class="mt-3"&gt;2026-02-24 10:06:10 UTC&lt;/div&gt;
-E             &lt;/header&gt;
-E             &lt;div class="my-8 bg-gradient-gray"&gt;
-E                 &lt;div class="w-240 lg:w-full mx-auto"&gt;
-E                     &lt;div class="clearfix md:px-8"&gt;
-E                       
-E     &lt;div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center"&gt;
-E       &lt;div class="relative mb-10 md:m-0"&gt;
+E   AttributeError: 'str' object has no attribute 'get'
+
+tests/test_e2e_comprehensive.py:787: AttributeError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestBranchTransfers" name="test_receive_transfer_with_shortage" time="0.114"><failure message="AssertionError: Receive transfer failed: &lt;!DOCTYPE html&gt;&#10;  &lt;!--[if lt IE 7]&gt; &lt;html class=&quot;no-js ie6 oldie&quot; lang=&quot;en-US&quot;&gt; &lt;![endif]--&gt;&#10;  &lt;!--[if IE 7]&gt;    &lt;html class=&quot;no-js ie7 oldie&quot; lang=&quot;en-US&quot;&gt; &lt;![endif]--&gt;&#10;  &lt;!--[if IE 8]&gt;    &lt;html class=&quot;no-js ie8 oldie&quot; lang=&quot;en-US&quot;&gt; &lt;![endif]--&gt;&#10;  &lt;!--[if gt IE 8]&gt;&lt;!--&gt; &lt;html class=&quot;no-js&quot; lang=&quot;en-US&quot;&gt; &lt;!--&lt;![endif]--&gt;&#10;  &lt;head&gt;&#10;  &#10;  &#10;  &lt;title&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud | 520: Web server is returning an unknown error&lt;/title&gt;&#10;  &lt;meta charset=&quot;UTF-8&quot; /&gt;&#10;  &lt;meta http-equiv=&quot;Content-Type&quot; content=&quot;text/html; charset=UTF-8&quot; /&gt;&#10;  &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=Edge&quot; /&gt;&#10;  &lt;meta name=&quot;robots&quot; content=&quot;noindex, nofollow&quot; /&gt;&#10;  &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot; /&gt;&#10;  &lt;link rel=&quot;stylesheet&quot; id=&quot;cf_styles-css&quot; href=&quot;/cdn-cgi/styles/main.css&quot; /&gt;&#10;  &#10;  &#10;  &lt;/head&gt;&#10;  &lt;body&gt;&#10;  &lt;div id=&quot;cf-wrapper&quot;&gt;&#10;      &lt;div id=&quot;cf-error-details&quot; class=&quot;p-0&quot;&gt;&#10;          &lt;header class=&quot;mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8&quot;&gt;&#10;              &lt;h1 class=&quot;inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2&quot;&gt;&#10;                &lt;span class=&quot;inline-block&quot;&gt;Web server is returning an unknown error&lt;/span&gt;&#10;                &lt;span class=&quot;code-label&quot;&gt;Error code 520&lt;/span&gt;&#10;              &lt;/h1&gt;&#10;              &lt;div&gt;&#10;                 Visit &lt;a href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;cloudflare.com&lt;/a&gt; for more information.&#10;              &lt;/div&gt;&#10;              &lt;div class=&quot;mt-3&quot;&gt;2026-02-24 10:06:48 UTC&lt;/div&gt;&#10;          &lt;/header&gt;&#10;          &lt;div class=&quot;my-8 bg-gradient-gray&quot;&gt;&#10;              &lt;div class=&quot;w-240 lg:w-full mx-auto&quot;&gt;&#10;                  &lt;div class=&quot;clearfix md:px-8&quot;&gt;&#10;                    &#10;  &lt;div id=&quot;cf-browser-status&quot; class=&quot; relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center&quot;&gt;&#10;    &lt;div class=&quot;relative mb-10 md:m-0&quot;&gt;&#10;      &#10;      &lt;span class=&quot;cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat&quot;&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4&quot;&gt;&lt;/span&gt;&#10;      &#10;    &lt;/div&gt;&#10;    &lt;span class=&quot;md:block w-full truncate&quot;&gt;You&lt;/span&gt;&#10;    &lt;h3 class=&quot;md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3&quot;&gt;&#10;      &#10;      Browser&#10;      &#10;    &lt;/h3&gt;&#10;    &lt;span class=&quot;leading-1.3 text-2xl text-green-success&quot;&gt;Working&lt;/span&gt;&#10;  &lt;/div&gt;&#10;  &#10;  &lt;div id=&quot;cf-cloudflare-status&quot; class=&quot; relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center&quot;&gt;&#10;    &lt;div class=&quot;relative mb-10 md:m-0&quot;&gt;&#10;      &lt;a href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;&#10;      &lt;span class=&quot;cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat&quot;&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4&quot;&gt;&lt;/span&gt;&#10;      &lt;/a&gt;&#10;    &lt;/div&gt;&#10;    &lt;span class=&quot;md:block w-full truncate&quot;&gt;Chicago&lt;/span&gt;&#10;    &lt;h3 class=&quot;md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3&quot;&gt;&#10;      &lt;a href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot;&gt;&#10;      Cloudflare&#10;      &lt;/a&gt;&#10;    &lt;/h3&gt;&#10;    &lt;span class=&quot;leading-1.3 text-2xl text-green-success&quot;&gt;Working&lt;/span&gt;&#10;  &lt;/div&gt;&#10;  &#10;  &lt;div id=&quot;cf-host-status&quot; class=&quot;cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center&quot;&gt;&#10;    &lt;div class=&quot;relative mb-10 md:m-0&quot;&gt;&#10;      &#10;      &lt;span class=&quot;cf-icon-server block md:hidden h-20 bg-center bg-no-repeat&quot;&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4&quot;&gt;&lt;/span&gt;&#10;      &#10;    &lt;/div&gt;&#10;    &lt;span class=&quot;md:block w-full truncate&quot;&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud&lt;/span&gt;&#10;    &lt;h3 class=&quot;md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3&quot;&gt;&#10;      &#10;      Host&#10;      &#10;    &lt;/h3&gt;&#10;    &lt;span class=&quot;leading-1.3 text-2xl text-red-error&quot;&gt;Error&lt;/span&gt;&#10;  &lt;/div&gt;&#10;  &#10;                  &lt;/div&gt;&#10;              &lt;/div&gt;&#10;          &lt;/div&gt;&#10;  &#10;          &lt;div class=&quot;w-240 lg:w-full mx-auto mb-8 lg:px-8&quot;&gt;&#10;              &lt;div class=&quot;clearfix&quot;&gt;&#10;                  &lt;div class=&quot;w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed&quot;&gt;&#10;                      &lt;h2 class=&quot;text-3xl font-normal leading-1.3 mb-4&quot;&gt;What happened?&lt;/h2&gt;&#10;                      &lt;p&gt;There is an unknown connection issue between Cloudflare and the origin web server. As a result, the web page can not be displayed.&lt;/p&gt;&#10;                  &lt;/div&gt;&#10;                  &lt;div class=&quot;w-1/2 md:w-full float-left leading-relaxed&quot;&gt;&#10;                      &lt;h2 class=&quot;text-3xl font-normal leading-1.3 mb-4&quot;&gt;What can I do?&lt;/h2&gt;&#10;                            &lt;h3 class=&quot;text-15 font-semibold mb-2&quot;&gt;If you are a visitor of this website:&lt;/h3&gt;&#10;        &lt;p class=&quot;mb-6&quot;&gt;Please try again in a few minutes.&lt;/p&gt;&#10;  &#10;        &lt;h3 class=&quot;text-15 font-semibold mb-2&quot;&gt;If you are the owner of this website:&lt;/h3&gt;&#10;        &lt;p&gt;&lt;span&gt;There is an issue between Cloudflare's cache and your origin web server. Cloudflare monitors for these errors and automatically investigates the cause. To help support the investigation, you can pull the corresponding error log from your web server and submit it our support team.  Please include the Ray ID (which is at the bottom of this error page).&lt;/span&gt; &lt;a rel=&quot;noopener noreferrer&quot; href=&quot;https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-520/&quot;&gt;Additional troubleshooting resources&lt;/a&gt;.&lt;/p&gt;&#10;                  &lt;/div&gt;&#10;              &lt;/div&gt;&#10;          &lt;/div&gt;&#10;  &#10;          &lt;div class=&quot;cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300&quot;&gt;&#10;    &lt;p class=&quot;text-13&quot;&gt;&#10;      &lt;span class=&quot;cf-footer-item sm:block sm:mb-1&quot;&gt;Cloudflare Ray ID: &lt;strong class=&quot;font-semibold&quot;&gt;9d2e26fdf556e157&lt;/strong&gt;&lt;/span&gt;&#10;      &lt;span class=&quot;cf-footer-separator sm:hidden&quot;&gt;&amp;bull;&lt;/span&gt;&#10;      &lt;span id=&quot;cf-footer-item-ip&quot; class=&quot;cf-footer-item hidden sm:block sm:mb-1&quot;&gt;&#10;        Your IP:&#10;        &lt;button type=&quot;button&quot; id=&quot;cf-footer-ip-reveal&quot; class=&quot;cf-footer-ip-reveal-btn&quot;&gt;Click to reveal&lt;/button&gt;&#10;        &lt;span class=&quot;hidden&quot; id=&quot;cf-footer-ip&quot;&gt;104.198.214.223&lt;/span&gt;&#10;        &lt;span class=&quot;cf-footer-separator sm:hidden&quot;&gt;&amp;bull;&lt;/span&gt;&#10;      &lt;/span&gt;&#10;      &lt;span class=&quot;cf-footer-item sm:block sm:mb-1&quot;&gt;&lt;span&gt;Performance &amp;amp; security by&lt;/span&gt; &lt;a rel=&quot;noopener noreferrer&quot; href=&quot;https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud&quot; id=&quot;brand_link&quot; target=&quot;_blank&quot;&gt;Cloudflare&lt;/a&gt;&lt;/span&gt;&#10;      &#10;    &lt;/p&gt;&#10;    &lt;script&gt;(function(){function d(){var b=a.getElementById(&quot;cf-footer-item-ip&quot;),c=a.getElementById(&quot;cf-footer-ip-reveal&quot;);b&amp;&amp;&quot;classList&quot;in b&amp;&amp;(b.classList.remove(&quot;hidden&quot;),c.addEventListener(&quot;click&quot;,function(){c.classList.add(&quot;hidden&quot;);a.getElementById(&quot;cf-footer-ip&quot;).classList.remove(&quot;hidden&quot;)}))}var a=document;document.addEventListener&amp;&amp;a.addEventListener(&quot;DOMContentLoaded&quot;,d)})();&lt;/script&gt;&#10;  &lt;/div&gt;&lt;!-- /.error-footer --&gt;&#10;  &#10;  &#10;      &lt;/div&gt;&#10;  &lt;/div&gt;&#10;  &lt;/body&gt;&#10;  &lt;/html&gt;&#10;  &#10;assert 520 == 200&#10; +  where 520 = &lt;Response [520]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestBranchTransfers object at 0xff146ec3c150&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_receive_transfer_with_shortage(self, hdr):
+        """Receive transfer at Riverside with 1 shortage (receive less than sent)."""
+        assert "transfer1_id" in state
+        resp = requests.post(
+            f"{BASE_URL}/api/branch-transfers/{state['transfer1_id']}/receive",
+            json={
+                "items": [
+                    {"product_id": state["prod_fertilizer_id"], "qty_received": 3},
+                    {"product_id": state["prod_rice_id"], "qty_received": 4},  # shortage: sent 5 received 4
+                    {"product_id": state["prod_pesticide_id"], "qty_received": 4}
+                ]
+            },
+            headers=hdr
+        )
+&gt;       assert resp.status_code == 200, f"Receive transfer failed: {resp.text}"
+E       AssertionError: Receive transfer failed: &lt;!DOCTYPE html&gt;
+E         &lt;!--[if lt IE 7]&gt; &lt;html class="no-js ie6 oldie" lang="en-US"&gt; &lt;![endif]--&gt;
+E         &lt;!--[if IE 7]&gt;    &lt;html class="no-js ie7 oldie" lang="en-US"&gt; &lt;![endif]--&gt;
+E         &lt;!--[if IE 8]&gt;    &lt;html class="no-js ie8 oldie" lang="en-US"&gt; &lt;![endif]--&gt;
+E         &lt;!--[if gt IE 8]&gt;&lt;!--&gt; &lt;html class="no-js" lang="en-US"&gt; &lt;!--&lt;![endif]--&gt;
+E         &lt;head&gt;
 E         
-E         &lt;span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"&gt;&lt;/span&gt;
-E         &lt;span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"&gt;&lt;/span&gt;
 E         
-E       &lt;/div&gt;
-E       &lt;span class="md:block w-full truncate"&gt;You&lt;/span&gt;
-E       &lt;h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3"&gt;
+E         &lt;title&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud | 520: Web server is returning an unknown error&lt;/title&gt;
+E         &lt;meta charset="UTF-8" /&gt;
+E         &lt;meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /&gt;
+E         &lt;meta http-equiv="X-UA-Compatible" content="IE=Edge" /&gt;
+E         &lt;meta name="robots" content="noindex, nofollow" /&gt;
+E         &lt;meta name="viewport" content="width=device-width,initial-scale=1" /&gt;
+E         &lt;link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" /&gt;
 E         
-E         Browser
 E         
-E       &lt;/h3&gt;
-E       &lt;span class="leading-1.3 text-2xl text-green-success"&gt;Working&lt;/span&gt;
-E     &lt;/div&gt;
-E     
-E     &lt;div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center"&gt;
-E       &lt;div class="relative mb-10 md:m-0"&gt;
-E         &lt;a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" target="_blank" rel="noopener noreferrer"&gt;
-E         &lt;span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"&gt;&lt;/span&gt;
-E         &lt;span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"&gt;&lt;/span&gt;
-E         &lt;/a&gt;
-E       &lt;/div&gt;
-E       &lt;span class="md:block w-full truncate"&gt;Chicago&lt;/span&gt;
-E       &lt;h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3"&gt;
-E         &lt;a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" target="_blank" rel="noopener noreferrer"&gt;
-E         Cloudflare
-E         &lt;/a&gt;
-E       &lt;/h3&gt;
-E       &lt;span class="leading-1.3 text-2xl text-green-success"&gt;Working&lt;/span&gt;
-E     &lt;/div&gt;
-E     
-E     &lt;div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center"&gt;
-E       &lt;div class="relative mb-10 md:m-0"&gt;
-E         
-E         &lt;span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"&gt;&lt;/span&gt;
-E         &lt;span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"&gt;&lt;/span&gt;
-E         
-E       &lt;/div&gt;
-E       &lt;span class="md:block w-full truncate"&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud&lt;/span&gt;
-E       &lt;h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3"&gt;
-E         
-E         Host
-E         
-E       &lt;/h3&gt;
-E       &lt;span class="leading-1.3 text-2xl text-red-error"&gt;Error&lt;/span&gt;
-E     &lt;/div&gt;
-E     
+E         &lt;/head&gt;
+E         &lt;body&gt;
+E         &lt;div id="cf-wrapper"&gt;
+E             &lt;div id="cf-error-details" class="p-0"&gt;
+E                 &lt;header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8"&gt;
+E                     &lt;h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2"&gt;
+E                       &lt;span class="inline-block"&gt;Web server is returning an unknown error&lt;/span&gt;
+E                       &lt;span class="code-label"&gt;Error code 520&lt;/span&gt;
+E                     &lt;/h1&gt;
+E                     &lt;div&gt;
+E                        Visit &lt;a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" target="_blank" rel="noopener noreferrer"&gt;cloudflare.com&lt;/a&gt; for more information.
 E                     &lt;/div&gt;
-E                 &lt;/div&gt;
-E             &lt;/div&gt;
-E     
-E             &lt;div class="w-240 lg:w-full mx-auto mb-8 lg:px-8"&gt;
-E                 &lt;div class="clearfix"&gt;
-E                     &lt;div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed"&gt;
-E                         &lt;h2 class="text-3xl font-normal leading-1.3 mb-4"&gt;What happened?&lt;/h2&gt;
-E                         &lt;p&gt;There is an unknown connection issue between Cloudflare and the origin web server. As a result, the web page can not be displayed.&lt;/p&gt;
-E                     &lt;/div&gt;
-E                     &lt;div class="w-1/2 md:w-full float-left leading-relaxed"&gt;
-E                         &lt;h2 class="text-3xl font-normal leading-1.3 mb-4"&gt;What can I do?&lt;/h2&gt;
-E                               &lt;h3 class="text-15 font-semibold mb-2"&gt;If you are a visitor of this website:&lt;/h3&gt;
-E           &lt;p class="mb-6"&gt;Please try again in a few minutes.&lt;/p&gt;
-E     
-E           &lt;h3 class="text-15 font-semibold mb-2"&gt;If you are the owner of this website:&lt;/h3&gt;
-E           &lt;p&gt;&lt;span&gt;There is an issue between Cloudflare's cache and your origin web server. Cloudflare monitors for these errors and automatically investigates the cause. To help support the investigation, you can pull the corresponding error log from your web server and submit it our support team.  Please include the Ray ID (which is at the bottom of this error page).&lt;/span&gt; &lt;a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-520/"&gt;Additional troubleshooting resources&lt;/a&gt;.&lt;/p&gt;
-E                     &lt;/div&gt;
-E                 &lt;/div&gt;
-E             &lt;/div&gt;
-E     
-E             &lt;div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300"&gt;
-E       &lt;p class="text-13"&gt;
-E         &lt;span class="cf-footer-item sm:block sm:mb-1"&gt;Cloudflare Ray ID: &lt;strong class="font-semibold"&gt;9d2e2616136be82c&lt;/strong&gt;&lt;/span&gt;
-E         &lt;span class="cf-footer-separator sm:hidden"&gt;&amp;bull;&lt;/span&gt;
-E         &lt;span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1"&gt;
-E           Your IP:
-E           &lt;button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn"&gt;Click to reveal&lt;/button&gt;
-E           &lt;span class="hidden" id="cf-footer-ip"&gt;35.184.53.215&lt;/span&gt;
-E           &lt;span class="cf-footer-separator sm:hidden"&gt;&amp;bull;&lt;/span&gt;
-E         &lt;/span&gt;
-E         &lt;span class="cf-footer-item sm:block sm:mb-1"&gt;&lt;span&gt;Performance &amp;amp; security by&lt;/span&gt; &lt;a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" id="brand_link" target="_blank"&gt;Cloudflare&lt;/a&gt;&lt;/span&gt;
-E         
-E       &lt;/p&gt;
-E       &lt;script&gt;(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&amp;&amp;"classList"in b&amp;&amp;(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&amp;&amp;a.addEventListener("DOMContentLoaded",d)})();&lt;/script&gt;
-E     &lt;/div&gt;&lt;!-- /.error-footer --&gt;
-E     
-E     
+E                     &lt;div class="mt-3"&gt;2026-02-24 10:06:48 UTC&lt;/div&gt;
+E                 &lt;/header&gt;
+E                 &lt;div class="my-8 bg-gradient-gray"&gt;
+E                     &lt;div class="w-240 lg:w-full mx-auto"&gt;
+E                         &lt;div class="clearfix md:px-8"&gt;
+E                           
+E         &lt;div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center"&gt;
+E           &lt;div class="relative mb-10 md:m-0"&gt;
+E             
+E             &lt;span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"&gt;&lt;/span&gt;
+E             &lt;span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"&gt;&lt;/span&gt;
+E             
+E           &lt;/div&gt;
+E           &lt;span class="md:block w-full truncate"&gt;You&lt;/span&gt;
+E           &lt;h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3"&gt;
+E             
+E             Browser
+E             
+E           &lt;/h3&gt;
+E           &lt;span class="leading-1.3 text-2xl text-green-success"&gt;Working&lt;/span&gt;
 E         &lt;/div&gt;
-E     &lt;/div&gt;
-E     &lt;/body&gt;
-E     &lt;/html&gt;
-E     
-E   assert 520 == 200
-E    +  where 520 = &lt;Response [520]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_record_utilities_expense" time="0.111" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_record_fuel_expense" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_record_employee_advance_expense" time="0.104" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_verify_cashier_deducted_after_expenses" time="0.099" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_delete_fuel_expense_fund_returned" time="0.304" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_collect_ar_payment_juan" time="0.108" /><testcase classname="tests.test_e2e_comprehensive.TestFundManagement" name="test_cashier_to_safe_transfer" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestFundManagement" name="test_verify_wallets_after_transfer" time="0.107" /><testcase classname="tests.test_e2e_comprehensive.TestCloseWizard" name="test_daily_close_preview" time="0.108" /><testcase classname="tests.test_e2e_comprehensive.TestCloseWizard" name="test_close_wizard_has_digital_totals" time="0.000" /><testcase classname="tests.test_e2e_comprehensive.TestCloseWizard" name="test_perform_day_close" time="0.096"><failure message="AssertionError: Day close failed unexpectedly: {&quot;detail&quot;:&quot;Not Found&quot;}&#10;assert 404 in [200, 201, 400]&#10; +  where 404 = &lt;Response [404]&gt;.status_code">tests/test_e2e_comprehensive.py:1002: in test_perform_day_close
-    assert resp.status_code in [200, 201, 400], f"Day close failed unexpectedly: {resp.text}"
-E   AssertionError: Day close failed unexpectedly: {"detail":"Not Found"}
-E   assert 404 in [200, 201, 400]
-E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestCustomerReturns" name="test_create_return" time="0.109" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerReturns" name="test_verify_inventory_restored_after_return" time="0.137" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerReturns" name="test_void_return_with_manager_pin" time="0.103" /><testcase classname="tests.test_e2e_comprehensive.TestCountSheet" name="test_create_count_sheet_riverside" time="0.107" /><testcase classname="tests.test_e2e_comprehensive.TestCountSheet" name="test_complete_count_sheet" time="0.099"><failure message="AssertionError: Complete count sheet failed: {&quot;detail&quot;:&quot;Can only complete an in-progress count sheet&quot;}&#10;assert 400 in [200, 201]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">tests/test_e2e_comprehensive.py:1100: in test_complete_count_sheet
-    assert resp.status_code in [200, 201], f"Complete count sheet failed: {resp.text}"
-E   AssertionError: Complete count sheet failed: {"detail":"Can only complete an in-progress count sheet"}
-E   assert 400 in [200, 201]
-E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestAuditCenter" name="test_run_full_audit_lakewood" time="0.133" /><testcase classname="tests.test_e2e_comprehensive.TestAuditCenter" name="test_audit_has_required_sections" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestAuditCenter" name="test_get_audit_compute" time="0.118" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_void_sale_without_reason" time="0.216" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_inventory_corrections_without_justification" time="0.314" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_run_audit_riverside_for_flags" time="0.114" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_audit_shows_activity_flags" time="0.093" /><testcase classname="tests.test_e2e_comprehensive.TestVerificationSystem" name="test_verify_po_with_admin_pin" time="0.088"><failure message="AssertionError: Verify PO unexpected: {&quot;detail&quot;:&quot;Invalid document type: purchase-order. Must be one of: ['purchase_order', 'expense', 'branch_transfer']&quot;}&#10;assert 400 in [200, 201, 404]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">tests/test_e2e_comprehensive.py:1257: in test_verify_po_with_admin_pin
-    assert resp.status_code in [200, 201, 404], f"Verify PO unexpected: {resp.text}"
-E   AssertionError: Verify PO unexpected: {"detail":"Invalid document type: purchase-order. Must be one of: ['purchase_order', 'expense', 'branch_transfer']"}
-E   assert 400 in [200, 201, 404]
-E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestVerificationSystem" name="test_verify_expense_with_admin_pin" time="0.330" /><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_ar_aging_report" time="0.099" /><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_sales_report_today" time="0.111" /><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_dashboard_kpis" time="0.098"><failure message="AssertionError: Dashboard failed: {&quot;detail&quot;:&quot;Not Found&quot;}&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">tests/test_e2e_comprehensive.py:1311: in test_dashboard_kpis
-    assert resp.status_code == 200, f"Dashboard failed: {resp.text}"
-E   AssertionError: Dashboard failed: {"detail":"Not Found"}
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_upcoming_payables_widget" time="0.104"><failure message="AttributeError: 'str' object has no attribute 'get'">tests/test_e2e_comprehensive.py:1325: in test_upcoming_payables_widget
-    terms_pos = [o for o in orders if o.get("payment_terms") not in ("cash", "COD") and o.get("status") == "received"]
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_e2e_comprehensive.py:1325: in &lt;listcomp&gt;
-    terms_pos = [o for o in orders if o.get("payment_terms") not in ("cash", "COD") and o.get("status") == "received"]
+E         
+E         &lt;div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center"&gt;
+E           &lt;div class="relative mb-10 md:m-0"&gt;
+E             &lt;a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" target="_blank" rel="noopener noreferrer"&gt;
+E             &lt;span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"&gt;&lt;/span&gt;
+E             &lt;span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"&gt;&lt;/span&gt;
+E             &lt;/a&gt;
+E           &lt;/div&gt;
+E           &lt;span class="md:block w-full truncate"&gt;Chicago&lt;/span&gt;
+E           &lt;h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3"&gt;
+E             &lt;a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" target="_blank" rel="noopener noreferrer"&gt;
+E             Cloudflare
+E             &lt;/a&gt;
+E           &lt;/h3&gt;
+E           &lt;span class="leading-1.3 text-2xl text-green-success"&gt;Working&lt;/span&gt;
+E         &lt;/div&gt;
+E         
+E         &lt;div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center"&gt;
+E           &lt;div class="relative mb-10 md:m-0"&gt;
+E             
+E             &lt;span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"&gt;&lt;/span&gt;
+E             &lt;span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"&gt;&lt;/span&gt;
+E             
+E           &lt;/div&gt;
+E           &lt;span class="md:block w-full truncate"&gt;agribooks-preview.cluster-11.preview.emergentcf.cloud&lt;/span&gt;
+E           &lt;h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3"&gt;
+E             
+E             Host
+E             
+E           &lt;/h3&gt;
+E           &lt;span class="leading-1.3 text-2xl text-red-error"&gt;Error&lt;/span&gt;
+E         &lt;/div&gt;
+E         
+E                         &lt;/div&gt;
+E                     &lt;/div&gt;
+E                 &lt;/div&gt;
+E         
+E                 &lt;div class="w-240 lg:w-full mx-auto mb-8 lg:px-8"&gt;
+E                     &lt;div class="clearfix"&gt;
+E                         &lt;div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed"&gt;
+E                             &lt;h2 class="text-3xl font-normal leading-1.3 mb-4"&gt;What happened?&lt;/h2&gt;
+E                             &lt;p&gt;There is an unknown connection issue between Cloudflare and the origin web server. As a result, the web page can not be displayed.&lt;/p&gt;
+E                         &lt;/div&gt;
+E                         &lt;div class="w-1/2 md:w-full float-left leading-relaxed"&gt;
+E                             &lt;h2 class="text-3xl font-normal leading-1.3 mb-4"&gt;What can I do?&lt;/h2&gt;
+E                                   &lt;h3 class="text-15 font-semibold mb-2"&gt;If you are a visitor of this website:&lt;/h3&gt;
+E               &lt;p class="mb-6"&gt;Please try again in a few minutes.&lt;/p&gt;
+E         
+E               &lt;h3 class="text-15 font-semibold mb-2"&gt;If you are the owner of this website:&lt;/h3&gt;
+E               &lt;p&gt;&lt;span&gt;There is an issue between Cloudflare's cache and your origin web server. Cloudflare monitors for these errors and automatically investigates the cause. To help support the investigation, you can pull the corresponding error log from your web server and submit it our support team.  Please include the Ray ID (which is at the bottom of this error page).&lt;/span&gt; &lt;a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-520/"&gt;Additional troubleshooting resources&lt;/a&gt;.&lt;/p&gt;
+E                         &lt;/div&gt;
+E                     &lt;/div&gt;
+E                 &lt;/div&gt;
+E         
+E                 &lt;div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300"&gt;
+E           &lt;p class="text-13"&gt;
+E             &lt;span class="cf-footer-item sm:block sm:mb-1"&gt;Cloudflare Ray ID: &lt;strong class="font-semibold"&gt;9d2e26fdf556e157&lt;/strong&gt;&lt;/span&gt;
+E             &lt;span class="cf-footer-separator sm:hidden"&gt;&amp;bull;&lt;/span&gt;
+E             &lt;span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1"&gt;
+E               Your IP:
+E               &lt;button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn"&gt;Click to reveal&lt;/button&gt;
+E               &lt;span class="hidden" id="cf-footer-ip"&gt;104.198.214.223&lt;/span&gt;
+E               &lt;span class="cf-footer-separator sm:hidden"&gt;&amp;bull;&lt;/span&gt;
+E             &lt;/span&gt;
+E             &lt;span class="cf-footer-item sm:block sm:mb-1"&gt;&lt;span&gt;Performance &amp;amp; security by&lt;/span&gt; &lt;a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_520&amp;utm_campaign=agribooks-preview.cluster-11.preview.emergentcf.cloud" id="brand_link" target="_blank"&gt;Cloudflare&lt;/a&gt;&lt;/span&gt;
+E             
+E           &lt;/p&gt;
+E           &lt;script&gt;(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&amp;&amp;"classList"in b&amp;&amp;(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&amp;&amp;a.addEventListener("DOMContentLoaded",d)})();&lt;/script&gt;
+E         &lt;/div&gt;&lt;!-- /.error-footer --&gt;
+E         
+E         
+E             &lt;/div&gt;
+E         &lt;/div&gt;
+E         &lt;/body&gt;
+E         &lt;/html&gt;
+E         
+E       assert 520 == 200
+E        +  where 520 = &lt;Response [520]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:810: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_record_utilities_expense" time="0.098" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_record_fuel_expense" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_record_employee_advance_expense" time="0.099" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_verify_cashier_deducted_after_expenses" time="0.102" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_delete_fuel_expense_fund_returned" time="0.313" /><testcase classname="tests.test_e2e_comprehensive.TestAccountingModule" name="test_collect_ar_payment_juan" time="0.100" /><testcase classname="tests.test_e2e_comprehensive.TestFundManagement" name="test_cashier_to_safe_transfer" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestFundManagement" name="test_verify_wallets_after_transfer" time="0.103" /><testcase classname="tests.test_e2e_comprehensive.TestCloseWizard" name="test_daily_close_preview" time="0.114" /><testcase classname="tests.test_e2e_comprehensive.TestCloseWizard" name="test_close_wizard_has_digital_totals" time="0.000" /><testcase classname="tests.test_e2e_comprehensive.TestCloseWizard" name="test_perform_day_close" time="0.104"><failure message="AssertionError: Day close failed unexpectedly: {&quot;detail&quot;:&quot;Not Found&quot;}&#10;assert 404 in [200, 201, 400]&#10; +  where 404 = &lt;Response [404]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestCloseWizard object at 0xff146ec44a90&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_perform_day_close(self, hdr):
+        """Complete the close with manager PIN."""
+        assert "lakewood_id" in state
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        resp = requests.post(f"{BASE_URL}/api/daily-ops/close-day", json={
+            "branch_id": state["lakewood_id"],
+            "date": today,
+            "manager_pin": "521325",
+            "actual_cash": 5000.00,
+            "notes": "E2E test day close"
+        }, headers=hdr)
+        # Allow success or already-closed
+&gt;       assert resp.status_code in [200, 201, 400], f"Day close failed unexpectedly: {resp.text}"
+E       AssertionError: Day close failed unexpectedly: {"detail":"Not Found"}
+E       assert 404 in [200, 201, 400]
+E        +  where 404 = &lt;Response [404]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:1002: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestCustomerReturns" name="test_create_return" time="0.118" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerReturns" name="test_verify_inventory_restored_after_return" time="0.120" /><testcase classname="tests.test_e2e_comprehensive.TestCustomerReturns" name="test_void_return_with_manager_pin" time="0.106" /><testcase classname="tests.test_e2e_comprehensive.TestCountSheet" name="test_create_count_sheet_riverside" time="0.101" /><testcase classname="tests.test_e2e_comprehensive.TestCountSheet" name="test_complete_count_sheet" time="0.104"><failure message="AssertionError: Complete count sheet failed: {&quot;detail&quot;:&quot;Can only complete an in-progress count sheet&quot;}&#10;assert 400 in [200, 201]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestCountSheet object at 0xff146ec45510&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_complete_count_sheet(self, hdr):
+        """Complete the count sheet."""
+        if not state.get("count_sheet_id"):
+            pytest.skip("Count sheet not created")
+        resp = requests.post(
+            f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}/complete",
+            json={"manager_pin": "521325", "notes": "Completed E2E count"},
+            headers=hdr
+        )
+&gt;       assert resp.status_code in [200, 201], f"Complete count sheet failed: {resp.text}"
+E       AssertionError: Complete count sheet failed: {"detail":"Can only complete an in-progress count sheet"}
+E       assert 400 in [200, 201]
+E        +  where 400 = &lt;Response [400]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:1100: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestAuditCenter" name="test_run_full_audit_lakewood" time="0.162" /><testcase classname="tests.test_e2e_comprehensive.TestAuditCenter" name="test_audit_has_required_sections" time="0.098" /><testcase classname="tests.test_e2e_comprehensive.TestAuditCenter" name="test_get_audit_compute" time="0.111" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_void_sale_without_reason" time="0.236" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_inventory_corrections_without_justification" time="0.308" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_run_audit_riverside_for_flags" time="0.096" /><testcase classname="tests.test_e2e_comprehensive.TestBadManagerScenario" name="test_audit_shows_activity_flags" time="0.103" /><testcase classname="tests.test_e2e_comprehensive.TestVerificationSystem" name="test_verify_po_with_admin_pin" time="0.106"><failure message="AssertionError: Verify PO unexpected: {&quot;detail&quot;:&quot;Invalid document type: purchase-order. Must be one of: ['purchase_order', 'expense', 'branch_transfer']&quot;}&#10;assert 400 in [200, 201, 404]&#10; +  where 400 = &lt;Response [400]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestVerificationSystem object at 0xff146ec4cb50&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_verify_po_with_admin_pin(self, hdr):
+        """Verify a PO - badge should appear."""
+        assert "po_lakewood1_id" in state
+        resp = requests.post(
+            f"{BASE_URL}/api/verify/purchase-order/{state['po_lakewood1_id']}",
+            json={"pin": "521325", "notes": "E2E verification test"},
+            headers=hdr
+        )
+        print(f"Verify PO: {resp.status_code} {resp.text[:200]}")
+&gt;       assert resp.status_code in [200, 201, 404], f"Verify PO unexpected: {resp.text}"
+E       AssertionError: Verify PO unexpected: {"detail":"Invalid document type: purchase-order. Must be one of: ['purchase_order', 'expense', 'branch_transfer']"}
+E       assert 400 in [200, 201, 404]
+E        +  where 400 = &lt;Response [400]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:1257: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestVerificationSystem" name="test_verify_expense_with_admin_pin" time="0.322" /><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_ar_aging_report" time="0.112" /><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_sales_report_today" time="19.461" /><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_dashboard_kpis" time="5.301"><failure message="AssertionError: Dashboard failed: {&quot;detail&quot;:&quot;Not Found&quot;}&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestReports object at 0xff146ec479d0&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_dashboard_kpis(self, hdr):
+        """Verify Lakewood dashboard shows correct KPIs."""
+        assert "lakewood_id" in state
+        resp = requests.get(
+            f"{BASE_URL}/api/dashboard?branch_id={state['lakewood_id']}",
+            headers=hdr
+        )
+&gt;       assert resp.status_code == 200, f"Dashboard failed: {resp.text}"
+E       AssertionError: Dashboard failed: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = &lt;Response [404]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:1311: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestReports" name="test_upcoming_payables_widget" time="0.134"><failure message="AttributeError: 'str' object has no attribute 'get'">self = &lt;test_e2e_comprehensive.TestReports object at 0xff146ec330d0&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_upcoming_payables_widget(self, hdr):
+        """Check Upcoming Payables widget shows Terms POs."""
+        assert "lakewood_id" in state
+        resp = requests.get(
+            f"{BASE_URL}/api/purchase-orders?branch_id={state['lakewood_id']}&amp;payment_terms=net30",
+            headers=hdr
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        orders = data.get("orders", data) if isinstance(data, dict) else data
+&gt;       terms_pos = [o for o in orders if o.get("payment_terms") not in ("cash", "COD") and o.get("status") == "received"]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_e2e_comprehensive.py:1325: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+.0 = &lt;dict_keyiterator object at 0xff146ea9fa10&gt;
+
+&gt;   terms_pos = [o for o in orders if o.get("payment_terms") not in ("cash", "COD") and o.get("status") == "received"]
                                       ^^^^^
-E   AttributeError: 'str' object has no attribute 'get'</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestSettings" name="test_get_settings" time="0.121"><failure message="AssertionError: Get settings failed: {&quot;detail&quot;:&quot;Not Found&quot;}&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">tests/test_e2e_comprehensive.py:1339: in test_get_settings
-    assert resp.status_code == 200, f"Get settings failed: {resp.text}"
-E   AssertionError: Get settings failed: {"detail":"Not Found"}
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestSettings" name="test_list_users" time="0.103" /><testcase classname="tests.test_e2e_comprehensive.TestSettings" name="test_branches_list" time="0.096" /><testcase classname="tests.test_e2e_comprehensive.TestReceiptUpload" name="test_generate_view_qr_for_transfer" time="0.128" /><testcase classname="tests.test_e2e_comprehensive.TestReceiptUpload" name="test_upload_receipt_endpoint" time="0.095" /></testsuite></testsuites>
+E   AttributeError: 'str' object has no attribute 'get'
+
+tests/test_e2e_comprehensive.py:1325: AttributeError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestSettings" name="test_get_settings" time="0.113"><failure message="AssertionError: Get settings failed: {&quot;detail&quot;:&quot;Not Found&quot;}&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404]&gt;.status_code">self = &lt;test_e2e_comprehensive.TestSettings object at 0xff146ec4d910&gt;
+hdr = {'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNTFiOGMxMGEtZWVhYi00NjgyLTk1NTQtYTQ0NmI...WluIiwiZXhwIjoxNzcyMDEzOTk1Ljc1Mzk5fQ.gX2R2VbN2A1wiO3bI_8B1M3O4IsccsW9jVXULtuz6nQ', 'Content-Type': 'application/json'}
+
+    def test_get_settings(self, hdr):
+        """Get current settings."""
+        resp = requests.get(f"{BASE_URL}/api/settings", headers=hdr)
+&gt;       assert resp.status_code == 200, f"Get settings failed: {resp.text}"
+E       AssertionError: Get settings failed: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = &lt;Response [404]&gt;.status_code
+
+tests/test_e2e_comprehensive.py:1339: AssertionError</failure></testcase><testcase classname="tests.test_e2e_comprehensive.TestSettings" name="test_list_users" time="0.108" /><testcase classname="tests.test_e2e_comprehensive.TestSettings" name="test_branches_list" time="0.095" /><testcase classname="tests.test_e2e_comprehensive.TestReceiptUpload" name="test_generate_view_qr_for_transfer" time="0.104" /><testcase classname="tests.test_e2e_comprehensive.TestReceiptUpload" name="test_upload_receipt_endpoint" time="0.103" /></testsuite></testsuites>

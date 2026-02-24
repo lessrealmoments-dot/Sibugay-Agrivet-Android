@@ -1852,6 +1852,53 @@ export default function UnifiedSalesPage() {
         </div>
       )}
 
+      {/* ── DIGITAL RECEIPT UPLOAD QR ─────────────────────────────────── */}
+      {showDigitalQR && digitalReceiptQR && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 99999 }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '340px' }}>
+            <div className="text-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+                <span className="text-2xl">📱</span>
+              </div>
+              <p className="font-bold text-slate-800">{digitalReceiptQR.invoice_number} — {digitalPlatform}</p>
+              <p className="text-xs text-slate-500 mt-0.5">Scan to upload the {digitalPlatform} receipt screenshot</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Ref: {digitalRefNumber}</p>
+            </div>
+            {digitalReceiptQR.token && (
+              <div className="flex justify-center mb-4">
+                <div style={{ border: '3px solid #1e40af', borderRadius: '12px', padding: '8px', background: '#fff' }}>
+                  {/* Import QRCodeSVG dynamically - it's already available */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/upload/${digitalReceiptQR.token}`)}`}
+                    alt="QR Code"
+                    width={150} height={150}
+                    style={{ display: 'block' }}
+                  />
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-center text-slate-400 mb-4">Cashier scans with phone → takes screenshot → submits</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowDigitalQR(false); setDigitalReceiptQR(null); }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Skip for now
+              </button>
+              <button
+                onClick={() => { setShowDigitalQR(false); setDigitalReceiptQR(null); toast.success('Receipt QR closed — upload later via invoice detail'); }}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

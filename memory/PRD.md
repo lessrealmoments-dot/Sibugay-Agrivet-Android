@@ -166,3 +166,10 @@ Build a comprehensive Accounting, Inventory, and Point of Sale (POS) web applica
 
 ### Refactoring (Tech Debt)
 - Break down PurchaseOrderPage.js, BranchTransferPage.js, CloseWizardPage.js into smaller components
+
+### Phase 5 — Settings Audit Tab + Offline Resilience + PO Terms (2026-02-24)
+- **Settings: Audit Setup Tab** — Admin Verification PIN (set/update from UI, status badge) + Auditor Access table (toggle is_auditor + set auditor_pin per user)
+- **Offline Area Locking** — Nav items show WifiOff icon + grey out when offline; clicking shows toast; locked pages show orange banner: "You're offline — this area requires internet. Switch to Sales for offline operations." Sales, Dashboard, Products, Inventory, Customers remain accessible read-only or full.
+- **Resilient Offline Sync (Transaction Envelope)** — `envelope_id` added to every offline sale (separate from invoice ID); backend idempotency checks both `id` and `envelope_id`; sync processes one sale at a time; network errors pause sync (don't discard queue); server errors (4xx) skip bad sale and continue; auto-retry on reconnect after 2s; better progress events (sync_start, sync_progress, sync_complete, sync_paused); `newEnvelopeId()` exported from syncManager.
+- **PO Payment Terms in Header** — Payment Type dropdown (Cash / Credit & Terms) added to PO creation form; Terms dropdown (Net 7/15/30/45/60) appears when Credit selected; action buttons highlight selected type; clicking Terms button pre-fills dialog with header selection.
+

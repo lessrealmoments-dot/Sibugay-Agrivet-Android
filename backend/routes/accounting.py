@@ -183,7 +183,218 @@ async def get_wallet_movements(wallet_id: str, user=Depends(get_current_user), l
     return movements
 
 
-# ==================== EXPENSES ====================
+# ══════════════════════════════════════════════════════════════════
+# FUND TRANSFER SYSTEM — Controlled internal money movement
+# Protocol:
+#   Cashier ↔ Safe  → Manager PIN required
+#   Safe → Bank     → Admin TOTP required
+#   Capital add     → Admin only (no PIN, role check)
+# ══════════════════════════════════════════════════════════════════
+
+TRANSFER_DESCRIPTIONS = {
+    "cashier_to_safe": "Cashier → Safe transfer",
+    "safe_to_cashier": "Safe → Cashier transfer",
+    "safe_to_bank": "Safe → Bank deposit",
+    "capital_add": "Capital injection to Cashier",
+}
+
+
+@router.post("/fund-transfers")
+async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
+    """
+    Internal fund transfer with full audit trail.
+    - cashier ↔ safe: manager PIN
+    - safe → bank: admin TOTP
+    - capital add: admin only
+    """
+    import pyotp
+    check_perm(user, "accounting", "manage_funds")
+
+    branch_id = data.get("branch_id") or user.get("branch_id", "")
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="Branch ID required")
+
+    transfer_type = data.get("transfer_type", "")  # cashier_to_safe | safe_to_cashier | safe_to_bank | capital_add
+    amount = float(data.get("amount", 0))
+    note = data.get("note", "")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+
+    authorized_by = None
+
+    # ── Authorization based on transfer type ─────────────────────────────────
+    if transfer_type in ("cashier_to_safe", "safe_to_cashier"):
+        # Manager PIN required
+        manager_pin = data.get("manager_pin", "")
+        if not manager_pin:
+            raise HTTPException(status_code=400, detail="Manager PIN required for this transfer")
+        managers = await db.users.find(
+            {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
+        ).to_list(50)
+        for mgr in managers:
+            pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
+            if pin and manager_pin == pin:
+                authorized_by = mgr.get("full_name", mgr["username"])
+                break
+        if not authorized_by:
+            raise HTTPException(status_code=401, detail="Invalid manager PIN")
+
+    elif transfer_type == "safe_to_bank":
+        # Admin TOTP required
+        totp_code = data.get("totp_code", "")
+        if not totp_code:
+            raise HTTPException(status_code=400, detail="Admin TOTP code required for bank deposit")
+        admins = await db.users.find(
+            {"role": "admin", "active": True, "totp_enabled": True}, {"_id": 0}
+        ).to_list(10)
+        for admin in admins:
+            secret = admin.get("totp_secret")
+            if secret:
+                totp = pyotp.TOTP(secret)
+                if totp.verify(totp_code, valid_window=1):
+                    authorized_by = admin.get("full_name", admin["username"])
+                    break
+        if not authorized_by:
+            raise HTTPException(status_code=401, detail="Invalid TOTP code — check your authenticator app")
+
+    elif transfer_type == "capital_add":
+        # Admin role only
+        if user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Only admin can add capital to cashier")
+        authorized_by = user.get("full_name", user["username"])
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid transfer_type: {transfer_type}")
+
+    description = TRANSFER_DESCRIPTIONS.get(transfer_type, transfer_type)
+    ref_text = f"{description} — ₱{amount:,.2f} — {note or 'No note'}"
+
+    # ── Execute transfer ──────────────────────────────────────────────────────
+    if transfer_type == "cashier_to_safe":
+        # Validate cashier has enough
+        cashier_w = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+        )
+        cashier_bal = float(cashier_w.get("balance", 0)) if cashier_w else 0.0
+        if cashier_bal < amount:
+            raise HTTPException(status_code=400, detail=f"Cashier has ₱{cashier_bal:,.2f}, need ₱{amount:,.2f}")
+        # Deduct cashier
+        await update_cashier_wallet(branch_id, -amount, ref_text, allow_negative=False)
+        # Add to safe
+        safe_w = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if safe_w:
+            await db.safe_lots.insert_one({
+                "id": new_id(), "branch_id": branch_id, "wallet_id": safe_w["id"],
+                "date_received": now_iso()[:10],
+                "original_amount": amount, "remaining_amount": amount,
+                "source_reference": ref_text,
+                "created_by": user["id"], "created_at": now_iso(),
+            })
+
+    elif transfer_type == "safe_to_cashier":
+        # Validate safe has enough
+        safe_w = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if not safe_w:
+            raise HTTPException(status_code=404, detail="Safe wallet not found")
+        lots = await db.safe_lots.find(
+            {"wallet_id": safe_w["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).to_list(500)
+        safe_bal = round(sum(lot["remaining_amount"] for lot in lots), 2)
+        if safe_bal < amount:
+            raise HTTPException(status_code=400, detail=f"Safe has ₱{safe_bal:,.2f}, need ₱{amount:,.2f}")
+        # Deduct safe
+        remaining = amount
+        for lot in sorted(lots, key=lambda x: -x["remaining_amount"]):
+            if remaining <= 0: break
+            take = min(lot["remaining_amount"], remaining)
+            await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+            remaining -= take
+        # Add to cashier
+        await update_cashier_wallet(branch_id, amount, ref_text)
+
+    elif transfer_type == "safe_to_bank":
+        # Deduct from safe
+        safe_w = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if not safe_w:
+            raise HTTPException(status_code=404, detail="Safe wallet not found")
+        lots = await db.safe_lots.find(
+            {"wallet_id": safe_w["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).to_list(500)
+        safe_bal = round(sum(lot["remaining_amount"] for lot in lots), 2)
+        if safe_bal < amount:
+            raise HTTPException(status_code=400, detail=f"Safe has ₱{safe_bal:,.2f}, need ₱{amount:,.2f}")
+        remaining = amount
+        for lot in sorted(lots, key=lambda x: -x["remaining_amount"]):
+            if remaining <= 0: break
+            take = min(lot["remaining_amount"], remaining)
+            await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+            remaining -= take
+        # Add to bank wallet
+        bank_w = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "bank", "active": True}, {"_id": 0}
+        )
+        if bank_w:
+            await db.fund_wallets.update_one({"id": bank_w["id"]}, {"$inc": {"balance": amount}})
+            await db.wallet_movements.insert_one({
+                "id": new_id(), "wallet_id": bank_w["id"],
+                "branch_id": branch_id, "type": "bank_deposit",
+                "amount": amount, "reference": ref_text,
+                "authorized_by": authorized_by,
+                "balance_after": round(float(bank_w.get("balance", 0)) + amount, 2),
+                "created_at": now_iso(),
+            })
+
+    elif transfer_type == "capital_add":
+        # Admin adds capital directly to cashier — full audit trail
+        await update_cashier_wallet(branch_id, amount, f"Capital injection — {note or 'Admin deposit'}")
+
+    # ── Record transfer log ────────────────────────────────────────────────────
+    transfer_log = {
+        "id": new_id(),
+        "branch_id": branch_id,
+        "transfer_type": transfer_type,
+        "amount": amount,
+        "description": description,
+        "note": note,
+        "authorized_by": authorized_by,
+        "performed_by_id": user["id"],
+        "performed_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.fund_transfers.insert_one(transfer_log)
+    del transfer_log["_id"]
+
+    return {
+        "message": f"{description} of ₱{amount:,.2f} completed",
+        "authorized_by": authorized_by,
+        "transfer": transfer_log,
+    }
+
+
+@router.get("/fund-transfers")
+async def list_fund_transfers(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    limit: int = 50,
+):
+    """Get fund transfer audit log for a branch."""
+    check_perm(user, "accounting", "view")
+    query = {}
+    if branch_id:
+        query["branch_id"] = branch_id
+    elif user.get("branch_id") and user.get("role") not in ["admin"]:
+        query["branch_id"] = user["branch_id"]
+    transfers = await db.fund_transfers.find(query, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return transfers
+
+
+
 @router.get("/expenses")
 async def list_expenses(
     user=Depends(get_current_user),

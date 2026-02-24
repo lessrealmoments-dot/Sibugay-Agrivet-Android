@@ -646,7 +646,13 @@ export default function UnifiedSalesPage() {
     const today = new Date().toISOString().slice(0, 10);
     
     // Calculate amounts
-    const amountPaid = actualPaymentType === 'cash' ? grandTotal : (actualPaymentType === 'partial' ? actualPartial : 0);
+    const splitCashAmt = parseFloat(splitCash || 0);
+    const splitDigitalAmt = parseFloat(splitDigital || 0);
+    const amountPaid = actualPaymentType === 'cash' ? grandTotal
+      : actualPaymentType === 'digital' ? grandTotal
+      : actualPaymentType === 'split' ? (splitCashAmt + splitDigitalAmt)
+      : actualPaymentType === 'partial' ? actualPartial
+      : 0;
     const balance = grandTotal - amountPaid;
     
     // Prepare items

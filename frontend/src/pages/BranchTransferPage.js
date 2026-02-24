@@ -1296,6 +1296,19 @@ export default function BranchTransferPage() {
               onClick={() => { setBtUploadOrderId(viewOrder?.id); setBtUploadQROpen(true); }}>
               <Upload size={12} className="mr-1" /> Upload DR / Proof
             </Button>
+            <div className="flex gap-2 mt-1">
+              <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
+                onClick={() => { setBtViewQROpen(true); }}>
+                <span className="mr-1">📱</span> View on Phone
+              </Button>
+              {viewOrder && !viewOrder.verified && (
+                <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
+                  onClick={() => { setBtVerifyId(viewOrder?.id); setBtVerifyOpen(true); }}>
+                  <CheckCircle2 size={12} className="mr-1" /> Verify
+                </Button>
+              )}
+              {viewOrder?.verified && <VerificationBadge doc={viewOrder} />}
+            </div>
           </DialogHeader>
           <ScrollArea className="flex-1">
             {/* Reconciliation view for received orders */}

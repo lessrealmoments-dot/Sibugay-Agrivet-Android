@@ -494,6 +494,7 @@ class TestPurchaseOrders:
             "supplier_id": state["supp_agritech_id"],
             "branch_id": state["riverside_id"],
             "po_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "po_type": "terms",
             "payment_terms": "net15",
             "terms_days": 15,
             "items": [
@@ -501,8 +502,6 @@ class TestPurchaseOrders:
                 {"product_id": state["prod_vet_id"], "product_name": "Vet Antibiotic Vial", "quantity": 20, "unit_price": 120.00},
                 {"product_id": state["prod_rice_id"], "product_name": "Rice Premium 25kg", "quantity": 12, "unit_price": 1200.00}
             ],
-            "status": "received",
-            "fund_source": "safe"
         }, headers=hdr)
         assert resp.status_code in [200, 201], f"Create Riverside Terms PO failed: {resp.text}"
         data = resp.json()

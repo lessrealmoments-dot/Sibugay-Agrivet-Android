@@ -37,6 +37,21 @@ export default function UnifiedSalesPage() {
   
   // Mode: 'quick' or 'order'
   const [mode, setMode] = useState('quick');
+
+  // Main tab: 'sale' | 'history'
+  const [mainTab, setMainTab] = useState('sale');
+
+  // ── Sales History ────────────────────────────────────────────────────────
+  const [historyDate, setHistoryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyList, setHistoryList] = useState([]);
+  const [historyTotals, setHistoryTotals] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null); // detail modal
+  const [voidDialog, setVoidDialog] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidPin, setVoidPin] = useState('');
+  const [voidSaving, setVoidSaving] = useState(false);
   
   // Products & Data
   const [allProducts, setAllProducts] = useState([]);

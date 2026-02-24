@@ -464,21 +464,20 @@ class TestPurchaseOrders:
         print(f"Created Lakewood Terms PO id={data['id']}")
 
     def test_create_riverside_po1_cash(self, hdr):
-        """Cash PO at Riverside from FarmPro."""
+        """Cash PO at Riverside from FarmPro (fund from safe which has 50000)."""
         assert "riverside_id" in state
         resp = requests.post(f"{BASE_URL}/api/purchase-orders", json={
             "vendor": "FarmPro Distributors",
             "supplier_id": state["supp_farmpro_id"],
             "branch_id": state["riverside_id"],
             "po_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "payment_terms": "cash",
+            "po_type": "cash",
             "items": [
                 {"product_id": state["prod_rice_id"], "product_name": "Rice Premium 25kg", "quantity": 10, "unit_price": 1200.00},
                 {"product_id": state["prod_pesticide_id"], "product_name": "Pesticide Gold 1L", "quantity": 10, "unit_price": 350.00},
                 {"product_id": state["prod_animal_feed_id"], "product_name": "Animal Feed Deluxe 20kg", "quantity": 8, "unit_price": 600.00}
             ],
-            "status": "received",
-            "fund_source": "cashier"
+            "fund_source": "safe"
         }, headers=hdr)
         assert resp.status_code in [200, 201], f"Create Riverside PO failed: {resp.text}"
         data = resp.json()

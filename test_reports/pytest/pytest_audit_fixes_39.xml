@@ -1,421 +1,176 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="28" failures="0" skipped="0" tests="28" time="0.934" timestamp="2026-02-24T05:56:48.518596+00:00" hostname="agent-env-6ac3e5e2-9613-422d-b6e9-8f192747e9ab"><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOCancelBlocked" name="test_cancel_received_po_returns_400" time="0.001"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOCancelBlocked" name="test_cancel_nonexistent_po_returns_404" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_cash_po_includes_payment_reversal_message" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_terms_po_includes_payable_voided_message" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_non_received_po_returns_400" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOEditBalance" name="test_edit_po_balance_recalculated_from_amount_paid" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOEditBalance" name="test_edit_po_balance_zero_when_overpaid" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestBranchTransferCancelBlocked" name="test_cancel_received_pending_transfer_returns_400" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestBranchTransferCancelBlocked" name="test_cancel_nonexistent_transfer_returns_404" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestReturnsVoid" name="test_void_return_with_wrong_pin_returns_401" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestReturnsVoid" name="test_void_return_nonexistent_returns_404" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestReturnsVoid" name="test_void_return_missing_pin_returns_400" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEmployeeAdvanceReverse" name="test_reverse_employee_advance_wrong_pin_returns_401" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEmployeeAdvanceReverse" name="test_reverse_employee_advance_nonexistent_returns_correct" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestCustomerCashoutReverse" name="test_reverse_customer_cashout_wrong_pin_returns_401" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestCustomerCashoutReverse" name="test_reverse_customer_cashout_nonexistent_correct_pin" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestCustomerCashoutReverse" name="test_reverse_customer_cashout_missing_pin_returns_400" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_invoice_payment_wrong_pin_returns_401" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_invoice_payment_missing_pin_returns_400" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_nonexistent_invoice_returns_404" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_invoice_nonexistent_payment_returns_404" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestExpenseDelete" name="test_delete_nonexistent_expense_returns_404" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestExpenseDelete" name="test_delete_already_voided_expense_returns_400" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_reopen_endpoint_exists" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_void_return_endpoint_exists" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_employee_advance_reverse_endpoint_exists" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_customer_cashout_reverse_endpoint_exists" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_invoice_void_payment_endpoint_exists" time="0.000"><error message="failed on setup with &quot;requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?&quot;">backend/tests/test_audit_money_stock_fixes.py:53: in session
-    resp = s.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:637: in post
-    return self.request("POST", url, data=data, json=json, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:575: in request
-    prep = self.prepare_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-/root/.venv/lib/python3.11/site-packages/requests/sessions.py:484: in prepare_request
-    p.prepare(
-/root/.venv/lib/python3.11/site-packages/requests/models.py:367: in prepare
-    self.prepare_url(url, params)
-/root/.venv/lib/python3.11/site-packages/requests/models.py:438: in prepare_url
-    raise MissingSchema(
-E   requests.exceptions.MissingSchema: Invalid URL '/api/auth/login': No scheme supplied. Perhaps you meant https:///api/auth/login?</error></testcase></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="5" failures="16" skipped="0" tests="28" time="2.495" timestamp="2026-02-24T05:57:06.147670+00:00" hostname="agent-env-6ac3e5e2-9613-422d-b6e9-8f192747e9ab"><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOCancelBlocked" name="test_cancel_received_po_returns_400" time="0.543"><failure message="AssertionError: Expected 400 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 400&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:103: in test_cancel_received_po_returns_400
+    assert resp.status_code == 400, f"Expected 400 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 400 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 400
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOCancelBlocked" name="test_cancel_nonexistent_po_returns_404" time="0.061"><failure message="AssertionError: Expected 404 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:114: in test_cancel_nonexistent_po_returns_404
+    assert resp.status_code == 404, f"Expected 404 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 404 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_cash_po_includes_payment_reversal_message" time="0.098"><failure message="AssertionError: Expected 200 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:191: in test_reopen_cash_po_includes_payment_reversal_message
+    assert resp.status_code == 200, f"Expected 200 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 200 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_cash_po_includes_payment_reversal_message" time="0.000"><error message="failed on teardown with &quot;RuntimeError: Event loop is closed&quot;">backend/tests/test_audit_money_stock_fixes.py:185: in setup_and_teardown
+    run_async(cleanup())
+backend/tests/test_audit_money_stock_fixes.py:88: in run_async
+    return loop.run_until_complete(coro)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_audit_money_stock_fixes.py:183: in cleanup
+    await db_conn.purchase_orders.delete_many({"id": {"$in": [cash_po_id, terms_po_id]}})
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_terms_po_includes_payable_voided_message" time="0.001"><error message="failed on setup with &quot;RuntimeError: Event loop is closed&quot;">backend/tests/test_audit_money_stock_fixes.py:179: in setup_and_teardown
+    run_async(insert())
+backend/tests/test_audit_money_stock_fixes.py:88: in run_async
+    return loop.run_until_complete(coro)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_audit_money_stock_fixes.py:142: in insert
+    await db_conn.purchase_orders.insert_one({
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOReopenPaymentReversal" name="test_reopen_non_received_po_returns_400" time="0.001"><error message="failed on setup with &quot;RuntimeError: Event loop is closed&quot;">backend/tests/test_audit_money_stock_fixes.py:179: in setup_and_teardown
+    run_async(insert())
+backend/tests/test_audit_money_stock_fixes.py:88: in run_async
+    return loop.run_until_complete(coro)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_audit_money_stock_fixes.py:142: in insert
+    await db_conn.purchase_orders.insert_one({
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOEditBalance" name="test_edit_po_balance_recalculated_from_amount_paid" time="0.001"><error message="failed on setup with &quot;RuntimeError: Event loop is closed&quot;">backend/tests/test_audit_money_stock_fixes.py:277: in setup_and_teardown
+    run_async(insert())
+backend/tests/test_audit_money_stock_fixes.py:88: in run_async
+    return loop.run_until_complete(coro)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_audit_money_stock_fixes.py:238: in insert
+    await db_conn.purchase_orders.insert_one({
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestPOEditBalance" name="test_edit_po_balance_zero_when_overpaid" time="0.001"><error message="failed on setup with &quot;RuntimeError: Event loop is closed&quot;">backend/tests/test_audit_money_stock_fixes.py:277: in setup_and_teardown
+    run_async(insert())
+backend/tests/test_audit_money_stock_fixes.py:88: in run_async
+    return loop.run_until_complete(coro)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_audit_money_stock_fixes.py:238: in insert
+    await db_conn.purchase_orders.insert_one({
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</error></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestBranchTransferCancelBlocked" name="test_cancel_received_pending_transfer_returns_400" time="0.059"><failure message="AssertionError: Expected 400 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 400&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:371: in test_cancel_received_pending_transfer_returns_400
+    assert resp.status_code == 400, f"Expected 400 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 400 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 400
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestBranchTransferCancelBlocked" name="test_cancel_nonexistent_transfer_returns_404" time="0.057"><failure message="AssertionError: Expected 404 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:382: in test_cancel_nonexistent_transfer_returns_404
+    assert resp.status_code == 404, f"Expected 404 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 404 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestReturnsVoid" name="test_void_return_with_wrong_pin_returns_401" time="0.056" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestReturnsVoid" name="test_void_return_nonexistent_returns_404" time="0.059"><failure message="AssertionError: Expected 404 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:413: in test_void_return_nonexistent_returns_404
+    assert resp.status_code == 404, f"Expected 404 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 404 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestReturnsVoid" name="test_void_return_missing_pin_returns_400" time="0.055"><failure message="AssertionError: Expected 400 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 400&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:427: in test_void_return_missing_pin_returns_400
+    assert resp.status_code == 400, f"Expected 400 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 400 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 400
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEmployeeAdvanceReverse" name="test_reverse_employee_advance_wrong_pin_returns_401" time="0.055" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEmployeeAdvanceReverse" name="test_reverse_employee_advance_nonexistent_returns_correct" time="0.124"><failure message="AssertionError: Expected 404 for nonexistent expense with correct PIN, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:469: in test_reverse_employee_advance_nonexistent_returns_correct
+    assert resp_correct.status_code == 404, \
+E   AssertionError: Expected 404 for nonexistent expense with correct PIN, got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestCustomerCashoutReverse" name="test_reverse_customer_cashout_wrong_pin_returns_401" time="0.054" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestCustomerCashoutReverse" name="test_reverse_customer_cashout_nonexistent_correct_pin" time="0.055"><failure message="AssertionError: Expected 404 for nonexistent expense, got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:501: in test_reverse_customer_cashout_nonexistent_correct_pin
+    assert resp.status_code == 404, \
+E   AssertionError: Expected 404 for nonexistent expense, got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestCustomerCashoutReverse" name="test_reverse_customer_cashout_missing_pin_returns_400" time="0.057"><failure message="AssertionError: Expected 400 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 400&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:511: in test_reverse_customer_cashout_missing_pin_returns_400
+    assert resp.status_code == 400, f"Expected 400 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 400 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 400
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_invoice_payment_wrong_pin_returns_401" time="0.057" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_invoice_payment_missing_pin_returns_400" time="0.056"><failure message="AssertionError: Expected 400 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 400&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:542: in test_void_invoice_payment_missing_pin_returns_400
+    assert resp.status_code == 400, f"Expected 400 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 400 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 400
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_nonexistent_invoice_returns_404" time="0.057"><failure message="AssertionError: Expected 404 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:551: in test_void_nonexistent_invoice_returns_404
+    assert resp.status_code == 404, f"Expected 404 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 404 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestInvoicePaymentVoid" name="test_void_invoice_nonexistent_payment_returns_404" time="0.062"><failure message="AssertionError: Expected 404 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:560: in test_void_invoice_nonexistent_payment_returns_404
+    assert resp.status_code == 404, f"Expected 404 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 404 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestExpenseDelete" name="test_delete_nonexistent_expense_returns_404" time="0.057"><failure message="AssertionError: Expected 404 but got 401: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 404&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:578: in test_delete_nonexistent_expense_returns_404
+    assert resp.status_code == 404, f"Expected 404 but got {resp.status_code}: {resp.text}"
+E   AssertionError: Expected 404 but got 401: {"detail":"Invalid token"}
+E   assert 401 == 404
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestExpenseDelete" name="test_delete_already_voided_expense_returns_400" time="0.001"><failure message="RuntimeError: Event loop is closed">backend/tests/test_audit_money_stock_fixes.py:605: in test_delete_already_voided_expense_returns_400
+    run_async(insert())
+backend/tests/test_audit_money_stock_fixes.py:88: in run_async
+    return loop.run_until_complete(coro)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_audit_money_stock_fixes.py:592: in insert
+    await db_conn.expenses.insert_one({
+/root/.venv/lib/python3.11/site-packages/motor/metaprogramming.py:74: in method
+    return framework.run_on_executor(
+/root/.venv/lib/python3.11/site-packages/motor/frameworks/asyncio/__init__.py:85: in run_on_executor
+    return loop.run_in_executor(_EXECUTOR, functools.partial(fn, *args, **kwargs))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:817: in run_in_executor
+    self._check_closed()
+/usr/local/lib/python3.11/asyncio/base_events.py:520: in _check_closed
+    raise RuntimeError('Event loop is closed')
+E   RuntimeError: Event loop is closed</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_reopen_endpoint_exists" time="0.058"><failure message="AssertionError: Unexpected status 401: endpoint may not be registered. {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 in [404, 400]&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_audit_money_stock_fixes.py:630: in test_reopen_endpoint_exists
+    assert resp.status_code in [404, 400], \
+E   AssertionError: Unexpected status 401: endpoint may not be registered. {"detail":"Invalid token"}
+E   assert 401 in [404, 400]
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_void_return_endpoint_exists" time="0.053" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_employee_advance_reverse_endpoint_exists" time="0.055" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_customer_cashout_reverse_endpoint_exists" time="0.061" /><testcase classname="backend.tests.test_audit_money_stock_fixes.TestEndpointRegistration" name="test_invoice_void_payment_endpoint_exists" time="0.058" /></testsuite></testsuites>

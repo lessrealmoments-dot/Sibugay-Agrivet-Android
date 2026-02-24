@@ -3,7 +3,7 @@ Branch management routes.
 """
 from fastapi import APIRouter, Depends
 from config import db
-from utils import get_current_user, check_perm, now_iso, new_id
+from utils import get_current_user, check_perm, now_iso, new_id, provision_branch_wallets
 
 router = APIRouter(prefix="/branches", tags=["Branches"])
 
@@ -17,7 +17,7 @@ async def list_branches(user=Depends(get_current_user)):
 
 @router.post("")
 async def create_branch(data: dict, user=Depends(get_current_user)):
-    """Create a new branch."""
+    """Create a new branch and auto-provision all 4 fund wallets."""
     check_perm(user, "branches", "create")
     
     branch = {
@@ -30,6 +30,8 @@ async def create_branch(data: dict, user=Depends(get_current_user)):
     }
     await db.branches.insert_one(branch)
     del branch["_id"]
+    # Auto-create all 4 wallets for this branch
+    await provision_branch_wallets(branch["id"], branch["name"])
     return branch
 
 

@@ -241,6 +241,11 @@ export default function SettingsPage() {
               <Shield size={14} /> Security
             </TabsTrigger>
           )}
+          {isAdmin && (
+            <TabsTrigger value="audit-setup" data-testid="audit-setup-tab" className="flex items-center gap-1.5">
+              <ShieldCheck size={14} /> Audit Setup
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* ── Users Tab ─────────────────────────────────────────────────── */}

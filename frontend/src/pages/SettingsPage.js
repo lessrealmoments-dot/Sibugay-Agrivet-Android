@@ -510,6 +510,125 @@ export default function SettingsPage() {
 
           </TabsContent>
         )}
+
+        {/* ── Audit Setup Tab ────────────────────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="audit-setup" className="space-y-6">
+
+            {/* Admin Verification PIN */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  <ShieldCheck size={18} className="text-[#1A4D2E]" />
+                  Admin Verification PIN
+                  {auditPinConfigured
+                    ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Configured</Badge>
+                    : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
+                  }
+                </CardTitle>
+                <p className="text-sm text-slate-500">
+                  Used to authorize transaction verification (POs, Expenses, Branch Transfers).
+                  Separate from your login password. TOTP codes and Auditor PINs are also accepted.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="max-w-sm space-y-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">{auditPinConfigured ? 'New PIN' : 'Set PIN'}</Label>
+                    <div className="relative mt-1">
+                      <Input data-testid="audit-pin-input"
+                        type={showAuditPin ? 'text' : 'password'}
+                        value={newAuditPin}
+                        onChange={e => setNewAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                        placeholder="Enter 4–8 digit PIN" className="pr-10"
+                      />
+                      <button onClick={() => setShowAuditPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        {showAuditPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Confirm PIN</Label>
+                    <Input data-testid="audit-pin-confirm" type="password" value={confirmAuditPin}
+                      onChange={e => setConfirmAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                      placeholder="Re-enter PIN" className="mt-1" />
+                  </div>
+                  {newAuditPin && confirmAuditPin && newAuditPin !== confirmAuditPin && (
+                    <p className="text-xs text-red-500">PINs do not match</p>
+                  )}
+                  <Button data-testid="save-audit-pin-btn" onClick={saveAuditPin}
+                    disabled={savingAuditPin || !newAuditPin || newAuditPin !== confirmAuditPin}
+                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                    {savingAuditPin ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <ShieldCheck size={13} className="mr-1.5" />}
+                    {auditPinConfigured ? 'Update PIN' : 'Set PIN'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Auditor Access */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  <Users size={18} className="text-[#1A4D2E]" />
+                  Auditor Access
+                </CardTitle>
+                <p className="text-sm text-slate-500">
+                  Grant auditor access so users can verify transactions using their own PIN — no Admin PIN or TOTP needed.
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">User</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Role</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Auditor</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Auditor PIN</TableHead>
+                      <TableHead className="w-20" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map(u => {
+                      const state = getAuditorState(u);
+                      const isDirty = auditorEdits[u.id] !== undefined;
+                      return (
+                        <TableRow key={u.id}>
+                          <TableCell>
+                            <p className="font-medium text-sm">{u.full_name || u.username}</p>
+                            <p className="text-xs text-slate-400">@{u.username}</p>
+                          </TableCell>
+                          <TableCell><Badge className="text-[10px] capitalize bg-slate-100 text-slate-600">{u.role}</Badge></TableCell>
+                          <TableCell>
+                            <button onClick={() => updateAuditorEdit(u.id, 'is_auditor', !state.is_auditor)}
+                              className={`w-10 h-5 rounded-full relative transition-colors ${state.is_auditor ? 'bg-[#1A4D2E]' : 'bg-slate-200'}`}>
+                              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${state.is_auditor ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            {state.is_auditor && (
+                              <Input type="password" value={state.auditor_pin}
+                                onChange={e => updateAuditorEdit(u.id, 'auditor_pin', e.target.value.replace(/\D/g, '').slice(0, 8))}
+                                placeholder="4–8 digits" className="h-8 w-28 text-sm" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isDirty && (
+                              <Button size="sm" onClick={() => saveAuditorAccess(u.id)} disabled={savingAuditor[u.id]}
+                                className="h-7 text-xs bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                                {savingAuditor[u.id] ? <RefreshCw size={11} className="animate-spin" /> : 'Save'}
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
         <DialogContent className="sm:max-w-md">

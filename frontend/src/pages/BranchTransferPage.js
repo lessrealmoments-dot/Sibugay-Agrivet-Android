@@ -842,7 +842,8 @@ export default function BranchTransferPage() {
                         const v = row.product ? validateRow(row, minMargin) : { ok: true, margin: 0 };
                         const rowBad = !v.ok && !row.override;
                         return (
-                          <tr key={row.id} className={`border-b border-slate-100 ${rowBad ? 'bg-red-50/50' : 'hover:bg-slate-50/30'}`}>
+                          <React.Fragment key={row.id}>
+                          <tr className={`border-b border-slate-100 ${rowBad ? 'bg-red-50/50' : 'hover:bg-slate-50/30'}`}>
                             {/* Product search */}
                             <td className="px-2 py-1.5" style={{minWidth:'200px'}}>
                               {row.product ? (

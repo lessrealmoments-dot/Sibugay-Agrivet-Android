@@ -217,14 +217,13 @@ class TestPOPaymentType:
         res = authed.get(f"{BASE_URL}/api/purchase-orders")
         assert res.status_code == 200
         data = res.json()
-        # Can be list or {orders: [...]}
-        orders = data if isinstance(data, list) else data.get("orders", [])
+        # Can be list or {purchase_orders: [...]}
+        orders = data.get("purchase_orders", []) if isinstance(data, dict) else data
         if not orders:
             pytest.skip("No POs found to check verification fields")
 
         po = orders[0]
         # Fields used by VerificationBadge
-        # verified, verified_by_name, verified_at are optional but structure should support it
         assert "id" in po, f"PO missing 'id': {po.keys()}"
         assert "status" in po, f"PO missing 'status': {po.keys()}"
 

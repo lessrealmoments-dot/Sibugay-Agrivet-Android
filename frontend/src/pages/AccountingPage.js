@@ -495,6 +495,17 @@ export default function AccountingPage() {
                             className="text-blue-500 h-7 px-2" title="Upload Receipt">
                             <Upload size={12} />
                           </Button>
+                          <Button variant="ghost" size="sm" onClick={() => { setViewQRExpenseId(e.id); setViewQRExpenseOpen(true); }}
+                            className="text-slate-500 h-7 px-2" title="View on Phone">
+                            <span className="text-xs">📱</span>
+                          </Button>
+                          {!e.verified && (
+                            <Button variant="ghost" size="sm" onClick={() => { setVerifyExpenseId(e.id); setVerifyExpenseLabel(e.description); setVerifyExpenseOpen(true); }}
+                              className="text-[#1A4D2E] h-7 px-2" title="Verify">
+                              <Shield size={12} />
+                            </Button>
+                          )}
+                          <VerificationBadge doc={e} compact />
                           <Button variant="ghost" size="sm" onClick={() => deleteExpense(e.id)} className="text-red-500 h-7 px-2">Del</Button>
                         </div>
                       </TableCell>

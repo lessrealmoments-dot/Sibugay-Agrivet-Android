@@ -1112,6 +1112,151 @@ export default function AuditCenterPage() {
           )}
         </TabsContent>
 
+        {/* ── DISCREPANCIES TAB ────────────────────────────────────────── */}
+        <TabsContent value="discrepancies" className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-slate-800">Unresolved Discrepancies</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Flagged during transaction verification. Resolve after full audit review.</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={loadDiscrepancies} className="h-8">
+              <RefreshCw size={13} className="mr-1" /> Refresh
+            </Button>
+          </div>
+          {loadingDisc ? (
+            <div className="text-center py-8"><RefreshCw size={20} className="animate-spin mx-auto text-slate-400" /></div>
+          ) : discrepancies.length === 0 ? (
+            <Card className="border-slate-200 bg-slate-50">
+              <CardContent className="p-8 text-center">
+                <ShieldCheck size={28} className="mx-auto mb-2 text-emerald-400" />
+                <p className="text-sm text-slate-500">No unresolved discrepancies. All verified transactions are clean.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {discrepancies.map(disc => (
+                <Card key={disc.id} className="border-amber-200">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ShieldAlert size={14} className="text-amber-500 shrink-0" />
+                          <span className="font-semibold text-sm text-slate-800">{disc.doc_number}</span>
+                          <Badge className="text-[10px] bg-amber-100 text-amber-700">{disc.doc_type?.replace('_', ' ')}</Badge>
+                          <span className="text-[10px] text-slate-400">{disc.doc_date}</span>
+                        </div>
+                        {disc.doc_title && <p className="text-xs text-slate-500 mb-1">{disc.doc_title}</p>}
+                        {disc.item_description && (
+                          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs mt-2">
+                            <span className="font-medium text-amber-800">{disc.item_description}</span>
+                            {disc.expected_qty != null && (
+                              <span className="ml-2 text-amber-700">
+                                Expected: <b>{disc.expected_qty}</b> {disc.unit} · Found: <b>{disc.found_qty}</b> {disc.unit}
+                                {disc.value_impact != null && (
+                                  <span className={`ml-2 font-bold ${disc.value_impact < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                                    {disc.value_impact > 0 ? '+' : ''}{formatPHP(disc.value_impact)}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            <p className="text-slate-500 mt-1">{disc.note}</p>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-slate-400 mt-1.5">Verified by {disc.verified_by_name} · {disc.verified_at?.slice(0, 16)?.replace('T', ' ')}</p>
+                      </div>
+                      <Button size="sm" onClick={() => { setResolveDialog(disc); setResolveAction('dismiss'); setResolveNote(''); }}
+                        className="shrink-0 h-8 text-xs bg-slate-800 hover:bg-slate-900 text-white">
+                        Resolve
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+          {resolveDialog && (
+            <div className="fixed inset-0 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999 }}
+              onClick={e => { if (e.target === e.currentTarget) setResolveDialog(null); }}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '420px' }}>
+                <p className="font-bold text-slate-800 mb-1">Resolve Discrepancy</p>
+                <p className="text-xs text-slate-400 mb-4">{resolveDialog.doc_number} · {resolveDialog.item_description}</p>
+                <div className="flex gap-2 mb-4">
+                  {['dismiss', 'apply'].map(a => (
+                    <button key={a} onClick={() => setResolveAction(a)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors capitalize ${resolveAction === a ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                      {a === 'apply' ? 'Apply Correction' : 'Dismiss'}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mb-2">{resolveAction === 'apply' ? 'Creates an inventory adjustment with audit trail' : 'Records justification and marks as reviewed'}</p>
+                <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)} placeholder="Justification / note…" rows={2}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none resize-none" />
+                <div className="flex gap-2">
+                  <button onClick={() => setResolveDialog(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
+                  <button onClick={resolveDiscrepancy} disabled={resolveSaving}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 ${resolveAction === 'apply' ? 'bg-[#1A4D2E] hover:bg-[#14532d]' : 'bg-slate-700 hover:bg-slate-800'}`}>
+                    {resolveSaving ? 'Saving…' : resolveAction === 'apply' ? 'Apply Correction' : 'Dismiss'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── PREPARE FOR AUDIT TAB ─────────────────────────────────────── */}
+        <TabsContent value="prepare" className="mt-4">
+          <Card className="border-slate-200">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-[#1A4D2E]/10 flex items-center justify-center shrink-0">
+                  <Download size={18} className="text-[#1A4D2E]" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800">Prepare Audit Package</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">Downloads all transactions and attached photos. Period auto-detected from your last two count sheets. Photos will open instantly.</p>
+                </div>
+              </div>
+              {prepStats && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Check size={14} className="text-emerald-600" />
+                    <span className="font-semibold text-emerald-800 text-sm">Package Ready</span>
+                    <span className="text-[10px] text-emerald-600 ml-auto">{prepStats.cached_at}</span>
+                  </div>
+                  <p className="text-xs text-emerald-700 mb-1">Period: <b>{prepStats.period_from}</b> → <b>{prepStats.period_to}</b>
+                    {prepStats.auto_detected && <span className="ml-2 text-emerald-500">(auto-detected)</span>}</p>
+                  {prepStats.count_sheet_refs && <p className="text-xs text-emerald-600">{prepStats.count_sheet_refs.baseline} → {prepStats.count_sheet_refs.current}</p>}
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {[['POs', prepStats.purchase_orders], ['Expenses', prepStats.expenses], ['Transfers', prepStats.branch_transfers], ['Photos', prepStats.total_files]].map(([l, v]) => (
+                      <div key={l} className="text-center bg-white rounded-lg py-1.5">
+                        <p className="font-bold text-emerald-700 text-sm">{v}</p>
+                        <p className="text-[10px] text-slate-400">{l}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {preparing && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RefreshCw size={13} className="animate-spin text-[#1A4D2E]" />
+                    <span className="text-sm text-slate-700">{prepProgress.step}</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div className="bg-[#1A4D2E] h-2 rounded-full transition-all duration-300" style={{ width: `${prepProgress.pct}%` }} />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 text-right">{prepProgress.pct}%</p>
+                </div>
+              )}
+              <Button onClick={prepareForAudit} disabled={preparing || !auditBranchId}
+                className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white h-11 font-semibold" data-testid="prepare-audit-btn">
+                {preparing ? <><RefreshCw size={15} className="animate-spin mr-2" />Preparing…</> : <><Download size={15} className="mr-2" />Prepare Audit Package</>}
+              </Button>
+              <p className="text-xs text-slate-400 text-center mt-2">Select a branch above first. Large datasets may take a few minutes.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* ── HISTORY TAB ──────────────────────────────────────────────── */}
         <TabsContent value="history" className="mt-4 space-y-3">
           <div className="flex justify-end">

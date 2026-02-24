@@ -749,12 +749,21 @@ async def dispute_receipt(transfer_id: str, data: dict, user=Depends(get_current
 
 @router.delete("/{transfer_id}")
 async def cancel_transfer(transfer_id: str, user=Depends(get_current_user)):
-    """Cancel a draft or sent transfer."""
+    """
+    Cancel a draft or sent transfer.
+    Blocks cancellation if inventory has already moved (received/received_pending/disputed).
+    """
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Transfer not found")
-    if order["status"] in ["received", "received_pending"]:
-        raise HTTPException(status_code=400, detail="Cannot cancel a received or pending-confirmation transfer")
+    if order["status"] in ["received", "received_pending", "disputed"]:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Cannot cancel — inventory has already been partially or fully received. "
+                "Use Accept/Dispute flow to resolve discrepancies."
+            )
+        )
     await db.branch_transfer_orders.update_one(
         {"id": transfer_id}, {"$set": {"status": "cancelled", "cancelled_at": now_iso()}}
     )

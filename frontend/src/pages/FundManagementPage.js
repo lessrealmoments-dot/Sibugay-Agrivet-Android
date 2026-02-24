@@ -153,6 +153,8 @@ export default function FundManagementPage() {
     setShowAuth(false);
   };
 
+  const [capitalTarget, setCapitalTarget] = useState('cashier'); // for capital_add
+
   const executeTransfer = async () => {
     if (!amount || parseFloat(amount) <= 0) { toast.error('Enter a valid amount'); return; }
     if (!activeTransfer) return;
@@ -165,6 +167,7 @@ export default function FundManagementPage() {
         transfer_type: activeTransfer.key,
         amount: parseFloat(amount),
         note,
+        target_wallet: activeTransfer.key === 'capital_add' ? capitalTarget : undefined,
         manager_pin: managerPin || undefined,
         totp_code: totpCode || undefined,
       };

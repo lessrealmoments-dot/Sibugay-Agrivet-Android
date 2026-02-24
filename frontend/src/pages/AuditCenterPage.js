@@ -483,6 +483,19 @@ export default function AuditCenterPage() {
   // ── Cash actual count entry ────────────────────────────────────────────
   const [actualCashCount, setActualCashCount] = useState('');
 
+  // ── Prepare for Audit (offline package) ───────────────────────────────
+  const [preparing, setPreparing] = useState(false);
+  const [prepProgress, setPrepProgress] = useState({ step: '', pct: 0, done: false });
+  const [prepStats, setPrepStats] = useState(null);
+
+  // ── Discrepancy report ─────────────────────────────────────────────────
+  const [discrepancies, setDiscrepancies] = useState([]);
+  const [loadingDisc, setLoadingDisc] = useState(false);
+  const [resolveDialog, setResolveDialog] = useState(null); // discrepancy entry
+  const [resolveAction, setResolveAction] = useState('dismiss');
+  const [resolveNote, setResolveNote] = useState('');
+  const [resolveSaving, setResolveSaving] = useState(false);
+
   useEffect(() => {
     if (currentBranch?.id) setAuditBranchId(currentBranch.id);
   }, [currentBranch?.id]);

@@ -257,6 +257,11 @@ export default function BranchTransferPage() {
       moving_average_ref: p.moving_average_ref,
       last_branch_retail: p.last_branch_retail,
       branch_retail: p.last_branch_retail != null ? String(p.last_branch_retail) : '',
+      // Repack children with their capital + current dest price
+      repacks: (p.repacks || []).map(rp => ({
+        ...rp,
+        new_retail_price: '', // blank = no change
+      })),
     };
     // Apply markup to get transfer capital
     const cat = p.category || 'General';

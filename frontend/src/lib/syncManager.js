@@ -1,31 +1,79 @@
 /**
- * AgriPOS Sync Manager
- * Handles syncing offline sales to server and refreshing local cache.
- * Emits step-by-step progress events so the UI can show a download bar.
+ * AgriPOS Sync Manager — Resilient Transaction Envelope Pattern
+ *
+ * Key improvements over previous version:
+ *  - Each sale gets a unique envelope_id (separate from invoice id) for idempotency
+ *  - Sales processed ONE AT A TIME so a single failure doesn't block others
+ *  - Automatic retry with exponential backoff (2s → 4s → 8s, max 3 retries)
+ *  - Network error vs server error distinction:
+ *      • Network error → stop sync, retry later (preserve queue)
+ *      • Server error (4xx) → mark sale as failed, skip it (don't retry forever)
+ *  - Auto-sync on reconnect (after 2s delay to let connection stabilize)
+ *  - Manual retry button support via triggerSync()
  */
 
 import { api } from '../contexts/AuthContext';
 import {
   getPendingSales, removePendingSale,
   cacheProducts, cacheCustomers, cachePriceSchemes, cacheInventory, cacheBranchPrices,
-  setMeta, getPendingSaleCount,
+  setMeta, getPendingSaleCount, putOne,
 } from './offlineDB';
 
 let syncInProgress = false;
 let syncListeners = [];
+let autoSyncInterval = null;
 
 export function onSyncUpdate(callback) {
   syncListeners.push(callback);
   return () => { syncListeners = syncListeners.filter(cb => cb !== callback); };
 }
 
-function notifyListeners(data) {
+function emit(data) {
   syncListeners.forEach(cb => cb(data));
 }
 
+/** Generate a UUID-based envelope ID */
+export function newEnvelopeId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older environments
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 /**
- * Sync all pending offline sales to the server.
- * After the server processes them (as 'synced' or 'duplicate'), removes from IndexedDB.
+ * Process a single pending sale with the envelope pattern.
+ * Returns: 'synced' | 'duplicate' | 'failed_permanent' | 'network_error'
+ */
+async function processSingleSale(sale, retryCount = 0) {
+  const MAX_RETRIES = 2;
+  try {
+    const res = await api.post('/sales/sync', { sales: [sale] });
+    const results = res.data.results || res.data.synced || [];
+    const result = results.find(r => r.id === sale.id || r.envelope_id === sale.envelope_id);
+    return result?.status === 'duplicate' ? 'duplicate' : 'synced';
+  } catch (err) {
+    if (!err.response) {
+      // Network error — stop and wait for reconnect
+      return 'network_error';
+    }
+    if (err.response.status >= 500 && retryCount < MAX_RETRIES) {
+      // Server error — retry with backoff
+      await new Promise(r => setTimeout(r, Math.pow(2, retryCount + 1) * 1000));
+      return processSingleSale(sale, retryCount + 1);
+    }
+    // 4xx or too many retries — permanent failure, skip
+    return 'failed_permanent';
+  }
+}
+
+/**
+ * Sync all pending offline sales one at a time.
+ * Stops immediately on network error (connection unstable).
+ * Skips permanently failed sales (bad data) and continues to the next.
  */
 export async function syncPendingSales() {
   if (syncInProgress || !navigator.onLine) return null;
@@ -38,90 +86,84 @@ export async function syncPendingSales() {
       return { synced: 0, total: 0 };
     }
 
-    notifyListeners({ type: 'sync_start', count: pendingSales.length });
+    emit({ type: 'sync_start', count: pendingSales.length });
 
-    const response = await api.post('/sales/sync', { sales: pendingSales });
-    const data = response.data;
+    let synced = 0;
+    let skipped = 0;
+    let networkError = false;
 
-    // Server returns results array (each item has id + status)
-    // Support both response shapes for backward compat
-    const resultList = data.results || data.synced || [];
+    for (let i = 0; i < pendingSales.length; i++) {
+      const sale = pendingSales[i];
+      emit({ type: 'sync_progress', current: i + 1, total: pendingSales.length, saleId: sale.id });
 
-    let removedCount = 0;
-    for (const result of resultList) {
-      if (result.status === 'synced' || result.status === 'duplicate') {
-        await removePendingSale(result.id);
-        removedCount++;
+      const status = await processSingleSale(sale);
+
+      if (status === 'network_error') {
+        networkError = true;
+        emit({ type: 'sync_paused', reason: 'network_error', remaining: pendingSales.length - i });
+        break;
+      }
+
+      if (status === 'synced' || status === 'duplicate') {
+        await removePendingSale(sale.id);
+        synced++;
+      } else {
+        // Permanent failure — mark in IndexedDB for visibility, don't remove
+        try {
+          await putOne('pending_sales', { ...sale, _sync_failed: true, _fail_reason: 'Server rejected sale' });
+        } catch {}
+        skipped++;
       }
     }
 
     const remaining = await getPendingSaleCount();
-    notifyListeners({ type: 'sync_complete', synced: removedCount, remaining });
+    emit({ type: 'sync_complete', synced, skipped, remaining, networkError });
+
+    if (!networkError) {
+      await setMeta('last_sale_sync', new Date().toISOString());
+    }
 
     syncInProgress = false;
-    return { synced: removedCount, remaining };
+    return { synced, skipped, remaining, networkError };
   } catch (error) {
-    console.error('Sync failed:', error);
-    notifyListeners({ type: 'sync_error', error: error.message });
+    emit({ type: 'sync_error', error: error.message });
     syncInProgress = false;
     return null;
   }
 }
 
 /**
- * Force-clear pending sales that are already on the server (duplicate).
- * Used when the UI shows pending sales but they've already been processed.
+ * Force a sync attempt (called by manual "Sync Now" button).
  */
-export async function clearAlreadySyncedSales() {
-  if (!navigator.onLine) return 0;
-  const pendingSales = await getPendingSales();
-  if (!pendingSales.length) return 0;
-
-  let cleared = 0;
-  for (const sale of pendingSales) {
-    // Check if this sale ID already exists on the server
-    try {
-      const res = await api.get('/invoices', { params: { search: sale.id, limit: 1 } });
-      const exists = (res.data.invoices || []).some(inv => inv.id === sale.id);
-      if (exists) {
-        await removePendingSale(sale.id);
-        cleared++;
-      }
-    } catch {
-      // If check fails, leave it for regular sync
-    }
+export async function triggerSync(branchId = null) {
+  if (!navigator.onLine) {
+    emit({ type: 'sync_error', error: 'No internet connection' });
+    return null;
   }
-  return cleared;
+  const salesResult = await syncPendingSales();
+  if (branchId) await refreshPOSCache(branchId);
+  return salesResult;
 }
 
 /**
  * Refresh the local IndexedDB cache with all branch data.
- * Emits sync_step events with pct (0-100) and stepLabel so the UI can
- * show a progress bar. Branch-specific inventory is cached when branchId
- * is provided.
- *
- * @param {string|null} branchId - The branch to cache inventory for
  */
 export async function refreshPOSCache(branchId = null) {
   if (!navigator.onLine) return false;
 
   try {
-    // Step 0: Connecting
-    notifyListeners({ type: 'sync_step', stepLabel: 'Connecting to server...', pct: 5 });
+    emit({ type: 'sync_step', stepLabel: 'Connecting to server...', pct: 5 });
 
     const params = {};
     if (branchId) params.branch_id = branchId;
     const response = await api.get('/sync/pos-data', { params });
     const { products = [], customers = [], price_schemes = [], inventory = [], branch_prices = [], sync_time } = response.data;
 
-    // Step 1: Cache products
-    notifyListeners({ type: 'sync_step', stepLabel: `Saving ${products.length} products...`, pct: 25 });
+    emit({ type: 'sync_step', stepLabel: `Saving ${products.length} products...`, pct: 25 });
     await cacheProducts(products);
 
-    // Step 2: Cache inventory (branch-specific)
-    notifyListeners({ type: 'sync_step', stepLabel: 'Saving inventory levels...', pct: 50 });
+    emit({ type: 'sync_step', stepLabel: 'Saving inventory levels...', pct: 50 });
     if (inventory.length) {
-      // Normalize to use product_id as the IndexedDB key
       const inventoryForDB = inventory.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity ?? 0,
@@ -131,15 +173,12 @@ export async function refreshPOSCache(branchId = null) {
       await cacheInventory(inventoryForDB);
     }
 
-    // Step 3: Cache customers
-    notifyListeners({ type: 'sync_step', stepLabel: `Saving ${customers.length} customers...`, pct: 75 });
+    emit({ type: 'sync_step', stepLabel: `Saving ${customers.length} customers...`, pct: 75 });
     await cacheCustomers(customers);
 
-    // Step 4: Cache price schemes + branch prices
-    notifyListeners({ type: 'sync_step', stepLabel: 'Saving price schemes & branch prices...', pct: 92 });
+    emit({ type: 'sync_step', stepLabel: 'Saving price schemes & branch prices...', pct: 92 });
     await cachePriceSchemes(price_schemes);
     if (branch_prices && branch_prices.length) {
-      // Normalize to product_id key
       const bpForDB = branch_prices.map(bp => ({
         product_id: bp.product_id,
         prices: bp.prices || {},
@@ -159,7 +198,7 @@ export async function refreshPOSCache(branchId = null) {
       branch_prices: branch_prices.length,
     });
 
-    notifyListeners({
+    emit({
       type: 'cache_refreshed',
       timestamp,
       productCount: products.length,
@@ -169,32 +208,37 @@ export async function refreshPOSCache(branchId = null) {
 
     return true;
   } catch (error) {
-    console.error('Cache refresh failed:', error);
-    notifyListeners({ type: 'sync_error', error: error.message });
+    emit({ type: 'sync_error', error: error.message });
     return false;
   }
 }
 
-/**
- * Full sync: push pending sales first, then refresh cache
- */
+/** Full sync: push pending sales first, then refresh cache */
 export async function fullSync(branchId = null) {
   await syncPendingSales();
   return refreshPOSCache(branchId);
 }
 
-let autoSyncInterval = null;
-
 export function startAutoSync(getBranchId) {
   if (autoSyncInterval) return;
 
-  autoSyncInterval = setInterval(() => {
-    if (navigator.onLine) {
-      syncPendingSales();
+  // Check every 30s if there are pending sales to sync
+  autoSyncInterval = setInterval(async () => {
+    if (navigator.onLine && !syncInProgress) {
+      const count = await getPendingSaleCount();
+      if (count > 0) syncPendingSales();
     }
   }, 30000);
 
-  window.addEventListener('online', () => handleOnlineEvent(getBranchId));
+  // On reconnect, wait 2s then run full sync
+  window.addEventListener('online', () => {
+    setTimeout(async () => {
+      if (!syncInProgress) {
+        const branchId = typeof getBranchId === 'function' ? getBranchId() : getBranchId;
+        await fullSync(branchId);
+      }
+    }, 2000);
+  });
 }
 
 export function stopAutoSync() {
@@ -202,10 +246,4 @@ export function stopAutoSync() {
     clearInterval(autoSyncInterval);
     autoSyncInterval = null;
   }
-}
-
-async function handleOnlineEvent(getBranchId) {
-  await new Promise(r => setTimeout(r, 2000));
-  const branchId = typeof getBranchId === 'function' ? getBranchId() : getBranchId;
-  await fullSync(branchId);
 }

@@ -685,9 +685,13 @@ export default function UnifiedSalesPage() {
       prefix: header.prefix,
       order_date: header.order_date,
       invoice_date: today,
-      payment_method: actualPaymentType === 'cash' ? 'cash' : 'credit',
+      // Digital payment routing
+      payment_method: actualPaymentType === 'digital' ? digitalPlatform : (actualPaymentType === 'cash' ? 'Cash' : 'credit'),
       payment_type: actualPaymentType,
-      fund_source: 'cashier',
+      fund_source: actualPaymentType === 'digital' ? 'digital' : 'cashier',
+      digital_platform: actualPaymentType === 'digital' ? digitalPlatform : undefined,
+      digital_ref_number: actualPaymentType === 'digital' ? digitalRefNumber : undefined,
+      digital_sender: actualPaymentType === 'digital' ? digitalSender : undefined,
       sale_type: 'walk_in',
       mode: mode,
       approved_by: approvedBy,
@@ -701,13 +705,26 @@ export default function UnifiedSalesPage() {
     if (isOnline) {
       try {
         const res = await api.post('/unified-sale', saleData);
-        toast.success(balance > 0 
-          ? `Invoice ${res.data.invoice_number} created! Balance: ${formatPHP(balance)}`
-          : `Sale ${res.data.invoice_number || res.data.sale_number} completed!`
+        const invoiceNum = res.data.invoice_number || res.data.sale_number;
+        toast.success(balance > 0
+          ? `Invoice ${invoiceNum} created! Balance: ${formatPHP(balance)}`
+          : `Sale ${invoiceNum} completed!`
         );
         clearCart();
         setCheckoutDialog(false);
         setPendingCreditSale(null);
+        // For digital payments: auto-show receipt upload QR
+        if (actualPaymentType === 'digital' && res.data.id) {
+          try {
+            const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
+              record_type: 'invoice', record_id: res.data.id,
+            });
+            setDigitalReceiptQR({ invoice_id: res.data.id, invoice_number: invoiceNum, ...qrRes.data });
+            setShowDigitalQR(true);
+          } catch {}
+        }
+        setDigitalRefNumber('');
+        setDigitalSender('');
       } catch (e) {
         // Save offline if API fails
         await addPendingSale(saleData);

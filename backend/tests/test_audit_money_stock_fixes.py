@@ -20,7 +20,10 @@ import uuid
 import motor.motor_asyncio
 import asyncio
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
+# Load frontend env for BASE_URL
+load_dotenv("/app/frontend/.env")
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 
 # Known test data IDs (from DB scan)

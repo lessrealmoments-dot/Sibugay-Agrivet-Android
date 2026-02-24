@@ -169,7 +169,7 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
         "last_interest_date": None,
         "sale_type": sale_type,
         "payment_method": payment_method,
-        "fund_source": "digital" if digital else data.get("fund_source", "cashier"),
+        "fund_source": "split" if is_split else ("digital" if digital else data.get("fund_source", "cashier")),
         **digital_meta,
         "status": status,
         "payments": [],

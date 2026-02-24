@@ -987,7 +987,7 @@ class TestCloseWizard:
         """Complete the close with manager PIN."""
         assert "lakewood_id" in state
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        resp = requests.post(f"{BASE_URL}/api/daily-ops/close-day", json={
+        resp = requests.post(f"{BASE_URL}/api/daily-close", json={
             "branch_id": state["lakewood_id"],
             "date": today,
             "manager_pin": "521325",

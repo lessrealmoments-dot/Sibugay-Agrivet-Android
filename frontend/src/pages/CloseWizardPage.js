@@ -897,6 +897,31 @@ export default function CloseWizardPage() {
                 ))}
               </div>
 
+              {/* Digital Payment Summary */}
+              {(preview?.total_digital_today || 0) > 0 && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+                      <span>📱</span> Digital Payments Received Today
+                    </p>
+                    <span className="font-bold font-mono text-blue-700">{formatPHP(preview?.total_digital_today || 0)}</span>
+                  </div>
+                  <p className="text-[11px] text-blue-600 mb-2">Tracked separately — not part of cashier reconciliation</p>
+                  {Object.entries(preview?.digital_by_platform || {}).map(([platform, amt]) => (
+                    <div key={platform} className="flex justify-between text-xs py-1 border-t border-blue-200 first:border-0">
+                      <span className="text-blue-700">{platform}</span>
+                      <span className="font-mono font-semibold text-blue-800">{formatPHP(amt)}</span>
+                    </div>
+                  ))}
+                  {(preview?.digital_sales_today || []).slice(0, 5).map((d, i) => (
+                    <div key={i} className="flex items-center justify-between text-[10px] text-blue-500 mt-1">
+                      <span>{d.invoice_number} · {d.platform} · Ref: {d.ref_number || '—'}</span>
+                      <span className="font-mono">{formatPHP(d.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <Separator />
 
               {/* Manager PIN */}

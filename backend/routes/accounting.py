@@ -285,11 +285,38 @@ async def update_expense(expense_id: str, data: dict, user=Depends(get_current_u
     await db.expenses.update_one({"id": expense_id}, {"$set": update})
     
     if amount_diff != 0:
-        await update_cashier_wallet(
-            expense["branch_id"],
-            -amount_diff,
-            f"Expense adjusted: {expense.get('description', '')} ({'+' if amount_diff > 0 else ''}{amount_diff:.2f})"
-        )
+        # FIX: use the expense's original fund_source, not always cashier
+        fund_source = expense.get("fund_source", "cashier")
+        ref = f"Expense adjusted: {expense.get('description', '')} ({'+' if amount_diff > 0 else ''}{amount_diff:.2f})"
+        if fund_source == "safe" and amount_diff < 0:
+            # Additional spend from safe
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": expense["branch_id"], "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                remaining = abs(amount_diff)
+                for lot in await db.safe_lots.find(
+                    {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+                ).sort("remaining_amount", -1).to_list(500):
+                    if remaining <= 0: break
+                    take = min(lot["remaining_amount"], remaining)
+                    await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                    remaining -= take
+        elif fund_source == "safe" and amount_diff > 0:
+            # Refund back to safe
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": expense["branch_id"], "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                await db.safe_lots.insert_one({
+                    "id": new_id(), "branch_id": expense["branch_id"],
+                    "wallet_id": safe_wallet["id"],
+                    "date_received": now_iso()[:10],
+                    "original_amount": amount_diff, "remaining_amount": amount_diff,
+                    "source_reference": ref, "created_by": user["id"], "created_at": now_iso(),
+                })
+        else:
+            await update_cashier_wallet(expense["branch_id"], -amount_diff, ref)
     
     return await db.expenses.find_one({"id": expense_id}, {"_id": 0})
 

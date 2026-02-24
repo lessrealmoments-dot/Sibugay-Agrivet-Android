@@ -90,9 +90,12 @@ def first_po_id(admin_headers):
 
 
 @pytest.fixture(scope="module")
-def first_expense_id(admin_headers):
+def first_expense_id(admin_headers, first_branch_id):
     """Get the first available expense ID for tests."""
-    res = requests.get(f"{BASE_URL}/api/accounting/expenses", headers=admin_headers)
+    params = {}
+    if first_branch_id:
+        params["branch_id"] = first_branch_id
+    res = requests.get(f"{BASE_URL}/api/expenses", headers=admin_headers, params=params)
     if res.status_code == 200:
         data = res.json()
         expenses = data.get("expenses", data if isinstance(data, list) else [])

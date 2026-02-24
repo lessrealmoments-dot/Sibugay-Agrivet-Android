@@ -22,7 +22,7 @@ import {
   cacheProducts, getProducts, cacheCustomers, getCustomers,
   cachePriceSchemes, getPriceSchemes, addPendingSale, getPendingSaleCount
 } from '../lib/offlineDB';
-import { syncPendingSales, startAutoSync, stopAutoSync } from '../lib/syncManager';
+import { syncPendingSales, startAutoSync, stopAutoSync, newEnvelopeId } from '../lib/syncManager';
 
 const EMPTY_LINE = {
   product_id: '', product_name: '', description: '',

@@ -134,9 +134,6 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
         if is_split:
             digital_meta["cash_amount"] = cash_amount
             digital_meta["digital_amount"] = digital_amount
-            "digital_ref_number": data.get("digital_ref_number", ""),
-            "digital_sender": data.get("digital_sender", ""),
-        }
 
     invoice = {
         "id": new_id(),

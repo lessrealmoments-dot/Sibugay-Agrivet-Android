@@ -119,14 +119,13 @@ class TestBranchSetup:
         print("Added 10000 to Lakewood cashier")
 
     def test_add_capital_riverside_safe(self, hdr):
-        assert "riverside_id" in state
-        resp = requests.post(f"{BASE_URL}/api/fund-transfers", json={
-            "branch_id": state["riverside_id"],
-            "transfer_type": "capital_add",
-            "amount": 50000,
-            "note": "Initial capital injection to Riverside Safe"
-        }, headers=hdr)
-        assert resp.status_code == 200, f"Riverside capital add failed: {resp.text}"
+        assert "riverside_safe_wallet_id" in state
+        resp = requests.post(
+            f"{BASE_URL}/api/fund-wallets/{state['riverside_safe_wallet_id']}/deposit",
+            json={"amount": 50000, "reference": "Initial capital injection to Riverside Safe"},
+            headers=hdr
+        )
+        assert resp.status_code == 200, f"Riverside safe deposit failed: {resp.text}"
         print("Added 50000 to Riverside safe")
 
     def test_add_capital_riverside_cashier(self, hdr):

@@ -707,6 +707,8 @@ export default function AuditCenterPage() {
             <td>Total refunded: ${php(auditData.returns?.total_refunded)} · Loss: ${php(auditData.returns?.total_loss_value)}</td></tr>
         <tr><td>User Activity</td><td class="${auditData.activity?.severity}">${sevLabel(auditData.activity?.severity)}</td>
             <td>Corrections: ${auditData.activity?.inventory_corrections_count} · Edits: ${auditData.activity?.invoice_edits_count} · Off-hours: ${auditData.activity?.off_hours_count}</td></tr>
+        ${auditData.digital ? `<tr><td>Digital Payments</td><td class="${auditData.digital?.severity}">${sevLabel(auditData.digital?.severity)}</td>
+            <td>Total: ${php(auditData.digital?.total_digital_collected)} · Missing ref#: ${auditData.digital?.missing_ref_count || 0} · Transactions: ${auditData.digital?.transaction_count || 0}</td></tr>` : ''}
         ${auditData.inventory?.available ? `<tr><td>Inventory (Physical)</td><td class="${auditData.inventory?.severity}">${sevLabel(auditData.inventory?.severity)}</td>
             <td>Accuracy: ${auditData.inventory?.summary?.inventory_accuracy_pct}% · Variance: ${php(auditData.inventory?.summary?.total_variance_capital)}</td></tr>` : ''}
       </tbody>

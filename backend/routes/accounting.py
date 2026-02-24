@@ -1124,3 +1124,233 @@ async def get_customer_statement(
         "date_to": date_to,
     }
 
+
+
+# ══════════════════════════════════════════════════════════════════
+# REVERSE / VOID FLOWS — Fix #8–10
+# ══════════════════════════════════════════════════════════════════
+
+async def _verify_manager(manager_pin: str) -> dict:
+    """Verify manager PIN and return the authorizing manager. Raises 401 on failure."""
+    if not manager_pin:
+        raise HTTPException(status_code=400, detail="Manager PIN required")
+    managers = await db.users.find(
+        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
+    ).to_list(50)
+    for mgr in managers:
+        pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
+        if pin and manager_pin == pin:
+            return mgr
+    raise HTTPException(status_code=401, detail="Invalid manager PIN")
+
+
+# ── Fix #9: Reverse Customer Cash Advance ───────────────────────
+
+@router.post("/expenses/customer-cashout/{expense_id}/reverse")
+async def reverse_customer_cashout(expense_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Reverse a customer cash-out/advance.
+    Re-deducts the advance from the customer's AR balance and returns cash to fund.
+    Requires manager PIN.
+    """
+    check_perm(user, "accounting", "edit_expense")
+    mgr = await _verify_manager(data.get("manager_pin", ""))
+
+    expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if expense.get("voided"):
+        raise HTTPException(status_code=400, detail="Already voided")
+    if expense.get("category") not in ("Customer Cash-out", "Customer Cash Out"):
+        raise HTTPException(status_code=400, detail="Not a customer cash-out expense")
+
+    branch_id = expense["branch_id"]
+    amount = float(expense.get("amount", 0))
+    fund_source = expense.get("fund_source", "cashier")
+    reason = data.get("reason", "Reversed by manager")
+
+    # Re-deduct the cash advance amount from cashier (it was paid out, now we're taking it back)
+    ref_text = f"Reversal — Customer advance {expense.get('description', '')} — {reason}"
+    if fund_source == "safe":
+        safe_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if safe_wallet:
+            remaining = amount
+            for lot in await db.safe_lots.find(
+                {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+            ).sort("remaining_amount", -1).to_list(500):
+                if remaining <= 0: break
+                take = min(lot["remaining_amount"], remaining)
+                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                remaining -= take
+    else:
+        await update_cashier_wallet(branch_id, -amount, ref_text)
+
+    # Reduce customer AR balance
+    customer_id = expense.get("customer_id")
+    if customer_id:
+        await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": -amount}})
+
+    # Void linked invoice if any
+    linked_inv_id = expense.get("linked_invoice_id")
+    if linked_inv_id:
+        await db.invoices.update_one(
+            {"id": linked_inv_id},
+            {"$set": {"status": "voided", "voided_at": now_iso(),
+                      "void_reason": f"Advance reversed: {reason}"}}
+        )
+
+    # Soft-void the expense
+    await db.expenses.update_one({"id": expense_id}, {"$set": {
+        "voided": True, "voided_at": now_iso(),
+        "void_reason": reason,
+        "voided_by": user.get("full_name", user["username"]),
+        "void_authorized_by": mgr.get("full_name", mgr["username"]),
+    }})
+
+    return {
+        "message": f"Customer advance reversed. ₱{amount:,.2f} re-deducted from {fund_source}. Customer balance reduced.",
+        "authorized_by": mgr.get("full_name", mgr["username"]),
+    }
+
+
+# ── Fix #9b: Reverse Employee Advance ───────────────────────────
+
+@router.post("/expenses/employee-advance/{expense_id}/reverse")
+async def reverse_employee_advance(expense_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Reverse an employee advance.
+    Returns cash to fund and reduces the employee's advance_balance.
+    Requires manager PIN.
+    """
+    check_perm(user, "accounting", "edit_expense")
+    mgr = await _verify_manager(data.get("manager_pin", ""))
+
+    expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if expense.get("voided"):
+        raise HTTPException(status_code=400, detail="Already voided")
+    if expense.get("category") != "Employee Advance":
+        raise HTTPException(status_code=400, detail="Not an employee advance expense")
+
+    branch_id = expense["branch_id"]
+    amount = float(expense.get("amount", 0))
+    fund_source = expense.get("fund_source", "cashier")
+    reason = data.get("reason", "Reversed by manager")
+
+    # Return cash to fund
+    ref_text = f"Employee advance reversed — {expense.get('employee_name', '')} — {reason}"
+    if fund_source == "safe":
+        safe_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if safe_wallet:
+            await db.safe_lots.insert_one({
+                "id": new_id(), "branch_id": branch_id,
+                "wallet_id": safe_wallet["id"],
+                "date_received": now_iso()[:10],
+                "original_amount": amount, "remaining_amount": amount,
+                "source_reference": ref_text,
+                "created_by": user["id"], "created_at": now_iso(),
+            })
+    else:
+        await update_cashier_wallet(branch_id, amount, ref_text)
+
+    # Reduce employee advance balance
+    employee_id = expense.get("employee_id")
+    if employee_id:
+        await db.employees.update_one(
+            {"id": employee_id},
+            {"$inc": {"advance_balance": -amount}, "$set": {"updated_at": now_iso()}}
+        )
+
+    await db.expenses.update_one({"id": expense_id}, {"$set": {
+        "voided": True, "voided_at": now_iso(),
+        "void_reason": reason,
+        "voided_by": user.get("full_name", user["username"]),
+        "void_authorized_by": mgr.get("full_name", mgr["username"]),
+    }})
+
+    return {
+        "message": f"Employee advance reversed. ₱{amount:,.2f} returned to {fund_source}. Employee advance balance reduced.",
+        "authorized_by": mgr.get("full_name", mgr["username"]),
+    }
+
+
+# ── Fix #10: Void a single invoice payment record ───────────────
+
+@router.post("/invoices/{inv_id}/void-payment/{payment_id}")
+async def void_invoice_payment(inv_id: str, payment_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Void a single payment record on an invoice.
+    Reverses: fund wallet + invoice balance/amount_paid + customer AR.
+    Requires manager PIN.
+    """
+    check_perm(user, "accounting", "edit_expense")
+    mgr = await _verify_manager(data.get("manager_pin", ""))
+
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    payment = next((p for p in inv.get("payments", []) if p.get("id") == payment_id), None)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    if payment.get("voided"):
+        raise HTTPException(status_code=400, detail="Payment already voided")
+
+    branch_id = inv.get("branch_id", "")
+    amount = float(payment.get("amount", 0))
+    fund_source = payment.get("fund_source", "cashier")
+    reason = data.get("reason", "Payment reversed by manager")
+    ref_text = f"Payment voided: {inv.get('invoice_number', '')} — {reason}"
+
+    # Reverse the fund movement
+    if amount > 0:
+        if fund_source == "safe":
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                remaining = amount
+                for lot in await db.safe_lots.find(
+                    {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+                ).sort("remaining_amount", -1).to_list(500):
+                    if remaining <= 0: break
+                    take = min(lot["remaining_amount"], remaining)
+                    await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                    remaining -= take
+        else:
+            await update_cashier_wallet(branch_id, -amount, ref_text)
+
+    # Update invoice balance
+    new_paid = max(0, round(float(inv.get("amount_paid", 0)) - amount, 2))
+    new_balance = round(float(inv.get("grand_total", 0)) - new_paid, 2)
+    new_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else "open")
+
+    # Mark the payment as voided (keep record)
+    await db.invoices.update_one(
+        {"id": inv_id, "payments.id": payment_id},
+        {"$set": {
+            "amount_paid": new_paid,
+            "balance": max(0, new_balance),
+            "status": new_status,
+            "payments.$.voided": True,
+            "payments.$.voided_at": now_iso(),
+            "payments.$.void_reason": reason,
+            "payments.$.voided_by": user.get("full_name", user["username"]),
+        }}
+    )
+
+    # Restore customer AR balance (reversal of the payment)
+    if inv.get("customer_id") and amount > 0:
+        await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": {"balance": amount}})
+
+    return {
+        "message": f"Payment of ₱{amount:,.2f} voided. Invoice balance updated to ₱{max(0, new_balance):,.2f}.",
+        "new_balance": max(0, new_balance),
+        "new_status": new_status,
+        "authorized_by": mgr.get("full_name", mgr["username"]),
+    }

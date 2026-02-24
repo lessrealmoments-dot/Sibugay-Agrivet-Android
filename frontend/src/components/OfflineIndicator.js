@@ -195,15 +195,8 @@ export default function OfflineIndicator() {
         await loadCacheInfo();
         if (result && result.synced > 0) {
           toast.success(`${result.synced} sale(s) synced`);
-        } else if (result && result.remaining > 0) {
-          // Some couldn't sync — try force-clearing already-synced ones
-          const cleared = await clearAlreadySyncedSales();
-          await loadCacheInfo();
-          if (cleared > 0) {
-            toast.success(`Cleared ${cleared} already-synced sale(s) from queue`);
-          } else {
-            toast.error('Sync failed — check your connection and try again');
-          }
+        } else if (result && result.networkError) {
+          toast.error('Network unstable — will retry automatically');
         } else {
           toast.success('Queue cleared');
         }

@@ -1444,9 +1444,17 @@ export default function UnifiedSalesPage() {
                 data-testid="confirm-payment"
                 className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
                 onClick={handleCreditSale}
-                disabled={saving || (paymentType === 'cash' && amountTendered < grandTotal)}
+                disabled={
+                  saving ||
+                  (paymentType === 'cash' && amountTendered < grandTotal) ||
+                  (paymentType === 'digital' && !digitalRefNumber.trim())
+                }
               >
-                {saving ? 'Processing...' : (paymentType === 'cash' ? 'Complete Sale' : 'Confirm & Create Invoice')}
+                {saving ? 'Processing...' : (
+                  paymentType === 'cash' ? 'Complete Sale' :
+                  paymentType === 'digital' ? `Complete — ${digitalPlatform}` :
+                  'Confirm & Create Invoice'
+                )}
               </Button>
             </div>
           </div>

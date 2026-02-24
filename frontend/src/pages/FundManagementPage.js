@@ -127,7 +127,7 @@ export default function FundManagementPage() {
   const branchId = currentBranch?.id;
 
   const loadData = useCallback(async () => {
-    if (!branchId) return;
+    if (!branchId) { setLoading(false); return; }
     setLoading(true);
     try {
       const [walletsRes, transfersRes] = await Promise.all([

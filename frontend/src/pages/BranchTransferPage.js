@@ -418,6 +418,9 @@ export default function BranchTransferPage() {
   const [actionSaving, setActionSaving] = useState(false);
   const [btUploadQROpen, setBtUploadQROpen] = useState(false);
   const [btUploadOrderId, setBtUploadOrderId] = useState(null);
+  const [btVerifyOpen, setBtVerifyOpen] = useState(false);
+  const [btVerifyId, setBtVerifyId] = useState(null);
+  const [btViewQROpen, setBtViewQROpen] = useState(false);
 
   const openReceive = (order) => {
     setViewOrder(order);

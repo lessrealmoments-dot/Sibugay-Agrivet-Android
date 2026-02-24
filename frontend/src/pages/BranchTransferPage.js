@@ -1064,7 +1064,9 @@ export default function BranchTransferPage() {
                               </td>
                             </tr>
                           )}
-                      })}
+                        </>
+                      );
+                    })}
                     </tbody>
                   </table>
                 </CardContent>

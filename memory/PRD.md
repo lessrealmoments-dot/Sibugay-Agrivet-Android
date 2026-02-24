@@ -243,3 +243,24 @@ All require manager PIN authorization for audit trail.
 - **Incoming Transfer Preview**: When transfer is in "sent" status, destination sees "Price Updates on Receive" box showing current price → new price for each repack. Applied on receive/accept.
 - **Backend**: `repack_price_updates` stored on transfer order. On receive, applies `branch_prices` for repack products at destination branch only (not global). Response includes `repack_prices_applied` list.
 - **Product lookup enriched**: Returns `repacks[]` array per product with: id, name, units_per_parent, capital_per_repack, current_dest_retail (from branch_prices or global product prices).
+
+### Phase 12 — E2E Testing + Bug Fixes (2026-02-24)
+
+**Bugs Fixed:**
+1. `capital_add` fund transfer now supports `target_wallet: 'cashier' | 'safe'` — allows admin to inject capital directly into Safe wallet (previously cashier only). UI shows Cashier/Safe selector in Fund Management.
+2. Branch Transfer receive: `KeyError: 'transfer_capital'` fixed (already uses `.get()` with fallback).
+3. FundManagementPage: infinite loading when branchId=null fixed (`setLoading(false)` on early return).
+
+**Test Data Created (Lakewood + Riverside Branches):**
+- 5 products: Fertilizer Supreme 50kg, Rice Premium 25kg, Pesticide Gold 1L, Animal Feed Deluxe 20kg, Vet Antibiotic Vial
+- 4 repacks: Fertilizer 1kg (50/bag), Rice 500g (50/bag), Pesticide 100ml (10/bottle), Animal Feed 1kg (20/bag)
+- 5 customers: Maria Santos, Juan dela Cruz (2% interest), Green Valley Farm, Hillside Agriculture Co, Walk-in General
+- 3 suppliers: AgriTech Supplies Inc, BioGrow International, FarmPro Distributors
+- Starting capital: Lakewood (Safe ₱103k, Cashier ₱68.9k), Riverside (Safe ₱50k, Cashier ₱49.7k, Digital ₱0)
+
+**Audit Results:**
+- Lakewood: Cash 🔴 (discrepancy from test runs), Sales 🟡 (some edits), Activity 🔴 (bad manager edits detected)
+- Riverside (Bad Manager): Sales 🟡 (21 edited invoices flagged), Activity 🔴 (21 edits detected) — **audit system correctly detected suspicious activity!**
+- Digital 🟢 all branches, Returns 🟢, AR 🟢
+
+Note: Duplicate test data exists from multiple test runs. Production deploy should start with clean DB.

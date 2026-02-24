@@ -1506,12 +1506,17 @@ export default function UnifiedSalesPage() {
                 disabled={
                   saving ||
                   (paymentType === 'cash' && amountTendered < grandTotal) ||
-                  (paymentType === 'digital' && !digitalRefNumber.trim())
+                  (paymentType === 'digital' && !digitalRefNumber.trim()) ||
+                  (paymentType === 'split' && (
+                    !digitalRefNumber.trim() ||
+                    Math.abs((parseFloat(splitCash||0) + parseFloat(splitDigital||0)) - grandTotal) > 0.01
+                  ))
                 }
               >
                 {saving ? 'Processing...' : (
                   paymentType === 'cash' ? 'Complete Sale' :
                   paymentType === 'digital' ? `Complete — ${digitalPlatform}` :
+                  paymentType === 'split' ? `Split: ₱${parseFloat(splitCash||0).toFixed(0)} Cash + ₱${parseFloat(splitDigital||0).toFixed(0)} ${digitalPlatform}` :
                   'Confirm & Create Invoice'
                 )}
               </Button>

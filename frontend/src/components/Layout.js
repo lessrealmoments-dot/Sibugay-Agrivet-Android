@@ -53,6 +53,7 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const filteredNav = NAV_ITEMS.filter(item => {
     if (!item.perm) return true;
@@ -62,19 +63,35 @@ export default function Layout({ children }) {
 
   const NavLink = ({ item }) => {
     const active = location.pathname === item.path;
+    const locked = !isOnline && !item.offlineOk;
+    const readOnly = !isOnline && item.offlineOk === 'readonly';
+
+    const handleClick = (e) => {
+      if (locked) {
+        e.preventDefault();
+        toast.error('You\'re offline — this area requires internet', { duration: 2500 });
+        return;
+      }
+      setSidebarOpen(false);
+    };
+
     return (
       <Link
         to={item.path}
         data-testid={`nav-${item.path.slice(1)}`}
-        onClick={() => setSidebarOpen(false)}
-        className={`flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
-          active
+        onClick={handleClick}
+        className={`relative flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+          locked
+            ? 'text-slate-600 opacity-50 cursor-not-allowed'
+            : active
             ? 'bg-[#1A4D2E] text-white shadow-sm'
             : 'text-slate-400 hover:text-white hover:bg-white/5'
         }`}
       >
         <item.icon size={18} strokeWidth={1.5} />
-        <span>{item.label}</span>
+        <span className="flex-1">{item.label}</span>
+        {locked && <WifiOff size={11} className="text-slate-500 shrink-0" />}
+        {readOnly && !active && <span className="text-[9px] text-slate-500 shrink-0">cached</span>}
       </Link>
     );
   };

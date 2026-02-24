@@ -3,7 +3,7 @@
  * Supports: Admin PIN, Admin TOTP (6-digit), Auditor PIN
  * Optionally records a discrepancy with expected vs found values.
  */
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { api } from '../contexts/AuthContext';
 import { ShieldCheck, ShieldAlert, X, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';

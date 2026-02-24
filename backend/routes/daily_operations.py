@@ -199,9 +199,10 @@ async def get_daily_close_preview(
         # Digital payments today
         "digital_sales_today": [
             {"invoice_number": inv.get("invoice_number"), "customer_name": inv.get("customer_name"),
-             "amount": round(float(inv.get("amount_paid", 0)), 2),
+             "amount": round(float(inv.get("digital_amount", 0) if inv.get("fund_source") == "split" and inv.get("digital_amount") else inv.get("amount_paid", 0)), 2),
              "platform": inv.get("digital_platform", "Digital"),
-             "ref_number": inv.get("digital_ref_number", "")}
+             "ref_number": inv.get("digital_ref_number", ""),
+             "fund_source": inv.get("fund_source", "digital")}
             for inv in digital_invoices
         ],
         "digital_by_platform": {k: round(v, 2) for k, v in digital_by_platform.items()},

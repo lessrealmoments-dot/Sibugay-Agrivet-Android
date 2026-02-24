@@ -946,7 +946,16 @@ async def get_payables_by_supplier(user=Depends(get_current_user), branch_id: Op
 
 @router.post("/{po_id}/reopen")
 async def reopen_purchase_order(po_id: str, user=Depends(get_current_user)):
-    """Reopen a received PO: reverses inventory and unlocks for editing. Inventory may go negative temporarily."""
+    """
+    Reopen a received PO: reverses inventory AND fully reverses the payment.
+    
+    Cash POs: payment returned to the original fund source, reversal expense created.
+    Terms POs: accounts payable entry voided — no fund movement needed.
+    
+    After reopen: PO is in 'ordered' status, payment_status='unpaid', amount_paid=0.
+    User edits the PO, then receives it again with a fresh payment at the new total.
+    This ensures complete audit trail with no double-deductions.
+    """
     check_perm(user, "inventory", "adjust")
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
@@ -955,9 +964,19 @@ async def reopen_purchase_order(po_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Only received POs can be reopened")
 
     branch_id = po.get("branch_id", "")
+    po_type = po.get("po_type", po.get("payment_method", ""))
+    is_cash = po_type == "cash" or po.get("payment_method") == "cash"
+    is_terms = po_type in ("terms", "credit") or po.get("payment_method") == "credit"
+    fund_source = po.get("fund_source", "cashier")
+    amount_paid = float(po.get("amount_paid", 0))
+    grand_total = float(po.get("grand_total", po.get("subtotal", 0)))
+
+    # ── 1. Reverse inventory ─────────────────────────────────────────────────
     for item in po.get("items", []):
-        pid = item["product_id"]
-        qty = float(item["quantity"])
+        pid = item.get("product_id", "")
+        if not pid:
+            continue
+        qty = float(item.get("quantity", 0))
         await db.inventory.update_one(
             {"product_id": pid, "branch_id": branch_id},
             {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}}
@@ -968,12 +987,85 @@ async def reopen_purchase_order(po_id: str, user=Depends(get_current_user)):
             f"PO reopened for correction — {po['vendor']}"
         )
 
+    # ── 2. Reverse cash payment ───────────────────────────────────────────────
+    if is_cash and amount_paid > 0:
+        ref_text = f"Reversal — PO {po['po_number']} reopened — {po['vendor']}"
+
+        if fund_source == "safe":
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                await db.safe_lots.insert_one({
+                    "id": new_id(), "branch_id": branch_id,
+                    "wallet_id": safe_wallet["id"],
+                    "date_received": now_iso()[:10],
+                    "original_amount": amount_paid,
+                    "remaining_amount": amount_paid,
+                    "source_reference": ref_text,
+                    "created_by": user["id"],
+                    "created_at": now_iso(),
+                })
+        else:
+            await update_cashier_wallet(branch_id, amount_paid, ref_text)
+
+        # Void original expense records and create an audit reversal entry
+        await db.expenses.update_many(
+            {"po_id": po_id, "category": "Purchase Payment", "voided": {"$ne": True}},
+            {"$set": {
+                "voided": True, "voided_at": now_iso(),
+                "void_reason": "PO reopened for correction",
+                "voided_by": user.get("full_name", user["username"]),
+            }}
+        )
+        await db.expenses.insert_one({
+            "id": new_id(), "branch_id": branch_id,
+            "category": "Purchase Payment",
+            "description": f"REVERSAL — PO {po['po_number']} — {po['vendor']}",
+            "notes": f"PO reopened for correction. ₱{amount_paid:,.2f} returned to {fund_source}.",
+            "amount": -amount_paid,  # negative = fund returned
+            "payment_method": po.get("payment_method_detail", "Cash"),
+            "fund_source": fund_source,
+            "reference_number": po["po_number"],
+            "date": now_iso()[:10],
+            "po_id": po_id,
+            "is_reversal": True,
+            "created_by": user["id"],
+            "created_by_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        })
+
+    # ── 3. Void accounts payable for Terms POs ───────────────────────────────
+    if is_terms:
+        await db.payables.update_many(
+            {"po_id": po_id, "status": {"$ne": "voided"}},
+            {"$set": {
+                "status": "voided",
+                "voided_at": now_iso(),
+                "void_reason": "PO reopened for correction",
+                "voided_by": user.get("full_name", user["username"]),
+            }}
+        )
+
+    # ── 4. Reset PO — fresh start for re-receive ─────────────────────────────
     await db.purchase_orders.update_one({"id": po_id}, {"$set": {
-        "status": "ordered", "received_date": None,
+        "status": "ordered",
+        "received_date": None,
         "reopened_by": user.get("full_name", user["username"]),
         "reopened_at": now_iso(),
+        # Full payment reversal — must pay again on re-receive
+        "payment_status": "unpaid",
+        "amount_paid": 0,
+        "balance": grand_total,
     }})
-    return {"message": "PO reopened. Inventory reversed. Edit the PO and receive again to correct stock."}
+
+    msg_parts = ["PO reopened. Inventory reversed."]
+    if is_cash and amount_paid > 0:
+        msg_parts.append(f"₱{amount_paid:,.2f} returned to {fund_source}.")
+    if is_terms:
+        msg_parts.append("Accounts payable voided.")
+    msg_parts.append("Edit and receive again to finalise.")
+    return {"message": " ".join(msg_parts)}
 
 
 @router.get("/by-vendor")

@@ -411,8 +411,8 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
         product_id = item["product_id"]
         qty_ordered = float(item["qty"])
         qty_received = qty_overrides.get(product_id, qty_ordered)
-        transfer_capital = float(item["transfer_capital"])
-        branch_retail = float(item["branch_retail"])
+        transfer_capital = float(item.get("transfer_capital") or item.get("branch_capital") or 0)
+        branch_retail = float(item.get("branch_retail") or 0)
 
         pending_items.append({
             **item,
@@ -517,8 +517,8 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
     for item in items:
         product_id = item["product_id"]
         qty_received = float(item.get("qty_received", item["qty"]))
-        transfer_capital = float(item["transfer_capital"])
-        branch_retail = float(item["branch_retail"])
+        transfer_capital = float(item.get("transfer_capital") or item.get("branch_capital") or 0)
+        branch_retail = float(item.get("branch_retail") or 0)
 
         if qty_received <= 0:
             continue

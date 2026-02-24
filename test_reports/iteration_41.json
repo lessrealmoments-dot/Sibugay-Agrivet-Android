@@ -1,0 +1,91 @@
+{
+  "summary": "Comprehensive testing of 4 new AgriBooks features: split payment, digital Z-report, digital audit section, and backend payment routing. Found and fixed 2 critical backend bugs. Identified 1 missing frontend feature. All 17 backend tests pass after fixes.",
+  "bugs_fixed": [
+    {
+      "file": "/app/backend/routes/sales.py",
+      "bug": "POST /api/unified-sale did NOT handle split/digital payments. Missing imports for update_digital_wallet and is_digital_payment. Invoice was missing fund_source, digital_platform, digital_ref_number, cash_amount, digital_amount fields. Cash and digital portions were NOT routed to separate wallets. Only 1 payment entry created instead of 2 for split.",
+      "fix": "Added split payment handling: imports, fund_source/digital metadata stored on invoice, cash_amount→cashier_wallet, digital_amount→digital_wallet, 2 payment entries for split."
+    },
+    {
+      "file": "/app/backend/routes/daily_operations.py",
+      "bug": "GET /api/daily-close-preview queried only fund_source='digital', missing fund_source='split'. Split invoices were not reflected in total_digital_today or digital_by_platform in the Z-report preview.",
+      "fix": "Changed query to fund_source: {$in: ['digital', 'split']} and correctly uses digital_amount (not amount_paid) for split invoices."
+    }
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "missing_features": [
+      {
+        "component": "AuditCenterPage.js",
+        "issue": "The Audit Center does NOT render the 'digital' section from auditData. Backend GET /api/audit/compute correctly returns result.digital with total_digital_collected, by_platform, missing_ref_count, digital_wallet_balance, transactions, severity — but the frontend has no SectionCard for it. The score grid also doesn't include a 'Digital' score tile.",
+        "priority": "HIGH",
+        "action": "Add a SectionCard in AuditCenterPage.js to render auditData.digital with total collected, by_platform breakdown, missing_ref_count warning, transaction list. Add 'Digital' to the score grid tiles. Add data-testid='audit-digital-section'."
+      }
+    ]
+  },
+  "features_tested_status": {
+    "sales_checkout_5_tabs": "PASS — Tabs Cash | Digital | Split | Partial | Credit all present with data-testid",
+    "split_tab_cash_digital_fields": "PASS — Cash Amount + Digital Amount fields present, auto-balance works (enter 600 cash → digital auto-fills 500)",
+    "split_tab_platform_ref_validation": "PASS — Platform dropdown, Digital Ref# (required), Sender (optional) present; button disabled when sum ≠ total or ref# empty",
+    "confirm_button_split_label": "PASS — Button shows 'Split: ₱600 Cash + ₱500 GCash' with correct amounts",
+    "digital_tab_fields": "PASS — Platform dropdown (data-testid=digital-platform), Ref# (data-testid=digital-ref-number), Sender (data-testid=digital-sender); button disabled when ref# empty",
+    "unified_sale_split_payment_type": "PASS (after fix) — POST /api/unified-sale with payment_type=split returns 200",
+    "unified_sale_split_fund_source": "PASS (after fix) — Invoice has fund_source='split'",
+    "unified_sale_split_cash_digital_amounts": "PASS (after fix) — Invoice stores cash_amount and digital_amount correctly",
+    "unified_sale_split_digital_meta": "PASS (after fix) — Invoice stores digital_platform and digital_ref_number",
+    "unified_sale_split_two_payment_entries": "PASS (after fix) — 2 payment entries: cashier (cash) + digital, both with correct fund_source",
+    "daily_close_preview_total_digital_today": "PASS — GET /api/daily-close-preview returns total_digital_today field",
+    "daily_close_preview_digital_by_platform": "PASS — Returns digital_by_platform dict",
+    "daily_close_preview_includes_split": "PASS (after fix) — Split payment digital_amount reflected in total_digital_today",
+    "close_wizard_digital_section": "PASS — Step 7 shows 'Digital Payments Received Today' with total ₱2,907, GCash ₱2,040, Maya ₱867, transaction list",
+    "audit_compute_digital_section": "PASS — GET /api/audit/compute returns result.digital with all required fields",
+    "audit_compute_digital_total": "PASS — total_digital_collected field present",
+    "audit_compute_digital_by_platform": "PASS — by_platform dict present",
+    "audit_compute_digital_missing_ref": "PASS — missing_ref_count field present (flags transactions without ref#)",
+    "audit_compute_digital_severity": "PASS — severity field present ('critical' when missing_ref_count > 0)",
+    "audit_center_ui_digital_section": "FAIL — AuditCenterPage.js does NOT render auditData.digital. No SectionCard, no score tile for digital. This is a missing frontend feature."
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_split_payment_features.py",
+    "/app/test_reports/pytest/pytest_split_payment_41.xml"
+  ],
+  "action_items": [
+    "Add Digital Wallet audit section to AuditCenterPage.js: SectionCard rendering auditData.digital (total_digital_collected, by_platform, missing_ref_count, digital_wallet_balance, transactions). Add 'Digital' score tile to the audit score grid. Add data-testid='audit-digital-section'.",
+    "Optional: Add digital score to computeOverallScore() and finalizeAudit() sections_status to include digital severity."
+  ],
+  "critical_code_review_comments": [
+    "sales.py was significantly incomplete for split/digital payments — it was handling cash-only flow and missing all digital payment metadata. Fixed in this iteration.",
+    "daily_operations.py get_daily_close_preview() was missing split payments from digital total — it only checked fund_source='digital'. Fixed in this iteration.",
+    "AuditCenterPage.js: The backend returns result.digital with severity, total_digital_collected, missing_ref_count etc., but the frontend completely ignores it. This is the remaining missing feature.",
+    "UnifiedSalesPage.js handleCreditSale flow: Admin/manager bypasses manager approval for ALL payment types (not just cash). This may or may not be intentional."
+  ],
+  "updated_files": [
+    "/app/backend/routes/sales.py",
+    "/app/backend/routes/daily_operations.py",
+    "/app/backend/tests/test_split_payment_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests pass after fixes)",
+    "frontend": "90% — all UI features work except digital section not rendered in Audit Center"
+  },
+  "seed_data_creation": "Multiple test split invoices created in IPIL branch during backend testing (TEST_SPLIT_REF_001, TEST_SPLIT_FUND_002, TEST_SPLIT_AMOUNTS_003, TEST_GC_REF_2026_004, TEST_TWO_PAYMENTS_005, TEST_SPLIT_PREVIEW_008, TEST_AUDIT_DIGITAL_009). These contributed ~₱9,180 in today's sales for IPIL branch.",
+  "test_credentials": {
+    "owner_login": "owner / 521325",
+    "manager_pin": "521325",
+    "IPIL_branch_id": "d4a041e7-4918-490e-afb8-54ae90cec7fb"
+  },
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Two backend bugs were fixed in this iteration: (1) sales.py unified-sale endpoint now correctly handles split/digital payments with proper wallet routing and metadata storage. (2) daily_operations.py close preview now includes split invoices in digital totals. The remaining missing feature is: AuditCenterPage.js does not render auditData.digital section. After the main agent adds this section, test: Run audit in Audit Center for IPIL BRANCH, scroll through results, verify 'Digital Wallet' SectionCard appears with total_digital_collected and by_platform data. Test file: /app/backend/tests/test_split_payment_features.py (17 tests, all pass).",
+  "rca_of_issues": {
+    "bug1_unified_sale_split": "Root cause: The /api/unified-sale endpoint in sales.py was originally designed for cash/credit/partial sales only. When split payment support was added to the frontend (sending payment_type='split', cash_amount, digital_amount, digital_platform, digital_ref_number), the backend endpoint was not updated to handle these fields. The endpoint continued to route ALL payments to the cashier wallet and store a single payment entry. Fix: Added is_split detection, digital metadata extraction, separate wallet routing (cashier for cash portion, digital_wallet for digital portion), 2 payment entries, and proper fund_source/digital fields on the invoice.",
+    "bug2_daily_close_preview_split": "Root cause: The GET /api/daily-close-preview function was querying fund_source='digital' to find digital payments. When split payments were added with fund_source='split', this query missed them. The close_day endpoint (which runs when actually closing the day) was correctly using fund_source in ['digital','split'], but the preview endpoint was not consistent. Fix: Updated the preview query to match the close_day logic.",
+    "missing_feature_audit_digital_ui": "Root cause: The backend _compute_digital() function was added to audit.py and returns digital section data, but the frontend AuditCenterPage.js was never updated to render this section. There is no SectionCard for 'digital' in the audit results rendering loop."
+  }
+}

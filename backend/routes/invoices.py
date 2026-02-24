@@ -866,3 +866,98 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
             "interest_rate": inv.get("interest_rate", 0),
         },
     }
+
+
+# ── Fix #10: Void a single payment record on an invoice ─────────────────────
+
+@router.post("/invoices/{inv_id}/void-payment/{payment_id}")
+async def void_invoice_payment(inv_id: str, payment_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Void a single payment record on an invoice.
+    Reverses: the fund wallet movement + invoice balance/amount_paid + customer AR.
+    Requires manager PIN for authorization.
+    """
+    from utils import verify_password
+
+    check_perm(user, "accounting", "edit_expense")
+
+    # Verify manager PIN
+    manager_pin = data.get("manager_pin", "")
+    if not manager_pin:
+        raise HTTPException(status_code=400, detail="Manager PIN required")
+    managers = await db.users.find(
+        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
+    ).to_list(50)
+    authorized_manager = None
+    for mgr in managers:
+        mgr_pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
+        if mgr_pin and manager_pin == mgr_pin:
+            authorized_manager = mgr
+            break
+    if not authorized_manager:
+        raise HTTPException(status_code=401, detail="Invalid manager PIN")
+
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    payment = next((p for p in inv.get("payments", []) if p.get("id") == payment_id), None)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    if payment.get("voided"):
+        raise HTTPException(status_code=400, detail="Payment already voided")
+
+    branch_id = inv.get("branch_id", "")
+    amount = float(payment.get("amount", 0))
+    fund_source = payment.get("fund_source", "cashier")
+    reason = data.get("reason", "Payment reversed by manager")
+    ref_text = f"Payment voided: {inv.get('invoice_number', '')} — {reason}"
+
+    # Reverse the fund movement (take money back from cashier/safe)
+    if amount > 0:
+        if fund_source == "safe":
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                remaining = amount
+                for lot in await db.safe_lots.find(
+                    {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+                ).sort("remaining_amount", -1).to_list(500):
+                    if remaining <= 0: break
+                    take = min(lot["remaining_amount"], remaining)
+                    await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                    remaining -= take
+        else:
+            await update_cashier_wallet(branch_id, -amount, ref_text)
+
+    # Recalculate invoice balance and status
+    new_paid = max(0, round(float(inv.get("amount_paid", 0)) - amount, 2))
+    grand_total = float(inv.get("grand_total", 0))
+    new_balance = round(grand_total - new_paid, 2)
+    new_status = "paid" if new_balance <= 0 else ("partial" if new_paid > 0 else "open")
+
+    await db.invoices.update_one(
+        {"id": inv_id, "payments.id": payment_id},
+        {"$set": {
+            "amount_paid": new_paid,
+            "balance": max(0, new_balance),
+            "status": new_status,
+            "payments.$.voided": True,
+            "payments.$.voided_at": now_iso(),
+            "payments.$.void_reason": reason,
+            "payments.$.voided_by": user.get("full_name", user["username"]),
+            "payments.$.void_authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+        }}
+    )
+
+    # Restore customer AR balance (payment reversal = they owe again)
+    if inv.get("customer_id") and amount > 0:
+        await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": {"balance": amount}})
+
+    return {
+        "message": f"Payment of ₱{amount:,.2f} voided. Invoice balance: ₱{max(0, new_balance):,.2f}.",
+        "new_balance": max(0, new_balance),
+        "new_status": new_status,
+        "authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+    }

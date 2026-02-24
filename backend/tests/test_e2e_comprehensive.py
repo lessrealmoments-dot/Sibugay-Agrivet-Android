@@ -1249,6 +1249,17 @@ class TestBadManagerScenario:
 class TestVerificationSystem:
     """Verify a PO at Lakewood with admin PIN."""
 
+    def test_set_admin_verification_pin(self, hdr):
+        """Set the admin verification PIN first (required before verification)."""
+        resp = requests.post(
+            f"{BASE_URL}/api/verify/admin-pin/set",
+            json={"pin": "521325"},
+            headers=hdr
+        )
+        assert resp.status_code == 200, f"Set admin PIN failed: {resp.text}"
+        data = resp.json()
+        print(f"Admin verification PIN set: {data}")
+
     def test_verify_po_with_admin_pin(self, hdr):
         """Verify a PO - badge should appear."""
         assert "po_lakewood1_id" in state
@@ -1258,10 +1269,9 @@ class TestVerificationSystem:
             headers=hdr
         )
         print(f"Verify PO: {resp.status_code} {resp.text[:200]}")
-        assert resp.status_code in [200, 201, 404], f"Verify PO unexpected: {resp.text}"
-        if resp.status_code in [200, 201]:
-            data = resp.json()
-            print(f"PO verified: {data}")
+        assert resp.status_code in [200, 201], f"Verify PO failed: {resp.text}"
+        data = resp.json()
+        print(f"PO verified: {data}")
 
     def test_verify_expense_with_admin_pin(self, hdr):
         """Verify an expense."""
@@ -1272,7 +1282,8 @@ class TestVerificationSystem:
             json={"pin": "521325", "notes": "E2E expense verification"},
             headers=hdr
         )
-        print(f"Verify expense: {resp.status_code} {resp.text[:100]}")
+        assert resp.status_code in [200, 201], f"Verify expense failed: {resp.text}"
+        print(f"Expense verified: {resp.status_code}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

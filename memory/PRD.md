@@ -237,3 +237,9 @@ All require manager PIN authorization for audit trail.
 - **Digital Wallet History**: Fund Management page wallet card history shows `platform`, `ref_number`, `sender` per transaction.
 
 **Digital audit data (IPIL test)**: 9 transactions, ₱2,907 collected (GCash: ₱2,040, Maya: ₱867), 0 missing ref#, wallet balance matches.
+
+### Phase 11 — Branch Transfer Repack Pricing + Incoming Preview (2026-02-24)
+- **Repack pricing in transfer form**: Product rows show repack sub-rows with capital/unit, current dest price, optional new price input. Margin indicator (green if above cost). "Leave blank to keep current price" hint.
+- **Incoming Transfer Preview**: When transfer is in "sent" status, destination sees "Price Updates on Receive" box showing current price → new price for each repack. Applied on receive/accept.
+- **Backend**: `repack_price_updates` stored on transfer order. On receive, applies `branch_prices` for repack products at destination branch only (not global). Response includes `repack_prices_applied` list.
+- **Product lookup enriched**: Returns `repacks[]` array per product with: id, name, units_per_parent, capital_per_repack, current_dest_retail (from branch_prices or global product prices).

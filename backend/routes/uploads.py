@@ -253,6 +253,100 @@ async def get_record_uploads(
 #  Serve a file (auth required)
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.post("/generate-view-token")
+async def generate_view_token(data: dict, user=Depends(get_current_user)):
+    """
+    Generate a 1-hour read-only view token for a record's uploaded photos.
+    Used to create a 'View on Phone' QR code.
+    """
+    record_type = data.get("record_type", "")
+    record_id = data.get("record_id", "")
+    if not record_type or not record_id:
+        raise HTTPException(status_code=400, detail="record_type and record_id required")
+
+    token = secrets.token_urlsafe(24)
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    summary = await _get_record_summary(record_type, record_id)
+
+    doc = {
+        "id": new_id(),
+        "token": token,
+        "token_type": "view",
+        "token_expires_at": expires_at,
+        "record_type": record_type,
+        "record_id": record_id,
+        "record_summary": summary,
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    }
+    await db.view_tokens.insert_one(doc)
+    return {"token": token, "expires_at": expires_at, "record_summary": summary}
+
+
+@router.get("/view-session/{token}")
+async def get_view_session(token: str):
+    """
+    Public endpoint — returns record summary + all uploaded files for the view QR.
+    No auth required (token is the security).
+    """
+    view_doc = await db.view_tokens.find_one({"token": token, "token_type": "view"}, {"_id": 0})
+    if not view_doc:
+        raise HTTPException(status_code=404, detail="View link not found or expired")
+
+    expires_at = view_doc.get("token_expires_at", "")
+    if expires_at:
+        try:
+            exp = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+            if exp < datetime.now(timezone.utc):
+                raise HTTPException(status_code=410, detail="View link has expired.")
+        except ValueError:
+            pass
+
+    record_type = view_doc["record_type"]
+    record_id = view_doc["record_id"]
+
+    # Get all files for this record
+    sessions = await db.upload_sessions.find(
+        {"record_type": record_type, "record_id": record_id},
+        {"_id": 0, "token": 0}
+    ).sort("created_at", -1).to_list(20)
+    total_files = sum(s.get("file_count", 0) for s in sessions)
+
+    # Get verification status
+    collection_map = {
+        "purchase_order": "purchase_orders",
+        "expense": "expenses",
+        "branch_transfer": "branch_transfer_orders",
+    }
+    verification = {}
+    if record_type in collection_map:
+        coll = getattr(db, collection_map[record_type])
+        doc = await coll.find_one({"id": record_id}, {"_id": 0,
+            "verified": 1, "verified_by_name": 1, "verified_at": 1,
+            "verification_status": 1, "has_discrepancy": 1, "discrepancy": 1
+        })
+        if doc:
+            verification = {
+                "verified": doc.get("verified", False),
+                "verified_by_name": doc.get("verified_by_name"),
+                "verified_at": doc.get("verified_at"),
+                "verification_status": doc.get("verification_status"),
+                "has_discrepancy": doc.get("has_discrepancy", False),
+                "discrepancy": doc.get("discrepancy"),
+            }
+
+    return {
+        "record_summary": view_doc.get("record_summary", {}),
+        "record_type": record_type,
+        "record_id": record_id,
+        "sessions": sessions,
+        "total_files": total_files,
+        "verification": verification,
+        "expires_at": expires_at,
+    }
+
+
 @router.get("/file/{record_type}/{record_id}/{file_id}")
 async def serve_file(
     record_type: str,

@@ -348,6 +348,8 @@ async def update_transfer(transfer_id: str, data: dict, user=Depends(get_current
         "total_at_branch_capital": total_at_branch_capital,
         "total_at_transfer_capital": total_at_transfer_capital,
         "total_at_branch_retail": total_at_branch_retail,
+        # Preserve / update repack price changes
+        "repack_price_updates": data.get("repack_price_updates", order.get("repack_price_updates", [])),
         "updated_at": now_iso(),
     }
     await db.branch_transfer_orders.update_one({"id": transfer_id}, {"$set": update})

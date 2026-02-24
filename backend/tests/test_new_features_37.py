@@ -17,7 +17,7 @@ def auth_token():
     """Get auth token for owner/521325"""
     res = requests.post(f"{BASE_URL}/api/auth/login", json={"username": "owner", "password": "521325"})
     assert res.status_code == 200, f"Login failed: {res.text}"
-    return res.json().get("access_token")
+    return res.json().get("token")
 
 
 @pytest.fixture(scope="module")

@@ -1599,6 +1599,181 @@ export default function UnifiedSalesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      </> {/* end mainTab === 'sale' */}
+      )}
+
+      {/* ── SALE DETAIL MODAL ────────────────────────────────────────────── */}
+      {selectedInvoice && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999 }}
+          onClick={e => { if (e.target === e.currentTarget) setSelectedInvoice(null); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full overflow-y-auto" style={{ maxWidth: '520px', maxHeight: '90vh' }}>
+            <div className="p-5">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-lg font-mono text-blue-700">{selectedInvoice.invoice_number}</span>
+                    {selectedInvoice.status === 'voided' ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-500">VOIDED</span>
+                    ) : selectedInvoice.payment_type === 'cash' || !selectedInvoice.customer_id ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">Walk-in / Cash</span>
+                    ) : (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">Credit Sale</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {selectedInvoice.invoice_date || selectedInvoice.order_date} · {selectedInvoice.cashier_name || 'Unknown cashier'}
+                  </p>
+                  {selectedInvoice.customer_name && selectedInvoice.customer_name !== 'Walk-in' && (
+                    <p className="text-sm font-semibold text-slate-700 mt-0.5">{selectedInvoice.customer_name}</p>
+                  )}
+                  {selectedInvoice.status === 'voided' && (
+                    <div className="mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                      <p className="text-xs text-red-700 font-semibold">Voided: {selectedInvoice.void_reason}</p>
+                      <p className="text-[10px] text-red-500">By {selectedInvoice.void_authorized_by} · {selectedInvoice.voided_at?.slice(0, 16)?.replace('T', ' ')}</p>
+                    </div>
+                  )}
+                  {selectedInvoice.interest_accrued > 0 && (
+                    <div className="mt-1 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1.5">
+                      <p className="text-xs text-amber-700">Interest accrued: <b>{formatPHP(selectedInvoice.interest_accrued)}</b> · Rate: {selectedInvoice.interest_rate}%/mo</p>
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setSelectedInvoice(null)} className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+                  <X size={14} className="text-slate-500" />
+                </button>
+              </div>
+
+              {/* Items */}
+              <div className="rounded-xl border border-slate-200 overflow-hidden mb-4">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-slate-500">Item</th>
+                      <th className="text-right px-3 py-2 font-medium text-slate-500 w-12">Qty</th>
+                      <th className="text-right px-3 py-2 font-medium text-slate-500 w-20">Price</th>
+                      <th className="text-right px-3 py-2 font-medium text-slate-500 w-20">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedInvoice.items || []).map((item, i) => (
+                      <tr key={i} className="border-t border-slate-100">
+                        <td className="px-3 py-2">
+                          <p className="font-medium">{item.product_name || item.name}</p>
+                          {item.description && <p className="text-[10px] text-slate-400">{item.description}</p>}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono">{item.quantity}</td>
+                        <td className="px-3 py-2 text-right font-mono">{formatPHP(item.rate || item.price || 0)}</td>
+                        <td className="px-3 py-2 text-right font-mono font-semibold">{formatPHP(item.total || 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="space-y-1 mb-4">
+                {selectedInvoice.freight > 0 && (
+                  <div className="flex justify-between text-xs text-slate-500"><span>Freight</span><span className="font-mono">{formatPHP(selectedInvoice.freight)}</span></div>
+                )}
+                {selectedInvoice.overall_discount > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-600"><span>Discount</span><span className="font-mono">-{formatPHP(selectedInvoice.overall_discount)}</span></div>
+                )}
+                <div className="flex justify-between text-sm font-bold border-t border-slate-200 pt-1.5 mt-1.5">
+                  <span>Grand Total</span><span className="font-mono text-[#1A4D2E]">{formatPHP(selectedInvoice.grand_total)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Amount Paid</span><span className="font-mono text-emerald-700">{formatPHP(selectedInvoice.amount_paid)}</span>
+                </div>
+                {selectedInvoice.balance > 0 && (
+                  <div className="flex justify-between text-sm font-semibold text-amber-700">
+                    <span>Balance Due</span><span className="font-mono">{formatPHP(selectedInvoice.balance)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              {selectedInvoice.status !== 'voided' && (
+                <button
+                  onClick={() => setVoidDialog(true)}
+                  className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                  data-testid="reopen-sale-btn"
+                >
+                  <RefreshCw size={14} /> Reopen / Void This Sale
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── VOID CONFIRMATION ─────────────────────────────────────────────── */}
+      {voidDialog && selectedInvoice && (
+        <div
+          className="fixed inset-0 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 99999 }}
+          onClick={e => { if (e.target === e.currentTarget) { setVoidDialog(false); setVoidReason(''); setVoidPin(''); } }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '400px' }}>
+            <p className="font-bold text-slate-800 mb-0.5">Void & Reopen Sale</p>
+            <p className="text-xs text-slate-500 mb-4">{selectedInvoice.invoice_number} · {formatPHP(selectedInvoice.grand_total)}</p>
+
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 mb-4 text-xs text-amber-800">
+              This will: reverse inventory, reverse cashflow
+              {selectedInvoice.balance > 0 ? ', and reverse customer AR balance.' : '.'}
+              <br />
+              {selectedInvoice.customer_id && <><b>Interest note:</b> Original invoice date will be preserved when re-saved.</>}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Reason *</label>
+                <textarea
+                  value={voidReason}
+                  onChange={e => setVoidReason(e.target.value)}
+                  placeholder="e.g. Wrong item entered, customer cancelled..."
+                  rows={2}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none resize-none focus:ring-2 focus:ring-red-200"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Manager PIN *</label>
+                <Input
+                  type="password"
+                  value={voidPin}
+                  onChange={e => setVoidPin(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleVoidInvoice()}
+                  placeholder="Enter manager PIN"
+                  className="h-9"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => { setVoidDialog(false); setVoidReason(''); setVoidPin(''); }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleVoidInvoice}
+                disabled={voidSaving || !voidReason || !voidPin}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {voidSaving ? <RefreshCw size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                Void & Reverse
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

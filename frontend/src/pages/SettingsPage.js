@@ -511,8 +511,6 @@ export default function SettingsPage() {
           </TabsContent>
         )}
       </Tabs>
-
-      {/* Create User Dialog */}
       <Dialog open={createDialog} onOpenChange={setCreateDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Create User</DialogTitle></DialogHeader>

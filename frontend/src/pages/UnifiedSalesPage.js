@@ -1700,7 +1700,7 @@ export default function UnifiedSalesPage() {
                   className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-medium transition-colors flex items-center justify-center gap-2"
                   data-testid="reopen-sale-btn"
                 >
-                  <RefreshCw size={14} /> Reopen / Void This Sale
+                  <RefreshCw size={14} /> Void &amp; Re-open for Editing
                 </button>
               )}
             </div>

@@ -325,39 +325,6 @@ async def get_transfer(transfer_id: str, user=Depends(get_current_user)):
     return order
 
 
-@router.put("/{transfer_id}")
-async def update_transfer(transfer_id: str, data: dict, user=Depends(get_current_user)):
-    """Update a draft transfer order."""
-    order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
-    if not order:
-        raise HTTPException(status_code=404, detail="Transfer not found")
-    if order["status"] != "draft":
-        raise HTTPException(status_code=400, detail="Only draft orders can be edited")
-
-    items = data.get("items", order["items"])
-    total_at_branch_capital = round(sum(
-        float(i.get("branch_capital", 0)) * float(i.get("qty", 0)) for i in items), 2)
-    total_at_transfer_capital = round(sum(
-        float(i.get("transfer_capital", 0)) * float(i.get("qty", 0)) for i in items), 2)
-    total_at_branch_retail = round(sum(
-        float(i.get("branch_retail", 0)) * float(i.get("qty", 0)) for i in items), 2)
-
-    update = {
-        "items": items,
-        "min_margin": float(data.get("min_margin", order["min_margin"])),
-        "category_markups": data.get("category_markups", order["category_markups"]),
-        "notes": data.get("notes", order.get("notes", "")),
-        "total_at_branch_capital": total_at_branch_capital,
-        "total_at_transfer_capital": total_at_transfer_capital,
-        "total_at_branch_retail": total_at_branch_retail,
-        # Preserve / update repack price changes
-        "repack_price_updates": data.get("repack_price_updates", order.get("repack_price_updates", [])),
-        "updated_at": now_iso(),
-    }
-    await db.branch_transfer_orders.update_one({"id": transfer_id}, {"$set": update})
-    return {**order, **update}
-
-
 @router.post("/{transfer_id}/send")
 async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
     """Mark transfer as sent (goods are on the way). Creates incoming notification for destination."""

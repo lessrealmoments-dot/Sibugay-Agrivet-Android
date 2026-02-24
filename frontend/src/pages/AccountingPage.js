@@ -1094,6 +1094,25 @@ export default function AccountingPage() {
         recordType="expense"
         recordId={uploadExpenseId}
       />
+      <ViewQRDialog
+        open={viewQRExpenseOpen}
+        onClose={() => setViewQRExpenseOpen(false)}
+        recordType="expense"
+        recordId={viewQRExpenseId}
+      />
+      <VerifyPinDialog
+        open={verifyExpenseOpen}
+        onClose={() => setVerifyExpenseOpen(false)}
+        docType="expense"
+        docId={verifyExpenseId}
+        docLabel={verifyExpenseLabel}
+        onVerified={() => {
+          setVerifyExpenseOpen(false);
+          // Refresh expenses list
+          setExpenses(prev => prev.map(e => e.id === verifyExpenseId
+            ? { ...e, verified: true, verification_status: 'clean' } : e));
+        }}
+      />
     </div>
   );
 }

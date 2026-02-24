@@ -480,7 +480,8 @@ async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current
         "tax_rate": tax_rate,
         "tax_amount": tax_amount,
         "grand_total": grand_total,
-        "balance": grand_total if po.get("payment_status") != "paid" else 0,
+        # FIX #3: always recalculate balance from current amount_paid, never assume paid=0 balance
+        "balance": max(0, round(grand_total - float(po.get("amount_paid", 0)), 2)),
         "dr_number": data.get("dr_number", po.get("dr_number", "")),
         "notes": data.get("notes", po.get("notes", "")),
         "updated_at": now_iso(),

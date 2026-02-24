@@ -21,7 +21,7 @@ IPIL_BRANCH_ID = "d4a041e7-4918-490e-afb8-54ae90cec7fb"
 
 OWNER_USER = "owner"
 OWNER_PASS = "521325"
-MANAGER_PIN = "1234"  # Admin verification PIN
+MANAGER_PIN = "521325"  # Owner user's manager_pin field (same as password)
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────

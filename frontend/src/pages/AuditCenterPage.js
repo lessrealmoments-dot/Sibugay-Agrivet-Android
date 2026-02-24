@@ -656,6 +656,7 @@ export default function AuditCenterPage() {
           transfers: auditData.transfers?.severity,
           returns: auditData.returns?.severity,
           activity: auditData.activity?.severity,
+          digital: auditData.digital?.severity,
           inventory: auditData.inventory?.severity,
         },
       });

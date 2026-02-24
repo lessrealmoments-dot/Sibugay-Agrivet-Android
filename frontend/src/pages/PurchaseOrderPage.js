@@ -916,6 +916,7 @@ export default function PurchaseOrderPage() {
                               {new Date(po.due_date) < new Date() ? '⚠ ' : ''}Due {po.due_date}
                             </span>
                           )}
+                          <VerificationBadge doc={po} compact />
                         </div>
                       </TableCell>
                       <TableCell>

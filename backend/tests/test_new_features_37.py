@@ -237,7 +237,8 @@ class TestVerifyWithAdminPin:
         """Verify a PO using admin PIN 1234"""
         # Get a PO to verify
         res = authed.get(f"{BASE_URL}/api/purchase-orders")
-        orders = res.json() if isinstance(res.json(), list) else res.json().get("orders", [])
+        data = res.json()
+        orders = data.get("purchase_orders", []) if isinstance(data, dict) else data
         received_po = next((p for p in orders if p.get("status") == "received"), None)
         if not received_po:
             pytest.skip("No received PO to test verification")

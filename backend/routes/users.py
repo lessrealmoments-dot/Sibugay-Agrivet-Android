@@ -62,7 +62,8 @@ async def update_user(user_id: str, data: dict, user=Depends(get_current_user)):
     check_perm(user, "settings", "manage_users")
     
     update = {k: v for k, v in data.items() if k in (
-        "full_name", "email", "role", "branch_id", "active"
+        "full_name", "email", "role", "branch_id", "active",
+        "is_auditor", "auditor_pin",
     )}
     
     if "password" in data and data["password"]:

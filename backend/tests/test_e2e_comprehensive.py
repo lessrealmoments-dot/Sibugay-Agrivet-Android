@@ -1093,9 +1093,45 @@ class TestCountSheet:
         print(f"Count sheet snapshot taken, status={snap_data.get('status')}, items={len(snap_data.get('items', []))}")
 
     def test_complete_count_sheet(self, hdr):
-        """Complete the count sheet."""
+        """Complete the count sheet (update counts first, then complete)."""
         if not state.get("count_sheet_id"):
             pytest.skip("Count sheet not created")
+        
+        # Get count sheet items first
+        get_resp = requests.get(
+            f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}",
+            headers=hdr
+        )
+        assert get_resp.status_code == 200
+        sheet_data = get_resp.json()
+        items = sheet_data.get("items", [])
+        
+        if not items:
+            pytest.skip("Count sheet has no items")
+        
+        # Update all items with counted quantities (with some variances for realism)
+        count_updates = []
+        for idx, item in enumerate(items):
+            system_qty = item.get("system_quantity", 0) or 0
+            # Add some variance for every 3rd item
+            variance = -1 if idx % 3 == 0 and system_qty >= 1 else 0
+            count_updates.append({
+                "product_id": item["product_id"],
+                "actual_quantity": max(0, system_qty + variance),
+                "notes": "E2E test count" if variance != 0 else ""
+            })
+        
+        # Submit counts in batches of 50
+        for i in range(0, len(count_updates), 50):
+            batch = count_updates[i:i+50]
+            upd_resp = requests.post(
+                f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}/update-counts",
+                json={"items": batch},
+                headers=hdr
+            )
+            assert upd_resp.status_code in [200, 201], f"Update counts failed: {upd_resp.text}"
+        
+        # Complete the count sheet
         resp = requests.post(
             f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}/complete",
             json={"manager_pin": "521325", "notes": "Completed E2E count"},

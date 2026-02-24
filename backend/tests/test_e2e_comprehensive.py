@@ -1253,7 +1253,7 @@ class TestVerificationSystem:
         """Verify a PO - badge should appear."""
         assert "po_lakewood1_id" in state
         resp = requests.post(
-            f"{BASE_URL}/api/verify/purchase-order/{state['po_lakewood1_id']}",
+            f"{BASE_URL}/api/verify/purchase_order/{state['po_lakewood1_id']}",
             json={"pin": "521325", "notes": "E2E verification test"},
             headers=hdr
         )

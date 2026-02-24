@@ -91,10 +91,14 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
             sale_id = sale.get("id", new_id())
             branch_id = sale.get("branch_id", "")
 
-            # Idempotency — skip if already synced
-            existing = await db.invoices.find_one({"id": sale_id}, {"_id": 0})
+            # Idempotency — skip if already synced by id OR envelope_id
+            envelope_id = sale.get("envelope_id", sale_id)
+            existing = await db.invoices.find_one(
+                {"$or": [{"id": sale_id}, {"envelope_id": envelope_id}]},
+                {"_id": 0, "id": 1}
+            )
             if existing:
-                synced.append({"id": sale_id, "status": "duplicate"})
+                synced.append({"id": sale_id, "envelope_id": envelope_id, "status": "duplicate"})
                 continue
 
             items = sale.get("items", [])

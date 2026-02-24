@@ -149,6 +149,19 @@ async def get_daily_close_preview(
 
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
 
+    # ── Digital payments today (GCash, Maya, etc.) ───────────────────────────
+    digital_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "fund_source": "digital", "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1,
+         "amount_paid": 1, "digital_platform": 1, "digital_ref_number": 1, "digital_sender": 1}
+    ).to_list(500)
+    digital_by_platform = {}
+    for inv in digital_invoices:
+        platform = inv.get("digital_platform", "Digital") or "Digital"
+        digital_by_platform[platform] = digital_by_platform.get(platform, 0) + float(inv.get("amount_paid", 0))
+    total_digital_today = round(sum(float(inv.get("amount_paid", 0)) for inv in digital_invoices), 2)
+
     # ── Expected counter ──────────────────────────────────────────────────────
     # starting_float + all_cash_received_today - cash_expenses
     total_cash_in = total_cash_sales + total_partial_cash + total_ar_received
@@ -171,6 +184,16 @@ async def get_daily_close_preview(
             for inv in partial_invoices
         ],
         "total_partial_cash": total_partial_cash,
+        # Digital payments today
+        "digital_sales_today": [
+            {"invoice_number": inv.get("invoice_number"), "customer_name": inv.get("customer_name"),
+             "amount": round(float(inv.get("amount_paid", 0)), 2),
+             "platform": inv.get("digital_platform", "Digital"),
+             "ref_number": inv.get("digital_ref_number", "")}
+            for inv in digital_invoices
+        ],
+        "digital_by_platform": {k: round(v, 2) for k, v in digital_by_platform.items()},
+        "total_digital_today": total_digital_today,
         # AR collections
         "ar_payments": ar_payments,
         "total_ar_received": total_ar_received,

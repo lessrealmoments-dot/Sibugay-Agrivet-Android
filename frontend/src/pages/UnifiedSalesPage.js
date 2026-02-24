@@ -205,17 +205,14 @@ export default function UnifiedSalesPage() {
         manager_pin: voidPin,
       });
       toast.success(`${selectedInvoice.invoice_number} voided — authorized by ${res.data.authorized_by}`);
+      const snap = res.data.snapshot;
       setVoidDialog(false);
       setVoidReason('');
       setVoidPin('');
-      // Option to reopen (pre-fill new sale)
-      const snap = res.data.snapshot;
       setSelectedInvoice(null);
       loadHistory();
-      // Ask if they want to reopen
-      if (window.confirm(`Void successful. Would you like to re-process this sale with the original items?`)) {
-        reopenAsSale(snap);
-      }
+      // Auto-reopen: switch to New Sale with original items pre-filled
+      reopenAsSale(snap);
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Void failed');
     }

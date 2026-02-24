@@ -151,9 +151,10 @@ class TestPOPaymentType:
     def _get_branch_and_product(self, authed):
         """Helper to get branch ID and a product for PO"""
         branches = authed.get(f"{BASE_URL}/api/branches").json()
-        branch_id = branches[0]["id"] if branches else None
+        branch_id = branches[0]["id"] if isinstance(branches, list) and branches else None
 
-        products = authed.get(f"{BASE_URL}/api/products").json()
+        products_res = authed.get(f"{BASE_URL}/api/products?limit=1").json()
+        products = products_res.get("products", []) if isinstance(products_res, dict) else products_res
         product = products[0] if products else None
         return branch_id, product
 

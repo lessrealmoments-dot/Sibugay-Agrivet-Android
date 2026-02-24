@@ -1339,10 +1339,10 @@ class TestSettings:
 
     def test_get_settings(self, hdr):
         """Get current settings."""
-        resp = requests.get(f"{BASE_URL}/api/settings", headers=hdr)
+        resp = requests.get(f"{BASE_URL}/api/settings/invoice-prefixes", headers=hdr)
         assert resp.status_code == 200, f"Get settings failed: {resp.text}"
         data = resp.json()
-        print(f"Settings: {type(data)} keys={list(data.keys()) if isinstance(data, dict) else 'list'}")
+        print(f"Settings invoice-prefixes: {data}")
 
     def test_list_users(self, hdr):
         """List users for auditor access management."""

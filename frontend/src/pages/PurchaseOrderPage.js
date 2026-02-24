@@ -1122,11 +1122,23 @@ export default function PurchaseOrderPage() {
                 {detailEditMode ? `Edit PO — ${detailPO?.po_number}` : `PO Detail — ${detailPO?.po_number}`}
               </DialogTitle>
               <div className="flex gap-2">
+                {/* View on Phone QR */}
+                <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
+                  onClick={() => { setViewQROpen(true); setViewQRFileCount(0); }}>
+                  <span className="mr-1">📱</span> View
+                </Button>
                 {/* Upload Receipt button */}
                 <Button size="sm" variant="outline" className="h-7 text-xs"
                   onClick={() => { setUploadRecordId(detailPO?.id); setUploadQROpen(true); }}>
                   <Upload size={12} className="mr-1" /> Upload Receipt
                 </Button>
+                {/* Verify button */}
+                {detailPO && !detailPO.verified && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
+                    onClick={() => setVerifyDialogOpen(true)}>
+                    <ShieldCheck size={12} className="mr-1" /> Verify
+                  </Button>
+                )}
                 {/* Edit button for reopened POs */}
                 {detailPO?.status === 'ordered' && detailPO?.reopened_at && !detailEditMode && (
                   <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-300"
@@ -1136,6 +1148,17 @@ export default function PurchaseOrderPage() {
                 )}
               </div>
             </div>
+            {/* Verification badge row */}
+            {detailPO && detailPO.verified && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <VerificationBadge doc={detailPO} />
+                {detailPO.verified_at && (
+                  <span className="text-[10px] text-slate-400">
+                    {detailPO.verified_at?.slice(0, 16)?.replace('T', ' ')}
+                  </span>
+                )}
+              </div>
+            )}
           </DialogHeader>
           {detailPO && (
             <div className="space-y-4 mt-2">

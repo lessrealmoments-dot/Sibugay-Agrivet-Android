@@ -1,0 +1,96 @@
+{
+  "summary": "Comprehensive testing of AgriBooks Branch Transfer repack pricing feature. Found and fixed 3 backend bugs. All 17 backend tests pass. Frontend repack sub-row and incoming preview working correctly. Identified 1 minor frontend display issue.",
+  "bugs_fixed": [
+    {
+      "file": "/app/backend/routes/branch_transfers.py",
+      "bug": "CRITICAL: Duplicate PUT route defined at line 224 and line 326. The first PUT at line 224 was missing 'repack_price_updates' from the update dict. Since FastAPI uses the first-defined route, the second PUT (which had repack_price_updates) was dead code. Result: PUT updates to repack_price_updates were silently ignored.",
+      "fix": "Added 'repack_price_updates': data.get('repack_price_updates', order.get('repack_price_updates', [])) to the first PUT's update dict. Removed the duplicate second PUT route entirely."
+    },
+    {
+      "file": "/app/backend/routes/branch_transfers.py",
+      "bug": "CRITICAL: receive_transfer had 'qty_overrides = {item[product_id]: float(item.get(qty_received, item[qty])) for item in data.get(items, [])}'. Python evaluates all arguments before calling .get(), so item['qty'] was always evaluated even when 'qty_received' was present. Since the receive request body items only send {product_id, qty_received} without 'qty', this raised KeyError: 'qty' causing all receive calls to return 500.",
+      "fix": "Replaced the dict comprehension with a safe loop: for each item, use item.get('qty_received') if present, else item.get('qty', 0)."
+    },
+    {
+      "file": "/app/backend/routes/branch_transfers.py",
+      "bug": "MINOR: In _apply_receipt(), the check 'if not repack_id or new_price is None: continue' was not guarding against new_price=0. A repack update with new_retail_price=0 was being applied and written to branch_prices with retail=0.0, which is wrong. Design spec says 'Only entries with new_retail_price > 0 are applied'.",
+      "fix": "Added 'if new_price <= 0: continue' after converting new_price to float."
+    }
+  ],
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Incoming Transfer Preview - Price Updates on Receive",
+        "issues": [
+          "The old (current) repack price shows '—' with strikethrough instead of the actual current destination price (e.g., ₱9.00). The frontend code at line 1517 renders rpu.current_dest_retail but this field is NOT included in the repack_price_updates payload when creating the transfer (handleSubmit, line 327-335). Fix: add 'current_dest_retail: rp.current_dest_retail' to the repack_price_updates.push() in handleSubmit."
+        ]
+      }
+    ]
+  },
+  "features_tested_status": {
+    "product_lookup_returns_repacks": "PASS — GET /api/branch-transfers/product-lookup returns 'repacks' array for products with repack children",
+    "repack_fields_correct": "PASS — id, name, units_per_parent, capital_per_repack, current_dest_retail all present in each repack",
+    "repack_capital_computation": "PASS — capital_per_repack = branch_capital / units_per_parent computed correctly (3.5 = 70/20)",
+    "repack_current_dest_retail": "PASS — current_dest_retail fetched from destination branch_prices or falls back to global",
+    "create_transfer_with_repack_updates": "PASS — POST /api/branch-transfers creates with repack_price_updates field stored",
+    "put_transfer_saves_repack_updates": "PASS (after fix) — PUT /api/branch-transfers/{id} saves repack_price_updates",
+    "receive_applies_repack_prices": "PASS (after fix) — POST /api/branch-transfers/{id}/receive applies repack price updates to destination branch_prices",
+    "receive_response_repack_prices_applied": "PASS — response includes 'repack_prices_applied' list with repack_id, repack_name, new_retail_price",
+    "blank_repack_price_no_change": "PASS — empty repack_price_updates => repack_prices_applied is empty, destination prices unchanged",
+    "zero_price_not_applied": "PASS (after fix) — new_retail_price=0 not applied (only > 0 are applied)",
+    "repack_subrow_shows_in_form": "PASS — Form shows blue repack sub-row when product with repacks is selected",
+    "repack_subrow_capital_per_unit": "PASS — Shows 'Capital: ₱3.50' correctly",
+    "repack_subrow_current_dest_retail": "PASS — Shows 'Now: ₱9.00' (current destination retail price)",
+    "repack_subrow_new_price_input": "PASS — New price input with data-testid='repack-price-{id}' is interactive",
+    "repack_subrow_profit_indicator": "PASS — Shows +₱21.50 profit indicator when new price (25.00) > capital (3.50)",
+    "repack_subrow_leave_blank_hint": "PASS — 'Leave blank to keep current price' hint shown",
+    "incoming_preview_price_updates": "PASS — 'Price Updates on Receive' section shown in incoming view when repack_price_updates exist",
+    "incoming_preview_shows_repack_name": "PASS — Shows 'R VITMIN PRO POWDER (1 X 20)' in preview",
+    "incoming_preview_shows_new_price": "PASS — Shows → ₱25 in preview",
+    "incoming_preview_confirm_receipt_btn": "PASS — Confirm Receipt button present",
+    "incoming_preview_old_price_strikethrough": "MINOR ISSUE — Shows '—' instead of current price (₱9.00) with strikethrough because current_dest_retail not stored in payload"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_repack_pricing_transfer.py",
+    "/app/test_reports/pytest/pytest_repack_pricing_42.xml"
+  ],
+  "action_items": [
+    "FRONTEND FIX (minor): In BranchTransferPage.js handleSubmit() repack_price_updates.push() (line ~327), add 'current_dest_retail: rp.current_dest_retail' to store the old price. This enables the incoming preview to show '₱9.00 → ₱25' with strikethrough instead of '— → ₱25'."
+  ],
+  "critical_code_review_comments": [
+    "branch_transfers.py had duplicate PUT /{transfer_id} routes (lines 224 and 326). FastAPI silently uses the first. The first was missing repack_price_updates — so all PUT updates to repack prices were lost. Fixed.",
+    "receive_transfer: dict comprehension evaluated item['qty'] eagerly (Python arg evaluation) causing KeyError for all receive calls. Fixed with safe conditional loop.",
+    "_apply_receipt: new_price=0 guard was missing (only checking None). Fixed with <= 0 check per spec.",
+    "BranchTransferPage.js: current_dest_retail not stored in repack_price_updates payload, so incoming preview shows '—' instead of old price. Minor fix needed."
+  ],
+  "updated_files": [
+    "/app/backend/routes/branch_transfers.py",
+    "/app/backend/tests/test_repack_pricing_transfer.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests pass after 3 fixes)",
+    "frontend": "95% — all UI features work, minor display issue with old price in incoming preview"
+  },
+  "seed_data_creation": "Multiple test branch transfers created: BTO-20260224-0010 through BTO-20260224-0026 (Main Branch → IPIL BRANCH). BTO-20260224-0026 is 'sent' with repack_price_updates=[{repack_id: d3bb5438-900e-4a3e-a08a-90147b8b7190, repack_name: R VITMIN PRO POWDER (1 X 20), new_retail_price: 25}].",
+  "test_credentials": {
+    "owner_login": "owner / 521325",
+    "Main_branch_id": "da114e26-fd00-467f-8728-6b8047a244b5",
+    "IPIL_branch_id": "d4a041e7-4918-490e-afb8-54ae90cec7fb",
+    "repack_product_id": "d3bb5438-900e-4a3e-a08a-90147b8b7190",
+    "repack_parent_id": "4dfff4e8-0379-473e-bbba-e9f8212473de"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "3 backend bugs were fixed in this iteration: (1) Duplicate PUT route - first PUT now includes repack_price_updates. (2) KeyError 'qty' in receive_transfer fixed with safe conditional. (3) Zero price check added. Frontend repack sub-row and incoming preview work correctly. Only remaining item: add current_dest_retail to repack_price_updates push in handleSubmit (BranchTransferPage.js ~line 327). After fix, verify incoming preview shows old price with strikethrough. BTO-20260224-0026 is currently 'sent' in IPIL BRANCH incoming queue for testing confirmation flow.",
+  "rca_of_issues": {
+    "bug1_duplicate_put_missing_repack_updates": "Root cause: Two separate developers or iterations added two PUT /{transfer_id} routes. The first implementation (line 224) was an enhanced version with role-checking and branch isolation but was created before repack_price_updates feature was added. The second implementation (line 326) was added for repack support but FastAPI uses the first-defined route, making the second dead code. Fix: Merged repack_price_updates into the first route and removed duplicate.",
+    "bug2_keyerror_qty_in_receive": "Root cause: The qty_overrides dict comprehension used item.get('qty_received', item['qty']). In Python, default argument expressions are evaluated eagerly, so item['qty'] was always executed even when 'qty_received' was present. Since the receive request body items only included {product_id, qty_received}, item['qty'] raised KeyError. This caused 100% failure of all receive API calls.",
+    "bug3_zero_price_applied": "Root cause: The guard in _apply_receipt was 'if not repack_id or new_price is None: continue'. This only skips None values but not 0. The design spec states 'Only entries with new_retail_price > 0 are applied', so 0 should also be skipped. Added 'if new_price <= 0: continue' after the float conversion."
+  }
+}

@@ -1,5 +1,5 @@
 """
-Unified Sales endpoint: handles cash, partial, and credit sales.
+Unified Sales endpoint: handles cash, partial, credit, digital, and split sales.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timezone, timedelta
@@ -7,7 +7,7 @@ from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id,
     log_movement, log_sale_items, get_active_date, update_cashier_wallet,
-    get_branch_cost,
+    update_digital_wallet, is_digital_payment, get_branch_cost,
 )
 
 router = APIRouter(tags=["Sales"])

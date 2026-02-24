@@ -296,19 +296,61 @@ async def update_expense(expense_id: str, data: dict, user=Depends(get_current_u
 
 @router.delete("/expenses/{expense_id}")
 async def delete_expense(expense_id: str, user=Depends(get_current_user)):
-    """Delete an expense and refund to wallet."""
+    """
+    Void an expense and return the funds to the ORIGINAL fund source.
+    FIX: uses the expense's own fund_source, not always cashier.
+    """
     check_perm(user, "accounting", "edit_expense")
     expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")
-    
-    await update_cashier_wallet(
-        expense["branch_id"],
-        expense["amount"],
-        f"Expense deleted: {expense.get('description', '')}"
+    if expense.get("voided"):
+        raise HTTPException(status_code=400, detail="Expense is already voided")
+
+    branch_id = expense["branch_id"]
+    amount = float(expense.get("amount", 0))
+    fund_source = expense.get("fund_source", "cashier")
+    ref_text = f"Expense voided: {expense.get('description', '')}"
+
+    # Return funds to the ORIGINAL source (not always cashier)
+    if amount > 0:
+        if fund_source == "safe":
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                await db.safe_lots.insert_one({
+                    "id": new_id(), "branch_id": branch_id,
+                    "wallet_id": safe_wallet["id"],
+                    "date_received": now_iso()[:10],
+                    "original_amount": amount,
+                    "remaining_amount": amount,
+                    "source_reference": ref_text,
+                    "created_by": user["id"],
+                    "created_at": now_iso(),
+                })
+        else:
+            await update_cashier_wallet(branch_id, amount, ref_text)
+
+    # Soft-void: keep the record for audit trail
+    await db.expenses.update_one(
+        {"id": expense_id},
+        {"$set": {
+            "voided": True,
+            "voided_at": now_iso(),
+            "voided_by": user.get("full_name", user["username"]),
+            "void_reason": "Manually deleted",
+        }}
     )
-    await db.expenses.delete_one({"id": expense_id})
-    return {"message": "Expense deleted and funds returned"}
+
+    # Reverse employee advance balance if applicable
+    if expense.get("category") == "Employee Advance" and expense.get("employee_id") and amount > 0:
+        await db.employees.update_one(
+            {"id": expense["employee_id"]},
+            {"$inc": {"advance_balance": -amount}, "$set": {"updated_at": now_iso()}}
+        )
+
+    return {"message": f"Expense voided and ₱{amount:,.2f} returned to {fund_source}"}
 
 
 @router.post("/expenses/farm")

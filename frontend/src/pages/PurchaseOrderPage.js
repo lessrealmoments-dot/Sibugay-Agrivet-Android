@@ -858,18 +858,23 @@ export default function PurchaseOrderPage() {
                     </Button>
                     <Button size="sm" onClick={openTermsDialog} disabled={saving}
                       data-testid="receive-terms-btn"
-                      className="flex flex-col h-14 gap-0.5 bg-blue-600 hover:bg-blue-700 text-white">
-                      <CreditCard size={16} /><span className="text-[10px] leading-tight text-center">Receive on Terms</span>
+                      className={`flex flex-col h-14 gap-0.5 text-white ${header.payment_type === 'terms' ? 'ring-2 ring-offset-1 ring-blue-400 bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                      <CreditCard size={16} />
+                      <span className="text-[10px] leading-tight text-center">
+                        {header.payment_type === 'terms' ? `Terms (${header.terms_label})` : 'Receive on Terms'}
+                      </span>
                     </Button>
                     <Button size="sm" onClick={openCashDialog} disabled={saving || cashLoading}
                       data-testid="pay-cash-btn"
-                      className="flex flex-col h-14 gap-0.5 bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                      className={`flex flex-col h-14 gap-0.5 text-white ${header.payment_type === 'cash' ? 'ring-2 ring-offset-1 ring-emerald-400 bg-[#1A4D2E] hover:bg-[#14532d]' : 'bg-[#1A4D2E] hover:bg-[#14532d]'}`}>
                       {cashLoading ? <RefreshCw size={16} className="animate-spin" /> : <Wallet size={16} />}
                       <span className="text-[10px] leading-tight text-center">Pay in Cash</span>
                     </Button>
                   </div>
                   <p className="text-[10px] text-slate-400 text-center">
-                    Both "Receive" options immediately update inventory
+                    {header.payment_type === 'terms'
+                      ? `Terms pre-set to ${header.terms_label} — click "Terms" to confirm`
+                      : 'Both "Receive" options immediately update inventory'}
                   </p>
                 </>
               )}

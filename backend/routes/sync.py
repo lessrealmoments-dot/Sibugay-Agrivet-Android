@@ -172,6 +172,7 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
             # Create invoice
             invoice = {
                 "id": sale_id,
+                "envelope_id": envelope_id,  # for idempotent re-sync detection
                 "invoice_number": inv_number,
                 "prefix": sale.get("prefix", "SYNC"),
                 "customer_id": sale.get("customer_id"),

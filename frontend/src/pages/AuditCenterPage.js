@@ -1036,6 +1036,80 @@ export default function AuditCenterPage() {
                 </div>
               </SectionCard>
 
+              {/* Section 9: Digital Payments */}
+              {auditData.digital && (
+                <SectionCard
+                  title="Digital Payments (GCash / Maya / E-wallet)"
+                  icon={<Smartphone size={16} className="text-blue-600" />}
+                  sev={auditData.digital.severity}
+                  data_testid="audit-digital-section"
+                  insight={{
+                    type: auditData.digital.missing_ref_count > 0 ? 'critical' : 'ok',
+                    text: auditData.digital.missing_ref_count > 0
+                      ? `${auditData.digital.missing_ref_count} digital transaction(s) are missing reference numbers — these cannot be traced back to their source. Require cashiers to always enter the GCash/Maya reference code before completing the sale.`
+                      : `All ${auditData.digital.transaction_count} digital payments have reference numbers. Total collected: ${formatPHP(auditData.digital.total_digital_collected)}. These funds are tracked in the Digital wallet separately from the cashier drawer.`,
+                  }}
+                >
+                  <div className="space-y-2 mt-2">
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="rounded-lg bg-blue-50 border border-blue-200 p-2.5 text-center">
+                        <p className="text-xs text-blue-500 mb-0.5">Total Digital Collected</p>
+                        <p className="font-bold font-mono text-blue-700">{formatPHP(auditData.digital.total_digital_collected)}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 p-2.5 text-center">
+                        <p className="text-xs text-slate-500 mb-0.5">Digital Wallet Balance</p>
+                        <p className="font-bold font-mono text-slate-700">{formatPHP(auditData.digital.digital_wallet_balance)}</p>
+                      </div>
+                    </div>
+
+                    {/* By Platform */}
+                    {Object.entries(auditData.digital.by_platform || {}).map(([platform, amt]) => (
+                      <StatRow key={platform} label={platform} value={formatPHP(amt)} />
+                    ))}
+
+                    {auditData.digital.missing_ref_count > 0 && (
+                      <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 mt-2">
+                        <p className="text-xs font-semibold text-red-700">
+                          ⚠ {auditData.digital.missing_ref_count} transaction(s) missing reference number
+                        </p>
+                        <p className="text-[10px] text-red-500 mt-0.5">
+                          These cannot be traced back to the GCash/Maya app for verification.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Transaction list */}
+                    {auditData.digital.transactions?.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-xs text-blue-600 cursor-pointer font-medium">
+                          View {auditData.digital.transactions.length} digital transaction(s)
+                        </summary>
+                        <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                          {auditData.digital.transactions.map((t, i) => (
+                            <div key={i} className={`text-xs p-2 rounded flex items-center justify-between gap-2 ${t.has_ref ? 'bg-blue-50' : 'bg-red-50 border border-red-200'}`}>
+                              <div className="min-w-0">
+                                <span className="font-mono text-blue-700 mr-1">{t.invoice_number}</span>
+                                <span className="text-slate-500 truncate">{t.customer_name}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] text-blue-500">{t.platform}</span>
+                                  {t.ref_number ? (
+                                    <span className="text-[10px] font-mono text-slate-500">#{t.ref_number}</span>
+                                  ) : (
+                                    <span className="text-[10px] text-red-500 font-semibold">No ref#</span>
+                                  )}
+                                  {t.is_split && <span className="text-[10px] text-purple-500">split</span>}
+                                </div>
+                              </div>
+                              <span className="font-bold text-blue-700 font-mono shrink-0">{formatPHP(t.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </SectionCard>
+              )}
+
               {/* Section 1: Inventory (full audit only) */}
               {auditData.inventory?.available && (
                 <SectionCard title={`Inventory Physical Count (${auditData.inventory.baseline_date} → ${auditData.inventory.current_date})`}

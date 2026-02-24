@@ -1065,7 +1065,7 @@ export default function BranchTransferPage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                     </tbody>

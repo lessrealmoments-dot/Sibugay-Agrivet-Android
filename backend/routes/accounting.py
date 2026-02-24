@@ -25,18 +25,27 @@ EXPENSE_CATEGORIES = [
 # ==================== FUND WALLETS ====================
 @router.get("/fund-wallets")
 async def list_fund_wallets(user=Depends(get_current_user), branch_id: Optional[str] = None):
-    """List all fund wallets (cashier drawer, safe, bank accounts)."""
+    """
+    List all fund wallets (Cashier, Safe, Digital, Bank).
+    Bank balance hidden from non-admin roles for confidentiality.
+    """
     query = {"active": True}
     if branch_id:
         query["branch_id"] = branch_id
+    elif user.get("branch_id") and user.get("role") not in ["admin"]:
+        query["branch_id"] = user["branch_id"]
     wallets = await db.fund_wallets.find(query, {"_id": 0}).to_list(50)
     for w in wallets:
         if w["type"] == "safe":
             lots = await db.safe_lots.find(
                 {"wallet_id": w["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
             ).to_list(500)
-            w["balance"] = sum(lot["remaining_amount"] for lot in lots)
+            w["balance"] = round(sum(lot["remaining_amount"] for lot in lots), 2)
             w["lots"] = lots
+        # Confidentiality: hide bank balance from non-admins
+        if w["type"] == "bank" and user.get("role") not in ["admin"]:
+            w["balance"] = None
+            w["balance_hidden"] = True
     return wallets
 
 

@@ -420,21 +420,20 @@ class TestPurchaseOrders:
     """Create and receive POs at Lakewood and Riverside branches."""
 
     def test_create_lakewood_po1_cash(self, hdr):
-        """Cash PO at Lakewood from AgriTech."""
+        """Cash PO at Lakewood from AgriTech (fund from safe which has 50000)."""
         assert all(k in state for k in ["lakewood_id", "supp_agritech_id", "prod_fertilizer_id"])
         resp = requests.post(f"{BASE_URL}/api/purchase-orders", json={
             "vendor": "AgriTech Supplies Inc",
             "supplier_id": state["supp_agritech_id"],
             "branch_id": state["lakewood_id"],
             "po_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "payment_terms": "cash",
+            "po_type": "cash",
             "items": [
                 {"product_id": state["prod_fertilizer_id"], "product_name": "Fertilizer Supreme 50kg", "quantity": 10, "unit_price": 800.00},
                 {"product_id": state["prod_rice_id"], "product_name": "Rice Premium 25kg", "quantity": 20, "unit_price": 1200.00},
                 {"product_id": state["prod_pesticide_id"], "product_name": "Pesticide Gold 1L", "quantity": 15, "unit_price": 350.00}
             ],
-            "status": "received",
-            "fund_source": "cashier"
+            "fund_source": "safe"
         }, headers=hdr)
         assert resp.status_code in [200, 201], f"Create PO failed: {resp.text}"
         data = resp.json()

@@ -396,8 +396,12 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     from_name = from_branch.get("name", from_branch_id) if from_branch else from_branch_id
     to_name = to_branch.get("name", to_branch_id) if to_branch else to_branch_id
 
-    qty_overrides = {item["product_id"]: float(item.get("qty_received", item["qty"]))
-                     for item in data.get("items", [])}
+    qty_overrides = {}
+    for _item in data.get("items", []):
+        _qty_recv = _item.get("qty_received")
+        qty_overrides[_item["product_id"]] = float(
+            _qty_recv if _qty_recv is not None else _item.get("qty", 0)
+        )
 
     pending_items = []
     shortages = []

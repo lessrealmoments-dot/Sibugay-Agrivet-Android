@@ -152,15 +152,27 @@ async def get_daily_close_preview(
     # ── Digital payments today (GCash, Maya, etc.) ───────────────────────────
     digital_invoices = await db.invoices.find(
         {"branch_id": branch_id, "order_date": date,
-         "fund_source": "digital", "status": {"$ne": "voided"}},
+         "fund_source": {"$in": ["digital", "split"]}, "status": {"$ne": "voided"}},
         {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1,
-         "amount_paid": 1, "digital_platform": 1, "digital_ref_number": 1, "digital_sender": 1}
+         "amount_paid": 1, "digital_amount": 1, "digital_platform": 1,
+         "digital_ref_number": 1, "digital_sender": 1, "fund_source": 1}
     ).to_list(500)
     digital_by_platform = {}
     for inv in digital_invoices:
+        # For split payments, only count the digital portion
+        amt = float(
+            inv.get("digital_amount", 0)
+            if inv.get("fund_source") == "split" and inv.get("digital_amount")
+            else inv.get("amount_paid", 0)
+        )
         platform = inv.get("digital_platform", "Digital") or "Digital"
-        digital_by_platform[platform] = digital_by_platform.get(platform, 0) + float(inv.get("amount_paid", 0))
-    total_digital_today = round(sum(float(inv.get("amount_paid", 0)) for inv in digital_invoices), 2)
+        digital_by_platform[platform] = round(digital_by_platform.get(platform, 0) + amt, 2)
+    total_digital_today = round(
+        sum(
+            float(inv.get("digital_amount", 0) if inv.get("fund_source") == "split" and inv.get("digital_amount") else inv.get("amount_paid", 0))
+            for inv in digital_invoices
+        ), 2
+    )
 
     # ── Expected counter ──────────────────────────────────────────────────────
     # starting_float + all_cash_received_today - cash_expenses

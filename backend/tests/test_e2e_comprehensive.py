@@ -1067,22 +1067,30 @@ class TestCountSheet:
     """Create and complete a count sheet at Riverside Branch with variances."""
 
     def test_create_count_sheet_riverside(self, hdr):
-        """Create count sheet at Riverside."""
+        """Create count sheet at Riverside then take snapshot to start counting."""
         assert "riverside_id" in state
+        # Create draft count sheet
         resp = requests.post(f"{BASE_URL}/api/count-sheets", json={
             "branch_id": state["riverside_id"],
             "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "notes": "E2E count sheet with variances",
-            "items": [
-                {"product_id": state["prod_fertilizer_id"], "product_name": "Fertilizer Supreme 50kg", "counted_qty": 8, "system_qty": 11},
-                {"product_id": state["prod_rice_id"], "product_name": "Rice Premium 25kg", "counted_qty": 22, "system_qty": 22},
-                {"product_id": state["prod_pesticide_id"], "product_name": "Pesticide Gold 1L", "counted_qty": 12, "system_qty": 14}
-            ]
+            "capital_price_source": "manual"
         }, headers=hdr)
         assert resp.status_code in [200, 201], f"Create count sheet failed: {resp.text}"
         data = resp.json()
         state["count_sheet_id"] = data.get("id", "")
-        print(f"Count sheet created id={state['count_sheet_id']}")
+        assert data.get("status") == "draft"
+        print(f"Count sheet created id={state['count_sheet_id']} status={data.get('status')}")
+        
+        # Take snapshot to move to in_progress
+        snap_resp = requests.post(
+            f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}/snapshot",
+            headers=hdr
+        )
+        assert snap_resp.status_code in [200, 201], f"Snapshot failed: {snap_resp.text}"
+        snap_data = snap_resp.json()
+        assert snap_data.get("status") == "in_progress"
+        print(f"Count sheet snapshot taken, status={snap_data.get('status')}, items={len(snap_data.get('items', []))}")
 
     def test_complete_count_sheet(self, hdr):
         """Complete the count sheet."""

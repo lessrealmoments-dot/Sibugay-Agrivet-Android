@@ -12,9 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Settings, Plus, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock, RefreshCw, AlertTriangle, Users, ExternalLink } from 'lucide-react';
+import { Settings, Plus, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock, RefreshCw, AlertTriangle, Users, ExternalLink, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const PERMISSION_MODULES = []; // unused - permissions managed via /user-permissions page
 

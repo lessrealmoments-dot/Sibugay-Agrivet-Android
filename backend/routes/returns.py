@@ -277,3 +277,100 @@ async def create_return(data: dict, user=Depends(get_current_user)):
         **return_doc,
         "message": f"Return {rma_number} processed successfully",
     }
+
+
+@router.post("/{return_id}/void")
+async def void_return(return_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Void a processed return. Requires manager PIN.
+    Reverses: inventory (takes back items that were restocked), refund (re-deducts from fund).
+    Pull-out items cannot be physically un-pulled, so inventory is not restored for those.
+    """
+    from utils import verify_password
+
+    check_perm(user, "pos", "void")
+
+    ret = await db.returns.find_one({"id": return_id}, {"_id": 0})
+    if not ret:
+        raise HTTPException(status_code=404, detail="Return not found")
+    if ret.get("voided"):
+        raise HTTPException(status_code=400, detail="Return is already voided")
+
+    # Verify manager PIN
+    manager_pin = data.get("manager_pin", "")
+    reason = data.get("reason", "Return voided")
+    if not manager_pin:
+        raise HTTPException(status_code=400, detail="Manager PIN required")
+
+    managers = await db.users.find(
+        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
+    ).to_list(50)
+    authorized_manager = None
+    for mgr in managers:
+        mgr_pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
+        if mgr_pin and manager_pin == mgr_pin:
+            authorized_manager = mgr
+            break
+    if not authorized_manager:
+        raise HTTPException(status_code=401, detail="Invalid manager PIN")
+
+    branch_id = ret.get("branch_id", "")
+
+    # Reverse inventory: take back shelf-restocked items
+    for item in ret.get("items", []):
+        if item.get("inventory_action") == "shelf" and item.get("product_id"):
+            qty = float(item.get("quantity", 0))
+            await db.inventory.update_one(
+                {"product_id": item["product_id"], "branch_id": branch_id},
+                {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
+                upsert=True,
+            )
+            from utils import log_movement
+            await log_movement(
+                item["product_id"], branch_id, "return_void", -qty,
+                return_id, ret["rma_number"], 0,
+                user["id"], user.get("full_name", user["username"]),
+                f"Return voided: {ret['rma_number']} — {reason}",
+            )
+
+    # Reverse refund: re-deduct the refund amount from fund
+    refund_amount = float(ret.get("refund_amount", 0))
+    fund_source = ret.get("fund_source", "cashier")
+    if refund_amount > 0:
+        ref_text = f"Return void refund reversal — {ret['rma_number']}"
+        if fund_source == "safe":
+            safe_wallet = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+            )
+            if safe_wallet:
+                remaining = refund_amount
+                for lot in await db.safe_lots.find(
+                    {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+                ).sort("remaining_amount", -1).to_list(500):
+                    if remaining <= 0: break
+                    take = min(lot["remaining_amount"], remaining)
+                    await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                    remaining -= take
+        else:
+            await update_cashier_wallet(branch_id, -refund_amount, ref_text)
+
+        # Void the expense record for the refund
+        await db.expenses.update_many(
+            {"rma_number": ret["rma_number"], "voided": {"$ne": True}},
+            {"$set": {"voided": True, "voided_at": now_iso(), "void_reason": reason,
+                      "voided_by": user.get("full_name", user["username"])}}
+        )
+
+    await db.returns.update_one(
+        {"id": return_id},
+        {"$set": {
+            "voided": True, "voided_at": now_iso(),
+            "void_reason": reason,
+            "voided_by": user.get("full_name", user["username"]),
+            "void_authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+        }}
+    )
+    return {
+        "message": f"Return {ret['rma_number']} voided. Inventory reversed for shelf items. Refund re-deducted from {fund_source}.",
+        "authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+    }

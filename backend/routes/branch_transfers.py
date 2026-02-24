@@ -591,6 +591,8 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         if not repack_id or new_price is None:
             continue
         new_price = float(new_price)
+        if new_price <= 0:
+            continue
         capital_per = float(rpu.get("capital_per_repack", 0))
         # Apply to destination branch_prices for the repack product
         await db.branch_prices.update_one(

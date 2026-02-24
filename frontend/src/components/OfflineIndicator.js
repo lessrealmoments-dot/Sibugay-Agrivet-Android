@@ -140,8 +140,25 @@ export default function OfflineIndicator() {
         setSyncing(false);
         setSyncPct(0);
       }
+      if (data.type === 'sync_start') {
+        setStepLabel(`Syncing ${data.count} sale${data.count !== 1 ? 's' : ''}…`);
+      }
+      if (data.type === 'sync_progress') {
+        setStepLabel(`Syncing sale ${data.current}/${data.total}…`);
+        setSyncPct(Math.round((data.current / data.total) * 100));
+      }
       if (data.type === 'sync_complete') {
         loadCacheInfo();
+        if (data.synced > 0) {
+          setStepLabel(`${data.synced} sale${data.synced !== 1 ? 's' : ''} synced`);
+        }
+        if (data.networkError) {
+          setStepLabel('Paused — network unstable');
+        }
+      }
+      if (data.type === 'sync_paused') {
+        setStepLabel('Sync paused — network unstable');
+        setSyncing(false);
       }
     });
     return unsub;

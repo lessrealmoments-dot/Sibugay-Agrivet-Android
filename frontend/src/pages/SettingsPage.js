@@ -161,6 +161,67 @@ export default function SettingsPage() {
     return acc;
   }, {});
 
+  // ── Audit Setup ────────────────────────────────────────────────────────────
+  const [auditPinConfigured, setAuditPinConfigured] = useState(false);
+  const [newAuditPin, setNewAuditPin] = useState('');
+  const [confirmAuditPin, setConfirmAuditPin] = useState('');
+  const [showAuditPin, setShowAuditPin] = useState(false);
+  const [savingAuditPin, setSavingAuditPin] = useState(false);
+  const [auditorEdits, setAuditorEdits] = useState({}); // { userId: { is_auditor, auditor_pin } }
+  const [savingAuditor, setSavingAuditor] = useState({});
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.get(`${BACKEND_URL}/api/verify/admin-pin/status`)
+        .then(r => setAuditPinConfigured(r.data.configured))
+        .catch(() => {});
+    }
+  }, [isAdmin]); // eslint-disable-line
+
+  const saveAuditPin = async () => {
+    if (newAuditPin.length < 4) { toast.error('PIN must be at least 4 digits'); return; }
+    if (newAuditPin !== confirmAuditPin) { toast.error('PINs do not match'); return; }
+    setSavingAuditPin(true);
+    try {
+      await api.post(`${BACKEND_URL}/api/verify/admin-pin/set`, { pin: newAuditPin });
+      toast.success('Admin Verification PIN saved');
+      setNewAuditPin(''); setConfirmAuditPin('');
+      setAuditPinConfigured(true);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save PIN'); }
+    setSavingAuditPin(false);
+  };
+
+  const saveAuditorAccess = async (userId) => {
+    const edit = auditorEdits[userId];
+    if (!edit) return;
+    if (edit.is_auditor && edit.auditor_pin && edit.auditor_pin.length < 4) {
+      toast.error('Auditor PIN must be at least 4 digits'); return;
+    }
+    setSavingAuditor(prev => ({ ...prev, [userId]: true }));
+    try {
+      await api.put(`/users/${userId}`, {
+        is_auditor: edit.is_auditor,
+        auditor_pin: edit.is_auditor ? (edit.auditor_pin || undefined) : null,
+      });
+      toast.success('Auditor access updated');
+      fetchUsers();
+      setAuditorEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to update'); }
+    setSavingAuditor(prev => ({ ...prev, [userId]: false }));
+  };
+
+  const getAuditorState = (user) => {
+    if (auditorEdits[user.id] !== undefined) return auditorEdits[user.id];
+    return { is_auditor: user.is_auditor || false, auditor_pin: user.auditor_pin || '' };
+  };
+
+  const updateAuditorEdit = (userId, field, value) => {
+    setAuditorEdits(prev => ({
+      ...prev,
+      [userId]: { ...getAuditorState(users.find(u => u.id === userId) || {}), [field]: value },
+    }));
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn" data-testid="settings-page">
       <div className="flex items-center justify-between">

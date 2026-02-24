@@ -319,11 +319,30 @@ export default function BranchTransferPage() {
 
     setSaving(true);
     try {
+      // Build repack_price_updates from rows that have repack price entries
+      const repack_price_updates = [];
+      validRows.forEach(r => {
+        (r.repacks || []).forEach(rp => {
+          if (rp.new_retail_price && parseFloat(rp.new_retail_price) > 0) {
+            repack_price_updates.push({
+              repack_id: rp.id,
+              repack_name: rp.name,
+              new_retail_price: parseFloat(rp.new_retail_price),
+              units_per_parent: rp.units_per_parent,
+              capital_per_repack: rp.capital_per_repack,
+              parent_product_id: r.product.id,
+              parent_product_name: r.product.name,
+            });
+          }
+        });
+      });
+
       await api.post('/branch-transfers', {
         from_branch_id: fromBranchId,
         to_branch_id: toBranchId,
         min_margin: minMargin,
         category_markups: categoryMarkups.filter(m => parseFloat(m.value) > 0),
+        repack_price_updates,
         items: validRows.map(r => ({
           product_id: r.product.id,
           product_name: r.product.name,

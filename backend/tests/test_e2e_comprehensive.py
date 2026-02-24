@@ -514,9 +514,9 @@ class TestPurchaseOrders:
         resp = requests.get(f"{BASE_URL}/api/purchase-orders?branch_id={state['lakewood_id']}", headers=hdr)
         assert resp.status_code == 200
         data = resp.json()
-        pos = data.get("orders", data) if isinstance(data, dict) else data
+        pos = data.get("purchase_orders", []) if isinstance(data, dict) else data
         lw_ids = {po["id"] for po in pos}
-        assert state.get("po_lakewood1_id") in lw_ids, "Lakewood PO1 not found"
+        assert state.get("po_lakewood1_id") in lw_ids, f"Lakewood PO1 not found in {list(lw_ids)[:5]}"
         print(f"Lakewood POs verified: {len(pos)} orders")
 
     def test_reopen_lakewood_po1_and_verify_cashier_returned(self, hdr):

@@ -69,7 +69,9 @@ def first_branch_id(admin_headers):
     """Get the first available branch ID for tests."""
     res = requests.get(f"{BASE_URL}/api/branches", headers=admin_headers)
     if res.status_code == 200:
-        branches = res.json().get("branches", res.json() if isinstance(res.json(), list) else [])
+        data = res.json()
+        # branches endpoint returns a list directly
+        branches = data if isinstance(data, list) else data.get("branches", [])
         if branches:
             return branches[0].get("id", "")
     return ""

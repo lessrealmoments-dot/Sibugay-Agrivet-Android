@@ -1600,8 +1600,8 @@ export default function UnifiedSalesPage() {
         </DialogContent>
       </Dialog>
 
-      </> {/* end mainTab === 'sale' */}
-      )}
+      </> {/* end mainTab sale */}
+      )
 
       {/* ── SALE DETAIL MODAL ────────────────────────────────────────────── */}
       {selectedInvoice && (

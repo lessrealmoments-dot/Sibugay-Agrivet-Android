@@ -183,3 +183,19 @@ Build a comprehensive Accounting, Inventory, and Point of Sale (POS) web applica
 - **Sale Detail Modal**: full items table, totals breakdown, interest accrual info.
 - **Void & Reopen**: Manager PIN authorization, reverses inventory + cashflow + AR balance, preserves original invoice_date for interest continuity. Automatically pre-fills New Sale with voided items so cashier can re-process.
 - Backend: `GET /api/invoices/history/by-date`, `POST /api/invoices/{id}/void`.
+
+### Phase 8 — Comprehensive Money+Stock Movement Audit Fix (2026-02-24)
+All 10 data integrity issues fixed across the entire system:
+
+1. **PO Reopen (Cash)** — Now fully reverses cash payment to original fund + voids expense record. Safe/Cashier both handled. PO reset to unpaid for fresh payment on re-receive.
+2. **PO Reopen (Terms)** — Accounts payable entry voided on reopen. New payable created on re-receive.
+3. **PO Edit balance** — Balance recalculated as `max(0, grand_total - amount_paid)` regardless of prior payment_status.
+4. **Expense Delete** — Uses original `fund_source` (not always cashier). Soft-void instead of hard delete for audit trail.
+5. **Expense Edit** — Amount adjustments directed to original `fund_source` (cashier or safe).
+6. **PO Cancel guard** — Blocks cancellation of received POs with clear error message.
+7. **Branch Transfer cancel** — Also blocks `received_pending` and `disputed` statuses (was only blocking `received`).
+8. **Returns void** — `POST /api/returns/{id}/void` with manager PIN. Reverses shelf inventory + re-deducts refund from fund.
+9. **Customer/Employee Advance reverse** — `POST /api/expenses/customer-cashout/{id}/reverse` and `POST /api/expenses/employee-advance/{id}/reverse`. Manager PIN required. Restores fund, reduces AR/advance balance.
+10. **Invoice payment void** — `POST /api/invoices/{inv_id}/void-payment/{payment_id}`. Manager PIN required. Reverses fund + restores customer AR balance.
+
+All require manager PIN authorization for audit trail.

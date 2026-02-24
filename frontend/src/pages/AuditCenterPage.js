@@ -512,6 +512,93 @@ export default function AuditCenterPage() {
   }, [auditBranchId]);
 
   useEffect(() => { if (tab === 'history') loadHistory(); }, [tab, loadHistory]);
+  useEffect(() => { if (tab === 'discrepancies') loadDiscrepancies(); }, [tab]); // eslint-disable-line
+
+  const loadDiscrepancies = async () => {
+    setLoadingDisc(true);
+    try {
+      const params = new URLSearchParams({ resolved: 'false' });
+      if (auditBranchId) params.set('branch_id', auditBranchId);
+      const res = await api.get(`${BACKEND_URL}/api/verify/discrepancies?${params}`);
+      setDiscrepancies(res.data.discrepancies || []);
+    } catch { }
+    setLoadingDisc(false);
+  };
+
+  const prepareForAudit = async () => {
+    if (!auditBranchId) { toast.error('Select a branch first'); return; }
+    setPreparing(true);
+    setPrepProgress({ step: 'Fetching transaction data…', pct: 10, done: false });
+    setPrepStats(null);
+    try {
+      const params = new URLSearchParams({ branch_id: auditBranchId });
+      const res = await api.get(`${BACKEND_URL}/api/audit/offline-package?${params}`);
+      const pkg = res.data;
+
+      setPrepProgress({ step: `Caching ${pkg.totals.purchase_orders} POs, ${pkg.totals.expenses} expenses, ${pkg.totals.branch_transfers} transfers…`, pct: 40, done: false });
+
+      // Store transaction metadata in sessionStorage for quick access
+      try {
+        sessionStorage.setItem(`audit_package_${auditBranchId}`, JSON.stringify({
+          ...pkg,
+          cached_at: new Date().toISOString(),
+        }));
+      } catch { /* storage full */ }
+
+      // Pre-fetch photos (fire-and-forget, non-blocking)
+      const totalFiles = pkg.file_urls?.length || 0;
+      if (totalFiles > 0) {
+        setPrepProgress({ step: `Preparing ${totalFiles} photos for offline access…`, pct: 60, done: false });
+        let done = 0;
+        const batchSize = 5;
+        for (let i = 0; i < pkg.file_urls.length; i += batchSize) {
+          const batch = pkg.file_urls.slice(i, i + batchSize);
+          await Promise.allSettled(batch.map(f =>
+            fetch(`${BACKEND_URL}/api/uploads/file/${f.record_type}/${f.record_id}/${f.file_id}`)
+              .then(r => r.blob())
+              .then(() => { done++; })
+              .catch(() => { done++; })
+          ));
+          setPrepProgress({
+            step: `Downloading photos (${done}/${totalFiles})…`,
+            pct: 60 + Math.round((done / totalFiles) * 35),
+            done: false,
+          });
+        }
+      }
+
+      setPrepProgress({ step: 'Audit package ready!', pct: 100, done: true });
+      setPrepStats({
+        period_from: pkg.period_from,
+        period_to: pkg.period_to,
+        auto_detected: pkg.auto_detected,
+        count_sheet_refs: pkg.count_sheet_refs,
+        ...pkg.totals,
+        cached_at: new Date().toLocaleString(),
+      });
+      toast.success('Audit package prepared!');
+    } catch (err) {
+      toast.error('Failed to prepare audit package');
+      setPrepProgress({ step: 'Failed', pct: 0, done: false });
+    }
+    setPreparing(false);
+  };
+
+  const resolveDiscrepancy = async () => {
+    if (!resolveDialog) return;
+    setResolveSaving(true);
+    try {
+      await api.post(`${BACKEND_URL}/api/verify/discrepancies/${resolveDialog.id}/resolve`, {
+        action: resolveAction,
+        justification: resolveNote,
+      });
+      toast.success(`Discrepancy ${resolveAction}d`);
+      setResolveDialog(null);
+      setResolveNote('');
+      loadDiscrepancies();
+    } catch { toast.error('Failed to resolve'); }
+    setResolveSaving(false);
+  };
 
   const runAudit = async () => {
     if (!auditBranchId && !isAdmin) { toast.error('Select a branch'); return; }

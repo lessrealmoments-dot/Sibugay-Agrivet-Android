@@ -21,6 +21,15 @@ export default function VerifyPinDialog({ open, onClose, docType, docId, docLabe
   const [unit, setUnit] = useState('');
   const [unitCost, setUnitCost] = useState('');
   const [loading, setLoading] = useState(false);
+  const pinRef = useRef(null);
+
+  // Force focus on PIN input — bypass Radix Dialog focus trap
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => { pinRef.current?.focus(); }, 120);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
 
   if (!open) return null;
 

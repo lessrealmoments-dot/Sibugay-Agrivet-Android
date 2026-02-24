@@ -779,8 +779,8 @@ class TestBranchTransfers:
         )
         assert resp.status_code == 200
         data = resp.json()
-        transfers = data.get("transfers", data) if isinstance(data, dict) else data
-        incoming = [t for t in transfers if t.get("to_branch_id") == state["riverside_id"]]
+        transfers = data.get("orders", []) if isinstance(data, dict) else data
+        incoming = [t for t in transfers if isinstance(t, dict) and t.get("to_branch_id") == state["riverside_id"]]
         assert len(incoming) > 0, "No incoming transfers found at Riverside"
         # Check repack_price_updates
         t = incoming[0]

@@ -188,6 +188,34 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     else:
         due_date = order_date
     
+    # Determine payment routing
+    is_split = payment_type == "split"
+    payment_method = data.get("payment_method", "Cash")
+    is_digital = is_split or is_digital_payment(payment_method)
+
+    # Split amounts
+    cash_amount = float(data.get("cash_amount", 0)) if is_split else (
+        amount_paid if not is_digital_payment(payment_method) else 0
+    )
+    digital_amount = float(data.get("digital_amount", 0)) if is_split else (
+        amount_paid if is_digital_payment(payment_method) else 0
+    )
+
+    # Digital payment metadata
+    digital_meta = {}
+    if is_digital or is_split:
+        digital_meta = {
+            "digital_platform": data.get("digital_platform", payment_method if not is_split else "GCash"),
+            "digital_ref_number": data.get("digital_ref_number", ""),
+            "digital_sender": data.get("digital_sender", ""),
+        }
+        if is_split:
+            digital_meta["cash_amount"] = cash_amount
+            digital_meta["digital_amount"] = digital_amount
+
+    # Determine fund_source
+    fund_source = "split" if is_split else ("digital" if is_digital else data.get("fund_source", "cashier"))
+
     # Create invoice record
     invoice = {
         "id": data.get("id", new_id()),
@@ -220,6 +248,9 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         "last_interest_date": None,
         "sale_type": data.get("sale_type", "walk_in"),
         "payment_type": payment_type,
+        "payment_method": payment_method,
+        "fund_source": fund_source,
+        **digital_meta,
         "status": status,
         "payments": [],
         "approved_by": data.get("approved_by"),
@@ -229,22 +260,62 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         "created_at": now_iso(),
     }
     
-    # Record initial payment if any
+    # Record initial payment + route to correct wallet(s)
     if amount_paid > 0:
-        invoice["payments"].append({
-            "id": new_id(),
-            "amount": amount_paid,
-            "date": order_date,
-            "method": data.get("payment_method", "Cash"),
-            "fund_source": data.get("fund_source", "cashier"),
-            "reference": "",
-            "applied_to_interest": 0,
-            "applied_to_principal": amount_paid,
-            "recorded_by": user.get("full_name", user["username"]),
-            "recorded_at": now_iso(),
-        })
-        # Update cashier wallet
-        await update_cashier_wallet(branch_id, amount_paid, f"Sale payment {inv_number}")
+        if is_split:
+            # Split: two payment entries — cash to cashier, digital to digital wallet
+            if cash_amount > 0:
+                invoice["payments"].append({
+                    "id": new_id(), "amount": cash_amount, "date": order_date,
+                    "method": "Cash", "fund_source": "cashier",
+                    "applied_to_interest": 0, "applied_to_principal": cash_amount,
+                    "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+                })
+                await update_cashier_wallet(branch_id, cash_amount, f"Split sale cash portion {inv_number}")
+            if digital_amount > 0:
+                invoice["payments"].append({
+                    "id": new_id(), "amount": digital_amount, "date": order_date,
+                    "method": digital_meta.get("digital_platform", "Digital"),
+                    "fund_source": "digital",
+                    "digital_platform": digital_meta.get("digital_platform", ""),
+                    "digital_ref_number": digital_meta.get("digital_ref_number", ""),
+                    "digital_sender": digital_meta.get("digital_sender", ""),
+                    "applied_to_interest": 0, "applied_to_principal": digital_amount,
+                    "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+                })
+                await update_digital_wallet(
+                    branch_id, digital_amount,
+                    reference=f"Split sale digital portion {inv_number}",
+                    platform=digital_meta.get("digital_platform", ""),
+                    ref_number=digital_meta.get("digital_ref_number", ""),
+                    sender=digital_meta.get("digital_sender", ""),
+                )
+        else:
+            invoice["payments"].append({
+                "id": new_id(),
+                "amount": amount_paid,
+                "date": order_date,
+                "method": payment_method,
+                "fund_source": fund_source,
+                "digital_platform": digital_meta.get("digital_platform", ""),
+                "digital_ref_number": digital_meta.get("digital_ref_number", ""),
+                "digital_sender": digital_meta.get("digital_sender", ""),
+                "reference": digital_meta.get("digital_ref_number", ""),
+                "applied_to_interest": 0,
+                "applied_to_principal": amount_paid,
+                "recorded_by": user.get("full_name", user["username"]),
+                "recorded_at": now_iso(),
+            })
+            if is_digital:
+                await update_digital_wallet(
+                    branch_id, amount_paid,
+                    reference=f"Invoice {inv_number}",
+                    platform=digital_meta.get("digital_platform", payment_method),
+                    sender=digital_meta.get("digital_sender", ""),
+                    ref_number=digital_meta.get("digital_ref_number", ""),
+                )
+            elif fund_source == "cashier":
+                await update_cashier_wallet(branch_id, amount_paid, f"Sale payment {inv_number}")
     
     await db.invoices.insert_one(invoice)
     del invoice["_id"]

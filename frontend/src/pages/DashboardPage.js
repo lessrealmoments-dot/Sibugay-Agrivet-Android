@@ -746,49 +746,22 @@ export default function DashboardPage() {
 
       {/* Row 4: Unpaid POs + Top Products + Recent Sales */}
       <div className="grid lg:grid-cols-3 gap-4">
-        {/* Unpaid POs */}
+        {/* Upcoming Payables — cash flow timeline */}
         <Card className="border-slate-200" data-testid="unpaid-po-card">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Truck size={14} className="text-red-600" /> Supplier Payables
+                <CalendarClock size={14} className="text-red-600" /> Upcoming Payables
               </CardTitle>
-              {poSummary?.total_unpaid > 0 && <span className="text-xs font-bold text-red-600">{formatPHP(poSummary.total_unpaid)}</span>}
+              {poSummary?.total_unpaid > 0 && (
+                <span className={`text-xs font-bold ${(poSummary.overdue || []).length > 0 ? 'text-red-600' : 'text-amber-600'}`}>
+                  {(poSummary.overdue || []).length > 0 ? `${(poSummary.overdue || []).length} overdue` : `${poSummary.total_count} pending`}
+                </span>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            {!poSummary || poSummary.total_count === 0 ? (
-              <div className="flex items-center gap-2 text-xs text-emerald-600 py-2">
-                <CheckCircle2 size={14} /> All POs paid up to date
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                {[
-                  { items: poSummary.overdue || [], label: 'OVERDUE', cls: 'bg-red-100 text-red-700' },
-                  { items: poSummary.due_soon || [], label: 'DUE SOON', cls: 'bg-amber-100 text-amber-700' },
-                  { items: poSummary.later || [], label: 'UPCOMING', cls: 'bg-slate-100 text-slate-600' },
-                ].filter(g => g.items.length > 0).map(group => (
-                  <div key={group.label}>
-                    <p className="text-[10px] font-bold tracking-wider text-slate-400 mb-1">{group.label} ({group.items.length})</p>
-                    {group.items.slice(0, 2).map(po => (
-                      <div key={po.id} className="flex justify-between text-xs bg-slate-50 rounded px-2 py-1.5 mb-1">
-                        <div>
-                          <span className="font-mono text-blue-600">{po.po_number} </span>
-                          <span className="text-slate-500">{po.vendor?.slice(0, 15)}</span>
-                          {po.due_date && <p className={`text-[10px] ${po.due_date < today ? 'text-red-500 font-semibold' : 'text-amber-500'}`}>
-                            Due: {po.due_date}
-                          </p>}
-                        </div>
-                        <span className="font-bold text-red-600">{formatPHP(po.balance)}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                <Button variant="ghost" size="sm" className="w-full text-xs text-slate-500 h-7" onClick={() => navigate('/pay-supplier')}>
-                  View all payables <ArrowRight size={11} className="ml-1" />
-                </Button>
-              </div>
-            )}
+            <UpcomingPayablesWidget poSummary={poSummary} onNavigate={navigate} today={today} />
           </CardContent>
         </Card>
 

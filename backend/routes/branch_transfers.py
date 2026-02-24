@@ -609,6 +609,35 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
             f"Branch transfer from {from_name}"
         )
 
+    # ── Apply repack price updates at destination ──────────────────────────────
+    repack_updates = order.get("repack_price_updates", [])
+    applied_repack_updates = []
+    for rpu in repack_updates:
+        repack_id = rpu.get("repack_id")
+        new_price = rpu.get("new_retail_price")
+        if not repack_id or new_price is None:
+            continue
+        new_price = float(new_price)
+        capital_per = float(rpu.get("capital_per_repack", 0))
+        # Apply to destination branch_prices for the repack product
+        await db.branch_prices.update_one(
+            {"product_id": repack_id, "branch_id": to_branch_id},
+            {"$set": {
+                "product_id": repack_id, "branch_id": to_branch_id,
+                "cost_price": capital_per,
+                "prices": {"retail": new_price},
+                "updated_at": now_iso(),
+                "source": "branch_transfer_repack",
+                "transfer_order": order["order_number"],
+            }},
+            upsert=True,
+        )
+        applied_repack_updates.append({
+            "repack_id": repack_id,
+            "repack_name": rpu.get("repack_name", ""),
+            "new_retail_price": new_price,
+        })
+
     await db.branch_transfer_orders.update_one(
         {"id": transfer_id},
         {"$set": {

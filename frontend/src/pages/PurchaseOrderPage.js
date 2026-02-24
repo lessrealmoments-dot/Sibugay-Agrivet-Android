@@ -234,7 +234,7 @@ export default function PurchaseOrderPage() {
   // ── Reset form ─────────────────────────────────────────────────────────
   const resetForm = () => {
     setLines([{ ...EMPTY_LINE }]);
-    setHeader({ vendor: '', dr_number: '', po_number: '', purchase_date: today, notes: '', show_freight: false, freight: 0, overall_discount_type: 'amount', overall_discount_value: '', show_vat: false, tax_rate: 12 });
+    setHeader({ vendor: '', dr_number: '', po_number: '', purchase_date: today, notes: '', show_freight: false, freight: 0, overall_discount_type: 'amount', overall_discount_value: '', show_vat: false, tax_rate: 12, payment_type: 'cash', terms_label: 'Net 30', terms_days: 30 });
     setSupplierSearch('');
     setSourceType('external');
     setSupplyBranchId('');

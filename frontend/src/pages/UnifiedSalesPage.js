@@ -561,6 +561,7 @@ export default function UnifiedSalesPage() {
 
     const saleData = {
       id: saleId,
+      envelope_id: envelopeId,
       branch_id: currentBranch.id,
       customer_id: selectedCustomer?.id || null,
       customer_name: selectedCustomer?.name || custSearch || 'Walk-in',

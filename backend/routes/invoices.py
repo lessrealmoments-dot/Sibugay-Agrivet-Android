@@ -817,16 +817,26 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
 
     # 4. Reverse cashflow (amount_paid goes back out of cashier fund)
     amount_paid = float(inv.get("amount_paid", 0))
+    fund_source = inv.get("fund_source", "cashier")
     if amount_paid > 0:
-        wallet = await db.fund_wallets.find_one(
-            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
-        )
-        if wallet:
-            new_balance = round(float(wallet.get("balance", 0)) - amount_paid, 2)
-            await db.fund_wallets.update_one(
-                {"id": wallet["id"]},
-                {"$set": {"balance": max(0, new_balance), "updated_at": now_iso()}}
+        if fund_source == "digital":
+            # Reverse from digital wallet
+            await update_digital_wallet(
+                branch_id, -amount_paid,
+                reference=f"VOID {inv['invoice_number']}",
+                platform=inv.get("digital_platform", ""),
+                ref_number=inv.get("digital_ref_number", ""),
             )
+        else:
+            wallet = await db.fund_wallets.find_one(
+                {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+            )
+            if wallet:
+                new_balance = round(float(wallet.get("balance", 0)) - amount_paid, 2)
+                await db.fund_wallets.update_one(
+                    {"id": wallet["id"]},
+                    {"$set": {"balance": max(0, new_balance), "updated_at": now_iso()}}
+                )
 
     # 5. Reverse customer AR balance (credit sales)
     balance_owed = float(inv.get("balance", 0))

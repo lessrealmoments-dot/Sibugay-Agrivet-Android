@@ -38,31 +38,34 @@ def auth_headers(owner_token):
 
 @pytest.fixture(scope="module")
 def test_product(auth_headers):
-    """Get a valid product from IPIL branch."""
+    """Get a valid product from IPIL branch with stock and selling price above cost."""
+    # Fetch products from inventory for IPIL branch
     res = requests.get(
         f"{BASE_URL}/api/inventory",
-        params={"branch_id": IPIL_BRANCH_ID, "limit": 5},
+        params={"branch_id": IPIL_BRANCH_ID, "limit": 20},
         headers=auth_headers,
     )
     assert res.status_code == 200, f"Inventory fetch failed: {res.text}"
     inv_items = res.json().get("items", [])
-    # Find a product with quantity > 1
+
     for item in inv_items:
-        if item.get("quantity", 0) > 1:
-            # Get product details
-            prod_res = requests.get(f"{BASE_URL}/api/products/{item['product_id']}", headers=auth_headers)
-            if prod_res.status_code == 200:
-                prod = prod_res.json()
-                if prod.get("active") and not prod.get("is_repack"):
-                    return {"product_id": prod["id"], "product_name": prod["name"], "price": prod.get("selling_price", 10)}
-    # Fallback: just get any active product
-    prod_res = requests.get(f"{BASE_URL}/api/products", params={"limit": 10}, headers=auth_headers)
-    if prod_res.status_code == 200:
-        products = prod_res.json().get("products", [])
-        for p in products:
-            if p.get("active") and not p.get("is_repack"):
-                return {"product_id": p["id"], "product_name": p["name"], "price": p.get("selling_price", 10)}
-    pytest.skip("No suitable test product found")
+        if item.get("is_repack"):
+            continue
+        cost = float(item.get("cost_price", 0))
+        # Try retail price from prices dict
+        prices = item.get("prices", {})
+        retail = float(prices.get("retail") or prices.get("Retail") or 0)
+        branch_stock_map = item.get("branch_stock", {})
+        branch_qty = float(branch_stock_map.get(IPIL_BRANCH_ID, item.get("total_stock", 0)) or 0)
+
+        if retail > cost and branch_qty >= 2:
+            return {
+                "product_id": item["id"],
+                "product_name": item["name"],
+                "price": retail,
+            }
+
+    pytest.skip("No suitable test product found with stock > 2 and retail > cost in IPIL branch")
 
 
 # ──────────────── Tests: unified-sale split payment ────────────────

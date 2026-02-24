@@ -115,7 +115,18 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     
     status = "paid" if balance <= 0 else ("partial" if amount_paid > 0 else "open")
     sale_type = data.get("sale_type", "walk_in")
-    
+    payment_method = data.get("payment_method", "Cash")
+    digital = is_digital_payment(payment_method)
+
+    # Digital payment metadata (reference #, platform, sender name)
+    digital_meta = {}
+    if digital:
+        digital_meta = {
+            "digital_platform": data.get("digital_platform", payment_method),
+            "digital_ref_number": data.get("digital_ref_number", ""),
+            "digital_sender": data.get("digital_sender", ""),
+        }
+
     invoice = {
         "id": new_id(),
         "invoice_number": inv_number,
@@ -146,6 +157,9 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
         "penalties": 0,
         "last_interest_date": None,
         "sale_type": sale_type,
+        "payment_method": payment_method,
+        "fund_source": "digital" if digital else data.get("fund_source", "cashier"),
+        **digital_meta,
         "status": status,
         "payments": [],
         "cashier_id": user["id"],
@@ -190,24 +204,37 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     else:
         invoice["status"] = "reserved" if balance > 0 else "paid"
     
-    # Record initial payment if any
+    # Record initial payment + route to correct wallet
     if amount_paid > 0:
         invoice["payments"].append({
             "id": new_id(),
             "amount": amount_paid,
             "date": order_date,
-            "method": data.get("payment_method", "Cash"),
-            "fund_source": data.get("fund_source", "cashier"),
-            "reference": "",
+            "method": payment_method,
+            "fund_source": "digital" if digital else data.get("fund_source", "cashier"),
+            "digital_platform": digital_meta.get("digital_platform", ""),
+            "digital_ref_number": digital_meta.get("digital_ref_number", ""),
+            "digital_sender": digital_meta.get("digital_sender", ""),
+            "reference": digital_meta.get("digital_ref_number", ""),
             "applied_to_interest": 0,
             "applied_to_principal": amount_paid,
             "recorded_by": user.get("full_name", user["username"]),
             "recorded_at": now_iso(),
         })
-        # Update cashier wallet with initial payment
-        fund_source = data.get("fund_source", "cashier")
-        if fund_source == "cashier":
-            await update_cashier_wallet(branch_id, amount_paid, f"Invoice payment {inv_number}")
+        if digital:
+            # Digital payment → digital wallet
+            await update_digital_wallet(
+                branch_id, amount_paid,
+                reference=f"Invoice {inv_number}",
+                platform=digital_meta.get("digital_platform", payment_method),
+                sender=digital_meta.get("digital_sender", ""),
+                ref_number=digital_meta.get("digital_ref_number", ""),
+            )
+        else:
+            # Cash/Check → cashier
+            fund_source = data.get("fund_source", "cashier")
+            if fund_source == "cashier":
+                await update_cashier_wallet(branch_id, amount_paid, f"Invoice payment {inv_number}")
     
     await db.invoices.insert_one(invoice)
     del invoice["_id"]

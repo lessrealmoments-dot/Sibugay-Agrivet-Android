@@ -148,6 +148,34 @@ async def lookup_product_for_transfer(
             "last_branch_retail": memory.get("last_retail_price"),
             "last_transfer_capital": memory.get("last_transfer_capital"),
         })
+
+        # Enrich with repack children info (for repack pricing at destination)
+        repacks = await db.products.find(
+            {"parent_id": p["id"], "is_repack": True, "active": True}, {"_id": 0}
+        ).to_list(10)
+        repack_info = []
+        for rp in repacks:
+            units_per_parent = float(rp.get("units_per_parent", 1) or 1)
+            capital_per_repack = round(branch_capital / units_per_parent, 4) if units_per_parent > 0 else 0
+            # Current retail at destination
+            dest_price_doc = await db.branch_prices.find_one(
+                {"product_id": rp["id"], "branch_id": to_branch_id}, {"_id": 0}
+            ) if to_branch_id else None
+            dest_retail = None
+            if dest_price_doc:
+                dest_retail = dest_price_doc.get("prices", {}).get("retail")
+            if dest_retail is None:
+                dest_retail = rp.get("prices", {}).get("retail", 0) or 0
+            repack_info.append({
+                "id": rp["id"],
+                "name": rp["name"],
+                "sku": rp.get("sku", ""),
+                "unit": rp.get("unit", ""),
+                "units_per_parent": units_per_parent,
+                "capital_per_repack": capital_per_repack,
+                "current_dest_retail": float(dest_retail),
+            })
+        results[-1]["repacks"] = repack_info
     return results
 
 

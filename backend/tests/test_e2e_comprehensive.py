@@ -1121,11 +1121,11 @@ class TestCountSheet:
                 "notes": "E2E test count" if variance != 0 else ""
             })
         
-        # Submit counts in batches of 50
+        # Submit counts in batches of 50 using PUT /{sheet_id}/items
         for i in range(0, len(count_updates), 50):
             batch = count_updates[i:i+50]
-            upd_resp = requests.post(
-                f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}/update-counts",
+            upd_resp = requests.put(
+                f"{BASE_URL}/api/count-sheets/{state['count_sheet_id']}/items",
                 json={"items": batch},
                 headers=hdr
             )

@@ -59,6 +59,10 @@ export default function UnifiedSalesPage() {
   const [digitalSender, setDigitalSender] = useState('');
   const [digitalReceiptQR, setDigitalReceiptQR] = useState(null); // { invoice_id, token }
   const [showDigitalQR, setShowDigitalQR] = useState(false);
+
+  // ── Split payment (cash + digital) ────────────────────────────────────────
+  const [splitCash, setSplitCash] = useState('');
+  const [splitDigital, setSplitDigital] = useState('');
   
   // Products & Data
   const [allProducts, setAllProducts] = useState([]);

@@ -759,8 +759,18 @@ async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_cur
 
 @router.delete("/{po_id}")
 async def cancel_purchase_order(po_id: str, user=Depends(get_current_user)):
-    """Cancel a purchase order."""
+    """Cancel a purchase order. Cannot cancel received POs — use Reopen instead."""
     check_perm(user, "inventory", "adjust")
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po.get("status") == "received":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot cancel a received PO — inventory has already been added. Use 'Reopen' to correct it."
+        )
+    if po.get("status") == "cancelled":
+        raise HTTPException(status_code=400, detail="PO is already cancelled")
     await db.purchase_orders.update_one({"id": po_id}, {"$set": {"status": "cancelled"}})
     return {"message": "PO cancelled"}
 

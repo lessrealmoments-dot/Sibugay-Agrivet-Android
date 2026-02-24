@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import {
   ShieldCheck, RefreshCw, AlertTriangle, Check, X, ChevronDown, ChevronUp,
   Printer, History, Plus, Package, Banknote, TrendingUp, Users, ArrowRight,
-  RotateCcw, FileText, Clock, Building2, Download, ShieldAlert
+  RotateCcw, FileText, Clock, Building2, Download, ShieldAlert, Smartphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 

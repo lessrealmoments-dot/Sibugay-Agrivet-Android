@@ -228,6 +228,21 @@ export default function Layout({ children }) {
             <span className="capitalize bg-slate-100 px-2 py-0.5 rounded text-[11px]">{user?.role}</span>
           </div>
         </header>
+        {/* Offline banner — only on pages that require internet */}
+        {!isOnline && (() => {
+          const currentItem = NAV_ITEMS.find(i => i.path === location.pathname);
+          const isLocked = !currentItem?.offlineOk;
+          if (!isLocked) return null;
+          return (
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2">
+              <WifiOff size={14} className="text-amber-600 shrink-0" />
+              <span className="text-xs font-medium text-amber-800">
+                You&apos;re offline — this page requires internet. Data shown may be outdated.
+                Switch to <strong>Sales</strong> for offline operations.
+              </span>
+            </div>
+          );
+        })()}
         <div className="flex-1 overflow-auto p-4 lg:p-6">
           {children}
         </div>

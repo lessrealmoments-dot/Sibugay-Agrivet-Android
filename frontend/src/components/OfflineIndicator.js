@@ -13,7 +13,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { Progress } from './ui/progress';
 import { getMeta, getPendingSaleCount } from '../lib/offlineDB';
-import { refreshPOSCache, syncPendingSales, clearAlreadySyncedSales, onSyncUpdate } from '../lib/syncManager';
+import { refreshPOSCache, syncPendingSales, onSyncUpdate } from '../lib/syncManager';
 import {
   Wifi, WifiOff, RefreshCw, CheckCircle, AlertTriangle,
   CloudDownload, CloudOff,

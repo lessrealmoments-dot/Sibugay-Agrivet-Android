@@ -343,12 +343,13 @@ export default function PurchaseOrderPage() {
   // ── Open Terms Dialog ──────────────────────────────────────────────────
   const openTermsDialog = () => {
     const valid = validate(); if (!valid) return;
-    // Compute default due date
-    const days = termsForm.terms_days;
+    // Pre-populate from header payment type selection
+    const days = header.payment_type === 'terms' ? header.terms_days : termsForm.terms_days;
+    const label = header.payment_type === 'terms' ? header.terms_label : termsForm.terms_label;
     const due = days > 0
       ? new Date(new Date(header.purchase_date).getTime() + days * 86400000).toISOString().slice(0, 10)
       : header.purchase_date;
-    setTermsForm(f => ({ ...f, due_date: due }));
+    setTermsForm({ terms_days: days, terms_label: label, due_date: due });
     setTermsDialog(true);
   };
 

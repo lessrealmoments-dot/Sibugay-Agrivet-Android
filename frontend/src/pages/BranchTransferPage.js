@@ -330,6 +330,7 @@ export default function BranchTransferPage() {
               new_retail_price: parseFloat(rp.new_retail_price),
               units_per_parent: rp.units_per_parent,
               capital_per_repack: rp.capital_per_repack,
+              current_dest_retail: rp.current_dest_retail,
               parent_product_id: r.product.id,
               parent_product_name: r.product.name,
             });

@@ -632,7 +632,7 @@ export default function AuditCenterPage() {
 
   const computeOverallScore = (data) => {
     if (!data) return null;
-    const sections = ['cash', 'sales', 'ar', 'payables', 'transfers', 'returns', 'activity'];
+    const sections = ['cash', 'sales', 'ar', 'payables', 'transfers', 'returns', 'activity', 'digital'];
     if (data.inventory?.available) sections.push('inventory');
     const scores = sections.map(s => {
       const sev = data[s]?.severity;

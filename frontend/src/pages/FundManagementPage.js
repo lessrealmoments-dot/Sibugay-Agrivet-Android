@@ -194,6 +194,12 @@ export default function FundManagementPage() {
     </div>
   );
 
+  if (!branchId) return (
+    <div className="flex items-center justify-center h-48 text-slate-400">
+      <AlertTriangle size={18} className="mr-2 text-amber-400" /> Please select a branch to view fund management.
+    </div>
+  );
+
   // ── Overview ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5 animate-fadeIn" data-testid="fund-management-page">

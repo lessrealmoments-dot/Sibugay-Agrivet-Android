@@ -638,3 +638,231 @@ async def get_invoice_edit_history(invoice_id: str, user=Depends(get_current_use
         {"invoice_id": invoice_id}, {"_id": 0}
     ).sort("edited_at", -1).to_list(100)
     return history
+
+
+# ==================== VOID / REOPEN ====================
+
+@router.get("/invoices/history/by-date")
+async def get_invoices_by_date(
+    date: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    search: Optional[str] = None,
+    include_voided: bool = False,
+    user=Depends(get_current_user),
+):
+    """
+    Get all invoices for a specific date (defaults today).
+    Used by the Sales History tab for quick cashier review.
+    Returns running totals alongside the list.
+    """
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    target_date = date or today
+
+    query: dict = {}
+    if not include_voided:
+        query["status"] = {"$ne": "voided"}
+    # Match by order_date OR invoice_date
+    query["$or"] = [
+        {"order_date": target_date},
+        {"invoice_date": target_date},
+    ]
+
+    branch_filter = await get_branch_filter(user, branch_id)
+    query = apply_branch_filter(query, branch_filter)
+
+    if search:
+        query["$or"] = [
+            {"invoice_number": {"$regex": search, "$options": "i"}},
+            {"customer_name": {"$regex": search, "$options": "i"}},
+        ]
+
+    invoices = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+
+    # Compute running totals
+    cash_total = sum(
+        float(inv.get("amount_paid", 0))
+        for inv in invoices
+        if inv.get("status") != "voided"
+        and inv.get("payment_type") in ("cash", None)
+        and inv.get("sale_type") != "cash_advance"
+    )
+    credit_total = sum(
+        float(inv.get("grand_total", 0))
+        for inv in invoices
+        if inv.get("status") != "voided"
+        and inv.get("payment_type") not in ("cash", None)
+    )
+    grand_total = sum(
+        float(inv.get("grand_total", 0))
+        for inv in invoices
+        if inv.get("status") != "voided"
+    )
+    voided_count = sum(1 for inv in invoices if inv.get("status") == "voided")
+
+    return {
+        "invoices": invoices,
+        "totals": {
+            "cash": round(cash_total, 2),
+            "credit": round(credit_total, 2),
+            "grand_total": round(grand_total, 2),
+            "count": len([i for i in invoices if i.get("status") != "voided"]),
+            "voided_count": voided_count,
+        },
+        "date": target_date,
+    }
+
+
+@router.post("/invoices/{inv_id}/void")
+async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Void an invoice with manager PIN authorization.
+    Reverses: inventory, cashflow, customer AR balance.
+    The original invoice_date is preserved in the void snapshot for interest continuity.
+    """
+    check_perm(user, "pos", "void")
+
+    # 1. Verify manager PIN
+    manager_pin = data.get("manager_pin", "")
+    if not manager_pin:
+        raise HTTPException(status_code=400, detail="Manager PIN is required")
+
+    managers = await db.users.find(
+        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
+    ).to_list(50)
+
+    authorized_manager = None
+    for mgr in managers:
+        mgr_pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
+        if mgr_pin and manager_pin == mgr_pin:
+            authorized_manager = mgr
+            break
+
+    if not authorized_manager:
+        raise HTTPException(status_code=401, detail="Invalid manager PIN")
+
+    # 2. Get invoice
+    inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
+    if not inv:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if inv.get("status") == "voided":
+        raise HTTPException(status_code=400, detail="Invoice is already voided")
+
+    branch_id = inv.get("branch_id", "")
+    reason = data.get("reason", "Voided by manager")
+
+    # 3. Reverse inventory
+    for item in inv.get("items", []):
+        pid = item.get("product_id")
+        if not pid:
+            continue
+        qty = float(item.get("quantity", 0))
+        product = await db.products.find_one({"id": pid}, {"_id": 0})
+        if not product:
+            continue
+
+        if product.get("is_repack") and product.get("parent_id"):
+            units_per_parent = product.get("units_per_parent", 1) or 1
+            parent_return = qty / units_per_parent
+            await db.inventory.update_one(
+                {"product_id": product["parent_id"], "branch_id": branch_id},
+                {"$inc": {"quantity": parent_return}, "$set": {"updated_at": now_iso()}},
+                upsert=True,
+            )
+            await log_movement(
+                product["parent_id"], branch_id, "void_return", parent_return,
+                inv_id, inv["invoice_number"], 0,
+                user["id"], user.get("full_name", user["username"]),
+                f"Void: {inv['invoice_number']} — {reason}",
+            )
+        else:
+            await db.inventory.update_one(
+                {"product_id": pid, "branch_id": branch_id},
+                {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}},
+                upsert=True,
+            )
+            await log_movement(
+                pid, branch_id, "void_return", qty,
+                inv_id, inv["invoice_number"], 0,
+                user["id"], user.get("full_name", user["username"]),
+                f"Void: {inv['invoice_number']} — {reason}",
+            )
+
+    # 4. Reverse cashflow (amount_paid goes back out of cashier fund)
+    amount_paid = float(inv.get("amount_paid", 0))
+    if amount_paid > 0:
+        wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+        )
+        if wallet:
+            new_balance = round(float(wallet.get("balance", 0)) - amount_paid, 2)
+            await db.fund_wallets.update_one(
+                {"id": wallet["id"]},
+                {"$set": {"balance": max(0, new_balance), "updated_at": now_iso()}}
+            )
+
+    # 5. Reverse customer AR balance (credit sales)
+    balance_owed = float(inv.get("balance", 0))
+    if balance_owed > 0 and inv.get("customer_id"):
+        await db.customers.update_one(
+            {"id": inv["customer_id"]},
+            {"$inc": {"balance": -balance_owed}}
+        )
+
+    # 6. Mark invoice as voided — preserve original_invoice_date for interest continuity
+    await db.invoices.update_one(
+        {"id": inv_id},
+        {"$set": {
+            "status": "voided",
+            "voided_at": now_iso(),
+            "voided_by_id": user["id"],
+            "voided_by_name": user.get("full_name", user["username"]),
+            "void_reason": reason,
+            "void_authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+            "void_authorized_by_id": authorized_manager["id"],
+            "original_invoice_date": inv.get("invoice_date", inv.get("order_date", "")),
+        }}
+    )
+
+    # 7. Log void in invoice_edits for audit trail
+    await db.invoice_edits.insert_one({
+        "id": new_id(),
+        "invoice_id": inv_id,
+        "invoice_number": inv["invoice_number"],
+        "collection": "invoices",
+        "edited_by_id": user["id"],
+        "edited_by_name": user.get("full_name", user["username"]),
+        "edited_at": now_iso(),
+        "reason": f"VOID: {reason}",
+        "authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+        "changes": ["status: active → voided"],
+        "original_state": {
+            "status": inv.get("status"),
+            "grand_total": inv.get("grand_total"),
+            "amount_paid": amount_paid,
+            "balance": balance_owed,
+            "items": inv.get("items", []),
+        },
+        "inventory_adjustments": [
+            {"product_id": i.get("product_id"), "quantity_returned": i.get("quantity")}
+            for i in inv.get("items", [])
+        ],
+    })
+
+    return {
+        "message": "Invoice voided",
+        "invoice_number": inv["invoice_number"],
+        "authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
+        "original_invoice_date": inv.get("invoice_date", inv.get("order_date", "")),
+        "snapshot": {
+            "items": inv.get("items", []),
+            "customer_id": inv.get("customer_id"),
+            "customer_name": inv.get("customer_name"),
+            "customer_contact": inv.get("customer_contact", ""),
+            "grand_total": inv.get("grand_total"),
+            "invoice_date": inv.get("invoice_date", inv.get("order_date", "")),
+            "order_date": inv.get("order_date", ""),
+            "terms": inv.get("terms", "COD"),
+            "terms_days": inv.get("terms_days", 0),
+            "interest_rate": inv.get("interest_rate", 0),
+        },
+    }

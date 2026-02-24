@@ -1249,7 +1249,7 @@ export default function AuditCenterPage() {
                 </div>
               )}
               <Button onClick={prepareForAudit} disabled={preparing || !auditBranchId}
-                className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white h-11 font-semibold" data-testid="prepare-audit-btn">
+                className={`w-full h-11 font-semibold transition-all ${preparing || !auditBranchId ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-[#1A4D2E] hover:bg-[#14532d] text-white'}`} data-testid="prepare-audit-btn">
                 {preparing ? <><RefreshCw size={15} className="animate-spin mr-2" />Preparing…</> : <><Download size={15} className="mr-2" />Prepare Audit Package</>}
               </Button>
               <p className="text-xs text-slate-400 text-center mt-2">Select a branch above first. Large datasets may take a few minutes.</p>

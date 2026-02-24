@@ -1013,7 +1013,57 @@ export default function BranchTransferPage() {
                               )}
                             </td>
                           </tr>
-                        );
+
+                          {/* ── Repack pricing sub-row ── */}
+                          {row.product && (row.repacks || []).length > 0 && (
+                            <tr className="bg-blue-50/40 border-b border-blue-100">
+                              <td colSpan={isAdmin ? 9 : 8} className="px-3 py-2">
+                                <div className="flex items-start gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider mr-1 mt-1.5 shrink-0">
+                                    📦 Repack prices at destination:
+                                  </span>
+                                  {(row.repacks || []).map((rp, ri) => (
+                                    <div key={rp.id} className="flex items-center gap-1.5 bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs">
+                                      <div className="text-slate-600 min-w-0">
+                                        <span className="font-medium">{rp.name}</span>
+                                        <span className="text-slate-400 ml-1">({rp.units_per_parent}/bag)</span>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          <span className="text-slate-400 font-mono">Capital: {formatPHP(rp.capital_per_repack)}</span>
+                                          <span className="text-blue-500 font-mono">Now: {formatPHP(rp.current_dest_retail)}</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1 ml-1">
+                                        <span className="text-slate-400">→</span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="0.01"
+                                          value={rp.new_retail_price}
+                                          onChange={e => {
+                                            const updated = (row.repacks || []).map((r2, r2i) =>
+                                              r2i === ri ? { ...r2, new_retail_price: e.target.value } : r2
+                                            );
+                                            updateRow(row.id, { repacks: updated });
+                                          }}
+                                          placeholder="New price"
+                                          className="w-24 h-7 border border-blue-300 rounded-md px-2 text-xs font-mono text-right focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                                          data-testid={`repack-price-${rp.id}`}
+                                        />
+                                        {rp.new_retail_price && parseFloat(rp.new_retail_price) > 0 && (
+                                          <span className={`text-[10px] font-bold font-mono ml-1 ${parseFloat(rp.new_retail_price) > rp.capital_per_repack ? 'text-emerald-600' : 'text-red-500'}`}>
+                                            {parseFloat(rp.new_retail_price) > rp.capital_per_repack
+                                              ? `+${formatPHP(parseFloat(rp.new_retail_price) - rp.capital_per_repack)}`
+                                              : 'below cost!'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                  <span className="text-[10px] text-slate-400 self-center ml-1">Leave blank to keep current price</span>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                       })}
                     </tbody>
                   </table>

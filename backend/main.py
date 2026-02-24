@@ -114,6 +114,8 @@ api_router.include_router(audit_router)
 # Receipt Uploads
 api_router.include_router(uploads_router)
 
+# Transaction Verification
+api_router.include_router(verify_router)
 
 # =============================================================================
 # STARTUP & SHUTDOWN

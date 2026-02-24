@@ -122,6 +122,8 @@ function AppRoutes() {
       <Route path="/audit" element={<ProtectedRoute><AuditCenterPage /></ProtectedRoute>} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />
+      {/* Public view-receipts page — no auth, token-based */}
+      <Route path="/view-receipts/:token" element={<ViewReceiptsPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

@@ -738,29 +738,48 @@ export default function UnifiedSalesPage() {
       <div className="flex items-center justify-between px-1 py-3">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Sales</h1>
-          
-          {/* Mode Toggle */}
-          <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+
+          {/* Main Tab: New Sale / History */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-1">
             <button
-              onClick={() => setMode('quick')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                mode === 'quick' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'
-              }`}
-              data-testid="mode-quick"
+              onClick={() => setMainTab('sale')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mainTab === 'sale' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'}`}
+              data-testid="tab-new-sale"
             >
-              <Zap size={14} /> Quick
+              <ShoppingCart size={14} /> New Sale
             </button>
             <button
-              onClick={() => setMode('order')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                mode === 'order' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'
-              }`}
-              data-testid="mode-order"
+              onClick={() => setMainTab('history')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${mainTab === 'history' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'}`}
+              data-testid="tab-history"
             >
-              <ClipboardList size={14} /> Order
+              <FileText size={14} /> Sales History
             </button>
           </div>
-        </div>
+
+          {/* Mode Toggle — only in new sale tab */}
+          {mainTab === 'sale' && (
+            <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setMode('quick')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  mode === 'quick' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                data-testid="mode-quick"
+              >
+                <Zap size={14} /> Quick
+              </button>
+              <button
+                onClick={() => setMode('order')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  mode === 'order' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'
+                }`}
+                data-testid="mode-order"
+              >
+                <ClipboardList size={14} /> Order
+              </button>
+            </div>
+          )}
 
         <div className="flex items-center gap-3">
           {/* Offline indicator */}

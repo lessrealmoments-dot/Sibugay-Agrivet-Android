@@ -199,3 +199,33 @@ All 10 data integrity issues fixed across the entire system:
 10. **Invoice payment void** — `POST /api/invoices/{inv_id}/void-payment/{payment_id}`. Manager PIN required. Reverses fund + restores customer AR balance.
 
 All require manager PIN authorization for audit trail.
+
+### Phase 9 — 4-Wallet Branch Fund System (2026-02-24)
+
+**Architecture: Every branch has exactly 4 fund wallets**
+- **Cashier** — receives cash + check sales, AR collections; used for expenses/PO payments; admin capital add only
+- **Safe** — receives close-day transfers; can pay expenses/POs; cashier↔safe via manager PIN
+- **Digital** — receives GCash/Maya/Bank Transfer/all non-cash payments automatically; audit trail only, no direct spend
+- **Bank** — receives safe→bank deposits; admin TOTP required; balance hidden from non-admin users
+
+**Auto-provisioning**: All 6 existing branches got all 4 wallets on startup. New branches auto-get all 4 wallets on creation.
+
+**Fund Transfer Authorization**:
+- Cashier ↔ Safe → Manager PIN (both directions)
+- Safe → Bank → Admin TOTP (Google Authenticator)
+- Capital injection to Cashier → Admin role only
+- All transfers permanently logged to `fund_transfers` collection
+
+**Digital Payment Flow**:
+- Sales checkout: Cash | Digital | Partial | Credit tabs
+- Digital tab: platform dropdown (GCash/Maya/Instapay/etc), Reference # (required), Sender name/number (optional)
+- After digital sale: QR code appears for uploading payment screenshot
+- Invoice stores: `digital_platform`, `digital_ref_number`, `digital_sender`, `fund_source: "digital"`
+- Digital payments → `update_digital_wallet()` helper (not cashier)
+- `is_digital_payment(method)` helper: returns True for everything except Cash/Check
+
+**Z-Report**: Digital payment totals added to daily close preview (by platform)
+
+**Bank Balance Security**: Non-admin roles see `balance: null, balance_hidden: true` for bank wallet
+
+**Credentials**: owner/521325, manager_pin = 521325

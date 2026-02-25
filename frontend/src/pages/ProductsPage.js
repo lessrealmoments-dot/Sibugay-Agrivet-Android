@@ -276,15 +276,16 @@ export default function ProductsPage() {
     if (correctionExpanded && editing) loadStockForEdit(editing);
   }, [correctionExpanded, editing, loadStockForEdit]);
 
-  const submitCorrection = async (verifiedBy, authMode) => {
-    if (!pendingCorrection) return;
+  const submitCorrection = async (verifiedBy, authMode, correctionData) => {
+    const correction = correctionData || pendingCorrection;
+    if (!correction) return;
     setCorrectionSaving(true);
     try {
       const res = await api.post('/inventory/admin-adjust', {
         product_id: editing.id,
         branch_id: currentBranch.id,
-        new_quantity: pendingCorrection.new_qty,
-        reason: pendingCorrection.reason,
+        new_quantity: correction.new_qty,
+        reason: correction.reason,
         verified_by: verifiedBy,
         auth_mode: authMode,
       });
@@ -304,12 +305,13 @@ export default function ProductsPage() {
     const qty = parseFloat(correctionQty);
     if (isNaN(qty) || qty < 0) { toast.error('Enter a valid quantity (0 or more)'); return; }
     if (!correctionReason.trim()) { toast.error('Reason is required'); return; }
+    const correction = { new_qty: qty, reason: correctionReason.trim() };
     if (user?.role === 'admin') {
-      // Admin can do it directly without TOTP (they are already authenticated)
-      submitCorrection(user.full_name || user.username, 'direct_admin');
+      // Admin submits directly — pass correction data to avoid React state batching issue
+      submitCorrection(user.full_name || user.username, 'direct_admin', correction);
     } else {
       // Non-admin: require TOTP verification
-      setPendingCorrection({ new_qty: qty, reason: correctionReason.trim() });
+      setPendingCorrection(correction);
       setTotpOpen(true);
     }
   };

@@ -17,8 +17,18 @@ router = APIRouter(prefix="/purchase-orders", tags=["Purchase Orders"])
 
 
 # ── Shared inventory-receive helper ──────────────────────────────────────────
-async def _apply_po_inventory(po: dict, user: dict):
-    """Update inventory + product costs from a PO's items. Safe to call on creation."""
+async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None):
+    """
+    Update inventory + product costs from a PO's items.
+    capital_choices: dict of {product_id: "last_purchase"|"moving_average"}
+      - "last_purchase" (default): use the new PO unit price as capital
+      - "moving_average": use the projected weighted moving average after this purchase
+    Smart pricing rule (applied automatically when no explicit choice given):
+      - new_price >= current_capital → always use new price (auto-update, no choice needed)
+      - new_price < current_capital  → frontend should have warned user; default is still last_purchase
+    """
+    if capital_choices is None:
+        capital_choices = {}
     branch_id = po.get("branch_id", "")
     for item in po.get("items", []):
         pid = item.get("product_id")
@@ -47,15 +57,23 @@ async def _apply_po_inventory(po: dict, user: dict):
             f"PO received from {po['vendor']}"
         )
 
-        # Update product cost + moving average
+        # Calculate moving average (includes this purchase since movement is already logged)
         all_purchases = await db.movements.find(
             {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
         ).to_list(10000)
         total_pqty = sum(m["quantity_change"] for m in all_purchases)
         total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
-        product_update = {"last_vendor": po["vendor"], "cost_price": price}
-        if total_pqty > 0:
-            product_update["moving_average_cost"] = round(total_pcost / total_pqty, 2)
+        moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
+
+        # Determine new capital based on choice
+        choice = capital_choices.get(pid, "last_purchase")
+        new_capital = moving_avg if choice == "moving_average" else price
+
+        product_update = {
+            "last_vendor": po["vendor"],
+            "cost_price": new_capital,
+            "moving_average_cost": moving_avg,
+        }
         await db.products.update_one({"id": pid}, {"$set": product_update})
 
         # Update vendor last_price

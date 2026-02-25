@@ -278,11 +278,13 @@ async def get_my_organization(user=Depends(get_current_user)):
 
     effective_plan = get_effective_plan(org)
     grace_info = get_grace_info(org)
+    from routes.organizations import get_live_feature_flags
+    flags = await get_live_feature_flags()
     return {
         **{k: v for k, v in org.items()},
         "effective_plan": effective_plan,
         "grace_info": grace_info,
-        "features": PLAN_FEATURES.get(effective_plan, PLAN_FEATURES["basic"]),
+        "features": flags.get(effective_plan, PLAN_FEATURES.get(effective_plan, PLAN_FEATURES["basic"])),
         "limits": PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"]),
         "pricing": PLAN_PRICING,
     }

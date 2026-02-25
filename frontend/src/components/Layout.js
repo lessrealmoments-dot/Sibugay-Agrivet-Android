@@ -94,19 +94,22 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
-  const filteredNav = NAV_ITEMS.filter(item => {
-    // Permission check
+  const filterItem = (item) => {
     if (item.perm) {
       const [mod, act] = item.perm.split('.');
       if (!hasPerm(mod, act)) return false;
     }
-    // Feature flag check (only for non-admin users with subscription)
     if (item.featureFlag && user && !user.is_super_admin) {
       const features = user?.subscription?.features;
       if (features && features[item.featureFlag] === false) return false;
     }
     return true;
-  });
+  };
+
+  const filteredSections = NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(filterItem),
+  })).filter(section => section.items.length > 0);
 
   const NavLink = ({ item }) => {
     const active = location.pathname === item.path;

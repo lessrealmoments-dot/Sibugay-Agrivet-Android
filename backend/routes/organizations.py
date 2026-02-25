@@ -295,7 +295,106 @@ async def get_payment_info():
     if not setting:
         return {"configured": False, "methods": {}}
     return {"configured": True, "methods": setting.get("value", {})}
-    """Public: get plan definitions."""
+
+
+# ---------------------------------------------------------------------------
+# Feature Definitions (source of truth for all feature metadata)
+# ---------------------------------------------------------------------------
+FEATURE_DEFINITIONS = [
+    # Core — always included in every plan
+    {"key": "pos_sales",           "name": "POS & Sales",                  "description": "Point of sale, split payments (Cash/Digital/Credit), void & reopen",        "category": "Core",         "locked_on": ["basic","standard","pro","trial"]},
+    {"key": "inventory",           "name": "Inventory Management",          "description": "Products, repacks, stock tracking, adjustments",                             "category": "Core",         "locked_on": ["basic","standard","pro","trial"]},
+    {"key": "customer_management", "name": "Customer Management",           "description": "Customer profiles, purchase history, AR balance tracking",                   "category": "Core",         "locked_on": ["basic","standard","pro","trial"]},
+    {"key": "expense_tracking",    "name": "Expense Tracking",              "description": "Record, categorize and manage business expenses",                            "category": "Core",         "locked_on": ["basic","standard","pro","trial"]},
+    {"key": "basic_reports",       "name": "Basic Reports",                 "description": "Daily sales summary, inventory level reports",                               "category": "Core",         "locked_on": ["basic","standard","pro","trial"]},
+    {"key": "daily_close_wizard",  "name": "Daily Close Wizard",            "description": "Guided end-of-day closing, Z-Report, cash reconciliation",                  "category": "Core",         "locked_on": ["basic","standard","pro","trial"]},
+    # Operations
+    {"key": "purchase_orders",     "name": "Purchase Orders",              "description": "Full PO workflow: create, receive, edit, reopen with audit trail",           "category": "Operations",   "locked_on": []},
+    {"key": "supplier_management", "name": "Supplier Management",          "description": "Supplier profiles, purchase history, accounts payable",                      "category": "Operations",   "locked_on": []},
+    {"key": "employee_management", "name": "Employee & Cash Advances",     "description": "Employee profiles, cash advance requests and tracking",                      "category": "Operations",   "locked_on": []},
+    # Finance
+    {"key": "full_fund_management","name": "4-Wallet Fund Management",     "description": "Cashier, Safe, Digital (GCash/Maya), Bank — all tracked separately",        "category": "Finance",      "locked_on": []},
+    {"key": "advanced_reports",    "name": "Advanced Financial Reports",   "description": "AR aging, inventory movement, income statements",                            "category": "Finance",      "locked_on": []},
+    # Multi-Branch
+    {"key": "multi_branch",        "name": "Multi-Branch Support",         "description": "Multiple branch management with consolidated owner view",                    "category": "Multi-Branch", "locked_on": []},
+    {"key": "branch_transfers",    "name": "Branch Transfers",             "description": "Transfer stock between branches with cost tracking",                         "category": "Multi-Branch", "locked_on": []},
+    {"key": "repack_pricing",      "name": "Transfer Repack Pricing",      "description": "Set destination sell prices when transferring repacked products",             "category": "Multi-Branch", "locked_on": []},
+    # Audit
+    {"key": "audit_center",        "name": "Standard Audit Trail",         "description": "Transaction history, basic audit logs, timeline view",                       "category": "Audit",        "locked_on": []},
+    {"key": "full_audit_center",   "name": "Full Audit Center",            "description": "Audit scoring, rule-based insights, discrepancy detection",                  "category": "Audit",        "locked_on": []},
+    {"key": "transaction_verify",  "name": "Transaction Verification",     "description": "Manager PIN verification, discrepancy flagging and resolution workflow",     "category": "Audit",        "locked_on": []},
+    # Security
+    {"key": "granular_permissions","name": "Granular Role Permissions",    "description": "Custom per-user access control for every module and action",                 "category": "Security",     "locked_on": []},
+    {"key": "two_fa",              "name": "2FA Security (TOTP)",          "description": "Google Authenticator two-factor authentication for admin accounts",           "category": "Security",     "locked_on": []},
+]
+
+DEFAULT_FEATURE_FLAGS = {
+    "basic": {
+        "pos_sales": True, "inventory": True, "customer_management": True,
+        "expense_tracking": True, "basic_reports": True, "daily_close_wizard": True,
+        "purchase_orders": False, "supplier_management": False, "employee_management": False,
+        "full_fund_management": False, "advanced_reports": False,
+        "multi_branch": False, "branch_transfers": False, "repack_pricing": False,
+        "audit_center": False, "full_audit_center": False, "transaction_verify": False,
+        "granular_permissions": False, "two_fa": False,
+    },
+    "standard": {
+        "pos_sales": True, "inventory": True, "customer_management": True,
+        "expense_tracking": True, "basic_reports": True, "daily_close_wizard": True,
+        "purchase_orders": True, "supplier_management": True, "employee_management": True,
+        "full_fund_management": True, "advanced_reports": True,
+        "multi_branch": True, "branch_transfers": True, "repack_pricing": False,
+        "audit_center": True, "full_audit_center": False, "transaction_verify": False,
+        "granular_permissions": False, "two_fa": False,
+    },
+    "pro": {
+        "pos_sales": True, "inventory": True, "customer_management": True,
+        "expense_tracking": True, "basic_reports": True, "daily_close_wizard": True,
+        "purchase_orders": True, "supplier_management": True, "employee_management": True,
+        "full_fund_management": True, "advanced_reports": True,
+        "multi_branch": True, "branch_transfers": True, "repack_pricing": True,
+        "audit_center": True, "full_audit_center": True, "transaction_verify": True,
+        "granular_permissions": True, "two_fa": True,
+    },
+}
+DEFAULT_FEATURE_FLAGS["trial"] = DEFAULT_FEATURE_FLAGS["pro"]
+
+
+async def get_live_feature_flags() -> dict:
+    """Fetch feature flags from DB, fall back to defaults."""
+    setting = await _raw_db.platform_settings.find_one({"key": "feature_flags"}, {"_id": 0})
+    if setting and setting.get("value"):
+        flags = setting["value"]
+        # Ensure trial always mirrors pro
+        flags["trial"] = flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"])
+        return flags
+    return DEFAULT_FEATURE_FLAGS
+
+
+@router.get("/feature-matrix")
+async def get_feature_matrix():
+    """Public: full feature matrix for landing page pricing table."""
+    flags = await get_live_feature_flags()
+    return {
+        "feature_definitions": FEATURE_DEFINITIONS,
+        "flags": {
+            "basic":    flags.get("basic",    DEFAULT_FEATURE_FLAGS["basic"]),
+            "standard": flags.get("standard", DEFAULT_FEATURE_FLAGS["standard"]),
+            "pro":      flags.get("pro",      DEFAULT_FEATURE_FLAGS["pro"]),
+        },
+        "plan_pricing": PLAN_PRICING,
+        "plan_limits": {
+            "basic": PLAN_LIMITS["basic"],
+            "standard": PLAN_LIMITS["standard"],
+            "pro": PLAN_LIMITS["pro"],
+        },
+    }
+
+
+@router.get("/plans")
+async def get_plans():
+    """Public: get plan definitions with live feature flags."""
+    flags = await get_live_feature_flags()
     return {
         "plans": [
             {
@@ -304,7 +403,7 @@ async def get_payment_info():
                 "tagline": "Get your first branch running clean",
                 "pricing": PLAN_PRICING["basic"],
                 "limits": PLAN_LIMITS["basic"],
-                "features": PLAN_FEATURES["basic"],
+                "features": flags.get("basic", DEFAULT_FEATURE_FLAGS["basic"]),
             },
             {
                 "key": "standard",
@@ -312,7 +411,7 @@ async def get_payment_info():
                 "tagline": "Run a real multi-branch operation",
                 "pricing": PLAN_PRICING["standard"],
                 "limits": PLAN_LIMITS["standard"],
-                "features": PLAN_FEATURES["standard"],
+                "features": flags.get("standard", DEFAULT_FEATURE_FLAGS["standard"]),
                 "popular": True,
             },
             {
@@ -321,7 +420,7 @@ async def get_payment_info():
                 "tagline": "Audit-grade control for serious businesses",
                 "pricing": PLAN_PRICING["pro"],
                 "limits": PLAN_LIMITS["pro"],
-                "features": PLAN_FEATURES["pro"],
+                "features": flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"]),
             },
         ],
         "extra_branch": PLAN_PRICING["extra_branch"],

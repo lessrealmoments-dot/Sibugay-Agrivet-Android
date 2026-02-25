@@ -134,6 +134,12 @@ export default function PurchaseOrderPage() {
   const [createProdDialog, setCreateProdDialog] = useState(false);
   const [newProdForm, setNewProdForm] = useState({ sku: '', name: '', category: 'Pesticide', unit: 'Box', cost_price: 0, prices: {}, product_type: 'stockable' });
 
+  // ── Smart Capital Dialog ───────────────────────────────────────────────
+  const [capitalDialog, setCapitalDialog] = useState(false);
+  const [capitalPreview, setCapitalPreview] = useState(null); // { po_number, vendor, items, has_warnings }
+  const [capitalChoices, setCapitalChoices] = useState({}); // { product_id: 'last_purchase'|'moving_average' }
+  const [capitalPendingPOId, setCapitalPendingPOId] = useState(null);
+
   // ── Supplier history dialog ────────────────────────────────────────────
   const [historyDialog, setHistoryDialog] = useState(false);
   const [historyVendor, setHistoryVendor] = useState('');

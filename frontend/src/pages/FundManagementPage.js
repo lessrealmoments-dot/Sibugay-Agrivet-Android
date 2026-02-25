@@ -311,7 +311,7 @@ export default function FundManagementPage() {
         </CardHeader>
         <CardContent>
           <div className="grid sm:grid-cols-2 gap-3">
-            {TRANSFER_TYPES.filter(t => !t.adminOnly || isAdmin).map(ttype => (
+            {TRANSFER_TYPES.map(ttype => (
               <button key={ttype.key} onClick={() => openTransfer(ttype)}
                 className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-[#1A4D2E]/40 hover:bg-slate-50 transition-all text-left">
                 <span className="text-xl shrink-0">{ttype.icon}</span>

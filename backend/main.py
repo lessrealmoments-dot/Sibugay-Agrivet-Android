@@ -124,6 +124,19 @@ api_router.include_router(organizations_router)
 # Super Admin (platform management)
 api_router.include_router(superadmin_router)
 
+# Public payment info (for upgrade page, no auth)
+from routes.superadmin import router as _sa_router
+from fastapi import APIRouter as _AR
+
+_public = _AR(prefix="/public")
+
+@_public.get("/payment-info")
+async def _pub_payment():
+    from routes.superadmin import get_public_payment_info
+    return await get_public_payment_info()
+
+api_router.include_router(_public)
+
 # Admin Portal Auth (separate login)
 api_router.include_router(admin_auth_router)
 

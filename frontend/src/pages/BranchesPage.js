@@ -1,21 +1,27 @@
 import { useState, useEffect } from 'react';
-import { api } from '../contexts/AuthContext';
+import { api, useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Building2, Plus, Pencil, Trash2, Zap } from 'lucide-react';
+import { Building2, Plus, Pencil, Trash2, Zap, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { BranchCapitalWizard } from '../components/BranchCapitalWizard';
 
 export default function BranchesPage() {
+  const { user } = useAuth();
   const [branches, setBranches] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', address: '', phone: '' });
-  const [wizardBranch, setWizardBranch] = useState(null); // branch to run quick-fill for
+  const [wizardBranch, setWizardBranch] = useState(null);
+
+  const maxBranches = user?.subscription?.max_branches ?? 1;
+  const isUnlimited = maxBranches === 0;
+  const atLimit = !isUnlimited && branches.length >= maxBranches;
+  const planName = user?.subscription?.plan ?? 'basic';
 
   const fetchBranches = async () => {
     try {

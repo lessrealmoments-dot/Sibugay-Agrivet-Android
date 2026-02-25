@@ -1,5 +1,21 @@
 # AgriBooks — Changelog
 
+## 2026-02-25: Phase 3 — Subscription Plan Enforcement & Feature Flag Testing
+
+### Added
+- **Branch Limit Enforcement (Backend)** — `POST /api/branches` now checks org's `max_branches` and returns a clear 400 error when at limit (with plan name and upgrade suggestion)
+- **Branch Limit UI (BranchesPage)** — Shows `(X/max used)` counter in red when at limit, amber warning banner explaining the limit, `Add Branch` button disabled and shows upgrade tooltip
+- **Unlimited indicator** — Founders/Trial plans show `(Unlimited)` in green on BranchesPage
+- **Feature Flag Nav Enforcement (Layout.js)** — Navigation items are now hidden based on subscription feature flags. Items gated: Purchase Orders, Pay Supplier, Suppliers, Employees, Fund Mgmt, Branch Transfers, Audit Center, Reports, Permissions
+
+### Fixed  
+- **Critical: Multi-tenancy branch count isolation** — Branch limit check was using a global count across all organizations instead of per-org count. Fixed to scope by `organization_id`.
+- **`/auth/me` now uses live feature flags** — Was using static `PLAN_FEATURES` dict. Fixed to call `get_live_feature_flags()` so admin panel changes take effect immediately.
+
+### Test Results: 46/46 backend, 17/17 frontend — 100% pass rate
+
+---
+
 ## 2026-02-25: SaaS Multi-Tenancy Phase 1
 
 ### Added

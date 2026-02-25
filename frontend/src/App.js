@@ -114,7 +114,7 @@ function AppRoutes() {
 
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
-      <Route path="/branch-transfers" element={<ProtectedRoute><BranchTransferPage /></ProtectedRoute>} />
+      <Route path="/branch-transfers" element={<ProtectedRoute><FeatureGate featureKey="branch_transfers"><BranchTransferPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
       <Route path="/products/:id" element={<ProtectedRoute><ProductDetailPage /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
@@ -124,23 +124,23 @@ function AppRoutes() {
       <Route path="/price-schemes" element={<ProtectedRoute><PriceSchemesPage /></ProtectedRoute>} />
       <Route path="/sales" element={<ProtectedRoute><SalesPage /></ProtectedRoute>} />
       <Route path="/sales-order" element={<ProtectedRoute><SalesOrderPage /></ProtectedRoute>} />
-      <Route path="/purchase-orders" element={<ProtectedRoute><PurchaseOrderPage /></ProtectedRoute>} />
-      <Route path="/suppliers" element={<ProtectedRoute><SuppliersPage /></ProtectedRoute>} />
+      <Route path="/purchase-orders" element={<ProtectedRoute><FeatureGate featureKey="purchase_orders"><PurchaseOrderPage /></FeatureGate></ProtectedRoute>} />
+      <Route path="/suppliers" element={<ProtectedRoute><FeatureGate featureKey="supplier_management"><SuppliersPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/daily-ops" element={<ProtectedRoute><DailyLogPage /></ProtectedRoute>} />
       <Route path="/close-wizard" element={<ProtectedRoute><CloseWizardPage /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
-      <Route path="/fund-management" element={<ProtectedRoute><FundManagementPage /></ProtectedRoute>} />
+      <Route path="/fund-management" element={<ProtectedRoute><FeatureGate featureKey="full_fund_management"><FundManagementPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-      <Route path="/user-permissions" element={<ProtectedRoute><UserPermissionsPage /></ProtectedRoute>} />
+      <Route path="/user-permissions" element={<ProtectedRoute><FeatureGate featureKey="granular_permissions"><UserPermissionsPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/accounts" element={<ProtectedRoute><AccountsPage /></ProtectedRoute>} />
-      <Route path="/employees" element={<ProtectedRoute><EmployeesPage /></ProtectedRoute>} />
-      <Route path="/pay-supplier" element={<ProtectedRoute><PaySupplierPage /></ProtectedRoute>} />
+      <Route path="/employees" element={<ProtectedRoute><FeatureGate featureKey="employee_management"><EmployeesPage /></FeatureGate></ProtectedRoute>} />
+      <Route path="/pay-supplier" element={<ProtectedRoute><FeatureGate featureKey="purchase_orders"><PaySupplierPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/count-sheets" element={<ProtectedRoute><CountSheetsPage /></ProtectedRoute>} />
       <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
+      <Route path="/reports" element={<ProtectedRoute><FeatureGate featureKey="advanced_reports"><ReportsPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/returns" element={<ProtectedRoute><ReturnRefundWizard /></ProtectedRoute>} />
-      <Route path="/audit" element={<ProtectedRoute><AuditCenterPage /></ProtectedRoute>} />
+      <Route path="/audit" element={<ProtectedRoute><FeatureGate featureKey="audit_center"><AuditCenterPage /></FeatureGate></ProtectedRoute>} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />
       {/* Public view-receipts page — no auth, token-based */}

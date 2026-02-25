@@ -168,6 +168,9 @@ export default function SuperAdminPage() {
             <TabsTrigger value="organizations" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-400 rounded-lg px-5">
               Organizations {orgs.length > 0 && <span className="ml-1.5 bg-slate-600 text-slate-300 text-xs px-1.5 py-0.5 rounded-full">{orgs.length}</span>}
             </TabsTrigger>
+            <TabsTrigger value="features" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-400 rounded-lg px-5">
+              Feature Flags
+            </TabsTrigger>
             <TabsTrigger value="settings" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-400 rounded-lg px-5">
               Payment Settings
             </TabsTrigger>

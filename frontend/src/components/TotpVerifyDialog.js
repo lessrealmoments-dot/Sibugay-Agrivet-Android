@@ -4,11 +4,16 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { api } from '../contexts/AuthContext';
-import { Shield, Lock, RefreshCw, KeyRound } from 'lucide-react';
+import { Shield, Lock, RefreshCw, KeyRound, Hash } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
- * TotpVerifyDialog — shared admin verification dialog.
+ * TotpVerifyDialog — admin verification dialog with 3 modes.
+ *
+ * Modes (in order of preference):
+ *  1. "totp"     — Time-based OTP from Google Authenticator (one-use, for remote approval)
+ *  2. "pin"      — Owner PIN set in Settings > Audit Setup (static, for in-person approval)
+ *  3. "password" — Admin login password (fallback)
  *
  * Props:
  *   open          – boolean
@@ -22,13 +27,13 @@ export function TotpVerifyDialog({
   onOpenChange,
   onVerified,
   context = '',
-  title = 'Admin Verification Required',
+  title = 'Admin Authorization Required',
 }) {
-  const [mode, setMode] = useState('totp');   // 'totp' | 'password'
+  const [mode, setMode] = useState('pin');   // 'totp' | 'pin' | 'password'
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const reset = () => { setCode(''); setMode('totp'); };
+  const reset = () => { setCode(''); setMode('pin'); };
 
   const handleVerify = async () => {
     if (!code) { toast.error('Enter a code'); return; }
@@ -49,6 +54,12 @@ export function TotpVerifyDialog({
     setLoading(false);
   };
 
+  const MODE_TABS = [
+    { key: 'pin',      icon: <Hash size={13} />,      label: 'Owner PIN' },
+    { key: 'totp',     icon: <Shield size={13} />,    label: 'Authenticator' },
+    { key: 'password', icon: <KeyRound size={13} />,  label: 'Password' },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) reset(); onOpenChange(v); }}>
       <DialogContent className="sm:max-w-sm">
@@ -59,11 +70,55 @@ export function TotpVerifyDialog({
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
-          {mode === 'totp' ? (
+
+          {/* Mode selector tabs */}
+          <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+            {MODE_TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setMode(tab.key); setCode(''); }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 font-medium transition-colors ${
+                  mode === tab.key
+                    ? 'bg-amber-50 text-amber-700 border-b-2 border-amber-500'
+                    : 'text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                {tab.icon}{tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* PIN mode */}
+          {mode === 'pin' && (
             <div className="space-y-3">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                Open your authenticator app (Google Authenticator, Authy, etc.) and enter
-                the current <strong>6-digit code</strong>.
+                Enter the <strong>Owner PIN</strong> set in Settings → Audit Setup.
+                For in-person approvals only — do not share with workers.
+              </div>
+              <div>
+                <Label>Owner PIN</Label>
+                <Input
+                  data-testid="owner-pin-input"
+                  type="password"
+                  inputMode="numeric"
+                  value={code}
+                  onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  placeholder="••••"
+                  className="text-center text-2xl tracking-[0.4em] font-mono h-12 mt-1"
+                  maxLength={8}
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && handleVerify()}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TOTP mode */}
+          {mode === 'totp' && (
+            <div className="space-y-3">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                Call the admin and ask them to open <strong>Google Authenticator</strong> and
+                read you the current 6-digit code. It expires in 30 seconds and cannot be reused.
               </div>
               <div>
                 <Label>Authenticator Code</Label>
@@ -78,17 +133,17 @@ export function TotpVerifyDialog({
                   onKeyDown={e => e.key === 'Enter' && handleVerify()}
                 />
               </div>
-              <button
-                onClick={() => { setMode('password'); setCode(''); }}
-                className="text-xs text-slate-400 hover:text-slate-700 underline block"
-              >
-                Can&apos;t access authenticator? Use admin password instead
-              </button>
+              <p className="text-[10px] text-slate-400">
+                Admin must have set up TOTP in Settings → Security first.
+              </p>
             </div>
-          ) : (
+          )}
+
+          {/* Password mode */}
+          {mode === 'password' && (
             <div className="space-y-3">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                Enter the admin&apos;s full <strong>login password</strong> as a fallback.
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700">
+                Enter the admin&apos;s full <strong>login password</strong>. Use only as a last resort.
               </div>
               <div>
                 <Label>Admin Password</Label>
@@ -103,12 +158,6 @@ export function TotpVerifyDialog({
                   onKeyDown={e => e.key === 'Enter' && handleVerify()}
                 />
               </div>
-              <button
-                onClick={() => { setMode('totp'); setCode(''); }}
-                className="text-xs text-slate-400 hover:text-slate-700 underline block"
-              >
-                Use authenticator app instead
-              </button>
             </div>
           )}
 
@@ -124,12 +173,16 @@ export function TotpVerifyDialog({
               data-testid="totp-verify-btn"
               className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
               onClick={handleVerify}
-              disabled={loading || (mode === 'totp' && code.length !== 6) || (mode === 'password' && !code)}
+              disabled={
+                loading ||
+                (mode === 'totp' && code.length !== 6) ||
+                ((mode === 'pin' || mode === 'password') && !code)
+              }
             >
               {loading
                 ? <RefreshCw size={14} className="animate-spin mr-2" />
                 : <Lock size={14} className="mr-2" />}
-              Verify
+              Authorize
             </Button>
           </div>
         </div>

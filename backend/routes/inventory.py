@@ -74,6 +74,33 @@ async def list_inventory(
         pipeline.append({"$match": {"total_stock": {"$lte": 10}}})
     
     pipeline.append({"$project": {"_id": 0, "stock_records": 0}})
+
+    # Sorting
+    if sort_by == "grouped":
+        pipeline.append({"$lookup": {
+            "from": "products",
+            "localField": "parent_id",
+            "foreignField": "id",
+            "as": "_parent_doc"
+        }})
+        pipeline.append({"$addFields": {
+            "_sort_key": {
+                "$cond": {
+                    "if": {"$eq": ["$is_repack", True]},
+                    "then": {"$toLower": {"$ifNull": [{"$arrayElemAt": ["$_parent_doc.name", 0]}, "$name"]}},
+                    "else": {"$toLower": "$name"}
+                }
+            },
+            "_is_repack_int": {"$cond": [{"$eq": ["$is_repack", True]}, 1, 0]}
+        }})
+        pipeline.append({"$sort": {"_sort_key": 1, "_is_repack_int": 1, "name": 1}})
+        pipeline.append({"$project": {"_parent_doc": 0, "_sort_key": 0, "_is_repack_int": 0}})
+    elif sort_by == "type":
+        pipeline.append({"$addFields": {"_is_repack_int": {"$cond": [{"$eq": ["$is_repack", True]}, 1, 0]}}})
+        pipeline.append({"$sort": {"_is_repack_int": 1, "name": 1}})
+        pipeline.append({"$project": {"_is_repack_int": 0}})
+    else:
+        pipeline.append({"$sort": {"name": 1}})
     
     count_pipeline = pipeline + [{"$count": "total"}]
     count_result = await db.products.aggregate(count_pipeline).to_list(1)

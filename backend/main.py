@@ -250,11 +250,18 @@ async def startup():
         logger.info("Default price schemes created")
 
     # Create indexes
-    await db.users.create_index("username", unique=True)
-    await db.users.create_index("id", unique=True)
-    await db.products.create_index("sku")
-    await db.products.create_index("id", unique=True)
-    await db.products.create_index("parent_id")
+    try:
+        await _raw_db.users.create_index("username", unique=True, sparse=True)
+    except Exception:
+        pass
+    try:
+        await _raw_db.users.create_index("email", sparse=True)
+    except Exception:
+        pass
+    await _raw_db.users.create_index("id", unique=True)
+    await _raw_db.products.create_index("sku")
+    await _raw_db.products.create_index("id", unique=True)
+    await _raw_db.products.create_index("parent_id")
     # Text index for fast product search (name + sku + barcode)
     try:
         await db.products.create_index(

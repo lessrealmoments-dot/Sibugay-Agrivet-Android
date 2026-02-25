@@ -487,16 +487,41 @@ export default function BranchTransferPage() {
       return;
     }
 
+    // Build items payload
+    const items = viewOrder.items.map(item => ({
+      product_id: item.product_id,
+      qty: item.qty,
+      qty_received: parseFloat(receiveQtys[item.product_id]) ?? item.qty,
+      transfer_capital: item.transfer_capital,
+      branch_retail: item.branch_retail,
+    }));
+
+    // Check capital preview for price drops
+    try {
+      const preview = await api.get(`/branch-transfers/${viewOrder.id}/capital-preview`);
+      if (preview.data.has_warnings) {
+        const defaultChoices = {};
+        preview.data.items.forEach(i => { defaultChoices[i.product_id] = 'transfer_capital'; });
+        setTransferCapitalChoices(defaultChoices);
+        setTransferCapitalPreview(preview.data);
+        setTransferCapitalPendingItems(items);
+        setTransferCapitalDialog(true);
+        return;
+      }
+    } catch { /* ignore preview errors, proceed with receive */ }
+
+    // No warnings — proceed directly
+    await _doReceive(items, {});
+  };
+
+  const _doReceive = async (items, capitalChoices) => {
     setReceiveSaving(true);
     try {
-      const items = viewOrder.items.map(item => ({
-        product_id: item.product_id,
-        qty: item.qty,
-        qty_received: parseFloat(receiveQtys[item.product_id]) ?? item.qty,
-        transfer_capital: item.transfer_capital,
-        branch_retail: item.branch_retail,
-      }));
-      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, { items, notes: receiveNotes });
+      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, {
+        items,
+        notes: receiveNotes,
+        capital_choices: capitalChoices,
+      });
       if (res.data.status === 'received_pending') {
         toast.warning('Quantities have variance — submitted for source branch confirmation.');
       } else {
@@ -504,10 +529,17 @@ export default function BranchTransferPage() {
       }
       setReceiveDialog(false);
       setReceiveConfirmStep(false);
+      setTransferCapitalDialog(false);
+      setTransferCapitalPreview(null);
       setViewOrder(null);
       loadOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Receive failed'); }
     setReceiveSaving(false);
+  };
+
+  const confirmTransferReceive = async () => {
+    if (!transferCapitalPendingItems) return;
+    await _doReceive(transferCapitalPendingItems, transferCapitalChoices);
   };
 
   const handleAcceptReceipt = async (orderId, note = '') => {

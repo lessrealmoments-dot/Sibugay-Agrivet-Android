@@ -510,6 +510,24 @@ async def update_product(product_id: str, data: dict, user=Depends(get_current_u
         update["cost_price"] = float(update["cost_price"])
 
     update["updated_at"] = now_iso()
+
+    # Log capital change if cost_price is being updated
+    if "cost_price" in update:
+        product_before = await db.products.find_one({"id": product_id}, {"_id": 0})
+        old_capital = float(product_before.get("cost_price", 0)) if product_before else 0
+        await db.capital_changes.insert_one({
+            "id": new_id(),
+            "product_id": product_id,
+            "old_capital": old_capital,
+            "new_capital": update["cost_price"],
+            "method": "manual",
+            "source_type": "manual_edit",
+            "source_ref": "",
+            "changed_by_id": user["id"],
+            "changed_by_name": user.get("full_name", user.get("username", "")),
+            "changed_at": now_iso(),
+        })
+
     await db.products.update_one({"id": product_id}, {"$set": update})
     product = await db.products.find_one({"id": product_id}, {"_id": 0})
     return product

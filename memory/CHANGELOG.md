@@ -1,5 +1,16 @@
 # AgriBooks — Changelog
 
+## 2026-02-25: Phase 4 — Feature Gate Upgrade Prompts & PDF Test Report
+
+### Added
+- **FeatureGate component** (`/app/frontend/src/components/FeatureGate.js`) — Branded upgrade prompt card shown when a user navigates to a page their subscription plan doesn't include. Shows: feature icon, plan badge (Standard/Pro), feature name, description, "What you'll unlock" list, plan upgrade CTA, back to dashboard CTA
+- **9 gated routes in App.js** — FeatureGate wraps: `/purchase-orders`, `/pay-supplier`, `/suppliers`, `/employees`, `/fund-management`, `/branch-transfers`, `/audit`, `/reports`, `/user-permissions`
+- **PDF Test Report v2.0** — `AgriBooks_SaaS_Test_Report_v2.pdf` (211KB) — comprehensive documentation of all 17 modules, subscription plan matrix, Phase 1/2/3 test results (83 tests total), bug reports, credentials, security checklist
+
+### Test Results: 14/14 frontend scenarios — 100% pass rate
+
+---
+
 ## 2026-02-25: Phase 3 — Subscription Plan Enforcement & Feature Flag Testing
 
 ### Added

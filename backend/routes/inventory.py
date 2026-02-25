@@ -240,6 +240,14 @@ async def set_inventory(data: dict, user=Depends(get_current_user)):
     product_id = data["product_id"]
     branch_id = data["branch_id"]
     quantity = float(data["quantity"])
+
+    # Repack guard — repack stock is derived from parent; cannot be set directly
+    product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if product and product.get("is_repack"):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot set repack inventory directly. Adjust the parent product instead."
+        )
     
     existing = await db.inventory.find_one(
         {"product_id": product_id, "branch_id": branch_id}

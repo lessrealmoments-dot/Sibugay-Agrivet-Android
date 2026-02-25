@@ -324,7 +324,7 @@ export default function SettingsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
                   <Smartphone size={18} className="text-[#1A4D2E]" />
-                  Authenticator App (TOTP)
+                  Authenticator App (TOTP) — For Remote Approvals
                   {totpStatus.enabled && totpStatus.verified ? (
                     <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Active</Badge>
                   ) : (
@@ -332,9 +332,9 @@ export default function SettingsPage() {
                   )}
                 </CardTitle>
                 <p className="text-sm text-slate-500">
-                  Connect Google Authenticator, Authy, or any TOTP app to generate time-based
-                  codes for sensitive actions. Codes change every 30 seconds and require a network
-                  connection to verify — they cannot be used offline.
+                  When you are away, workers call you and you read the 6-digit code from your phone.
+                  The code expires every 30 seconds and <strong>cannot be reused</strong> — making it safe for remote approvals.
+                  Set up your <strong>Owner PIN</strong> (below, in Audit Setup) for faster in-person approvals.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">

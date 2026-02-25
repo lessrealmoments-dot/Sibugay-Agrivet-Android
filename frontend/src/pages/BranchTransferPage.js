@@ -1903,6 +1903,130 @@ export default function BranchTransferPage() {
           }
         }}
       />
+
+      {/* Smart Capital Pricing Dialog for Branch Transfers */}
+      {transferCapitalDialog && transferCapitalPreview && (
+        <Dialog open={transferCapitalDialog} onOpenChange={setTransferCapitalDialog}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-amber-700">
+                <TrendingDown size={18} className="text-amber-500" />
+                Smart Capital Pricing — Transfer Price Drop
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                <strong>Transfer {transferCapitalPreview.order_number}</strong> contains items arriving at{' '}
+                <strong>{transferCapitalPreview.to_branch_name}</strong> priced{' '}
+                <strong>lower than the branch's current capital</strong>. Choose how to update each product's capital.
+              </div>
+
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="text-xs border-slate-300"
+                  onClick={() => {
+                    const all = {};
+                    transferCapitalPreview.items.forEach(i => { all[i.product_id] = 'transfer_capital'; });
+                    setTransferCapitalChoices(all);
+                  }}>
+                  Use all transfer prices
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs border-slate-300"
+                  onClick={() => {
+                    const all = {};
+                    transferCapitalPreview.items.forEach(i => { all[i.product_id] = 'moving_average'; });
+                    setTransferCapitalChoices(all);
+                  }}>
+                  Use all moving averages
+                </Button>
+              </div>
+
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium text-slate-600">Product</th>
+                      <th className="text-right px-3 py-2 font-medium text-slate-600">Current Capital</th>
+                      <th className="text-right px-3 py-2 font-medium text-slate-600">Transfer Price</th>
+                      <th className="text-right px-3 py-2 font-medium text-slate-600">PO Moving Avg</th>
+                      <th className="text-center px-3 py-2 font-medium text-slate-600">Use</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {transferCapitalPreview.items.map(item => (
+                      <tr key={item.product_id} className={item.needs_warning ? 'bg-amber-50/60' : ''}>
+                        <td className="px-3 py-2.5">
+                          <div className="font-medium text-slate-800 leading-tight">{item.product_name}</div>
+                          <div className="text-[10px] text-slate-400">{item.sku} · {item.qty} {item.unit}</div>
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-slate-700">
+                          ₱{item.current_dest_capital.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono">
+                          {item.needs_warning ? (
+                            <span className="text-amber-700 font-semibold flex items-center justify-end gap-1">
+                              <TrendingDown size={12} />₱{item.transfer_capital.toFixed(2)}
+                              <span className="text-[10px] text-amber-500">(-{item.price_drop_pct}%)</span>
+                            </span>
+                          ) : (
+                            <span className="text-emerald-700 flex items-center justify-end gap-1">
+                              <TrendingUp size={12} />₱{item.transfer_capital.toFixed(2)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-slate-500">
+                          ₱{item.moving_avg.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {item.needs_warning ? (
+                            <div className="flex gap-1 justify-center">
+                              <button
+                                onClick={() => setTransferCapitalChoices(prev => ({ ...prev, [item.product_id]: 'transfer_capital' }))}
+                                className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                                  transferCapitalChoices[item.product_id] === 'transfer_capital'
+                                    ? 'bg-amber-500 text-white'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-amber-100'
+                                }`}>
+                                Transfer
+                              </button>
+                              <button
+                                onClick={() => setTransferCapitalChoices(prev => ({ ...prev, [item.product_id]: 'moving_average' }))}
+                                className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                                  transferCapitalChoices[item.product_id] === 'moving_average'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-slate-100 text-slate-500 hover:bg-blue-100'
+                                }`}>
+                                Avg
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 text-center block">Auto</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                <strong>Transfer Price</strong> — uses the source branch's transfer capital (good if permanently cheaper).
+                <br /><strong>Moving Avg</strong> — uses purchase history average (good for temporary promotions or one-off transfers).
+              </p>
+
+              <div className="flex gap-2 pt-1 border-t">
+                <Button variant="outline" className="flex-1" onClick={() => setTransferCapitalDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={confirmTransferReceive} disabled={receiveSaving}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  {receiveSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Check size={14} className="mr-1.5" />}
+                  Confirm Receive
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

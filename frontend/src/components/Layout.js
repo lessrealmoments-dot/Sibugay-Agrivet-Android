@@ -17,31 +17,32 @@ import NotificationBell from './NotificationBell';
 import { toast } from 'sonner';
 
 // offlineOk: 'full' = works offline | 'readonly' = view cached only | false/omit = requires internet
+// featureFlag: subscription feature key required to access this nav item (null = always shown)
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null, offlineOk: 'readonly' },
   { path: '/branches', label: 'Branches', icon: Building2, perm: 'branches.view' },
-  { path: '/branch-transfers', label: 'Branch Transfers', icon: ArrowRight, perm: 'branches.view' },
+  { path: '/branch-transfers', label: 'Branch Transfers', icon: ArrowRight, perm: 'branches.view', featureFlag: 'branch_transfers' },
   { path: '/products', label: 'Products', icon: Package, perm: 'products.view', offlineOk: 'readonly' },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, perm: 'inventory.view', offlineOk: 'readonly' },
   { path: '/count-sheets', label: 'Count Sheets', icon: ClipboardList, perm: 'count_sheets.view' },
   { path: '/import', label: 'Import Center', icon: Upload, perm: 'products.create' },
   { path: '/sales-new', label: 'Sales', icon: ShoppingCart, perm: 'sales.view', offlineOk: 'full' },
   { path: '/returns', label: 'Return & Refund', icon: RotateCcw, perm: 'sales.view' },
-  { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'purchase_orders.view' },
-  { path: '/pay-supplier', label: 'Pay Supplier', icon: Building2, perm: 'purchase_orders.view' },
-  { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view' },
+  { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck, perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
+  { path: '/pay-supplier', label: 'Pay Supplier', icon: Building2, perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
+  { path: '/suppliers', label: 'Suppliers', icon: Truck, perm: 'suppliers.view', featureFlag: 'supplier_management' },
   { path: '/daily-ops', label: 'Daily Operations', icon: Receipt, perm: 'reports.view' },
   { path: '/close-wizard', label: 'Close Wizard', icon: Lock, perm: 'reports.close_day' },
-  { path: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view' },
-  { path: '/audit', label: 'Audit Center', icon: ShieldCheck, perm: 'reports.view' },
+  { path: '/reports', label: 'Reports', icon: BarChart3, perm: 'reports.view', featureFlag: 'advanced_reports' },
+  { path: '/audit', label: 'Audit Center', icon: ShieldCheck, perm: 'reports.view', featureFlag: 'audit_center' },
   { path: '/customers', label: 'Customers', icon: Users, perm: 'customers.view', offlineOk: 'readonly' },
   { path: '/payments', label: 'Receive Payments', icon: Tags, perm: 'accounting.view' },
   { path: '/price-schemes', label: 'Price Schemes', icon: Tags, perm: 'price_schemes.view' },
-  { path: '/fund-management', label: 'Fund Mgmt', icon: Calculator, perm: 'accounting.manage_funds' },
+  { path: '/fund-management', label: 'Fund Mgmt', icon: Calculator, perm: 'accounting.manage_funds', featureFlag: 'full_fund_management' },
   { path: '/accounting', label: 'Accounting', icon: Calculator, perm: 'accounting.view' },
-  { path: '/employees', label: 'Employees', icon: Briefcase, perm: 'settings.manage_users' },
+  { path: '/employees', label: 'Employees', icon: Briefcase, perm: 'settings.manage_users', featureFlag: 'employee_management' },
   { path: '/accounts', label: 'Accounts', icon: UserCog, perm: 'settings.manage_users' },
-  { path: '/user-permissions', label: 'Permissions', icon: Shield, perm: 'settings.manage_permissions' },
+  { path: '/user-permissions', label: 'Permissions', icon: Shield, perm: 'settings.manage_permissions', featureFlag: 'granular_permissions' },
   { path: '/settings', label: 'Settings', icon: Settings, perm: 'settings.view' },
 ];
 

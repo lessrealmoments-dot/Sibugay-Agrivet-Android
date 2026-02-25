@@ -280,6 +280,11 @@ export default function SuperAdminPage() {
             )}
           </TabsContent>
 
+          {/* ── FEATURE FLAGS ────────────────────────────────────────────── */}
+          <TabsContent value="features">
+            <FeatureFlagsPanel />
+          </TabsContent>
+
           {/* ── PAYMENT SETTINGS ─────────────────────────────────────────── */}
           <TabsContent value="settings">
             <PaymentSettingsPanel

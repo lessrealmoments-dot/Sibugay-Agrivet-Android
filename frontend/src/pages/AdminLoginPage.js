@@ -128,7 +128,8 @@ export default function AdminLoginPage() {
 
   const afterCodesSaved = () => {
     // pendingToken is now the full JWT
-    finishLogin(pendingToken, {});
+    localStorage.setItem('agripos_token', pendingToken);
+    window.location.href = '/superadmin';
   };
 
   return (

@@ -102,7 +102,10 @@ function AppRoutes() {
       <Route path="/setup" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
 
-      {/* Super admin */}
+      {/* Platform admin portal — separate entry point */}
+      <Route path="/admin" element={<AdminLoginPage />} />
+
+      {/* Super admin panel (protected, requires is_super_admin) */}
       <Route path="/superadmin" element={<ProtectedRoute><SuperAdminPage /></ProtectedRoute>} />
 
       {/* Upgrade page (inside app) */}

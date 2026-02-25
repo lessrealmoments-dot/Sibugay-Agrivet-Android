@@ -219,6 +219,105 @@ async def compute_audit(
 
 # ── Section helpers ────────────────────────────────────────────────────────
 
+async def _compute_security(period_from: str, period_to: str) -> dict:
+    """
+    Pull failed-PIN brute-force events within the audit period.
+    These are always flagged — no acceptable threshold for repeated wrong PIN attempts.
+    """
+    from_dt = period_from + "T00:00:00"
+    to_dt   = period_to   + "T23:59:59"
+
+    events = await db.security_events.find(
+        {"created_at": {"$gte": from_dt, "$lte": to_dt}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    high   = [e for e in events if e.get("severity") == "high"]
+    medium = [e for e in events if e.get("severity") == "medium"]
+
+    flag_text = None
+    detail_lines = []
+    if events:
+        flag_text = (
+            f"{len(events)} security flag(s): "
+            f"{len(high)} HIGH severity, {len(medium)} medium — "
+            f"repeated wrong PIN attempts by employees"
+        )
+        seen_users = {}
+        for e in events:
+            uid = e.get("user_id")
+            if uid not in seen_users:
+                seen_users[uid] = {"name": e.get("user_name","?"), "count": 0, "max": 0}
+            seen_users[uid]["count"] += 1
+            seen_users[uid]["max"] = max(seen_users[uid]["max"], e.get("failure_count", 0))
+        for uid, info in seen_users.items():
+            detail_lines.append(
+                f"{info['name']}: {info['count']} alert(s), up to {info['max']} consecutive wrong PINs per incident"
+            )
+
+    return {
+        "total_events":   len(events),
+        "high_severity":  len(high),
+        "medium_severity": len(medium),
+        "events":         events,
+        "flag":           flag_text,
+        "detail":         detail_lines,
+        "status":         "critical" if high else ("warning" if medium else "ok"),
+    }
+
+
+@router.get("/security-flags")
+async def list_security_flags(
+    period_from: Optional[str] = None,
+    period_to:   Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """List all security events (failed PIN brute-force) for the audit trail."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    from_dt = (period_from or "2020-01-01") + "T00:00:00"
+    to_dt   = (period_to   or today)        + "T23:59:59"
+
+    events = await db.security_events.find(
+        {"created_at": {"$gte": from_dt, "$lte": to_dt}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    # Enrich with attempt log count
+    for e in events:
+        window_end   = e["created_at"]
+        window_start = (datetime.fromisoformat(window_end.replace("Z","")) - timedelta(minutes=30)).isoformat()
+        e["total_attempts_in_window"] = await db.pin_attempt_log.count_documents({
+            "user_id":      e["user_id"],
+            "attempted_at": {"$gte": window_start, "$lte": window_end},
+        })
+        # acknowledged flag
+        e["acknowledged"] = e.get("acknowledged", False)
+
+    return {"events": events, "total": len(events)}
+
+
+@router.post("/security-flags/{event_id}/acknowledge")
+async def acknowledge_security_flag(event_id: str, data: dict, user=Depends(get_current_user)):
+    """Mark a security event as reviewed/acknowledged by the admin."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    await db.security_events.update_one(
+        {"id": event_id},
+        {"$set": {
+            "acknowledged":       True,
+            "acknowledged_by":    user.get("full_name", user.get("username", "")),
+            "acknowledged_at":    now_iso(),
+            "acknowledgement_note": data.get("note", ""),
+        }}
+    )
+    return {"message": "Acknowledged"}
+
+
+# ── Section helpers ────────────────────────────────────────────────────────
+
 async def _compute_inventory(branch_id: str, baseline_id: str, current_id: str) -> dict:
     """
     Compute inventory variance by comparing expected qty (from movement logs)

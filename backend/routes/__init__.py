@@ -31,6 +31,7 @@ from .uploads import router as uploads_router
 from .verify import router as verify_router
 from .organizations import router as organizations_router
 from .superadmin import router as superadmin_router
+from .admin_auth import router as admin_auth_router
 
 __all__ = [
     'auth_router', 'branches_router', 'users_router', 'products_router',

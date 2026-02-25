@@ -72,12 +72,79 @@ PLAN_FEATURES = {
 # Trial gets all Pro features
 PLAN_FEATURES["trial"] = PLAN_FEATURES["pro"]
 PLAN_FEATURES["suspended"] = PLAN_FEATURES["basic"]
+PLAN_FEATURES["grace_period"] = PLAN_FEATURES["pro"]  # Full access during grace
+PLAN_FEATURES["expired"] = PLAN_FEATURES["basic"]    # Locked = basic features only
+
+GRACE_PERIOD_DAYS = 3
 
 
 def get_effective_plan(org: dict) -> str:
-    """Return the plan to enforce (handles trial expiry)."""
+    """Return the plan to enforce (handles trial expiry + grace period)."""
     plan = org.get("plan", "basic")
+    now = datetime.now(timezone.utc)
+
+    # Suspended = locked
+    if plan == "suspended":
+        return "suspended"
+
+    # Trial expiry check
     if plan == "trial":
+        trial_ends = org.get("trial_ends_at")
+        if trial_ends:
+            try:
+                end_dt = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
+                if now > end_dt:
+                    # Check grace period
+                    grace_ends = end_dt + timedelta(days=GRACE_PERIOD_DAYS)
+                    if now > grace_ends:
+                        return "expired"
+                    return "grace_period"
+            except Exception:
+                pass
+        return "pro"  # Trial still active → all pro features
+
+    # Paid plan expiry check
+    sub_expires = org.get("subscription_expires_at")
+    if sub_expires and plan in ("basic", "standard", "pro"):
+        try:
+            exp_dt = datetime.fromisoformat(sub_expires.replace("Z", "+00:00"))
+            if now > exp_dt:
+                grace_ends = exp_dt + timedelta(days=GRACE_PERIOD_DAYS)
+                if now > grace_ends:
+                    return "expired"
+                return "grace_period"
+        except Exception:
+            pass
+
+    return plan
+
+
+def get_grace_info(org: dict) -> dict:
+    """Returns grace period details for frontend banners."""
+    plan = org.get("plan", "basic")
+    now = datetime.now(timezone.utc)
+    effective = get_effective_plan(org)
+
+    if effective == "grace_period":
+        # Find when grace ends
+        ref_date = None
+        if plan == "trial":
+            ref = org.get("trial_ends_at")
+        else:
+            ref = org.get("subscription_expires_at")
+        if ref:
+            try:
+                end_dt = datetime.fromisoformat(ref.replace("Z", "+00:00"))
+                grace_ends = end_dt + timedelta(days=GRACE_PERIOD_DAYS)
+                days_left = max(0, (grace_ends - now).days)
+                return {
+                    "in_grace": True,
+                    "days_left": days_left,
+                    "locked_at": grace_ends.strftime("%B %d, %Y"),
+                }
+            except Exception:
+                pass
+    return {"in_grace": False, "days_left": None, "locked_at": None}
         trial_ends = org.get("trial_ends_at")
         if trial_ends:
             try:

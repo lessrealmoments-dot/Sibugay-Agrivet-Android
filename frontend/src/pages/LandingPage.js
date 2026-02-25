@@ -386,7 +386,8 @@ export default function LandingPage() {
       {/* ── FULL FEATURE TABLE ── */}
       <section className="py-16 px-6 bg-white/[0.01] border-y border-white/5">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center mb-10">Full feature comparison</h2>
+          <h2 className="text-2xl font-bold text-center mb-2">Full feature comparison</h2>
+          <p className="text-slate-500 text-center text-sm mb-10">Updated in real-time by our team</p>
           <div className="overflow-x-auto rounded-2xl border border-white/5">
             <table className="w-full text-sm">
               <thead>
@@ -398,7 +399,7 @@ export default function LandingPage() {
                 </tr>
               </thead>
               <tbody>
-                {FEATURES_TABLE.map((row, i) => (
+                {(featuresTable || []).map((row, i) => (
                   <tr key={row.label} className={`border-b border-white/5 ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}>
                     <td className="px-4 py-3 text-slate-400">{row.label}</td>
                     <td className="px-4 py-3 text-center"><FeatureCell value={row.basic} /></td>
@@ -406,6 +407,9 @@ export default function LandingPage() {
                     <td className="px-4 py-3 text-center"><FeatureCell value={row.pro} /></td>
                   </tr>
                 ))}
+                {!featuresTable && (
+                  <tr><td colSpan={4} className="text-center py-8 text-slate-500 text-sm">Loading features...</td></tr>
+                )}
               </tbody>
             </table>
           </div>

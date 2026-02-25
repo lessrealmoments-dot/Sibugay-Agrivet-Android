@@ -173,8 +173,48 @@ async def update_org_info(org_id: str, data: dict, user=Depends(require_super_ad
 
 
 # ---------------------------------------------------------------------------
-# Platform Settings (Payment QR codes, etc.)
+# Feature Flags Management
 # ---------------------------------------------------------------------------
+@router.get("/settings/features")
+async def get_feature_flags(user=Depends(require_super_admin)):
+    """Get current feature flags for all plans."""
+    from routes.organizations import FEATURE_DEFINITIONS, DEFAULT_FEATURE_FLAGS, get_live_feature_flags
+    flags = await get_live_feature_flags()
+    return {
+        "feature_definitions": FEATURE_DEFINITIONS,
+        "flags": {
+            "basic": flags.get("basic", DEFAULT_FEATURE_FLAGS["basic"]),
+            "standard": flags.get("standard", DEFAULT_FEATURE_FLAGS["standard"]),
+            "pro": flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"]),
+        },
+        "last_updated": (await _raw_db.platform_settings.find_one(
+            {"key": "feature_flags"}, {"_id": 0, "updated_at": 1}
+        ) or {}).get("updated_at"),
+    }
+
+
+@router.put("/settings/features")
+async def update_feature_flags(data: dict, user=Depends(require_super_admin)):
+    """Save updated feature flags. Trial always mirrors Pro automatically."""
+    from routes.organizations import DEFAULT_FEATURE_FLAGS
+    flags = data.get("flags", {})
+    # Trial always = Pro
+    flags["trial"] = flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"])
+    # Grace period = Pro (full access during grace)
+    flags["grace_period"] = flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"])
+    flags["expired"] = flags.get("basic", DEFAULT_FEATURE_FLAGS["basic"])
+
+    await _raw_db.platform_settings.update_one(
+        {"key": "feature_flags"},
+        {"$set": {
+            "key": "feature_flags",
+            "value": flags,
+            "updated_at": now_iso(),
+            "updated_by": user.get("email"),
+        }},
+        upsert=True
+    )
+    return {"success": True, "flags": flags, "message": "Feature flags updated and live immediately."}
 @router.get("/settings/payment")
 async def get_payment_settings(user=Depends(require_super_admin)):
     """Get platform payment configuration."""

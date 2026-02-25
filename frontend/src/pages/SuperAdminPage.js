@@ -793,10 +793,12 @@ function FeatureFlagsPanel() {
         </div>
       </div>
 
-      {/* Trial note */}
-      <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-4 py-3 text-blue-300 text-xs flex items-center gap-2">
-        <Shield size={14} />
-        <span>Trial plan always mirrors Pro (all features unlocked) — this cannot be changed. Toggling Pro updates Trial automatically.</span>
+      {/* Trial + founders note */}
+      <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-4 py-3 text-blue-300 text-xs flex items-start gap-2">
+        <Shield size={14} className="mt-0.5 shrink-0" />
+        <span>
+          <strong>Trial</strong> and <strong className="text-amber-300">★ Founders</strong> plans always mirror Pro (all features unlocked) — this cannot be changed.
+        </span>
       </div>
 
       {/* Feature table */}

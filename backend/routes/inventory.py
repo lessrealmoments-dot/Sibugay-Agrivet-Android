@@ -20,6 +20,7 @@ async def list_inventory(
     search: Optional[str] = None,
     low_stock: Optional[bool] = None,
     include_repacks: Optional[bool] = True,
+    sort_by: Optional[str] = "name",   # "name" | "type" | "grouped"
     skip: int = 0,
     limit: int = 50
 ):

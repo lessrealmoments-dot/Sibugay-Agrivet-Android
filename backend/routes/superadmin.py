@@ -106,7 +106,7 @@ async def get_org_users(org_id: str, user=Depends(require_super_admin)):
 async def update_subscription(org_id: str, data: dict, user=Depends(require_super_admin)):
     """Update an organization's plan/subscription."""
     plan = data.get("plan")
-    valid_plans = ["trial", "basic", "standard", "pro", "suspended"]
+    valid_plans = ["trial", "basic", "standard", "pro", "founders", "suspended"]
     if plan and plan not in valid_plans:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Choose: {valid_plans}")
 
@@ -119,7 +119,18 @@ async def update_subscription(org_id: str, data: dict, user=Depends(require_supe
     effective_plan = plan or existing.get("plan", "basic")
     if plan:
         update["plan"] = plan
-        update["subscription_status"] = "trial" if plan == "trial" else ("suspended" if plan == "suspended" else "active")
+        if plan == "founders":
+            update["subscription_status"] = "active"
+            update["subscription_expires_at"] = None   # Founders never expires
+            update["max_branches"] = 0                 # Unlimited
+            update["max_users"] = 0
+            update["extra_branches"] = 0
+        elif plan == "suspended":
+            update["subscription_status"] = "suspended"
+        elif plan == "trial":
+            update["subscription_status"] = "trial"
+        else:
+            update["subscription_status"] = "active"
 
     # Extra branches
     extra = int(data.get("extra_branches", existing.get("extra_branches", 0)))

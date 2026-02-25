@@ -79,10 +79,11 @@ export default function LoginPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <Label htmlFor="identifier" className="text-slate-300 text-sm">Email or Username</Label>
+                  <Label htmlFor="identifier" className="text-slate-300 text-sm">Email Address</Label>
                   <Input
                     id="identifier"
                     data-testid="login-username"
+                    type="email"
                     value={identifier}
                     onChange={e => setIdentifier(e.target.value)}
                     placeholder="you@company.com"

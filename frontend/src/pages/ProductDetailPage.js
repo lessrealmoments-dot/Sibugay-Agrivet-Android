@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   ArrowLeft, Package, Tags, DollarSign, Warehouse, Info, Users, History, ShoppingCart,
-  Plus, Pencil, Trash2, Link2, AlertTriangle, TrendingDown, Save
+  Plus, Pencil, Trash2, Link2, AlertTriangle, TrendingDown, TrendingUp, Save, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 

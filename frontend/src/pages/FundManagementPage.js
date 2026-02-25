@@ -149,6 +149,7 @@ export default function FundManagementPage() {
     setNote('');
     setManagerPin('');
     setTotpCode('');
+    setOwnerPin('');
     setShowAuth(false);
   };
 

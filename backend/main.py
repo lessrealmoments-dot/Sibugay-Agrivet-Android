@@ -10,7 +10,8 @@ Version: 3.0 (Dec 2025) - Complete Modular Refactor
 ================================================================================
 """
 
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from starlette.middleware.cors import CORSMiddleware
 import os
 from datetime import datetime, timezone

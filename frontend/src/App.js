@@ -81,11 +81,13 @@ function AppRoutes() {
     return <div className="flex items-center justify-center h-screen bg-[#F5F5F0]"><div className="text-slate-400 text-sm">Loading...</div></div>;
   }
 
-  // If setup is needed, show setup wizard
+  // If setup is needed (fresh install, no users), show setup wizard
   if (setupNeeded && !user) {
     return (
       <Routes>
         <Route path="/setup" element={<SetupWizardPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="*" element={<Navigate to="/setup" replace />} />
       </Routes>
     );

@@ -273,6 +273,7 @@ async def disable_totp(user=Depends(get_current_user)):
 @router.post("/verify-admin-action")
 async def verify_admin_action(data: dict, user=Depends(get_current_user)):
     from routes.notifications import create_pin_notification
+    from utils.security import log_failed_pin_attempt
     mode = data.get("mode", "totp")
     code = data.get("code", "")
     context = data.get("context", "")
@@ -293,6 +294,7 @@ async def verify_admin_action(data: dict, user=Depends(get_current_user)):
                 if context and first_admin:
                     await create_pin_notification(context, admin_id, admin_name)
                 return {"valid": True, "manager_id": admin_id, "manager_name": admin_name, "mode_used": "pin"}
+        await log_failed_pin_attempt(user, context or "Admin action authorization", "admin_action")
         return {"valid": False, "error": "Invalid Owner PIN"}
 
     for admin in admins:
@@ -328,6 +330,8 @@ async def verify_admin_action(data: dict, user=Depends(get_current_user)):
                     "mode_used": "password",
                 }
 
+    # All attempts failed — log it
+    await log_failed_pin_attempt(user, context or "Admin action authorization", "admin_action")
     if mode == "totp":
         return {"valid": False, "error": "Invalid code — check your authenticator app"}
     return {"valid": False, "error": "Invalid password"}

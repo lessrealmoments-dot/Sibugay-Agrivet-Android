@@ -105,13 +105,15 @@ Annual billing: 2 months free (pay 10 months, get 12).
 ### All existing collections
 Added `organization_id` field to all 20+ collections via TenantDB migration.
 
-## Super Admin Credentials
+## Super Admin Access
+- Portal: `/admin` (NOT linked from any public page — security by obscurity)
 - Email: janmarkeahig@gmail.com
 - Password: Aa@58798546521325
-- Access: /superadmin page
+- TOTP: Google Authenticator (setup required on first login at /admin)
+- Recovery: 8 backup codes generated on TOTP setup (emailed + shown once)
 
 ## Regular Admin (Default Org)
-- Username: owner (or email: owner@agribooks.local)
+- Email: sibugayagrivetsupply@gmail.com
 - Password: 521325
 
 ## Prioritized Backlog

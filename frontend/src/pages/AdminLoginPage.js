@@ -42,10 +42,13 @@ export default function AdminLoginPage() {
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.is_super_admin) { navigate('/superadmin'); return; }
+        const isExpired = payload.exp && payload.exp < Date.now() / 1000;
+        if (payload.is_super_admin && !isExpired) {
+          window.location.href = '/superadmin';
+        }
       } catch {}
     }
-  }, [navigate]);
+  }, []);
 
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();

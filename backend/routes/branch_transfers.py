@@ -643,6 +643,27 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
             upsert=True
         )
 
+        # Log capital change at destination
+        bp_before = await db.branch_prices.find_one(
+            {"product_id": product_id, "branch_id": to_branch_id}, {"_id": 0}
+        )
+        old_dest_capital = float(bp_before["cost_price"]) if bp_before and bp_before.get("cost_price") is not None else 0
+        choice = capital_choices.get(product_id, "transfer_capital")
+        await db.capital_changes.insert_one({
+            "id": new_id(),
+            "product_id": product_id,
+            "old_capital": old_dest_capital,
+            "new_capital": dest_capital,
+            "method": choice,
+            "source_type": "branch_transfer",
+            "source_ref": order["order_number"],
+            "from_branch": from_name,
+            "to_branch": to_name,
+            "changed_by_id": user["id"],
+            "changed_by_name": user.get("full_name", user.get("username", "")),
+            "changed_at": now_iso(),
+        })
+
         await log_movement(
             product_id, from_branch_id, "transfer_out", -qty_received,
             transfer_id, order["order_number"], dest_capital,

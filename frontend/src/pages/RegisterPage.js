@@ -203,6 +203,18 @@ export default function RegisterPage() {
                   />
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label className="text-slate-300 text-sm">First Branch Name <span className="text-slate-500 text-xs">(optional)</span></Label>
+                  <Input
+                    data-testid="register-branch"
+                    value={form.branch_name}
+                    onChange={e => set('branch_name', e.target.value)}
+                    placeholder="e.g. Main Branch, Downtown Branch"
+                    className="bg-white/5 border-white/10 text-white placeholder:text-slate-600 h-11"
+                  />
+                  <p className="text-xs text-slate-600">Leave blank to use your company name as the branch name</p>
+                </div>
+
                 <Button
                   type="submit"
                   data-testid="register-submit"

@@ -521,6 +521,7 @@ export default function AuditCenterPage() {
 
   useEffect(() => { if (tab === 'history') loadHistory(); }, [tab, loadHistory]);
   useEffect(() => { if (tab === 'discrepancies') loadDiscrepancies(); }, [tab]); // eslint-disable-line
+  useEffect(() => { if (tab === 'security') loadSecurityFlags(); }, [tab, periodFrom, periodTo]); // eslint-disable-line
 
   const loadDiscrepancies = async () => {
     setLoadingDisc(true);

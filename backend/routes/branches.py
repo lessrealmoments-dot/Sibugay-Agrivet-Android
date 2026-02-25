@@ -27,7 +27,7 @@ async def create_branch(data: dict, user=Depends(get_current_user)):
         if org:
             max_branches = org.get("max_branches", 1)
             if max_branches > 0:  # 0 = unlimited (founders / trial)
-                current_count = await db.branches.count_documents({"active": True})
+                current_count = await db.branches.count_documents({"organization_id": org_id, "active": True})
                 if current_count >= max_branches:
                     plan_name = org.get("plan", "basic").title()
                     raise HTTPException(

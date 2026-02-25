@@ -429,16 +429,35 @@ function OrgRow({ org, expanded, branches, onToggle, onEdit, onRefresh }) {
                   <span className="text-slate-500">Status</span>
                   <span className="text-slate-300">{org.subscription_status}</span>
                 </div>
-                {org.trial_ends_at && (
+                {org.trial_ends_at && org.plan === 'trial' && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">Trial ends</span>
                     <span className="text-slate-300">{new Date(org.trial_ends_at).toLocaleDateString()}</span>
                   </div>
                 )}
-                {org.subscription_expires_at && (
+                {org.plan === 'founders' ? (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Expires</span>
+                    <span className="text-amber-300 font-semibold">★ Never (Lifetime)</span>
+                  </div>
+                ) : org.subscription_expires_at && (
                   <div className="flex justify-between">
                     <span className="text-slate-500">Sub expires</span>
-                    <span className="text-slate-300">{new Date(org.subscription_expires_at).toLocaleDateString()}</span>
+                    <span className={`${
+                      new Date(org.subscription_expires_at) < new Date() ? 'text-red-400' :
+                      Math.ceil((new Date(org.subscription_expires_at) - new Date()) / 86400000) <= 7 ? 'text-amber-400' :
+                      'text-slate-300'
+                    }`}>
+                      {new Date(org.subscription_expires_at).toLocaleDateString()}
+                      {' '}
+                      ({Math.ceil((new Date(org.subscription_expires_at) - new Date()) / 86400000)}d)
+                    </span>
+                  </div>
+                )}
+                {['basic', 'standard', 'pro'].includes(org.plan) && !org.subscription_expires_at && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Expires</span>
+                    <span className="text-amber-500/70 text-xs">Not set — set via Edit</span>
                   </div>
                 )}
                 <div className="flex justify-between">

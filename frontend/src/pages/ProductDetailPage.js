@@ -462,6 +462,103 @@ export default function ProductDetailPage() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* Capital Change History */}
+        <AccordionItem value="capital-history" className="border border-slate-200 rounded-lg bg-white">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-capital-history">
+            <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              <Activity size={18} className="text-violet-500" strokeWidth={1.5} />
+              Capital History
+              {capitalHistory.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-slate-400">{capitalHistory.length} changes</span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            {capitalHistory.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-sm">
+                <Activity size={28} className="mx-auto mb-2 opacity-30" />
+                No capital changes recorded yet. Changes will appear here when you receive Purchase Orders or Branch Transfers.
+              </div>
+            ) : (
+              <div className="relative">
+                {/* Timeline line */}
+                <div className="absolute left-[19px] top-2 bottom-2 w-px bg-slate-200" />
+                <div className="space-y-3">
+                  {capitalHistory.map((entry, i) => {
+                    const increased = entry.new_capital > entry.old_capital;
+                    const decreased = entry.new_capital < entry.old_capital;
+                    const unchanged = entry.new_capital === entry.old_capital;
+                    const diff = entry.new_capital - entry.old_capital;
+                    const diffPct = entry.old_capital > 0 ? Math.abs(diff / entry.old_capital * 100).toFixed(1) : null;
+
+                    const sourceLabel = {
+                      purchase_order: 'Purchase Order',
+                      branch_transfer: 'Branch Transfer',
+                      manual_edit: 'Manual Edit',
+                    }[entry.source_type] || entry.source_type;
+
+                    const methodLabel = {
+                      last_purchase: 'Last Purchase Price',
+                      moving_average: 'Moving Average',
+                      transfer_capital: 'Transfer Capital',
+                      manual: 'Manual',
+                    }[entry.method] || entry.method;
+
+                    const dotColor = decreased ? 'bg-amber-400' : increased ? 'bg-emerald-400' : 'bg-slate-300';
+
+                    return (
+                      <div key={entry.id || i} className="flex gap-4 relative">
+                        {/* Timeline dot */}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 border-2 border-white shadow-sm ${
+                          decreased ? 'bg-amber-50' : increased ? 'bg-emerald-50' : 'bg-slate-50'
+                        }`}>
+                          {decreased ? <TrendingDown size={16} className="text-amber-500" /> :
+                           increased ? <TrendingUp size={16} className="text-emerald-500" /> :
+                           <Activity size={16} className="text-slate-400" />}
+                        </div>
+                        {/* Content */}
+                        <div className={`flex-1 p-3 rounded-lg border text-sm mb-1 ${
+                          decreased ? 'bg-amber-50/60 border-amber-100' :
+                          increased ? 'bg-emerald-50/60 border-emerald-100' :
+                          'bg-slate-50 border-slate-200'
+                        }`}>
+                          <div className="flex items-start justify-between gap-2 flex-wrap">
+                            <div>
+                              <span className="font-semibold text-slate-800">
+                                ₱{entry.old_capital?.toFixed(2) ?? '–'} → ₱{entry.new_capital?.toFixed(2)}
+                              </span>
+                              {diffPct && !unchanged && (
+                                <span className={`ml-2 text-xs font-medium ${decreased ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                  {decreased ? '▼' : '▲'} {diffPct}%
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              {entry.changed_at ? new Date(entry.changed_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-2 items-center">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              entry.source_type === 'purchase_order' ? 'bg-blue-100 text-blue-700' :
+                              entry.source_type === 'branch_transfer' ? 'bg-violet-100 text-violet-700' :
+                              'bg-slate-100 text-slate-600'
+                            }`}>{sourceLabel}</span>
+                            {entry.source_ref && <span className="text-[10px] font-mono text-slate-500">{entry.source_ref}</span>}
+                            <span className="text-[10px] text-slate-400">{methodLabel}</span>
+                            {entry.vendor && <span className="text-[10px] text-slate-500">· {entry.vendor}</span>}
+                            {entry.from_branch && <span className="text-[10px] text-slate-500">· {entry.from_branch} → {entry.to_branch}</span>}
+                          </div>
+                          <div className="mt-1 text-[10px] text-slate-400">by {entry.changed_by_name}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
         {/* Branch Pricing — Admin/Owner only */}
         {isAdmin && (
           <AccordionItem value="branch-pricing" className="border border-slate-200 rounded-lg bg-white">

@@ -383,10 +383,9 @@ class TestDashboardAfterLogin:
     """Verify existing app features still work after multi-tenancy migration"""
 
     def test_owner_can_access_dashboard(self, session, owner_token):
-        resp = session.get(f"{BASE_URL}/api/dashboard/summary",
+        resp = session.get(f"{BASE_URL}/api/dashboard/stats",
                           headers={"Authorization": f"Bearer {owner_token}"})
-        # Should return 200 (may return 400 if no branch selected)
-        assert resp.status_code in [200, 400], f"Unexpected status: {resp.status_code} {resp.text}"
+        assert resp.status_code == 200, f"Unexpected status: {resp.status_code} {resp.text}"
 
     def test_owner_can_list_branches(self, session, owner_token):
         resp = session.get(f"{BASE_URL}/api/branches",

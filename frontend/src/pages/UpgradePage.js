@@ -64,6 +64,101 @@ const PAYMENT_METHODS = [
   { name: "PayPal", instructions: "PayPal.me/[your-link]\nAmount in USD as shown on plan", icon: "🔵", placeholder: true },
 ];
 
+
+function PaymentProofForm({ plan, amount, paymentMethod }) {
+  const [refNumber, setRefNumber] = useState('');
+  const [notes, setNotes] = useState('');
+  const [proofImage, setProofImage] = useState(null); // base64
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
+    const reader = new FileReader();
+    reader.onloadend = () => setProofImage(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async () => {
+    if (!proofImage) { toast.error('Please attach a payment screenshot'); return; }
+    setSubmitting(true);
+    try {
+      await api.post('/organizations/submit-payment-proof', {
+        plan_requested: plan,
+        amount,
+        payment_method: paymentMethod,
+        reference_number: refNumber,
+        notes,
+        proof_image: proofImage,
+      });
+      setSubmitted(true);
+      toast.success('Payment proof submitted! We\'ll activate within 24 hours.');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Submission failed'); }
+    setSubmitting(false);
+  };
+
+  if (submitted) {
+    return (
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+        <CheckCircle size={24} className="text-emerald-500 mx-auto mb-2" />
+        <p className="text-emerald-700 font-semibold text-sm">Payment proof submitted!</p>
+        <p className="text-emerald-600 text-xs mt-1">We'll review and activate your plan within 24 hours. You'll receive a confirmation email.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+      <p className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+        <Upload size={14} className="text-emerald-600" /> Upload Payment Proof
+      </p>
+
+      <div>
+        <Label className="text-xs text-slate-500">Payment Screenshot *</Label>
+        <label className="mt-1 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-4 cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+          {proofImage ? (
+            <div className="text-center">
+              <img src={proofImage} alt="proof" className="max-h-32 mx-auto rounded-lg mb-1" />
+              <p className="text-xs text-emerald-600 font-medium">Screenshot attached</p>
+              <p className="text-[10px] text-slate-400">Click to change</p>
+            </div>
+          ) : (
+            <>
+              <Upload size={20} className="text-slate-400 mb-1" />
+              <p className="text-xs text-slate-500">Click to upload GCash/Maya receipt or bank confirmation</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">JPG, PNG — max 5MB</p>
+            </>
+          )}
+          <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </label>
+      </div>
+
+      <div>
+        <Label className="text-xs text-slate-500">Reference / Transaction Number</Label>
+        <Input value={refNumber} onChange={e => setRefNumber(e.target.value)}
+          placeholder="e.g. GC123456789" className="mt-1 h-9 text-sm" />
+      </div>
+
+      <div>
+        <Label className="text-xs text-slate-500">Notes (optional)</Label>
+        <Input value={notes} onChange={e => setNotes(e.target.value)}
+          placeholder="e.g. Paid via GCash to 09XX XXX XXXX" className="mt-1 h-9 text-sm" />
+      </div>
+
+      <Button onClick={handleSubmit} disabled={submitting || !proofImage}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-10">
+        {submitting ? <RefreshCw size={14} className="animate-spin mr-2" /> : <Upload size={14} className="mr-2" />}
+        Submit Payment Proof
+      </Button>
+      <p className="text-[10px] text-slate-400 text-center">
+        Include your company name as payment reference. We'll activate within 24 hours.
+      </p>
+    </div>
+  );
+}
+
 export default function UpgradePage() {
   const navigate = useNavigate();
   const { user } = useAuth();

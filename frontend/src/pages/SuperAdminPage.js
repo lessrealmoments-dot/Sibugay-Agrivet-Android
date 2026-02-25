@@ -360,11 +360,19 @@ function OrgRow({ org, expanded, branches, onToggle, onEdit, onRefresh }) {
         </div>
 
         {/* Expiry */}
-        {daysLeft !== null && (
+        {org.plan === 'founders' ? (
+          <div className="hidden lg:flex items-center gap-1 text-amber-300 text-xs font-medium">
+            <span>★</span> Lifetime
+          </div>
+        ) : daysLeft !== null ? (
           <div className={`hidden lg:block text-xs font-medium ${daysLeft <= 0 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-slate-500'}`}>
             {daysLeft <= 0 ? 'Expired' : `${daysLeft}d left`}
           </div>
-        )}
+        ) : ['basic', 'standard', 'pro'].includes(org.plan) ? (
+          <div className="hidden lg:block text-xs text-amber-500/70" title="No expiry date set — plan won't auto-expire">
+            No expiry set
+          </div>
+        ) : null}
 
         {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0">

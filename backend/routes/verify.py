@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 import pyotp
 from config import db
 from utils import get_current_user, now_iso, new_id, hash_password, verify_password
+from utils.security import log_failed_pin_attempt
 
 router = APIRouter(prefix="/verify", tags=["Verification"])
 

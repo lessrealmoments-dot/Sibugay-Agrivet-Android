@@ -228,11 +228,6 @@ async def verify_totp_setup(data: dict):
 # ---------------------------------------------------------------------------
 @router.get("/status")
 async def admin_portal_status():
-    """Check if super admin has TOTP configured (public)."""
-    user = await _raw_db.users.find_one({"is_super_admin": True}, {"_id": 0, "totp_enabled": 1})
-    if not user:
-        return {"has_super_admin": False, "totp_ready": False}
-    return {
-        "has_super_admin": True,
-        "totp_ready": bool(user.get("totp_enabled")),
-    }
+    """Check portal readiness — generic response for security."""
+    # Don't reveal whether super admin exists or TOTP status
+    return {"portal": "active"}

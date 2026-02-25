@@ -22,7 +22,7 @@ import {
   FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign,
   Search, History, ArrowRight, Receipt, UserPlus, Package,
   Wallet, Banknote, CreditCard, AlertTriangle, ChevronDown, RefreshCw,
-  ShieldCheck, Clock, Pencil, Upload, ImageIcon
+  ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 

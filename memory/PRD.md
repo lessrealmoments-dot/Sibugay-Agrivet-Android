@@ -135,6 +135,8 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Branch limit enforcement (backend 400 + frontend disabled button + warning banner)
 - [x] Feature flag enforcement in navigation (nav items hidden based on plan's feature flags)
 - [x] /auth/me uses live feature flags from DB (not static defaults)
+- [x] FeatureGate component — upgrade prompt cards on all locked pages (9 routes gated)
+- [x] PDF Test Report v2.0 generated (AgriBooks_SaaS_Test_Report_v2.pdf, 211KB)
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

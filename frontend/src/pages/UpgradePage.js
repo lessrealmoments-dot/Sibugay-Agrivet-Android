@@ -68,6 +68,21 @@ export default function UpgradePage() {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [extraBranches, setExtraBranches] = useState(0);
   const [annual, setAnnual] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState(null);
+
+  useEffect(() => {
+    axios.get(`${BACKEND_URL}/api/organizations/payment-info`)
+      .then(r => setPaymentInfo(r.data))
+      .catch(() => {});
+  }, []);
+
+  // Dynamic payment methods from backend
+  const PAYMENT_METHODS = [
+    { name: 'GCash', key: 'gcash', icon: '💚' },
+    { name: 'Maya', key: 'maya', icon: '💜' },
+    { name: 'Bank Transfer', key: 'bank', icon: '🏦' },
+    { name: 'PayPal', key: 'paypal', icon: '🔵' },
+  ].filter(pm => paymentInfo?.configured || true); // Always show all options
 
   const totalPhp = selectedPlan
     ? Math.round((annual ? selectedPlan.php * 10 : selectedPlan.php * 12) +

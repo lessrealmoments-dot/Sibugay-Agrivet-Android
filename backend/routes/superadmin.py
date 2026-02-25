@@ -272,3 +272,122 @@ async def get_public_payment_info():
     if not setting:
         return {"configured": False, "methods": {}}
     return {"configured": True, "methods": setting.get("value", {})}
+
+
+# ---------------------------------------------------------------------------
+# Approve / Reject Subscriptions (with email notification)
+# ---------------------------------------------------------------------------
+@router.post("/organizations/{org_id}/approve-subscription")
+async def approve_subscription(org_id: str, data: dict, user=Depends(require_super_admin)):
+    """
+    Approve a pending subscription: activate the plan, send approval email to customer.
+    Body: { plan, extra_branches, subscription_expires_at (optional), note }
+    """
+    import asyncio
+    from services.email_service import send_subscription_activated
+
+    org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    plan = data.get("plan", org.get("plan", "basic"))
+    extra = int(data.get("extra_branches", 0))
+    base_limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["basic"])["max_branches"]
+
+    auto_expiry = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    expires_at = data.get("subscription_expires_at") or auto_expiry
+
+    update = {
+        "plan": plan,
+        "subscription_status": "active",
+        "subscription_expires_at": expires_at if plan not in ("founders",) else None,
+        "max_branches": 0 if plan == "founders" else base_limit + extra,
+        "max_users": 0 if plan == "founders" else PLAN_LIMITS.get(plan, PLAN_LIMITS["basic"])["max_users"],
+        "extra_branches": extra,
+        "admin_notes": data.get("note", ""),
+        "approved_at": now_iso(),
+        "approved_by": user.get("email", ""),
+        "rejection_reason": None,
+        "updated_at": now_iso(),
+    }
+    await _raw_db.organizations.update_one({"id": org_id}, {"$set": update})
+
+    # Mark any pending payment submissions as approved
+    await _raw_db.payment_submissions.update_many(
+        {"organization_id": org_id, "status": "pending"},
+        {"$set": {"status": "approved", "reviewed_at": now_iso(), "reviewed_by": user.get("email", "")}}
+    )
+
+    owner_email = org.get("owner_email", "")
+    if owner_email:
+        expires_display = expires_at[:10] if expires_at else ""
+        asyncio.create_task(send_subscription_activated(owner_email, org["name"], plan, expires_display))
+
+    updated = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+    return updated
+
+
+@router.post("/organizations/{org_id}/reject-subscription")
+async def reject_subscription(org_id: str, data: dict, user=Depends(require_super_admin)):
+    """
+    Reject a pending subscription payment. Sends rejection email with reason.
+    Body: { reason, plan (the plan they were trying to get) }
+    """
+    import asyncio
+    from services.email_service import send_subscription_rejected
+
+    org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    reason = data.get("reason", "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Rejection reason is required")
+
+    plan = data.get("plan", org.get("plan", "trial"))
+
+    await _raw_db.organizations.update_one({"id": org_id}, {"$set": {
+        "rejection_reason": reason,
+        "rejected_at": now_iso(),
+        "rejected_by": user.get("email", ""),
+        "updated_at": now_iso(),
+    }})
+
+    # Mark pending submissions as rejected
+    await _raw_db.payment_submissions.update_many(
+        {"organization_id": org_id, "status": "pending"},
+        {"$set": {"status": "rejected", "reviewed_at": now_iso(), "reviewed_by": user.get("email", ""), "rejection_reason": reason}}
+    )
+
+    owner_email = org.get("owner_email", "")
+    if owner_email:
+        asyncio.create_task(send_subscription_rejected(owner_email, org["name"], plan, reason))
+
+    return {"message": f"Subscription rejected. Email sent to {owner_email}."}
+
+
+# ---------------------------------------------------------------------------
+# Payment Proof Submissions
+# ---------------------------------------------------------------------------
+@router.get("/payment-submissions")
+async def list_payment_submissions(
+    status: str = "pending",
+    user=Depends(require_super_admin)
+):
+    """List payment proof submissions from customers."""
+    query = {}
+    if status and status != "all":
+        query["status"] = status
+
+    subs = await _raw_db.payment_submissions.find(query, {"_id": 0}).sort("submitted_at", -1).to_list(100)
+
+    # Enrich with org info
+    for s in subs:
+        org = await _raw_db.organizations.find_one({"id": s.get("organization_id")}, {"_id": 0, "name": 1, "owner_email": 1, "plan": 1, "subscription_status": 1})
+        if org:
+            s["org_name"] = org.get("name", "")
+            s["owner_email"] = org.get("owner_email", "")
+            s["current_plan"] = org.get("plan", "")
+            s["subscription_status"] = org.get("subscription_status", "")
+
+    return {"submissions": subs, "total": len(subs)}

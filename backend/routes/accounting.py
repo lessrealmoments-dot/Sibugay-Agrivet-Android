@@ -258,6 +258,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                     authorized_by = admin.get("full_name", admin["username"])
                     break
         if not authorized_by:
+            await log_failed_pin_attempt(user, f"Fund transfer: safe → bank (₱{amount:,.2f})", "fund_transfer")
             raise HTTPException(status_code=400, detail="Invalid TOTP code — check your authenticator app")
 
     elif transfer_type == "capital_add":

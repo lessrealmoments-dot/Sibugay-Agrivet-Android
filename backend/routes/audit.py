@@ -211,6 +211,9 @@ async def compute_audit(
     else:
         result["inventory"] = {"available": False, "message": "Inventory comparison requires a Full Audit with count sheets."}
 
+    # ── Section N: Security Flags ────────────────────────────────────────────
+    result["security"] = await _compute_security(period_from, period_to)
+
     return result
 
 

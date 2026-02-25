@@ -15,23 +15,23 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/login")
 async def login(data: dict):
-    """Authenticate user by email (or username for legacy) and return JWT."""
-    identifier = (data.get("email") or data.get("username") or "").strip().lower()
+    """Authenticate user by email only (username no longer supported for new accounts)."""
+    email = (data.get("email") or data.get("username") or "").strip().lower()
     password = data.get("password", "")
 
-    if not identifier:
-        raise HTTPException(status_code=400, detail="Email or username required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
 
-    # Super admin check (no org, separate flag)
+    # Super admin — separate portal enforced (but still works here for backward compat)
     user = await _raw_db.users.find_one(
-        {"$or": [{"email": identifier}, {"username": identifier}], "is_super_admin": True},
+        {"$or": [{"email": email}, {"username": email}], "is_super_admin": True},
         {"_id": 0}
     )
 
     if not user:
-        # Regular user: find by email or username
+        # Regular user — email only
         user = await _raw_db.users.find_one(
-            {"$or": [{"email": identifier}, {"username": identifier}], "active": True},
+            {"$or": [{"email": email}, {"username": email}], "active": True},
             {"_id": 0}
         )
 

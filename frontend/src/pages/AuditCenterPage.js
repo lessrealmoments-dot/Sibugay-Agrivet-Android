@@ -497,6 +497,13 @@ export default function AuditCenterPage() {
   const [resolveNote, setResolveNote] = useState('');
   const [resolveSaving, setResolveSaving] = useState(false);
 
+  // ── Security Flags ─────────────────────────────────────────────────────
+  const [securityFlags, setSecurityFlags] = useState([]);
+  const [loadingFlags, setLoadingFlags] = useState(false);
+  const [ackDialog, setAckDialog] = useState(null); // event being acknowledged
+  const [ackNote, setAckNote] = useState('');
+  const [ackSaving, setAckSaving] = useState(false);
+
   useEffect(() => {
     if (currentBranch?.id) setAuditBranchId(currentBranch.id);
   }, [currentBranch?.id]);

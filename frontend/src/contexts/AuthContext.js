@@ -241,6 +241,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('agripos_token');
     localStorage.removeItem('agripos_user');
     localStorage.removeItem('agripos_selected_branch');
+    localStorage.removeItem('agripos_subscription');
     setToken(null);
     setUser(null);
     setBranches([]);

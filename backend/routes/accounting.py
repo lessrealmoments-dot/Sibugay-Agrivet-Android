@@ -285,6 +285,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                         authorized_by = admin.get("full_name", admin["username"])
                         break
         if not authorized_by:
+            await log_failed_pin_attempt(user, f"Capital injection (₱{amount:,.2f}) into {capitalTarget if 'capitalTarget' in dir() else 'wallet'}", "fund_transfer")
             raise HTTPException(status_code=400, detail="Invalid Owner PIN or TOTP code")
 
     else:

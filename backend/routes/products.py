@@ -533,6 +533,15 @@ async def update_product(product_id: str, data: dict, user=Depends(get_current_u
     return product
 
 
+@router.get("/{product_id}/capital-history")
+async def get_capital_history(product_id: str, limit: int = 50, user=Depends(get_current_user)):
+    """Return the capital change log for a product, newest first."""
+    history = await db.capital_changes.find(
+        {"product_id": product_id}, {"_id": 0}
+    ).sort("changed_at", -1).limit(limit).to_list(limit)
+    return history
+
+
 @router.delete("/{product_id}")
 async def delete_product(product_id: str, user=Depends(get_current_user)):
     """Soft delete a product and its repacks."""

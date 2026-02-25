@@ -328,6 +328,27 @@ export default function SetupWizardPage() {
                 />
                 <p className="text-xs text-slate-500">Used for approving credit sales</p>
               </div>
+              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                <p className="text-amber-800 text-sm font-semibold flex items-center gap-2">
+                  🔐 Security Setup (Complete after first login)
+                </p>
+                <div className="space-y-2 text-xs text-amber-700">
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold shrink-0">1.</span>
+                    <div>
+                      <strong>Owner PIN</strong> — Go to Settings → Audit Setup → Set Owner PIN.
+                      This is your private PIN for authorizing sensitive operations (inventory corrections, capital injections). Never share with employees.
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-bold shrink-0">2.</span>
+                    <div>
+                      <strong>Google Authenticator (TOTP)</strong> — Go to Settings → Security → Set Up Now.
+                      Scan the QR code with your phone. When you're away, employees call you and you read the 6-digit code — it expires every 30 seconds and cannot be reused.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );

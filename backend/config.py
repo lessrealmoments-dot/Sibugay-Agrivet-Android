@@ -15,7 +15,7 @@ load_dotenv(ROOT_DIR / '.env')
 # Database Configuration
 MONGO_URL = os.environ['MONGO_URL']
 DB_NAME = os.environ['DB_NAME']
-JWT_SECRET = os.environ.get('JWT_SECRET', 'agripos_default_secret')
+JWT_SECRET = os.environ['JWT_SECRET']
 
 # MongoDB Client (singleton)
 client = AsyncIOMotorClient(MONGO_URL)

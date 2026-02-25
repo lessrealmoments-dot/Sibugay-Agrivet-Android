@@ -9,31 +9,10 @@ import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-const FEATURES_TABLE = [
-  { label: "POS & Split Payments", basic: true, standard: true, pro: true },
-  { label: "Inventory Management", basic: true, standard: true, pro: true },
-  { label: "Customer Management", basic: true, standard: true, pro: true },
-  { label: "Daily Close Wizard", basic: true, standard: true, pro: true },
-  { label: "Basic Reports", basic: true, standard: true, pro: true },
-  { label: "Expense Tracking", basic: true, standard: true, pro: true },
-  { label: "Branches", basic: "1", standard: "2", pro: "5" },
-  { label: "Users", basic: "5", standard: "15", pro: "Unlimited" },
-  { label: "Purchase Orders", basic: false, standard: true, pro: true },
-  { label: "Supplier Management", basic: false, standard: true, pro: true },
-  { label: "Employee & Cash Advances", basic: false, standard: true, pro: true },
-  { label: "4-Wallet Fund Management", basic: false, standard: true, pro: true },
-  { label: "Multi-Branch Transfers", basic: false, standard: "Basic", pro: "With Repack Pricing" },
-  { label: "Standard Audit Trail", basic: false, standard: true, pro: true },
-  { label: "Full Audit Center", basic: false, standard: false, pro: true },
-  { label: "Transaction Verification", basic: false, standard: false, pro: true },
-  { label: "Granular Role Permissions", basic: false, standard: false, pro: true },
-  { label: "2FA Security", basic: false, standard: false, pro: true },
-];
-
 const COMPETITORS = [
-  { name: "QuickBooks Online", price: "$115/mo", note: "No POS, no fund mgmt", highlight: false },
-  { name: "inFlow Inventory", price: "$219/mo", note: "No accounting, no POS", highlight: false },
-  { name: "AgriBooks Pro", price: "₱7,500/mo", note: "POS + Inventory + Accounting + Audit", highlight: true },
+  { name: "QuickBooks Online", price: "$115/mo", highlight: false },
+  { name: "inFlow Inventory", price: "$219/mo", highlight: false },
+  { name: "AgriBooks Pro", price: "₱7,500/mo", highlight: true },
 ];
 
 function FeatureCell({ value }) {
@@ -42,17 +21,43 @@ function FeatureCell({ value }) {
   return <span className="text-xs font-medium text-slate-700">{value}</span>;
 }
 
+const PLAN_LIMITS_DISPLAY = {
+  basic: { branches: "1", users: "5" },
+  standard: { branches: "2", users: "15" },
+  pro: { branches: "5", users: "Unlimited" },
+};
+
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [featureMatrix, setFeatureMatrix] = useState(null);
   const [plans, setPlans] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [billingAnnual, setBillingAnnual] = useState(false);
 
   useEffect(() => {
-    axios.get(`${BACKEND_URL}/api/organizations/plans`)
-      .then(r => setPlans(r.data))
-      .catch(() => {});
+    // Fetch dynamic feature matrix and plans in parallel
+    Promise.all([
+      axios.get(`${BACKEND_URL}/api/organizations/feature-matrix`).catch(() => null),
+      axios.get(`${BACKEND_URL}/api/organizations/plans`).catch(() => null),
+    ]).then(([matrixRes, plansRes]) => {
+      if (matrixRes?.data) setFeatureMatrix(matrixRes.data);
+      if (plansRes?.data) setPlans(plansRes.data);
+    });
   }, []);
+
+  // Build the features table dynamically from the backend feature definitions
+  const featuresTable = featureMatrix
+    ? [
+        { label: "Branches", basic: PLAN_LIMITS_DISPLAY.basic.branches, standard: PLAN_LIMITS_DISPLAY.standard.branches, pro: PLAN_LIMITS_DISPLAY.pro.branches },
+        { label: "Users", basic: PLAN_LIMITS_DISPLAY.basic.users, standard: PLAN_LIMITS_DISPLAY.standard.users, pro: PLAN_LIMITS_DISPLAY.pro.users },
+        ...featureMatrix.feature_definitions.map(f => ({
+          label: f.name,
+          basic: featureMatrix.flags.basic?.[f.key] ?? false,
+          standard: featureMatrix.flags.standard?.[f.key] ?? false,
+          pro: featureMatrix.flags.pro?.[f.key] ?? true,
+        })),
+      ]
+    : null;
 
   const planCards = [
     {

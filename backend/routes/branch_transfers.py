@@ -619,12 +619,12 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
             upsert=True
         )
 
-        # Set branch_prices at destination
+        # Set branch_prices at destination using the resolved capital
         await db.branch_prices.update_one(
             {"product_id": product_id, "branch_id": to_branch_id},
             {"$set": {
                 "product_id": product_id, "branch_id": to_branch_id,
-                "cost_price": transfer_capital,
+                "cost_price": dest_capital,
                 "prices": {"retail": branch_retail},
                 "updated_at": now_iso(),
                 "source": "branch_transfer",
@@ -637,7 +637,7 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
             {"product_id": product_id, "branch_id": to_branch_id},
             {"$set": {
                 "product_id": product_id, "branch_id": to_branch_id,
-                "last_retail_price": branch_retail, "last_transfer_capital": transfer_capital,
+                "last_retail_price": branch_retail, "last_transfer_capital": dest_capital,
                 "last_order_number": order["order_number"], "updated_at": now_iso(),
             }},
             upsert=True
@@ -645,7 +645,7 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
 
         await log_movement(
             product_id, from_branch_id, "transfer_out", -qty_received,
-            transfer_id, order["order_number"], transfer_capital,
+            transfer_id, order["order_number"], dest_capital,
             user["id"], user.get("full_name", user["username"]),
             f"Branch transfer to {to_name}"
         )

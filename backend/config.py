@@ -1,27 +1,143 @@
 """
 AgriPOS Configuration Module
-Centralizes environment variables, database connections, and app settings.
+Multi-tenant aware database proxy with per-request org isolation.
 """
-from dotenv import load_dotenv
+from contextvars import ContextVar
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 from pathlib import Path
 import os
 import logging
 
-# Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Database Configuration
 MONGO_URL = os.environ['MONGO_URL']
 DB_NAME = os.environ['DB_NAME']
 JWT_SECRET = os.environ['JWT_SECRET']
 
-# MongoDB Client (singleton)
 client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+_raw_db = client[DB_NAME]
 
-# Logging Configuration
+# ContextVar: holds current org_id per async request (None = super admin / unscoped)
+_current_org_id: ContextVar = ContextVar('_current_org_id', default=None)
+
+# Collections that must be isolated per organization
+TENANT_COLLECTIONS = {
+    'users', 'branches', 'products', 'inventory', 'customers',
+    'invoices', 'sales', 'purchase_orders', 'suppliers', 'employees',
+    'movements', 'fund_wallets', 'wallet_movements', 'fund_transfers',
+    'expenses', 'branch_prices', 'branch_transfer_orders',
+    'count_sheets', 'daily_closings', 'sales_log', 'returns',
+    'discrepancy_log', 'notifications', 'view_tokens', 'safe_lots',
+    'price_schemes', 'settings', 'system_settings', 'accounts_payable',
+}
+
+
+class TenantCollection:
+    """Transparent wrapper that injects organization_id into all DB operations."""
+
+    def __init__(self, collection):
+        self._col = collection
+
+    def _org_filter(self, filter_dict=None):
+        org_id = _current_org_id.get()
+        if not org_id:
+            return filter_dict or {}
+        f = dict(filter_dict or {})
+        f['organization_id'] = org_id
+        return f
+
+    def _inject_org(self, document):
+        org_id = _current_org_id.get()
+        if org_id and 'organization_id' not in document:
+            document['organization_id'] = org_id
+        return document
+
+    async def find_one(self, filter_dict=None, *args, **kwargs):
+        return await self._col.find_one(self._org_filter(filter_dict), *args, **kwargs)
+
+    def find(self, filter_dict=None, *args, **kwargs):
+        return self._col.find(self._org_filter(filter_dict), *args, **kwargs)
+
+    async def count_documents(self, filter_dict=None, **kwargs):
+        return await self._col.count_documents(self._org_filter(filter_dict or {}), **kwargs)
+
+    async def insert_one(self, document, *args, **kwargs):
+        self._inject_org(document)
+        return await self._col.insert_one(document, *args, **kwargs)
+
+    async def insert_many(self, documents, *args, **kwargs):
+        for doc in documents:
+            self._inject_org(doc)
+        return await self._col.insert_many(documents, *args, **kwargs)
+
+    async def update_one(self, filter_dict, update, *args, **kwargs):
+        return await self._col.update_one(self._org_filter(filter_dict), update, *args, **kwargs)
+
+    async def update_many(self, filter_dict, update, *args, **kwargs):
+        return await self._col.update_many(self._org_filter(filter_dict), update, *args, **kwargs)
+
+    async def delete_one(self, filter_dict, *args, **kwargs):
+        return await self._col.delete_one(self._org_filter(filter_dict), *args, **kwargs)
+
+    async def delete_many(self, filter_dict, *args, **kwargs):
+        return await self._col.delete_many(self._org_filter(filter_dict), *args, **kwargs)
+
+    async def find_one_and_update(self, filter_dict, update, *args, **kwargs):
+        return await self._col.find_one_and_update(self._org_filter(filter_dict), update, *args, **kwargs)
+
+    def aggregate(self, pipeline, *args, **kwargs):
+        org_id = _current_org_id.get()
+        if org_id:
+            pipeline = [{"$match": {"organization_id": org_id}}] + list(pipeline)
+        return self._col.aggregate(pipeline, *args, **kwargs)
+
+    async def create_index(self, *args, **kwargs):
+        return await self._col.create_index(*args, **kwargs)
+
+    async def drop(self):
+        return await self._col.drop()
+
+    def __getattr__(self, name):
+        return getattr(self._col, name)
+
+
+class TenantDB:
+    """Database proxy that wraps tenant collections with org isolation."""
+
+    def __init__(self, raw_db):
+        self._db = raw_db
+
+    def __getattr__(self, name):
+        col = getattr(self._db, name)
+        if name in TENANT_COLLECTIONS:
+            return TenantCollection(col)
+        return col
+
+    def __getitem__(self, name):
+        col = self._db[name]
+        if name in TENANT_COLLECTIONS:
+            return TenantCollection(col)
+        return col
+
+    async def list_collection_names(self):
+        return await self._db.list_collection_names()
+
+
+db = TenantDB(_raw_db)
+
+
+def set_org_context(org_id):
+    """Set the current organization ID for this async context."""
+    _current_org_id.set(org_id)
+
+
+def get_org_context():
+    """Get the current organization ID."""
+    return _current_org_id.get()
+
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'

@@ -170,6 +170,7 @@ export default function FundManagementPage() {
         target_wallet: activeTransfer.key === 'capital_add' ? capitalTarget : undefined,
         manager_pin: managerPin || undefined,
         totp_code: totpCode || undefined,
+        owner_pin: ownerPin || undefined,
       };
       const res = await api.post(`${BACKEND_URL}/api/fund-transfers`, payload);
       toast.success(res.data.message);

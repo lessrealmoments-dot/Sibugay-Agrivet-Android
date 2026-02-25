@@ -374,6 +374,65 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
     return {"message": "Transfer sent", "status": "sent"}
 
 
+@router.get("/{transfer_id}/capital-preview")
+async def get_transfer_capital_preview(transfer_id: str, user=Depends(get_current_user)):
+    """
+    Preview the capital impact of receiving this branch transfer at the destination.
+    Returns per-item: current_dest_capital, transfer_capital, moving_avg, needs_warning.
+    needs_warning=True when transfer_capital < current destination branch capital.
+    """
+    order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+
+    to_branch_id = order.get("to_branch_id", "")
+    items_preview = []
+
+    for item in order.get("items", []):
+        pid = item["product_id"]
+        transfer_capital = float(item.get("transfer_capital") or item.get("branch_capital") or 0)
+
+        # Current capital at destination (branch-specific or global fallback)
+        bp = await db.branch_prices.find_one(
+            {"product_id": pid, "branch_id": to_branch_id}, {"_id": 0}
+        )
+        if bp and bp.get("cost_price") is not None:
+            current_dest_capital = float(bp["cost_price"])
+        else:
+            product = await db.products.find_one({"id": pid}, {"_id": 0})
+            current_dest_capital = float(product.get("cost_price", 0)) if product else 0
+
+        # Moving average from PO history
+        _, moving_avg = await _get_po_refs(pid)
+        if moving_avg == 0:
+            moving_avg = current_dest_capital
+
+        needs_warning = transfer_capital < current_dest_capital and transfer_capital > 0 and current_dest_capital > 0
+        price_drop_pct = round((current_dest_capital - transfer_capital) / current_dest_capital * 100, 1) if needs_warning else 0
+
+        items_preview.append({
+            "product_id": pid,
+            "product_name": item.get("product_name", ""),
+            "sku": item.get("sku", ""),
+            "qty": float(item.get("qty", 0)),
+            "unit": item.get("unit", ""),
+            "transfer_capital": transfer_capital,
+            "current_dest_capital": current_dest_capital,
+            "moving_avg": moving_avg,
+            "needs_warning": needs_warning,
+            "price_drop_pct": price_drop_pct,
+        })
+
+    has_warnings = any(i["needs_warning"] for i in items_preview)
+    to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+    return {
+        "order_number": order.get("order_number", ""),
+        "to_branch_name": to_branch.get("name", "") if to_branch else "",
+        "has_warnings": has_warnings,
+        "items": items_preview,
+    }
+
+
 @router.post("/{transfer_id}/receive")
 async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_current_user)):
     """

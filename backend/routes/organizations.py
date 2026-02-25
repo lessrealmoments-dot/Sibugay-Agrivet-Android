@@ -18,6 +18,7 @@ PLAN_LIMITS = {
     "basic":    {"max_branches": 1,  "max_users": 5},
     "standard": {"max_branches": 2,  "max_users": 15},
     "pro":      {"max_branches": 5,  "max_users": 0},
+    "founders": {"max_branches": 0,  "max_users": 0},   # Unlimited everything, never expires
     "suspended":{"max_branches": 0,  "max_users": 0},
 }
 
@@ -25,6 +26,7 @@ PLAN_PRICING = {
     "basic":        {"php": 1500,  "usd": 30},
     "standard":     {"php": 4000,  "usd": 80},
     "pro":          {"php": 7500,  "usd": 150},
+    "founders":     {"php": 0,     "usd": 0},     # Special — granted by admin
     "extra_branch": {"php": 1500,  "usd": 30},
 }
 

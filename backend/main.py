@@ -419,3 +419,17 @@ app.add_middleware(
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/api/reports/test-report-v2")
+async def download_test_report_v2():
+    """Download the AgriBooks SaaS Platform Test Report v2.0 PDF."""
+    path = "/app/AgriBooks_SaaS_Test_Report_v2.pdf"
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Test report not found. Run generate_test_report.py first.")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="AgriBooks_SaaS_Test_Report_v2.pdf",
+        headers={"Content-Disposition": "attachment; filename=AgriBooks_SaaS_Test_Report_v2.pdf"}
+    )

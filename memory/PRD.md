@@ -138,14 +138,30 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] FeatureGate component — upgrade prompt cards on all locked pages (9 routes gated)
 - [x] PDF Test Report v2.0 generated (AgriBooks_SaaS_Test_Report_v2.pdf, 211KB)
 
+### P0 — VPS Deployment Fixes (COMPLETED ✅)
+- [x] /admin redirect to /setup fixed (added /admin to setup-mode routes in App.js)
+- [x] /login not accessible in setup mode fixed (added to setup-mode routes, default redirect to /login)
+- [x] setup_completed false positive fixed (setup.py checks super admin/org existence)
+- [x] "Error Saving Products" when changing type fixed (missing has_perm import in products.py)
+- [x] Branch not created on registration fixed (auto-creates first branch + fund wallets, branch_name field added to register form)
+
+### P0 — Smart Capital Pricing (COMPLETED ✅)
+- [x] Default capital_method changed to "last_purchase" for new products
+- [x] GET /purchase-orders/{po_id}/capital-preview endpoint — returns per-item: current_capital, new_price, projected_moving_avg, needs_warning, price_drop_pct
+- [x] POST /purchase-orders/{po_id}/receive accepts capital_choices per product
+- [x] SmartCapitalDialog in PurchaseOrderPage — shows per-item table with price drop indicators, New Price vs Moving Avg toggle buttons, bulk actions, Confirm Receive
+
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data
 - Payment QR codes (actual Maya/GCash/Bank/PayPal QR codes)
+- Smart capital pricing for branch transfers (same logic as PO)
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers
 - Resilient Offline Sync improvements
 - Annual billing automation
 - Stripe/PayMongo integration for automated billing
+- Refactor SuperAdminPage.jsx (1000+ lines → smaller components)
+- AdminLoginPage.jsx: replace window.location.href with React state update

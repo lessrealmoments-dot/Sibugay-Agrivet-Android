@@ -46,6 +46,7 @@ services:
       BACKUP_SCHEDULE_HOUR: ${BACKUP_SCHEDULE_HOUR:-1}
     volumes:
       - backup_data:/app/backups
+      - upload_data:/app/uploads
     networks:
       - agripos-net
     healthcheck:

@@ -267,11 +267,17 @@ async def register_organization(data: dict):
 
     # Send welcome email (async, non-blocking)
     import asyncio
-    from services.email_service import send_welcome
+    from services.email_service import send_welcome, send_new_registration_admin_alert
     asyncio.create_task(send_welcome(
         email,
         data["company_name"],
         trial_end[:10]
+    ))
+    # Notify platform admin about new registration
+    asyncio.create_task(send_new_registration_admin_alert(
+        PLATFORM_ADMIN_EMAIL,
+        data["company_name"],
+        email,
     ))
 
     return {

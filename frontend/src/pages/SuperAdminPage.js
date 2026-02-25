@@ -455,15 +455,37 @@ function OrgRow({ org, expanded, branches, onToggle, onEdit, onRefresh }) {
 
 /* ── Edit Subscription Modal ─────────────────────────────────────────────── */
 function EditSubscriptionModal({ org, onClose, onSaved }) {
+  const today = new Date().toISOString().split('T')[0];
+  const plus30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
   const [form, setForm] = useState({
     plan: org.plan || 'trial',
     extra_branches: org.extra_branches || 0,
     trial_days: '',
-    subscription_expires_at: org.subscription_expires_at || '',
+    subscription_expires_at: org.subscription_expires_at
+      ? org.subscription_expires_at.split('T')[0]
+      : plus30,
     notes: org.admin_notes || '',
   });
   const [loading, setLoading] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Auto-set 30-day expiry when switching to a paid plan
+  const handlePlanChange = (newPlan) => {
+    set('plan', newPlan);
+    if (['basic', 'standard', 'pro'].includes(newPlan) && !org.subscription_expires_at) {
+      set('subscription_expires_at', plus30);
+    }
+  };
+
+  const setQuickExpiry = (days) => {
+    const d = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+    set('subscription_expires_at', d);
+  };
+
+  const daysUntilExpiry = form.subscription_expires_at
+    ? Math.ceil((new Date(form.subscription_expires_at) - new Date()) / 86400000)
+    : null;
 
   const handleSave = async () => {
     setLoading(true);
@@ -475,8 +497,10 @@ function EditSubscriptionModal({ org, onClose, onSaved }) {
       };
       if (form.trial_days && parseInt(form.trial_days) > 0)
         payload.trial_days = parseInt(form.trial_days);
-      if (form.subscription_expires_at)
-        payload.subscription_expires_at = form.subscription_expires_at;
+      if (['basic', 'standard', 'pro'].includes(form.plan))
+        payload.subscription_expires_at = form.subscription_expires_at || null;
+      if (form.plan === 'founders')
+        payload.subscription_expires_at = null;
 
       const r = await api.put(`/superadmin/organizations/${org.id}/subscription`, payload);
       onSaved(r.data);
@@ -486,77 +510,153 @@ function EditSubscriptionModal({ org, onClose, onSaved }) {
     setLoading(false);
   };
 
+  const isPaidPlan = ['basic', 'standard', 'pro'].includes(form.plan);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div className="relative bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h3 className="text-white font-bold">Edit Subscription</h3>
+            <h3 className="text-white font-bold text-lg">Edit Subscription</h3>
             <p className="text-slate-400 text-sm">{org.name}</p>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={18} /></button>
         </div>
 
-        <div className="space-y-4">
-          {/* Plan */}
+        <div className="space-y-5">
+          {/* Plan selector */}
           <div>
-            <label className="text-slate-400 text-xs font-medium mb-1.5 block">Plan</label>
+            <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2 block">Plan</label>
             <div className="grid grid-cols-3 gap-2">
-              {['trial', 'basic', 'standard', 'pro', 'suspended'].map(p => (
-                <button key={p} onClick={() => set('plan', p)}
-                  className={`py-2 rounded-lg text-xs font-semibold border transition-all capitalize ${form.plan === p ? 'border-emerald-500 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600'}`}>
-                  {p}
+              {[
+                { key: 'trial',    label: 'Trial',    color: 'blue' },
+                { key: 'basic',    label: 'Basic',    color: 'slate' },
+                { key: 'standard', label: 'Standard', color: 'emerald' },
+                { key: 'pro',      label: 'Pro',      color: 'indigo' },
+                { key: 'founders', label: '★ Founders', color: 'amber', special: true },
+                { key: 'suspended',label: 'Suspend',  color: 'red' },
+              ].map(p => (
+                <button key={p.key} onClick={() => handlePlanChange(p.key)}
+                  className={`py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                    form.plan === p.key
+                      ? p.special
+                        ? 'border-amber-400 bg-amber-400/15 text-amber-300'
+                        : 'border-emerald-500 bg-emerald-500/10 text-emerald-300'
+                      : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+                  }`}>
+                  {p.label}
                 </button>
               ))}
             </div>
+
+            {/* Founders info */}
+            {form.plan === 'founders' && (
+              <div className="mt-2 bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-3 flex items-start gap-2">
+                <span className="text-amber-300 text-lg">★</span>
+                <div>
+                  <p className="text-amber-300 text-xs font-semibold">Founders Plan — Lifetime Access</p>
+                  <p className="text-amber-400/70 text-xs mt-0.5">All Pro features, never expires. Reserved for early adopters and special accounts.</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Extra branches */}
-          <div>
-            <label className="text-slate-400 text-xs font-medium mb-1.5 block">
-              Extra Branch Add-ons <span className="text-slate-600">(₱1,500/mo each)</span>
-            </label>
-            <div className="flex items-center gap-3">
-              <button onClick={() => set('extra_branches', Math.max(0, form.extra_branches - 1))}
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center">
-                <Minus size={14} />
-              </button>
-              <span className="text-white font-bold text-lg w-8 text-center">{form.extra_branches}</span>
-              <button onClick={() => set('extra_branches', form.extra_branches + 1)}
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center">
-                <Plus size={14} />
-              </button>
-              <span className="text-slate-500 text-xs">
-                = {(PLAN_LIMITS_MAP[form.plan] || 1) + form.extra_branches} total branches
-              </span>
+          {/* Subscription expiry — paid plans only */}
+          {isPaidPlan && (
+            <div>
+              <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2 block">
+                Subscription Expires On
+              </label>
+
+              {/* Quick buttons */}
+              <div className="flex gap-1.5 mb-2 flex-wrap">
+                {[
+                  { label: '30 days', days: 30 },
+                  { label: '60 days', days: 60 },
+                  { label: '90 days', days: 90 },
+                  { label: '6 months', days: 180 },
+                  { label: '1 year', days: 365 },
+                ].map(({ label, days }) => (
+                  <button key={days} onClick={() => setQuickExpiry(days)}
+                    className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-emerald-600 text-slate-400 hover:text-white border border-slate-700 hover:border-emerald-500 rounded-lg transition-all">
+                    +{label}
+                  </button>
+                ))}
+              </div>
+
+              <Input value={form.subscription_expires_at}
+                onChange={e => set('subscription_expires_at', e.target.value)}
+                type="date"
+                className="bg-slate-800 border-slate-700 text-white h-10 text-sm" />
+
+              {/* Expiry preview */}
+              {daysUntilExpiry !== null && (
+                <div className={`mt-2 text-xs flex items-center gap-1.5 ${
+                  daysUntilExpiry <= 0 ? 'text-red-400' :
+                  daysUntilExpiry <= 7 ? 'text-amber-400' : 'text-emerald-400'
+                }`}>
+                  <Clock size={12} />
+                  {daysUntilExpiry <= 0
+                    ? 'This date is in the past — plan will be in grace period'
+                    : `Expires in ${daysUntilExpiry} days (${new Date(form.subscription_expires_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })})`
+                  }
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Trial extension */}
           {form.plan === 'trial' && (
             <div>
-              <label className="text-slate-400 text-xs font-medium mb-1.5 block">Extend Trial By (days)</label>
+              <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2 block">
+                Extend Trial By (days)
+              </label>
+              <div className="flex gap-1.5 mb-2">
+                {[7, 14, 30].map(d => (
+                  <button key={d} onClick={() => set('trial_days', d)}
+                    className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-blue-600/50 text-slate-400 hover:text-white border border-slate-700 rounded-lg transition-all">
+                    +{d} days
+                  </button>
+                ))}
+              </div>
               <Input value={form.trial_days} onChange={e => set('trial_days', e.target.value)}
-                type="number" min="1" placeholder="e.g. 14"
+                type="number" min="1" placeholder="Custom days (e.g. 14)"
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 h-9 text-sm" />
-              <p className="text-slate-600 text-xs mt-1">Leave blank to keep current trial date</p>
+              {org.trial_ends_at && (
+                <p className="text-slate-500 text-xs mt-1">
+                  Current trial ends: {new Date(org.trial_ends_at).toLocaleDateString()}
+                </p>
+              )}
             </div>
           )}
 
-          {/* Paid plan expiry */}
-          {['basic', 'standard', 'pro'].includes(form.plan) && (
+          {/* Extra branches — not for founders */}
+          {!['founders', 'suspended', 'trial'].includes(form.plan) && (
             <div>
-              <label className="text-slate-400 text-xs font-medium mb-1.5 block">Subscription Expires At</label>
-              <Input value={form.subscription_expires_at} onChange={e => set('subscription_expires_at', e.target.value)}
-                type="date"
-                className="bg-slate-800 border-slate-700 text-white h-9 text-sm" />
+              <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2 block">
+                Extra Branch Add-ons <span className="text-slate-600 normal-case font-normal">(₱1,500/mo each)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <button onClick={() => set('extra_branches', Math.max(0, form.extra_branches - 1))}
+                  className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center">
+                  <Minus size={14} />
+                </button>
+                <span className="text-white font-bold text-xl w-8 text-center">{form.extra_branches}</span>
+                <button onClick={() => set('extra_branches', form.extra_branches + 1)}
+                  className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-center">
+                  <Plus size={14} />
+                </button>
+                <span className="text-slate-500 text-xs">
+                  = {(PLAN_LIMITS_MAP[form.plan] || 1) + form.extra_branches} total branches
+                </span>
+              </div>
             </div>
           )}
 
           {/* Notes */}
           <div>
-            <label className="text-slate-400 text-xs font-medium mb-1.5 block">Admin Notes</label>
+            <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2 block">Admin Notes</label>
             <Input value={form.notes} onChange={e => set('notes', e.target.value)}
               placeholder="Internal notes (not visible to customer)"
               className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-600 h-9 text-sm" />
@@ -565,11 +665,11 @@ function EditSubscriptionModal({ org, onClose, onSaved }) {
 
         <div className="flex gap-3 mt-6">
           <Button onClick={handleSave} disabled={loading}
-            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold">
+            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-10">
             {loading ? 'Saving...' : 'Save Changes'}
           </Button>
           <Button variant="outline" onClick={onClose}
-            className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
+            className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 h-10">
             Cancel
           </Button>
         </div>

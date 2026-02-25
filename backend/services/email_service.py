@@ -233,3 +233,60 @@ async def send_superadmin_backup_codes(to: str, codes: list):
         """
     )
     await send_email(to, "AgriBooks Platform Admin — Your Recovery Backup Codes", html)
+
+
+async def send_new_registration_admin_alert(to: str, company_name: str, owner_email: str, plan: str = "trial"):
+    """Notify platform admin when a new company registers."""
+    html = _base(
+        content=f"""
+        <h1 style="color:#0f172a;font-size:22px;margin:0 0 8px;">New Company Registration</h1>
+        <p style="color:#475569;font-size:15px;line-height:1.6;">
+          A new company has registered on AgriBooks and started their 14-day trial.
+        </p>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:20px 0;">
+          <table style="width:100%;font-size:14px;">
+            <tr><td style="color:#64748b;padding:4px 0;">Company:</td><td style="color:#0f172a;font-weight:600;">{company_name}</td></tr>
+            <tr><td style="color:#64748b;padding:4px 0;">Owner Email:</td><td style="color:#0f172a;">{owner_email}</td></tr>
+            <tr><td style="color:#64748b;padding:4px 0;">Plan:</td><td style="color:#10b981;font-weight:600;">{plan.capitalize()} Trial</td></tr>
+          </table>
+        </div>
+        <p style="color:#475569;font-size:14px;">
+          Review this account in the Super Admin panel if needed.
+        </p>
+        """,
+        cta_url=f"{APP_URL}/superadmin",
+        cta_label="View in Admin Panel →"
+    )
+    await send_email(to, f"New Registration: {company_name} has joined AgriBooks", html)
+
+
+async def send_subscription_rejected(to: str, company_name: str, plan: str, reason: str):
+    """Notify customer when subscription payment is rejected."""
+    plan_cap = plan.capitalize()
+    html = _base(
+        content=f"""
+        <h1 style="color:#dc2626;font-size:22px;margin:0 0 8px;">Subscription Payment Not Confirmed</h1>
+        <p style="color:#475569;font-size:15px;line-height:1.6;">
+          Hi <strong>{company_name}</strong>,<br><br>
+          Unfortunately, we were unable to confirm your payment for the <strong>{plan_cap} Plan</strong>.
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:20px 0;">
+          <p style="color:#991b1b;font-weight:600;margin:0 0 6px;">Reason:</p>
+          <p style="color:#991b1b;margin:0;font-size:14px;">{reason}</p>
+        </div>
+        <p style="color:#475569;font-size:14px;line-height:1.6;">
+          Please resubmit your payment proof via the Upgrade page, ensuring:
+        </p>
+        <ul style="color:#475569;font-size:14px;padding-left:20px;line-height:1.8;">
+          <li>The exact amount is visible on the screenshot</li>
+          <li>Your company name is included as payment reference</li>
+          <li>The payment receipt is clear and unedited</li>
+        </ul>
+        <p style="color:#475569;font-size:14px;">
+          If you believe this is an error, reply to this email with your payment details.
+        </p>
+        """,
+        cta_url=f"{APP_URL}/upgrade",
+        cta_label="Resubmit Payment Proof →"
+    )
+    await send_email(to, f"AgriBooks: Payment Not Confirmed for {plan_cap} Plan", html)

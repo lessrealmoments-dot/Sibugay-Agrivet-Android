@@ -242,6 +242,16 @@ async def register_organization(data: dict):
     )
 
     set_org_context(None)
+
+    # Send welcome email (async, non-blocking)
+    import asyncio
+    from services.email_service import send_welcome
+    asyncio.create_task(send_welcome(
+        email,
+        data["company_name"],
+        trial_end[:10]
+    ))
+
     return {
         "success": True,
         "message": "Organization created! You have a 14-day free trial with all Pro features.",

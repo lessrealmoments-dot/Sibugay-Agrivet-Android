@@ -66,7 +66,7 @@ async def create_product(data: dict, user=Depends(get_current_user)):
         "repack_unit": data.get("repack_unit", None),
         "barcode": data.get("barcode", ""),
         "product_type": data.get("product_type", "stockable"),
-        "capital_method": data.get("capital_method", "moving_average"),
+        "capital_method": data.get("capital_method", "last_purchase"),
         "reorder_point": float(data.get("reorder_point", 0)),
         "reorder_quantity": float(data.get("reorder_quantity", 0)),
         "unit_of_measurement": data.get("unit_of_measurement", data.get("unit", "Piece")),

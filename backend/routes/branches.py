@@ -1,8 +1,8 @@
 """
 Branch management routes.
 """
-from fastapi import APIRouter, Depends
-from config import db
+from fastapi import APIRouter, Depends, HTTPException
+from config import db, _raw_db
 from utils import get_current_user, check_perm, now_iso, new_id, provision_branch_wallets
 
 router = APIRouter(prefix="/branches", tags=["Branches"])

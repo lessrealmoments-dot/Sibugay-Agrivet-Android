@@ -249,12 +249,10 @@ async def register_organization(data: dict):
         upsert=True
     )
 
-    set_org_context(None)
-
-    # Create first branch automatically
+    # Create first branch automatically (while org context is still active)
     branch_name = data.get("branch_name", "").strip() or f"{data['company_name']} - Main Branch"
     branch_id = new_id()
-    branch = {
+    await _raw_db.branches.insert_one({
         "id": branch_id,
         "name": branch_name,
         "address": data.get("address", ""),
@@ -262,9 +260,10 @@ async def register_organization(data: dict):
         "active": True,
         "organization_id": org_id,
         "created_at": now,
-    }
-    await _raw_db.branches.insert_one(branch)
-    await provision_branch_wallets(branch_id, branch_name, org_id=org_id)
+    })
+    await provision_branch_wallets(branch_id, branch_name)  # uses active org context
+
+    set_org_context(None)
 
     # Send welcome email (async, non-blocking)
     import asyncio

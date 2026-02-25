@@ -24,6 +24,7 @@ export default function ProductsPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('grouped'); // "name" | "type" | "grouped"
   const [page, setPage] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [repackDialog, setRepackDialog] = useState(false);

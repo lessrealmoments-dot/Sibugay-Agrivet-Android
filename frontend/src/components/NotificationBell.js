@@ -128,7 +128,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map(n => {
-                const config = TYPE_ICONS[n.context_type] || TYPE_ICONS.pin_used;
+                const config = TYPE_ICONS[n.type] || TYPE_ICONS[n.context_type] || TYPE_ICONS.pin_used;
                 const Icon = config.icon;
                 return (
                   <div key={n.id}

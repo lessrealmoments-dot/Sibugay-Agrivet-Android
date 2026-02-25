@@ -3,7 +3,7 @@ Company Setup Wizard routes.
 First-time setup for fresh installations.
 """
 from fastapi import APIRouter, HTTPException
-from config import db
+from config import db, _raw_db
 from utils import hash_password, now_iso, new_id
 from models import DEFAULT_PERMISSIONS
 
@@ -13,11 +13,23 @@ router = APIRouter(prefix="/setup", tags=["Setup"])
 @router.get("/status")
 async def get_setup_status():
     """Check if initial setup has been completed."""
-    # Check if any users exist
+    # SaaS mode: if a super admin or any organization exists, setup is done
+    super_admin = await _raw_db.users.find_one({"is_super_admin": True}, {"_id": 0})
+    org_count = await _raw_db.organizations.count_documents({})
+    if super_admin or org_count > 0:
+        return {
+            "setup_completed": True,
+            "has_users": True,
+            "has_branches": True,
+            "has_company_info": True,
+            "company_name": None
+        }
+
+    # Legacy single-tenant mode: check for users + branches
     user_count = await db.users.count_documents({})
     branch_count = await db.branches.count_documents({})
     company = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
-    
+
     return {
         "setup_completed": user_count > 0 and branch_count > 0,
         "has_users": user_count > 0,

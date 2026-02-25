@@ -1600,5 +1600,130 @@ export default function PurchaseOrderPage() {
         </div>
       )}
     </div>
+
+    {/* ── Smart Capital Pricing Dialog ─────────────────────────────── */}
+    {capitalDialog && capitalPreview && (
+      <Dialog open={capitalDialog} onOpenChange={setCapitalDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
+              <TrendingDown size={18} className="text-amber-500" />
+              Smart Capital Pricing — Price Drop Detected
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              <strong>PO {capitalPreview.po_number}</strong> from <strong>{capitalPreview.vendor}</strong> contains items
+              priced <strong>lower than their current capital</strong>. Choose how to update each product's capital.
+            </div>
+
+            {/* Bulk actions */}
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="text-xs border-slate-300"
+                onClick={() => {
+                  const all = {};
+                  capitalPreview.items.forEach(i => { all[i.product_id] = 'last_purchase'; });
+                  setCapitalChoices(all);
+                }}>
+                Use all new prices
+              </Button>
+              <Button size="sm" variant="outline" className="text-xs border-slate-300"
+                onClick={() => {
+                  const all = {};
+                  capitalPreview.items.forEach(i => { all[i.product_id] = 'moving_average'; });
+                  setCapitalChoices(all);
+                }}>
+                Use all moving averages
+              </Button>
+            </div>
+
+            {/* Items table */}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium text-slate-600">Product</th>
+                    <th className="text-right px-3 py-2 font-medium text-slate-600">Current Capital</th>
+                    <th className="text-right px-3 py-2 font-medium text-slate-600">New PO Price</th>
+                    <th className="text-right px-3 py-2 font-medium text-slate-600">Moving Avg</th>
+                    <th className="text-center px-3 py-2 font-medium text-slate-600">Use</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {capitalPreview.items.map(item => (
+                    <tr key={item.product_id} className={item.needs_warning ? 'bg-amber-50/60' : ''}>
+                      <td className="px-3 py-2.5">
+                        <div className="font-medium text-slate-800 leading-tight">{item.product_name}</div>
+                        <div className="text-[10px] text-slate-400">{item.sku} · {item.qty} {item.unit}</div>
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-slate-700">
+                        ₱{item.current_capital.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono">
+                        {item.needs_warning ? (
+                          <span className="text-amber-700 font-semibold flex items-center justify-end gap-1">
+                            <TrendingDown size={12} />₱{item.new_price.toFixed(2)}
+                            <span className="text-[10px] text-amber-500">(-{item.price_drop_pct}%)</span>
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 flex items-center justify-end gap-1">
+                            <TrendingUp size={12} />₱{item.new_price.toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono text-slate-500">
+                        ₱{item.projected_moving_avg.toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {item.needs_warning ? (
+                          <div className="flex gap-1 justify-center">
+                            <button
+                              onClick={() => setCapitalChoices(prev => ({ ...prev, [item.product_id]: 'last_purchase' }))}
+                              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                                capitalChoices[item.product_id] === 'last_purchase'
+                                  ? 'bg-amber-500 text-white'
+                                  : 'bg-slate-100 text-slate-500 hover:bg-amber-100'
+                              }`}>
+                              New Price
+                            </button>
+                            <button
+                              onClick={() => setCapitalChoices(prev => ({ ...prev, [item.product_id]: 'moving_average' }))}
+                              className={`px-2 py-1 rounded text-[10px] font-semibold transition-colors ${
+                                capitalChoices[item.product_id] === 'moving_average'
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-slate-100 text-slate-500 hover:bg-blue-100'
+                              }`}>
+                              Avg
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-emerald-600 text-center block">Auto ↑</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[11px] text-slate-500">
+              <strong>New Price</strong> — sets capital to the actual PO price (good if supplier permanently lowered price).
+              <br /><strong>Moving Avg</strong> — smooths fluctuations across all purchases (good for temporary discounts).
+            </p>
+
+            <div className="flex gap-2 pt-1 border-t">
+              <Button variant="outline" className="flex-1" onClick={() => setCapitalDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={confirmReceivePO}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Check size={14} className="mr-1.5" />
+                Confirm Receive
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )}
   );
 }

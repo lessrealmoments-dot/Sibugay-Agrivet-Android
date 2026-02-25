@@ -301,22 +301,20 @@ export default function UpgradePage() {
               <div className="flex items-start gap-3">
                 <MessageCircle size={18} className="text-blue-500 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-blue-800 text-sm font-medium">After paying, contact us to activate</p>
+                  <p className="text-blue-800 text-sm font-medium">After paying, submit your proof below</p>
                   <p className="text-blue-600 text-xs mt-1">
-                    Send your payment screenshot and company name to:
+                    Upload your payment screenshot and we'll activate your plan within 24 hours.
                   </p>
-                  <div className="mt-2 space-y-1">
-                    <a href="mailto:janmarkeahig@gmail.com" className="flex items-center gap-2 text-blue-600 text-xs hover:underline">
-                      📧 janmarkeahig@gmail.com
-                    </a>
-                    <span className="flex items-center gap-2 text-blue-600 text-xs">
-                      <Phone size={12} /> Contact via email for Viber/WhatsApp details
-                    </span>
-                  </div>
-                  <p className="text-blue-500 text-xs mt-2">We'll activate your plan within 24 hours.</p>
                 </div>
               </div>
             </div>
+
+            {/* Payment proof upload form */}
+            <PaymentProofForm
+              plan={selectedPlan?.key}
+              amount={annual ? totalPhp : monthlyPhp}
+              paymentMethod={selectedPayment || ''}
+            />
           </div>
         )}
 

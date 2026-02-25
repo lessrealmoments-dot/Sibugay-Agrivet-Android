@@ -368,6 +368,7 @@ DEFAULT_FEATURE_FLAGS = {
     },
 }
 DEFAULT_FEATURE_FLAGS["trial"] = DEFAULT_FEATURE_FLAGS["pro"]
+DEFAULT_FEATURE_FLAGS["founders"] = DEFAULT_FEATURE_FLAGS["pro"]  # All features forever
 
 
 async def get_live_feature_flags() -> dict:

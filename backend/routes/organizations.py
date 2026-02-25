@@ -145,15 +145,6 @@ def get_grace_info(org: dict) -> dict:
             except Exception:
                 pass
     return {"in_grace": False, "days_left": None, "locked_at": None}
-        trial_ends = org.get("trial_ends_at")
-        if trial_ends:
-            try:
-                end_dt = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
-                if datetime.now(timezone.utc) > end_dt:
-                    return "basic"  # trial expired → downgrade
-            except Exception:
-                pass
-    return plan
 
 
 # ---------------------------------------------------------------------------

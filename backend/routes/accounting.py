@@ -239,6 +239,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                 authorized_by = mgr.get("full_name", mgr["username"])
                 break
         if not authorized_by:
+            await log_failed_pin_attempt(user, f"Fund transfer: cashier ↔ safe (₱{amount:,.2f})", "fund_transfer")
             raise HTTPException(status_code=400, detail="Invalid manager PIN")
 
     elif transfer_type == "safe_to_bank":

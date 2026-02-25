@@ -651,7 +651,7 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         )
         await log_movement(
             product_id, to_branch_id, "transfer_in", qty_received,
-            transfer_id, order["order_number"], transfer_capital,
+            transfer_id, order["order_number"], dest_capital,
             user["id"], user.get("full_name", user["username"]),
             f"Branch transfer from {from_name}"
         )

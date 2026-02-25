@@ -196,8 +196,22 @@ export default function Layout({ children }) {
         )}
       </div>
       <ScrollArea className="flex-1 px-3">
-        <nav className="space-y-1 py-2">
-          {filteredNav.map(item => <NavLink key={item.path} item={item} />)}
+        <nav className="py-2">
+          {filteredSections.map((section, si) => (
+            <div key={section.label || 'top'} className={si > 0 ? 'mt-1' : ''}>
+              {section.label && (
+                <div className={`flex items-center gap-2 px-2 ${si > 0 ? 'pt-4' : 'pt-2'} pb-1.5`}>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+                    {section.label}
+                  </span>
+                  <div className="flex-1 h-px bg-white/5" />
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map(item => <NavLink key={item.path} item={item} />)}
+              </div>
+            </div>
+          ))}
         </nav>
       </ScrollArea>
       <Separator className="bg-white/5" />

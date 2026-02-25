@@ -39,13 +39,14 @@ async def platform_stats(user=Depends(require_super_admin)):
     })
 
     plan_counts = {}
-    for plan in ["basic", "standard", "pro"]:
+    for plan in ["basic", "standard", "pro", "founders"]:
         plan_counts[plan] = await _raw_db.organizations.count_documents({"plan": plan})
 
     return {
         "total_organizations": total_orgs,
         "trial": trial_orgs,
         "active": active_orgs,
+        "founders": founders_orgs,
         "suspended": suspended_orgs,
         "total_users": total_users,
         "expiring_soon": expiring_soon,

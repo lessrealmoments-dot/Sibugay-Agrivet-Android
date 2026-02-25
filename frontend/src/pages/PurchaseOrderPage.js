@@ -1601,7 +1601,7 @@ export default function PurchaseOrderPage() {
       )}
     </div>
 
-    {/* ── Smart Capital Pricing Dialog ─────────────────────────────── */}
+    {/* Smart Capital Pricing Dialog */}
     {capitalDialog && capitalPreview && (
       <Dialog open={capitalDialog} onOpenChange={setCapitalDialog}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">

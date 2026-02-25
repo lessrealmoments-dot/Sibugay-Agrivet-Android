@@ -29,6 +29,7 @@ export default function RegisterPage() {
     admin_email: '',
     admin_password: '',
     phone: '',
+    branch_name: '',
   });
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));

@@ -3,7 +3,7 @@ Organization management: registration, subscription, tenant info.
 """
 from fastapi import APIRouter, HTTPException, Depends
 from config import db, _raw_db, set_org_context
-from utils import hash_password, now_iso, new_id
+from utils import hash_password, now_iso, new_id, provision_branch_wallets
 from utils.auth import get_current_user
 from models import DEFAULT_PERMISSIONS
 from datetime import datetime, timezone, timedelta

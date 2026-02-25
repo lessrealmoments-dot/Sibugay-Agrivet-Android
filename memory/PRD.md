@@ -164,8 +164,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] FeatureGate component — upgrade prompt cards on all locked pages (9 routes gated)
 - [x] PDF Test Report v2.0 generated (AgriBooks_SaaS_Test_Report_v2.pdf, 211KB)
 
-### P0 — VPS Deployment Fixes (COMPLETED ✅)
-- [x] /admin redirect to /setup fixed (added /admin to setup-mode routes in App.js)
+### P0 — Bug Fixes & Authorization Improvements (COMPLETED ✅)
+- [x] Invalid PIN/TOTP returns 400 instead of 401 — fixed in verify.py, accounting.py (was causing logout/redirect to login on wrong PIN)
+- [x] Inventory Correction: admin path fixed — pendingCorrection state not set before submitCorrection (now passes data directly)
+- [x] Capital Injection (capital_add) now accepts Owner PIN or TOTP — any employee can execute with admin authorization (no longer admin-role-only)
+- [x] Safe → Bank now visible to all users (was hidden, TOTP still required)
+- [x] Inventory /set endpoint repack guard added (was missing)
+- [x] Inventory value verified: repacks correctly excluded from all value calculations
 - [x] /login not accessible in setup mode fixed (added to setup-mode routes, default redirect to /login)
 - [x] setup_completed false positive fixed (setup.py checks super admin/org existence)
 - [x] "Error Saving Products" when changing type fixed (missing has_perm import in products.py)

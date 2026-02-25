@@ -7,6 +7,32 @@ Build a comprehensive Accounting, Inventory, and Point of Sale (POS) web applica
 **Sub-tagline:** Serious control for serious businesses  
 **Built for:** Growing businesses
 
+---
+
+## CRITICAL AGENT NOTE — VPS DEPLOYMENT
+**EVERY TIME code is ready to deploy to agri-books.com, ALWAYS include these 3 commands:**
+
+```bash
+cd /var/www/agribooks && git pull origin main
+supervisorctl restart agribooks-backend
+cd frontend && yarn build
+```
+
+**Steps before running the above:**
+1. User must click **"Save to Github"** in Emergent first to push the code
+2. SSH into VPS: `ssh root@76.13.215.32`
+3. Run the 3 commands above in order
+
+**VPS Details:**
+- Domain: `agri-books.com`
+- IP: `76.13.215.32`
+- User: `root`
+- Backend managed by: `supervisorctl` (process name: `agribooks-backend`)
+- Frontend: static build served by Nginx from `/var/www/agribooks/frontend/build/`
+- No hot reload on VPS — backend needs supervisorctl restart, frontend needs yarn build
+
+---
+
 ## Core Requirements
 - Offline Functionality with auto-sync
 - Product Management (3000+ SKUs, parent/repack system)

@@ -439,9 +439,21 @@ export default function FundManagementPage() {
                       ))}
                     </div>
                   </div>
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-                    <AlertTriangle size={11} className="inline mr-1" />
-                    Admin-only action. Full audit trail will be recorded.
+                  <div>
+                    <Label className="text-xs text-slate-600 flex items-center gap-1">
+                      <Shield size={11} /> Owner PIN or TOTP Code *
+                    </Label>
+                    <Input
+                      type="password"
+                      value={ownerPin}
+                      onChange={e => setOwnerPin(e.target.value)}
+                      placeholder="Enter PIN or 6-digit TOTP"
+                      className="mt-1 h-9 font-mono"
+                      onKeyDown={e => e.key === 'Enter' && executeTransfer()}
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      If admin is present: Owner PIN. If away: call admin for TOTP code.
+                    </p>
                   </div>
                 </div>
               )}

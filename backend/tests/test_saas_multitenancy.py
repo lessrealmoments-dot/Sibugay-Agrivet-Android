@@ -364,8 +364,9 @@ class TestSuperAdmin:
         assert resp.status_code == 403, f"Expected 403, got {resp.status_code}"
 
     def test_unauthenticated_cannot_access_superadmin(self, session):
+        # FastAPI returns 403 for missing token (not 401)
         resp = session.get(f"{BASE_URL}/api/superadmin/stats")
-        assert resp.status_code == 401, f"Expected 401, got {resp.status_code}"
+        assert resp.status_code in [401, 403], f"Expected 401 or 403, got {resp.status_code}"
 
     def test_superadmin_stats_has_by_plan_breakdown(self, session, super_admin_token):
         resp = session.get(f"{BASE_URL}/api/superadmin/stats",

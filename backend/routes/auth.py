@@ -59,10 +59,11 @@ async def login(data: dict):
     # Attach subscription info for the frontend
     subscription = None
     if org_id:
-        from routes.organizations import get_effective_plan, PLAN_FEATURES, PLAN_LIMITS
+        from routes.organizations import get_effective_plan, PLAN_FEATURES, PLAN_LIMITS, get_grace_info
         org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
         if org:
             effective = get_effective_plan(org)
+            grace = get_grace_info(org)
             subscription = {
                 "plan": org.get("plan"),
                 "effective_plan": effective,
@@ -72,6 +73,7 @@ async def login(data: dict):
                 "max_branches": org.get("max_branches", 1),
                 "max_users": org.get("max_users", 5),
                 "org_name": org.get("name"),
+                "grace_info": grace,
             }
 
     return {"token": token, "user": safe_user, "subscription": subscription}

@@ -184,13 +184,14 @@ export default function SuperAdminPage() {
               <div className="text-center py-16 text-slate-500">Loading...</div>
             ) : stats && (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  <KpiCard icon={Building2} label="Total Orgs" value={stats.total_organizations} color="slate" />
-                  <KpiCard icon={CheckCircle} label="Active (Paid)" value={stats.active} color="emerald" />
-                  <KpiCard icon={Clock} label="On Trial" value={stats.trial} color="blue" />
-                  <KpiCard icon={AlertTriangle} label="Expiring Soon" value={stats.expiring_soon} sub="within 7 days" color="amber" />
-                  <KpiCard icon={XCircle} label="Suspended" value={stats.suspended} color="red" />
-                  <KpiCard icon={Users} label="Total Users" value={stats.total_users} color="indigo" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+                  <KpiCard icon={Building2}     label="Total Orgs"    value={stats.total_organizations} color="slate" />
+                  <KpiCard icon={CheckCircle}   label="Active (Paid)" value={stats.active}              color="emerald" />
+                  <KpiCard icon={Clock}         label="On Trial"      value={stats.trial}               color="blue" />
+                  <KpiCard icon={Star}          label="Founders"      value={stats.founders || 0}       color="amber" />
+                  <KpiCard icon={AlertTriangle} label="Expiring Soon" value={stats.expiring_soon}       sub="within 7 days" color="amber" />
+                  <KpiCard icon={XCircle}       label="Suspended"     value={stats.suspended}           color="red" />
+                  <KpiCard icon={Users}         label="Total Users"   value={stats.total_users}         color="indigo" />
                 </div>
 
                 {/* Plan breakdown */}

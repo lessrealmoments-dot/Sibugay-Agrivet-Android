@@ -84,6 +84,12 @@ export default function BranchTransferPage() {
   const [receiveSaving, setReceiveSaving] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null); // ID of draft being edited
 
+  // Smart Capital Dialog for branch transfers
+  const [transferCapitalDialog, setTransferCapitalDialog] = useState(false);
+  const [transferCapitalPreview, setTransferCapitalPreview] = useState(null);
+  const [transferCapitalChoices, setTransferCapitalChoices] = useState({});
+  const [transferCapitalPendingItems, setTransferCapitalPendingItems] = useState(null);
+
   // ── New transfer form ──────────────────────────────────────────────────────
   const [fromBranchId, setFromBranchId] = useState(() => currentBranch?.id || '');
   const [toBranchId, setToBranchId] = useState('');

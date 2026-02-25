@@ -19,7 +19,24 @@ async def list_branches(user=Depends(get_current_user)):
 async def create_branch(data: dict, user=Depends(get_current_user)):
     """Create a new branch and auto-provision all 4 fund wallets."""
     check_perm(user, "branches", "create")
-    
+
+    # Enforce subscription branch limit
+    org_id = user.get("organization_id")
+    if org_id:
+        org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+        if org:
+            max_branches = org.get("max_branches", 1)
+            if max_branches > 0:  # 0 = unlimited (founders / trial)
+                current_count = await db.branches.count_documents({"active": True})
+                if current_count >= max_branches:
+                    plan_name = org.get("plan", "basic").title()
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Branch limit reached ({current_count}/{max_branches}). "
+                               f"Your {plan_name} plan allows {max_branches} branch(es). "
+                               f"Upgrade your plan or add an extra branch add-on to continue."
+                    )
+
     branch = {
         "id": new_id(),
         "name": data["name"],

@@ -31,6 +31,7 @@ TENANT_COLLECTIONS = {
     'count_sheets', 'daily_closings', 'sales_log', 'returns',
     'discrepancy_log', 'notifications', 'view_tokens', 'safe_lots',
     'price_schemes', 'settings', 'system_settings', 'accounts_payable',
+    'capital_changes',
 }
 
 

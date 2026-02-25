@@ -360,8 +360,188 @@ export default function SuperAdminPage() {
               setSaving={setSavingPayment}
             />
           </TabsContent>
+
+          {/* ── PAYMENT SUBMISSIONS ─────────────────────────────────────── */}
+          <TabsContent value="payments" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-white font-semibold text-lg">Payment Submissions</h2>
+                <p className="text-slate-400 text-xs mt-0.5">Customer payment proofs awaiting review. Approve to activate their plan.</p>
+              </div>
+              <button onClick={loadSubmissions} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700">
+                <RefreshCw size={14} className={submissionsLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+
+            {submissionsLoading ? (
+              <div className="text-center py-12 text-slate-500">Loading submissions...</div>
+            ) : submissions.length === 0 ? (
+              <div className="text-center py-12 text-slate-600 border border-slate-700/40 rounded-2xl">
+                <CreditCard size={28} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No payment submissions yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Pending first */}
+                {['pending', 'approved', 'rejected'].map(statusGroup => {
+                  const grouped = submissions.filter(s => s.status === statusGroup);
+                  if (!grouped.length) return null;
+                  return (
+                    <div key={statusGroup}>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                        {statusGroup === 'pending' ? '⏳ Awaiting Review' : statusGroup === 'approved' ? '✓ Approved' : '✗ Rejected'}
+                        {' '}({grouped.length})
+                      </p>
+                      <div className="space-y-2">
+                        {grouped.map(sub => {
+                          const org = orgs.find(o => o.id === sub.organization_id);
+                          return (
+                            <div key={sub.id} className={`rounded-2xl border p-4 ${
+                              statusGroup === 'pending' ? 'bg-amber-500/5 border-amber-500/30' :
+                              statusGroup === 'approved' ? 'bg-emerald-500/5 border-emerald-500/20' :
+                              'bg-slate-800/30 border-slate-700/40'
+                            }`}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-white font-semibold text-sm">{sub.org_name || org?.name || 'Unknown'}</span>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                      statusGroup === 'pending' ? 'bg-amber-500/20 text-amber-300' :
+                                      statusGroup === 'approved' ? 'bg-emerald-500/20 text-emerald-300' :
+                                      'bg-red-500/20 text-red-300'
+                                    }`}>{statusGroup}</span>
+                                    <span className="text-emerald-400 text-xs font-bold">₱{sub.amount?.toLocaleString()}</span>
+                                    <span className="text-slate-400 text-xs">{sub.payment_method}</span>
+                                  </div>
+                                  <p className="text-slate-400 text-xs mt-0.5">{sub.owner_email} · Plan requested: <strong className="text-slate-300 capitalize">{sub.plan_requested}</strong></p>
+                                  {sub.reference_number && <p className="text-slate-500 text-xs">Ref: {sub.reference_number}</p>}
+                                  {sub.notes && <p className="text-slate-500 text-xs italic">{sub.notes}</p>}
+                                  <p className="text-slate-600 text-[10px] mt-1">{new Date(sub.submitted_at).toLocaleString('en-PH')}</p>
+                                  {statusGroup === 'rejected' && sub.rejection_reason && (
+                                    <p className="text-red-400 text-xs mt-1">Reason: {sub.rejection_reason}</p>
+                                  )}
+                                </div>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                  {sub.proof_image && (
+                                    <button onClick={() => setProofPreview(sub.proof_image)}
+                                      className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1">
+                                      <Upload size={11} /> View Proof
+                                    </button>
+                                  )}
+                                  {statusGroup === 'pending' && org && (
+                                    <>
+                                      <button onClick={() => {
+                                        setApproveModal({ org, submission: sub });
+                                        setApproveForm({ plan: sub.plan_requested || 'basic', extra_branches: 0, subscription_expires_at: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0], note: '' });
+                                      }}
+                                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+                                        <CheckCircle size={11} /> Approve
+                                      </button>
+                                      <button onClick={() => { setRejectModal({ org, submission: sub }); setRejectReason(''); }}
+                                        className="text-xs bg-red-600/80 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1">
+                                        <XCircle size={11} /> Reject
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Proof of Payment Preview */}
+      {proofPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setProofPreview(null)}>
+          <div className="relative max-w-xl w-full" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setProofPreview(null)} className="absolute -top-10 right-0 text-white/60 hover:text-white text-sm">✕ Close</button>
+            <img src={proofPreview} alt="Payment proof" className="w-full rounded-2xl shadow-2xl" />
+          </div>
+        </div>
+      )}
+
+      {/* Approve Modal */}
+      {approveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="bg-[#0E1628] border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+              <CheckCircle size={18} className="text-emerald-400" /> Approve Subscription
+            </h3>
+            <p className="text-slate-400 text-sm">
+              Activating plan for <strong className="text-white">{approveModal.org.name}</strong>. An email will be sent to {approveModal.org.owner_email}.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400">Plan</label>
+                <select value={approveForm.plan} onChange={e => setApproveForm(f => ({ ...f, plan: e.target.value }))}
+                  className="w-full mt-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm">
+                  {['basic', 'standard', 'pro', 'founders'].map(p => (
+                    <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              {['basic', 'standard', 'pro'].includes(approveForm.plan) && (
+                <div>
+                  <label className="text-xs text-slate-400">Subscription Expires</label>
+                  <input type="date" value={approveForm.subscription_expires_at}
+                    onChange={e => setApproveForm(f => ({ ...f, subscription_expires_at: e.target.value }))}
+                    className="w-full mt-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm" />
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-slate-400">Note (optional)</label>
+                <input type="text" value={approveForm.note}
+                  onChange={e => setApproveForm(f => ({ ...f, note: e.target.value }))}
+                  placeholder="e.g. Payment confirmed via GCash"
+                  className="w-full mt-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm placeholder:text-slate-600" />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setApproveModal(null)} className="flex-1 py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm">Cancel</button>
+              <button onClick={handleApprove} disabled={actionLoading}
+                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm flex items-center justify-center gap-2">
+                {actionLoading ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={14} />} Approve & Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="bg-[#0E1628] border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+              <XCircle size={18} className="text-red-400" /> Reject Subscription Payment
+            </h3>
+            <p className="text-slate-400 text-sm">
+              <strong className="text-white">{rejectModal.org.name}</strong> ({rejectModal.org.owner_email}) will receive a rejection email with your reason.
+            </p>
+            <div>
+              <label className="text-xs text-slate-400">Reason for rejection *</label>
+              <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                placeholder="e.g. Payment amount does not match the plan price. Please resend the exact amount of ₱4,000 for the Standard plan."
+                rows={3}
+                className="w-full mt-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm placeholder:text-slate-600 resize-none" />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setRejectModal(null)} className="flex-1 py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm">Cancel</button>
+              <button onClick={handleReject} disabled={actionLoading || !rejectReason.trim()}
+                className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+                {actionLoading ? <RefreshCw size={14} className="animate-spin" /> : <XCircle size={14} />} Reject & Notify Customer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit subscription modal */}
       {editModal && (

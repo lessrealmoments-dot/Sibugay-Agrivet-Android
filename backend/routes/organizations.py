@@ -288,8 +288,13 @@ async def get_my_organization(user=Depends(get_current_user)):
     }
 
 
-@router.get("/plans")
-async def get_plans():
+@router.get("/payment-info")
+async def get_payment_info():
+    """Public: payment method details for the upgrade page."""
+    setting = await _raw_db.platform_settings.find_one({"key": "payment_methods"}, {"_id": 0})
+    if not setting:
+        return {"configured": False, "methods": {}}
+    return {"configured": True, "methods": setting.get("value", {})}
     """Public: get plan definitions."""
     return {
         "plans": [

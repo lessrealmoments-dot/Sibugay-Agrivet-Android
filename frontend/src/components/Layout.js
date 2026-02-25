@@ -254,23 +254,65 @@ export default function Layout({ children }) {
           );
         })()}
         {/* Trial expiry banner */}
-        {user?.subscription?.plan === 'trial' && (() => {
-          const daysLeft = user.subscription.trial_ends_at
-            ? Math.ceil((new Date(user.subscription.trial_ends_at) - new Date()) / 86400000)
-            : null;
-          if (!daysLeft || daysLeft > 5) return null;
-          return (
-            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-amber-800">
-                Your free trial ends in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>.
-                Upgrade to keep access to all features.
-              </span>
-              <button onClick={() => navigate('/upgrade')}
-                className="text-xs bg-amber-600 text-white px-3 py-1 rounded-full hover:bg-amber-700 shrink-0">
-                Upgrade Now
-              </button>
-            </div>
-          );
+        {user?.subscription && (() => {
+          const sub = user.subscription;
+          const effective = sub.effective_plan;
+          const grace = sub.grace_info;
+
+          // Grace period banner (highest priority)
+          if (effective === 'grace_period' && grace?.in_grace) {
+            const urgency = grace.days_left <= 1;
+            return (
+              <div className={`shrink-0 border-b px-4 py-2 flex items-center justify-between gap-2 ${urgency ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <span className={`text-xs font-medium ${urgency ? 'text-red-800' : 'text-amber-800'}`}>
+                  {grace.days_left === 0
+                    ? 'Your account locks TODAY. '
+                    : `Access locks in ${grace.days_left} day${grace.days_left !== 1 ? 's' : ''} (${grace.locked_at}). `}
+                  <strong>Renew your subscription to keep access.</strong>
+                </span>
+                <button onClick={() => navigate('/upgrade')}
+                  className={`text-xs px-3 py-1 rounded-full shrink-0 text-white ${urgency ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'}`}>
+                  Renew Now
+                </button>
+              </div>
+            );
+          }
+
+          // Expired — lock features
+          if (effective === 'expired') {
+            return (
+              <div className="shrink-0 bg-red-50 border-b border-red-300 px-4 py-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-red-800">
+                  Your subscription has expired. Access to most features is locked.
+                </span>
+                <button onClick={() => navigate('/upgrade')}
+                  className="text-xs bg-red-600 text-white px-3 py-1 rounded-full hover:bg-red-700 shrink-0">
+                  Reactivate
+                </button>
+              </div>
+            );
+          }
+
+          // Trial expiry warning (≤ 5 days)
+          if (sub.plan === 'trial') {
+            const daysLeft = sub.trial_ends_at
+              ? Math.ceil((new Date(sub.trial_ends_at) - new Date()) / 86400000)
+              : null;
+            if (!daysLeft || daysLeft > 5) return null;
+            return (
+              <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-amber-800">
+                  Trial ends in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>. Upgrade to keep access.
+                </span>
+                <button onClick={() => navigate('/upgrade')}
+                  className="text-xs bg-amber-600 text-white px-3 py-1 rounded-full hover:bg-amber-700 shrink-0">
+                  Upgrade Now
+                </button>
+              </div>
+            );
+          }
+
+          return null;
         })()}
         <div className="flex-1 overflow-auto p-4 lg:p-6">
           {children}

@@ -1430,7 +1430,157 @@ export default function AuditCenterPage() {
             </div>
           )}
         </TabsContent>
+
+        {/* Security Flags Tab */}
+        <TabsContent value="security" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                <KeyRound size={16} className="text-red-500" /> Security Flags
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Employees who entered the wrong PIN 5+ times. Flagged silently — employee was not notified.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-2 items-center text-xs text-slate-500">
+                <span>Period:</span>
+                <input type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)}
+                  className="border border-slate-200 rounded px-2 py-1 text-xs" />
+                <span>to</span>
+                <input type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)}
+                  className="border border-slate-200 rounded px-2 py-1 text-xs" />
+              </div>
+              <Button size="sm" variant="outline" onClick={loadSecurityFlags} disabled={loadingFlags}>
+                <RefreshCw size={13} className={loadingFlags ? 'animate-spin mr-1' : 'mr-1'} /> Refresh
+              </Button>
+            </div>
+          </div>
+
+          {loadingFlags ? (
+            <div className="flex items-center justify-center py-12 text-slate-400">
+              <RefreshCw size={16} className="animate-spin mr-2" /> Loading...
+            </div>
+          ) : securityFlags.length === 0 ? (
+            <Card className="border-emerald-200 bg-emerald-50">
+              <CardContent className="py-8 text-center">
+                <ShieldCheck size={32} className="text-emerald-500 mx-auto mb-2" />
+                <p className="text-emerald-700 font-semibold text-sm">No security flags in this period</p>
+                <p className="text-emerald-600 text-xs mt-1">No repeated wrong PIN attempts detected.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {/* Summary banner */}
+              <div className={`rounded-lg border p-4 ${securityFlags.filter(e => e.severity === 'high').length ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={18} className={securityFlags.filter(e => e.severity === 'high').length ? 'text-red-500' : 'text-amber-500'} />
+                  <div>
+                    <p className={`font-semibold text-sm ${securityFlags.filter(e => e.severity === 'high').length ? 'text-red-700' : 'text-amber-800'}`}>
+                      {securityFlags.length} security event(s) flagged — {securityFlags.filter(e => !e.acknowledged).length} unreviewed
+                    </p>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      These employees entered the wrong PIN multiple times. Review each event and acknowledge once investigated.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Event list */}
+              {securityFlags.map(event => (
+                <Card key={event.id} className={`border ${event.acknowledged ? 'border-slate-200 opacity-60' : event.severity === 'high' ? 'border-red-200' : 'border-amber-200'}`}>
+                  <CardContent className="py-4 px-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1">
+                        {/* Severity dot */}
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${event.severity === 'high' ? 'bg-red-100' : 'bg-amber-100'}`}>
+                          <KeyRound size={16} className={event.severity === 'high' ? 'text-red-600' : 'text-amber-600'} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-slate-800">{event.user_name}</span>
+                            <Badge className={`text-[10px] ${event.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {event.severity === 'high' ? 'HIGH' : 'MEDIUM'} — {event.failure_count}+ wrong PINs
+                            </Badge>
+                            {event.acknowledged && (
+                              <Badge className="text-[10px] bg-slate-100 text-slate-500">
+                                <Check size={9} className="mr-1" />Reviewed by {event.acknowledged_by}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1">
+                            Attempting: <span className="font-medium">{event.context}</span>
+                          </p>
+                          <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Clock size={10} /> {new Date(event.created_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span>· {({ transaction_verify: 'Transaction Verify', fund_transfer: 'Fund Transfer', admin_action: 'Admin Action' })[event.attempt_type] || event.attempt_type}</span>
+                            {event.total_attempts_in_window > 0 && (
+                              <span>· {event.total_attempts_in_window} total attempts in window</span>
+                            )}
+                          </div>
+                          {event.acknowledged && event.acknowledgement_note && (
+                            <p className="text-[10px] text-slate-500 mt-1 italic border-l-2 border-slate-200 pl-2">
+                              Note: {event.acknowledgement_note}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {!event.acknowledged && (
+                        <Button size="sm" variant="outline" className="shrink-0 text-xs"
+                          onClick={() => { setAckDialog(event); setAckNote(''); }}>
+                          <Eye size={12} className="mr-1" /> Acknowledge
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
       </Tabs>
+
+      {/* Acknowledge Dialog */}
+      {ackDialog && (
+        <Dialog open={!!ackDialog} onOpenChange={() => setAckDialog(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-slate-800">
+                <ShieldCheck size={16} className="text-emerald-600" /> Acknowledge Security Flag
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <p className="font-medium">{ackDialog.user_name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{ackDialog.failure_count}+ wrong PINs · {ackDialog.context}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Investigation Note (optional)</Label>
+                <Input
+                  value={ackNote}
+                  onChange={e => setAckNote(e.target.value)}
+                  placeholder="e.g. Investigated — employee forgot PIN, reset issued"
+                  className="mt-1"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                This will be permanently recorded in the audit trail as reviewed by you.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => setAckDialog(null)}>Cancel</Button>
+                <Button onClick={acknowledgeFlag} disabled={ackSaving}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  {ackSaving ? <RefreshCw size={13} className="animate-spin mr-1" /> : <Check size={13} className="mr-1" />}
+                  Mark as Reviewed
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

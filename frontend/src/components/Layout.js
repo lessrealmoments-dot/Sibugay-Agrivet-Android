@@ -174,6 +174,16 @@ export default function Layout({ children }) {
             <DropdownMenuItem onClick={() => navigate('/settings')}>
               <User size={14} className="mr-2" /> Profile
             </DropdownMenuItem>
+            {!user?.is_super_admin && (
+              <DropdownMenuItem onClick={() => navigate('/upgrade')}>
+                <BarChart3 size={14} className="mr-2" /> Upgrade Plan
+              </DropdownMenuItem>
+            )}
+            {user?.is_super_admin && (
+              <DropdownMenuItem onClick={() => navigate('/superadmin')}>
+                <Shield size={14} className="mr-2" /> Platform Admin
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem data-testid="logout-btn" onClick={logout} className="text-red-600">
               <LogOut size={14} className="mr-2" /> Logout

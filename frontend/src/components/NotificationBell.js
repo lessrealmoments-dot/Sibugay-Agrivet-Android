@@ -6,13 +6,14 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, useAuth } from '../contexts/AuthContext';
-import { Bell, Check, CheckCheck, Zap, CreditCard, Briefcase, Shield } from 'lucide-react';
+import { Bell, Check, CheckCheck, Zap, CreditCard, Briefcase, Shield, AlertTriangle } from 'lucide-react';
 
 const TYPE_ICONS = {
-  credit_sale:      { icon: CreditCard, color: 'text-blue-500',   bg: 'bg-blue-50'   },
-  employee_advance: { icon: Briefcase,  color: 'text-amber-500',  bg: 'bg-amber-50'  },
-  price_override:   { icon: Zap,        color: 'text-violet-500', bg: 'bg-violet-50' },
-  pin_used:         { icon: Shield,     color: 'text-slate-500',  bg: 'bg-slate-50'  },
+  credit_sale:            { icon: CreditCard,    color: 'text-blue-500',   bg: 'bg-blue-50'   },
+  employee_advance:       { icon: Briefcase,     color: 'text-amber-500',  bg: 'bg-amber-50'  },
+  price_override:         { icon: Zap,           color: 'text-violet-500', bg: 'bg-violet-50' },
+  pin_used:               { icon: Shield,        color: 'text-slate-500',  bg: 'bg-slate-50'  },
+  security_alert:         { icon: AlertTriangle, color: 'text-red-600',    bg: 'bg-red-50'    },
 };
 
 function timeAgo(isoStr) {

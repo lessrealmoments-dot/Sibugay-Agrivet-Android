@@ -73,9 +73,10 @@ PLAN_FEATURES = {
 }
 # Trial gets all Pro features
 PLAN_FEATURES["trial"] = PLAN_FEATURES["pro"]
+PLAN_FEATURES["founders"] = {**PLAN_FEATURES["pro"]}  # All Pro features, never expires
 PLAN_FEATURES["suspended"] = PLAN_FEATURES["basic"]
-PLAN_FEATURES["grace_period"] = PLAN_FEATURES["pro"]  # Full access during grace
-PLAN_FEATURES["expired"] = PLAN_FEATURES["basic"]    # Locked = basic features only
+PLAN_FEATURES["grace_period"] = PLAN_FEATURES["pro"]
+PLAN_FEATURES["expired"] = PLAN_FEATURES["basic"]
 
 GRACE_PERIOD_DAYS = 3
 

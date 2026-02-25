@@ -281,8 +281,22 @@ async def verify_admin_action(data: dict, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Code is required")
 
     admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0}).to_list(20)
+    first_admin = admins[0] if admins else None
+    admin_name = first_admin.get("full_name", first_admin.get("username", "Admin")) if first_admin else "Admin"
+    admin_id = first_admin["id"] if first_admin else "system"
+
+    # ── Owner PIN mode ────────────────────────────────────────────────────────
+    if mode == "pin":
+        pin_doc = await db.system_settings.find_one({"key": "admin_pin"}, {"_id": 0})
+        if pin_doc and pin_doc.get("pin_hash"):
+            if verify_password(str(code), pin_doc["pin_hash"]):
+                if context and first_admin:
+                    await create_pin_notification(context, admin_id, admin_name)
+                return {"valid": True, "manager_id": admin_id, "manager_name": admin_name, "mode_used": "pin"}
+        return {"valid": False, "error": "Invalid Owner PIN"}
 
     for admin in admins:
+        # ── TOTP mode ─────────────────────────────────────────────────────────
         if mode == "totp":
             secret = admin.get("totp_secret")
             if secret and admin.get("totp_enabled"):
@@ -299,6 +313,7 @@ async def verify_admin_action(data: dict, user=Depends(get_current_user)):
                         "manager_name": admin.get("full_name", admin.get("username", "")),
                         "mode_used": "totp",
                     }
+        # ── Password mode ─────────────────────────────────────────────────────
         elif mode == "password":
             if verify_password(code, admin.get("password_hash", "")):
                 if context:

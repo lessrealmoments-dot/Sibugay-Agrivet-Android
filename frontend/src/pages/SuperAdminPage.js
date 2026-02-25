@@ -126,6 +126,49 @@ export default function SuperAdminPage() {
 
   useEffect(() => { load(); loadPayment(); }, [load, loadPayment]);
 
+  const loadSubmissions = useCallback(async () => {
+    setSubmissionsLoading(true);
+    try {
+      const r = await api.get('/superadmin/payment-submissions?status=all');
+      setSubmissions(r.data.submissions || []);
+    } catch {}
+    setSubmissionsLoading(false);
+  }, []);
+
+  const handleApprove = async () => {
+    if (!approveModal) return;
+    setActionLoading(true);
+    try {
+      await api.post(`/superadmin/organizations/${approveModal.org.id}/approve-subscription`, {
+        plan: approveForm.plan,
+        extra_branches: parseInt(approveForm.extra_branches) || 0,
+        subscription_expires_at: approveForm.subscription_expires_at || null,
+        note: approveForm.note,
+      });
+      toast.success(`Subscription approved for ${approveModal.org.name}`);
+      setApproveModal(null);
+      load();
+      loadSubmissions();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setActionLoading(false);
+  };
+
+  const handleReject = async () => {
+    if (!rejectModal || !rejectReason.trim()) { toast.error('Reason is required'); return; }
+    setActionLoading(true);
+    try {
+      await api.post(`/superadmin/organizations/${rejectModal.org.id}/reject-subscription`, {
+        reason: rejectReason,
+        plan: rejectModal.submission?.plan_requested || rejectModal.org.plan,
+      });
+      toast.success(`Rejection sent to ${rejectModal.org.name}`);
+      setRejectModal(null);
+      setRejectReason('');
+      loadSubmissions();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setActionLoading(false);
+  };
+
   const loadOrgBranches = async (orgId) => {
     if (orgBranches[orgId]) return;
     try {

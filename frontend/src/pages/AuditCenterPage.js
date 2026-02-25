@@ -1228,6 +1228,43 @@ export default function AuditCenterPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Security Flags section inside audit run */}
+              {auditData.security && (auditData.security.total_events > 0 || true) && (
+                <Card className={`border-2 ${auditData.security.total_events > 0 ? (auditData.security.status === 'critical' ? 'border-red-300' : 'border-amber-300') : 'border-slate-200'}`}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                      <KeyRound size={15} className={auditData.security.total_events > 0 ? 'text-red-500' : 'text-emerald-500'} />
+                      Security Flags — Repeated Wrong PIN Attempts
+                      {auditData.security.total_events > 0 ? (
+                        <Badge className={`text-[10px] ml-1 ${auditData.security.status === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {auditData.security.total_events} event(s) flagged
+                        </Badge>
+                      ) : (
+                        <Badge className="text-[10px] ml-1 bg-emerald-100 text-emerald-700">Clean</Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {auditData.security.total_events === 0 ? (
+                      <p className="text-sm text-emerald-600">No employees had repeated wrong PIN attempts during this audit period.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-slate-700">{auditData.security.flag}</p>
+                        {auditData.security.detail?.map((line, i) => (
+                          <p key={i} className="text-xs text-slate-600 flex items-start gap-2">
+                            <AlertTriangle size={11} className="text-amber-500 shrink-0 mt-0.5" />{line}
+                          </p>
+                        ))}
+                        <Button size="sm" variant="outline" className="mt-2 text-xs"
+                          onClick={() => setTab('security')}>
+                          <Eye size={12} className="mr-1" /> View & Acknowledge in Security Flags tab
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
         </TabsContent>

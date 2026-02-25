@@ -1,0 +1,75 @@
+{
+  "summary": "Phase 2 testing: Admin portal TOTP, email notifications, grace period logic, daily scheduler, email-only login. 37/37 backend tests pass. All 15 specified features verified via backend tests + Playwright UI. One bug fixed: /auth/me missing grace_info in subscription response.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/auth/me",
+        "issue": "subscription response was missing grace_info field — Layout.js grace period banner would not show after page refresh. FIXED in routes/auth.py by adding get_grace_info() call.",
+        "priority": "MEDIUM (now fixed)"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "AuthContext login() → user.subscription",
+        "issue": "After login(), setUser(res.data.user) sets user without subscription. subscription is only set after fetchUser() calls /auth/me (triggered by token change useEffect). During this brief window, user.subscription is undefined so Layout.js banners don't render. Functionally acceptable since fetchUser resolves quickly.",
+        "affected_selectors": ["Layout.js grace period banner"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_admin_grace.py",
+    "/app/test_reports/pytest/pytest_phase2_admin_grace.xml"
+  ],
+  "action_items": [
+    "COMPLETED: /auth/me now includes grace_info in subscription response (fixed in routes/auth.py)",
+    "OPTIONAL: The admin_auth/status endpoint publicly reveals whether a super admin exists (has_super_admin=true/false) — consider removing or returning a generic response for security hardening",
+    "OPTIONAL: admin_auth/verify-setup returns HTTP 200 with verified:false for wrong codes — could use 400 for clearer REST semantics",
+    "OPTIONAL: In AuthContext.login(), consider also calling fetchUser() immediately or setting user from the login response's subscription alongside user properties"
+  ],
+  "critical_code_review_comments": [
+    "routes/auth.py get_me(): Missing grace_info in subscription response (FIXED). Without this fix, the grace period and expired banners in Layout.js would not show after page refresh since fetchUser() populates user from /auth/me.",
+    "routes/admin_auth.py verify_totp_setup(): Returns HTTP 200 with {verified: false} for wrong TOTP code (lines 192-193). While consistent with the frontend expectation, HTTP 400 would be more RESTful for failed verification.",
+    "routes/admin_auth.py status endpoint: Publicly reveals has_super_admin=true, which is information disclosure. An attacker scanning for admin portals would know the /admin route is active.",
+    "main.py startup: Daily subscription check at 9 AM is correctly registered. Both jobs (daily_backup, daily_subscription_check) confirmed in backend logs.",
+    "services/email_service.py: Resend API key confirmed present (re_ZzpSe5Fo_...). SENDER_EMAIL = onboarding@resend.dev (Resend test sender — production should use custom domain for deliverability)."
+  ],
+  "updated_files": [
+    "/app/backend/routes/auth.py (added grace_info to /auth/me subscription response)",
+    "/app/backend/tests/test_phase2_admin_grace.py (new test file, 37 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (37/37 tests pass)",
+    "frontend": "100% (all 15 feature scenarios verified)"
+  },
+  "seed_data_creation": "GRACE_TEST_ORG created for grace/expired banner testing (trial reset to 14 days from now after tests)",
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "owner": "sibugayagrivetsupply@gmail.com / 521325",
+    "grace_test": "gracetest_phase2@testmail.com / Test@123456 (trial restored to 14 days)"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 2 features all work: admin portal at /admin (TOTP setup flow with QR code), email-only login, owner email updated, grace period banners (grace=amber, expired=red), daily subscription scheduler at 9 AM. The only bug was /auth/me missing grace_info (now fixed). Admin portal TOTP is still in setup mode (totp_ready=false) — the super admin has not yet scanned the QR code and verified a TOTP code. When they do, verify-setup will enable TOTP and email backup codes. Recovery flow exists but cannot be tested until TOTP is set up (backup codes are only generated after verify-setup). Email service uses Resend with onboarding@resend.dev sender (Resend testing mode — production needs custom domain).",
+  "phase2_feature_checklist": {
+    "admin_portal_separate": "PASS — /admin shows Platform Administration portal (not regular login)",
+    "admin_step1_pending_token": "PASS — POST /api/admin-auth/login returns pending_token + totp_ready",
+    "admin_totp_setup_qr": "PASS — POST /api/admin-auth/setup-totp returns QR URI (otpauth://totp/...)",
+    "admin_totp_verify_setup": "PASS — wrong code returns verified:false error message",
+    "admin_recovery_flow": "PASS — recovery link exists in TOTP step, invalid code shows error",
+    "email_only_login": "PASS — /login shows Email Address (type=email), no Username field",
+    "owner_login": "PASS — sibugayagrivetsupply@gmail.com / 521325 redirects to dashboard",
+    "admin_status_endpoint": "PASS — GET /api/admin-auth/status returns has_super_admin + totp_ready",
+    "plans_endpoint": "PASS — GET /api/organizations/plans returns plans + trial_days=14 + extra_branch pricing",
+    "auth_me_grace_info": "FIXED — /auth/me now returns grace_info in subscription response",
+    "grace_period_banner": "PASS — Red banner shows 'Your account locks TODAY. Renew your subscription to keep access.'",
+    "expired_lock_banner": "PASS — Red banner shows 'Your subscription has expired. Access to most features is locked.'",
+    "email_service_send_welcome": "PASS — send_welcome function exists, uses Resend API with configured key",
+    "daily_scheduler": "PASS — daily_subscription_check at 9 AM confirmed in code + logs",
+    "admin_portal_not_linked": "PASS — No /admin links on landing page or /login page"
+  }
+}

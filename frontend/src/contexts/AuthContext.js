@@ -213,11 +213,17 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { fetchUser(); }, [fetchUser]);
 
-  const login = async (username, password) => {
-    const res = await api.post('/auth/login', { username, password });
+  const login = async (identifier, password) => {
+    // Support both email and username via the 'email' field (backend checks both)
+    const res = await api.post('/auth/login', { email: identifier, password });
     localStorage.setItem('agripos_token', res.data.token);
     setToken(res.data.token);
     setUser(res.data.user);
+    
+    // Store subscription info if present
+    if (res.data.subscription) {
+      localStorage.setItem('agripos_subscription', JSON.stringify(res.data.subscription));
+    }
     
     // Set branch based on user's access
     if (res.data.user.branch_id) {

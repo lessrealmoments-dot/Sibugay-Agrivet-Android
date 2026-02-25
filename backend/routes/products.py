@@ -4,7 +4,7 @@ Product management routes: CRUD, repacks, pricing, search.
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from config import db
-from utils import get_current_user, check_perm, now_iso, new_id, get_product_price
+from utils import get_current_user, check_perm, has_perm, now_iso, new_id, get_product_price
 
 router = APIRouter(prefix="/products", tags=["Products"])
 

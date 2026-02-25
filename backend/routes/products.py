@@ -16,10 +16,16 @@ async def list_products(
     category: Optional[str] = None,
     is_repack: Optional[bool] = None,
     parent_id: Optional[str] = None,
+    sort_by: Optional[str] = "name",   # "name" | "type" | "grouped"
     skip: int = 0,
     limit: int = 50
 ):
-    """List products with optional filters."""
+    """List products with optional filters.
+    sort_by:
+      name    — alphabetical by product name (default)
+      type    — parents first (A-Z), then repacks (A-Z)
+      grouped — parents A-Z, each parent's repacks immediately below (tree order)
+    """
     query = {"active": True}
     if search:
         query["$or"] = [
@@ -32,9 +38,44 @@ async def list_products(
         query["is_repack"] = is_repack
     if parent_id:
         query["parent_id"] = parent_id
-    
+
+    if sort_by == "grouped":
+        # Aggregation: lookup parent name → sort by [parent_name_or_own, is_repack, name]
+        pipeline = [
+            {"$match": query},
+            {"$lookup": {
+                "from": "products",
+                "localField": "parent_id",
+                "foreignField": "id",
+                "as": "_parent_doc"
+            }},
+            {"$addFields": {
+                "_sort_key": {
+                    "$cond": {
+                        "if": {"$eq": ["$is_repack", True]},
+                        "then": {"$toLower": {"$ifNull": [{"$arrayElemAt": ["$_parent_doc.name", 0]}, "$name"]}},
+                        "else": {"$toLower": "$name"}
+                    }
+                },
+                "_is_repack_int": {"$cond": [{"$eq": ["$is_repack", True]}, 1, 0]}
+            }},
+            {"$sort": {"_sort_key": 1, "_is_repack_int": 1, "name": 1}},
+            {"$project": {"_id": 0, "_parent_doc": 0, "_sort_key": 0, "_is_repack_int": 0}},
+        ]
+        count_pipeline = [{"$match": query}, {"$count": "total"}]
+        count_result = await db.products.aggregate(count_pipeline).to_list(1)
+        total = count_result[0]["total"] if count_result else 0
+        pipeline += [{"$skip": skip}, {"$limit": limit}]
+        products = await db.products.aggregate(pipeline).to_list(limit)
+        return {"products": products, "total": total, "skip": skip, "limit": limit}
+
+    elif sort_by == "type":
+        mongo_sort = [("is_repack", 1), ("name", 1)]   # parents (False=0) before repacks (True=1)
+    else:
+        mongo_sort = [("name", 1)]  # default: alphabetical
+
     total = await db.products.count_documents(query)
-    products = await db.products.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    products = await db.products.find(query, {"_id": 0}).sort(mongo_sort).skip(skip).limit(limit).to_list(limit)
     return {"products": products, "total": total, "skip": skip, "limit": limit}
 
 

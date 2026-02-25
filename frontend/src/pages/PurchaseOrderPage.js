@@ -1599,7 +1599,6 @@ export default function PurchaseOrderPage() {
           </div>
         </div>
       )}
-    </div>
 
     {/* Smart Capital Pricing Dialog */}
     {capitalDialog && capitalPreview && (

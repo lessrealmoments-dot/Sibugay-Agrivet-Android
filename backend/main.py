@@ -288,7 +288,7 @@ async def startup():
 
     # ── Provision 4-wallet system for all existing branches ──────────────────
     from utils import provision_branch_wallets
-    branches = await db.branches.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    branches = await _raw_db.branches.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
     provisioned = 0
     for branch in branches:
         await provision_branch_wallets(branch["id"], branch.get("name", ""))

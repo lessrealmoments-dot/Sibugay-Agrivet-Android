@@ -678,7 +678,7 @@ function EditSubscriptionModal({ org, onClose, onSaved }) {
   );
 }
 
-const PLAN_LIMITS_MAP = { trial: 5, basic: 1, standard: 2, pro: 5, suspended: 0 };
+const PLAN_LIMITS_MAP = { trial: 5, basic: 1, standard: 2, pro: 5, founders: 0, suspended: 0 };
 
 /* ── Feature Flags Panel ────────────────────────────────────────────────── */
 function FeatureFlagsPanel() {

@@ -62,12 +62,12 @@ export default function RegisterPage() {
           <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle size={32} className="text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-3">You're in! 🎉</h2>
+          <h2 className="text-2xl font-bold text-white mb-3">You're in!</h2>
           <p className="text-slate-400 mb-2">
             <strong className="text-white">{form.company_name}</strong> has been created.
           </p>
           <p className="text-slate-500 text-sm mb-8">
-            Your 14-day Pro trial starts now. Sign in and complete your setup by creating your first branch.
+            Your 14-day Pro trial starts now. Your first branch has been set up — sign in to start using AgriBooks.
           </p>
           <Button
             onClick={() => navigate('/login')}

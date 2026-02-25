@@ -4,7 +4,7 @@ Access: janmarkeahig@gmail.com only (is_super_admin=True).
 """
 from fastapi import APIRouter, Depends, HTTPException
 from config import _raw_db
-from utils import hash_password, now_iso, new_id
+from utils import now_iso, new_id
 from utils.auth import get_current_user
 from routes.organizations import PLAN_LIMITS, PLAN_PRICING, get_effective_plan
 from datetime import datetime, timezone, timedelta
@@ -19,6 +19,40 @@ def require_super_admin(user=Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
+# Platform Stats
+# ---------------------------------------------------------------------------
+@router.get("/stats")
+async def platform_stats(user=Depends(require_super_admin)):
+    now = datetime.now(timezone.utc)
+    total_orgs = await _raw_db.organizations.count_documents({})
+    trial_orgs = await _raw_db.organizations.count_documents({"plan": "trial"})
+    active_orgs = await _raw_db.organizations.count_documents({"subscription_status": "active"})
+    suspended_orgs = await _raw_db.organizations.count_documents({"plan": "suspended"})
+    total_users = await _raw_db.users.count_documents({"active": True, "is_super_admin": {"$ne": True}})
+
+    # Expiring trials in next 7 days
+    week_out = (now + timedelta(days=7)).isoformat()
+    expiring_soon = await _raw_db.organizations.count_documents({
+        "plan": "trial",
+        "trial_ends_at": {"$lt": week_out, "$gt": now.isoformat()}
+    })
+
+    plan_counts = {}
+    for plan in ["basic", "standard", "pro"]:
+        plan_counts[plan] = await _raw_db.organizations.count_documents({"plan": plan})
+
+    return {
+        "total_organizations": total_orgs,
+        "trial": trial_orgs,
+        "active": active_orgs,
+        "suspended": suspended_orgs,
+        "total_users": total_users,
+        "expiring_soon": expiring_soon,
+        "by_plan": plan_counts,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Organizations
 # ---------------------------------------------------------------------------
 @router.get("/organizations")
@@ -26,7 +60,6 @@ async def list_organizations(user=Depends(require_super_admin)):
     orgs = await _raw_db.organizations.find({}, {"_id": 0}).to_list(500)
     result = []
     for org in orgs:
-        # Count branches and users for each org
         branch_count = await _raw_db.branches.count_documents({"organization_id": org["id"], "active": True})
         user_count = await _raw_db.users.count_documents({"organization_id": org["id"], "active": True})
         org["branch_count"] = branch_count
@@ -41,39 +74,70 @@ async def get_organization(org_id: str, user=Depends(require_super_admin)):
     org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    branch_count = await _raw_db.branches.count_documents({"organization_id": org_id, "active": True})
+    user_count = await _raw_db.users.count_documents({"organization_id": org_id, "active": True})
+    org["branch_count"] = branch_count
+    org["user_count"] = user_count
+    org["effective_plan"] = get_effective_plan(org)
     return org
+
+
+@router.get("/organizations/{org_id}/branches")
+async def get_org_branches(org_id: str, user=Depends(require_super_admin)):
+    """List all branches for an organization."""
+    branches = await _raw_db.branches.find(
+        {"organization_id": org_id},
+        {"_id": 0, "id": 1, "name": 1, "address": 1, "active": 1, "is_main": 1, "created_at": 1}
+    ).to_list(100)
+    return branches
+
+
+@router.get("/organizations/{org_id}/users")
+async def get_org_users(org_id: str, user=Depends(require_super_admin)):
+    """List all users for an organization."""
+    users = await _raw_db.users.find(
+        {"organization_id": org_id},
+        {"_id": 0, "id": 1, "username": 1, "full_name": 1, "email": 1, "role": 1, "active": 1, "created_at": 1}
+    ).to_list(100)
+    return users
 
 
 @router.put("/organizations/{org_id}/subscription")
 async def update_subscription(org_id: str, data: dict, user=Depends(require_super_admin)):
-    """Update an organization's plan/subscription status."""
+    """Update an organization's plan/subscription."""
     plan = data.get("plan")
     valid_plans = ["trial", "basic", "standard", "pro", "suspended"]
     if plan and plan not in valid_plans:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Choose: {valid_plans}")
 
+    existing = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
     update = {"updated_at": now_iso()}
+
+    effective_plan = plan or existing.get("plan", "basic")
     if plan:
         update["plan"] = plan
         update["subscription_status"] = "trial" if plan == "trial" else ("suspended" if plan == "suspended" else "active")
-        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["basic"])
-        update["max_branches"] = limits["max_branches"] + data.get("extra_branches", 0)
-        update["max_users"] = limits["max_users"]
 
-    if "extra_branches" in data:
-        update["extra_branches"] = int(data["extra_branches"])
-        existing = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
-        if existing:
-            base_plan = plan or existing.get("plan", "basic")
-            base_limit = PLAN_LIMITS.get(base_plan, PLAN_LIMITS["basic"])["max_branches"]
-            update["max_branches"] = base_limit + int(data["extra_branches"])
+    # Extra branches
+    extra = int(data.get("extra_branches", existing.get("extra_branches", 0)))
+    base_limit = PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"])["max_branches"]
+    update["max_branches"] = base_limit + extra
+    update["extra_branches"] = extra
+    update["max_users"] = PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"])["max_users"]
 
-    if "trial_days" in data:
-        days = int(data["trial_days"])
-        trial_end = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
+    # Trial extension
+    if "trial_days" in data and int(data["trial_days"]) > 0:
+        trial_end = (datetime.now(timezone.utc) + timedelta(days=int(data["trial_days"]))).isoformat()
         update["trial_ends_at"] = trial_end
         update["plan"] = "trial"
         update["subscription_status"] = "trial"
+
+    # Subscription expiry (for paid plans)
+    if "subscription_expires_at" in data:
+        update["subscription_expires_at"] = data["subscription_expires_at"]
 
     if "notes" in data:
         update["admin_notes"] = data["notes"]
@@ -81,75 +145,71 @@ async def update_subscription(org_id: str, data: dict, user=Depends(require_supe
     await _raw_db.organizations.update_one({"id": org_id}, {"$set": update})
     updated = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
 
-    # Send email notification to org owner
+    # Email notification
     if updated and updated.get("owner_email"):
         import asyncio
         from services.email_service import send_subscription_activated
         new_plan = update.get("plan", updated.get("plan", "basic"))
         if new_plan not in ("suspended", "trial"):
-            expires_str = data.get("expires_display", "")
             asyncio.create_task(send_subscription_activated(
-                updated["owner_email"], updated["name"], new_plan, expires_str
+                updated["owner_email"], updated["name"], new_plan,
+                data.get("expires_display", "")
             ))
 
+    updated["branch_count"] = await _raw_db.branches.count_documents({"organization_id": org_id, "active": True})
+    updated["user_count"] = await _raw_db.users.count_documents({"organization_id": org_id, "active": True})
+    updated["effective_plan"] = get_effective_plan(updated)
     return updated
 
 
-@router.delete("/organizations/{org_id}/suspend")
-async def suspend_organization(org_id: str, user=Depends(require_super_admin)):
-    await _raw_db.organizations.update_one(
-        {"id": org_id},
-        {"$set": {"plan": "suspended", "subscription_status": "suspended", "updated_at": now_iso()}}
+@router.put("/organizations/{org_id}/info")
+async def update_org_info(org_id: str, data: dict, user=Depends(require_super_admin)):
+    """Update organization name/contact info."""
+    allowed = ["name", "owner_email", "phone", "address", "admin_notes"]
+    update = {k: v for k, v in data.items() if k in allowed}
+    update["updated_at"] = now_iso()
+    await _raw_db.organizations.update_one({"id": org_id}, {"$set": update})
+    return await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+
+
+# ---------------------------------------------------------------------------
+# Platform Settings (Payment QR codes, etc.)
+# ---------------------------------------------------------------------------
+@router.get("/settings/payment")
+async def get_payment_settings(user=Depends(require_super_admin)):
+    """Get platform payment configuration."""
+    setting = await _raw_db.platform_settings.find_one({"key": "payment_methods"}, {"_id": 0})
+    if not setting:
+        return {"key": "payment_methods", "value": {}}
+    # Strip QR base64 preview from response for speed — frontend requests full when needed
+    return setting
+
+
+@router.put("/settings/payment")
+async def update_payment_settings(data: dict, user=Depends(require_super_admin)):
+    """Update platform payment configuration (QR codes, account numbers)."""
+    now = now_iso()
+    await _raw_db.platform_settings.update_one(
+        {"key": "payment_methods"},
+        {"$set": {
+            "key": "payment_methods",
+            "value": data.get("value", {}),
+            "updated_at": now,
+            "updated_by": user.get("email"),
+        }},
+        upsert=True
     )
-    return {"message": "Organization suspended"}
+    result = await _raw_db.platform_settings.find_one({"key": "payment_methods"}, {"_id": 0})
+    return result
 
 
 # ---------------------------------------------------------------------------
-# Stats dashboard
+# Public: Payment info for Upgrade page
 # ---------------------------------------------------------------------------
-@router.get("/stats")
-async def platform_stats(user=Depends(require_super_admin)):
-    total_orgs = await _raw_db.organizations.count_documents({})
-    trial_orgs = await _raw_db.organizations.count_documents({"plan": "trial"})
-    active_orgs = await _raw_db.organizations.count_documents({"subscription_status": "active"})
-    suspended_orgs = await _raw_db.organizations.count_documents({"plan": "suspended"})
-    total_users = await _raw_db.users.count_documents({"active": True, "is_super_admin": {"$ne": True}})
-
-    plan_counts = {}
-    for plan in ["basic", "standard", "pro"]:
-        plan_counts[plan] = await _raw_db.organizations.count_documents({"plan": plan})
-
-    return {
-        "total_organizations": total_orgs,
-        "trial": trial_orgs,
-        "active": active_orgs,
-        "suspended": suspended_orgs,
-        "total_users": total_users,
-        "by_plan": plan_counts,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Demo org management
-# ---------------------------------------------------------------------------
-@router.post("/demo/reset")
-async def reset_demo_org(data: dict, user=Depends(require_super_admin)):
-    """Reset the demo organization data to its original snapshot."""
-    demo_org = await _raw_db.organizations.find_one({"is_demo": True}, {"_id": 0})
-    if not demo_org:
-        raise HTTPException(status_code=404, detail="No demo organization found")
-
-    demo_org_id = demo_org["id"]
-
-    # Collections to reset (delete all demo org data)
-    RESETABLE = [
-        'branches', 'products', 'inventory', 'customers', 'invoices', 'sales',
-        'purchase_orders', 'suppliers', 'employees', 'movements', 'fund_wallets',
-        'wallet_movements', 'fund_transfers', 'expenses', 'branch_prices',
-        'branch_transfer_orders', 'count_sheets', 'daily_closings', 'sales_log',
-        'returns', 'discrepancy_log', 'safe_lots', 'accounts_payable',
-    ]
-    for col_name in RESETABLE:
-        await _raw_db[col_name].delete_many({"organization_id": demo_org_id})
-
-    return {"message": "Demo org data cleared. Re-seed via /api/superadmin/demo/seed"}
+@router.get("/public/payment-info")
+async def get_public_payment_info():
+    """Public endpoint: returns payment methods for the upgrade page."""
+    setting = await _raw_db.platform_settings.find_one({"key": "payment_methods"}, {"_id": 0})
+    if not setting:
+        return {"configured": False, "methods": {}}
+    return {"configured": True, "methods": setting.get("value", {})}

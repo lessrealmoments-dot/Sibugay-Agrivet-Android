@@ -79,7 +79,20 @@ async def update_subscription(org_id: str, data: dict, user=Depends(require_supe
         update["admin_notes"] = data["notes"]
 
     await _raw_db.organizations.update_one({"id": org_id}, {"$set": update})
-    return await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+    updated = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+
+    # Send email notification to org owner
+    if updated and updated.get("owner_email"):
+        import asyncio
+        from services.email_service import send_subscription_activated
+        new_plan = update.get("plan", updated.get("plan", "basic"))
+        if new_plan not in ("suspended", "trial"):
+            expires_str = data.get("expires_display", "")
+            asyncio.create_task(send_subscription_activated(
+                updated["owner_email"], updated["name"], new_plan, expires_str
+            ))
+
+    return updated
 
 
 @router.delete("/organizations/{org_id}/suspend")

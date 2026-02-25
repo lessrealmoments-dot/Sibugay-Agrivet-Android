@@ -678,8 +678,12 @@ async def adjust_po_payment(po_id: str, data: dict, user=Depends(get_current_use
 
 
 @router.post("/{po_id}/receive")
-async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
-    """Receive a purchase order (Draft/Ordered) and update inventory. Uses shared helper."""
+async def receive_purchase_order(po_id: str, data: dict = None, user=Depends(get_current_user)):
+    """Receive a purchase order (Draft/Ordered) and update inventory.
+    Accepts optional body: { capital_choices: { product_id: "last_purchase"|"moving_average" } }
+    """
+    if data is None:
+        data = {}
     check_perm(user, "inventory", "adjust")
 
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
@@ -688,7 +692,8 @@ async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
     if po["status"] == "received":
         raise HTTPException(status_code=400, detail="PO already received")
 
-    await _apply_po_inventory(po, user)
+    capital_choices = data.get("capital_choices", {})
+    await _apply_po_inventory(po, user, capital_choices)
 
     await db.purchase_orders.update_one(
         {"id": po_id},
@@ -696,6 +701,69 @@ async def receive_purchase_order(po_id: str, user=Depends(get_current_user)):
     )
 
     return {"message": "PO received, inventory updated"}
+
+
+@router.get("/{po_id}/capital-preview")
+async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
+    """
+    Preview the capital impact of receiving a PO.
+    Returns each item with: current_capital, new_price, projected_moving_avg, needs_warning.
+    needs_warning=True when new_price < current_capital (price dropped).
+    """
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+
+    items_preview = []
+    for item in po.get("items", []):
+        pid = item.get("product_id")
+        if not pid:
+            continue
+        new_price = float(item.get("unit_price", 0))
+        qty = float(item.get("quantity", 0))
+
+        product = await db.products.find_one({"id": pid}, {"_id": 0})
+        if not product:
+            continue
+        current_capital = float(product.get("cost_price", 0))
+
+        # Historical moving average (before this purchase)
+        all_purchases = await db.movements.find(
+            {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
+        ).to_list(10000)
+        total_pqty = sum(m["quantity_change"] for m in all_purchases)
+        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
+        current_moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else current_capital
+
+        # Projected moving average AFTER this purchase
+        proj_qty = total_pqty + qty
+        proj_cost = total_pcost + qty * new_price
+        projected_moving_avg = round(proj_cost / proj_qty, 2) if proj_qty > 0 else new_price
+
+        needs_warning = new_price < current_capital and new_price > 0 and current_capital > 0
+        price_drop_pct = round((current_capital - new_price) / current_capital * 100, 1) if needs_warning else 0
+
+        items_preview.append({
+            "product_id": pid,
+            "product_name": item.get("product_name", product.get("name", "")),
+            "sku": product.get("sku", ""),
+            "qty": qty,
+            "unit": item.get("unit", product.get("unit", "")),
+            "new_price": new_price,
+            "current_capital": current_capital,
+            "current_moving_avg": current_moving_avg,
+            "projected_moving_avg": projected_moving_avg,
+            "needs_warning": needs_warning,
+            "price_drop_pct": price_drop_pct,
+        })
+
+    has_warnings = any(i["needs_warning"] for i in items_preview)
+    return {
+        "po_number": po.get("po_number", ""),
+        "vendor": po.get("vendor", ""),
+        "has_warnings": has_warnings,
+        "items": items_preview,
+    }
 
 
 @router.post("/{po_id}/generate-branch-transfer")

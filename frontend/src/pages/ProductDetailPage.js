@@ -25,6 +25,7 @@ export default function ProductDetailPage() {
   const [detail, setDetail] = useState(null);
   const [movements, setMovements] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [capitalHistory, setCapitalHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -71,8 +72,14 @@ export default function ProductDetailPage() {
     catch { }
   }, [id]);
 
+  const fetchCapitalHistory = useCallback(async () => {
+    try { const res = await api.get(`/products/${id}/capital-history`); setCapitalHistory(res.data || []); }
+    catch { }
+  }, [id]);
+
   useEffect(() => { fetchDetail(); api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, [fetchDetail]);
   useEffect(() => { fetchBranchOverrides(); }, [fetchBranchOverrides]);
+  useEffect(() => { fetchCapitalHistory(); }, [fetchCapitalHistory]);
 
   const handleSave = async () => {
     try {

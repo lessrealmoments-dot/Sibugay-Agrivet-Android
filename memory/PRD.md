@@ -130,6 +130,11 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Separate admin portal at /admin with Google Authenticator TOTP + backup codes
 - [x] Email notifications via Resend (welcome, trial warning, grace, locked, activated)
 - [x] 3-day grace period + daily subscription check scheduler - sends warnings + locks expired accounts
+- [x] Founders plan (unlimited branches, all features, never expires)
+- [x] Auto 30-day expiry for paid plans (Basic/Standard/Pro) when admin activates
+- [x] Branch limit enforcement (backend 400 + frontend disabled button + warning banner)
+- [x] Feature flag enforcement in navigation (nav items hidden based on plan's feature flags)
+- [x] /auth/me uses live feature flags from DB (not static defaults)
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

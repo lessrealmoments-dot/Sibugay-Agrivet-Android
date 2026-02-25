@@ -150,6 +150,11 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] GET /purchase-orders/{po_id}/capital-preview endpoint — returns per-item: current_capital, new_price, projected_moving_avg, needs_warning, price_drop_pct
 - [x] POST /purchase-orders/{po_id}/receive accepts capital_choices per product
 - [x] SmartCapitalDialog in PurchaseOrderPage — shows per-item table with price drop indicators, New Price vs Moving Avg toggle buttons, bulk actions, Confirm Receive
+- [x] GET /branch-transfers/{id}/capital-preview — compares transfer_capital vs destination branch capital
+- [x] SmartCapitalDialog in BranchTransferPage — same pattern, intercepts receive flow
+- [x] capital_changes MongoDB collection (tenant-isolated) — logged on PO receive, transfer receive, manual edit
+- [x] GET /products/{id}/capital-history endpoint
+- [x] Capital History accordion section in ProductDetailPage — timeline with source badges (PO/Transfer/Manual), price delta arrows, method labels, by whom
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

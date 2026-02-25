@@ -520,15 +520,16 @@ export default function SettingsPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
                   <ShieldCheck size={18} className="text-[#1A4D2E]" />
-                  Admin Verification PIN
+                  Owner PIN — For In-Person Approvals
                   {auditPinConfigured
                     ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Configured</Badge>
                     : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
                   }
                 </CardTitle>
                 <p className="text-sm text-slate-500">
-                  Used to authorize transaction verification (POs, Expenses, Branch Transfers).
-                  Separate from your login password. TOTP codes and Auditor PINs are also accepted.
+                  A private PIN <strong>only you know</strong> — never share it with workers.
+                  Used when you are physically present to authorize sensitive actions like inventory corrections and price edits.
+                  For remote approvals when you are away, use the Authenticator App (TOTP) in the Security tab instead.
                 </p>
               </CardHeader>
               <CardContent>

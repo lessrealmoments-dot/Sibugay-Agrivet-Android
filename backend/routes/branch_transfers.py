@@ -566,18 +566,33 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     # ── EXACT MATCH PATH: update inventory immediately ───────────────────────
     return await _apply_receipt(
         order, pending_items, shortages, excesses, from_branch_id, to_branch_id,
-        from_name, to_name, transfer_id, user, data.get("notes", "")
+        from_name, to_name, transfer_id, user, data.get("notes", ""),
+        capital_choices=data.get("capital_choices", {})
     )
 
 
 async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_branch_id,
-                          from_name, to_name, transfer_id, user, notes=""):
-    """Apply the inventory movement for a confirmed receipt."""
+                          from_name, to_name, transfer_id, user, notes="", capital_choices=None):
+    """Apply the inventory movement for a confirmed receipt.
+    capital_choices: dict of {product_id: "transfer_capital"|"moving_average"}
+      - "transfer_capital" (default): use the transfer's capital at destination
+      - "moving_average": use the moving average from PO history
+    """
+    if capital_choices is None:
+        capital_choices = {}
     for item in items:
         product_id = item["product_id"]
         qty_received = float(item.get("qty_received", item["qty"]))
         transfer_capital = float(item.get("transfer_capital") or item.get("branch_capital") or 0)
         branch_retail = float(item.get("branch_retail") or 0)
+
+        # Determine final capital at destination based on choice
+        choice = capital_choices.get(product_id, "transfer_capital")
+        if choice == "moving_average":
+            _, moving_avg = await _get_po_refs(product_id)
+            dest_capital = moving_avg if moving_avg > 0 else transfer_capital
+        else:
+            dest_capital = transfer_capital
 
         if qty_received <= 0:
             continue

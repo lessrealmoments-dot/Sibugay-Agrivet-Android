@@ -77,6 +77,16 @@ export default function LandingPage() {
     },
   ];
 
+  // Get top included features for each plan (from dynamic data)
+  const getPlanHighlights = (planKey) => {
+    if (!featureMatrix) return [];
+    const planFlags = featureMatrix.flags[planKey] || {};
+    return featureMatrix.feature_definitions
+      .filter(f => planFlags[f.key] === true)
+      .slice(0, 6)
+      .map(f => f.name);
+  };
+
   return (
     <div className="min-h-screen bg-[#060D1A] text-white" style={{ fontFamily: 'Manrope, system-ui, sans-serif' }}>
 

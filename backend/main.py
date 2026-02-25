@@ -118,6 +118,12 @@ api_router.include_router(uploads_router)
 # Transaction Verification
 api_router.include_router(verify_router)
 
+# Organizations & Subscriptions
+api_router.include_router(organizations_router)
+
+# Super Admin (platform management)
+api_router.include_router(superadmin_router)
+
 # =============================================================================
 # STARTUP & SHUTDOWN
 # =============================================================================

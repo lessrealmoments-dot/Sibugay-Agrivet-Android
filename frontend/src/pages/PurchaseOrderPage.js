@@ -1724,5 +1724,6 @@ export default function PurchaseOrderPage() {
         </DialogContent>
       </Dialog>
     )}
+  </div>
   );
 }

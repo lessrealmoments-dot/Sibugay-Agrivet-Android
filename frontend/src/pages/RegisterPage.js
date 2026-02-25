@@ -58,7 +58,7 @@ export default function RegisterPage() {
   if (step === 2) {
     return (
       <div className="min-h-screen bg-[#060D1A] flex items-center justify-center p-6" style={{ fontFamily: 'Manrope, sans-serif' }}>
-        <div className="text-center max-w-md">
+        <div className="text-center max-w-lg">
           <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle size={32} className="text-emerald-400" />
           </div>
@@ -66,12 +66,40 @@ export default function RegisterPage() {
           <p className="text-slate-400 mb-2">
             <strong className="text-white">{form.company_name}</strong> has been created.
           </p>
-          <p className="text-slate-500 text-sm mb-8">
-            Your 14-day Pro trial starts now. Your first branch has been set up — sign in to start using AgriBooks.
+          <p className="text-slate-500 text-sm mb-6">
+            Your 14-day Pro trial starts now. Your first branch has been set up.
           </p>
+
+          {/* Security setup checklist */}
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 mb-6 text-left">
+            <p className="text-amber-300 font-semibold text-sm mb-3 flex items-center gap-2">
+              <Shield size={15} /> Complete your security setup after signing in
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-start gap-2.5">
+                <div className="w-5 h-5 rounded border border-amber-500/40 shrink-0 mt-0.5 flex items-center justify-center">
+                  <Hash size={11} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-white text-xs font-medium">Set your Owner PIN</p>
+                  <p className="text-slate-500 text-[11px]">Settings → Audit Setup → Owner PIN. Used for in-person approvals (inventory corrections, capital injections).</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="w-5 h-5 rounded border border-amber-500/40 shrink-0 mt-0.5 flex items-center justify-center">
+                  <Smartphone size={11} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-white text-xs font-medium">Set up Google Authenticator (TOTP)</p>
+                  <p className="text-slate-500 text-[11px]">Settings → Security → Set Up Now. For remote approvals when you're away — employee calls you, you read the code.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <Button
             onClick={() => navigate('/login')}
-            className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-8 py-3 h-auto rounded-xl"
+            className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-8 py-3 h-auto rounded-xl w-full"
           >
             Go to Sign In
           </Button>

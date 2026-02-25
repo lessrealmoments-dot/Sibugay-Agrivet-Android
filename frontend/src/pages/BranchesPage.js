@@ -69,12 +69,39 @@ export default function BranchesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Branches</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage your business locations</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Manage your business locations
+            {!isUnlimited && (
+              <span className={`ml-2 font-medium ${atLimit ? 'text-red-500' : 'text-slate-600'}`}>
+                ({branches.length}/{maxBranches} used)
+              </span>
+            )}
+            {isUnlimited && <span className="ml-2 text-emerald-600 font-medium">(Unlimited)</span>}
+          </p>
         </div>
-        <Button data-testid="create-branch-btn" onClick={openCreate} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+        <Button
+          data-testid="create-branch-btn"
+          onClick={openCreate}
+          disabled={atLimit}
+          title={atLimit ? `Branch limit reached (${branches.length}/${maxBranches}). Upgrade to add more.` : 'Add Branch'}
+          className={atLimit ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-[#1A4D2E] hover:bg-[#14532d] text-white'}
+        >
           <Plus size={16} className="mr-2" /> Add Branch
         </Button>
       </div>
+
+      {atLimit && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg p-4" data-testid="branch-limit-warning">
+          <AlertCircle size={18} className="text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Branch limit reached</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Your <span className="font-semibold capitalize">{planName}</span> plan allows {maxBranches} branch{maxBranches !== 1 ? 'es' : ''}.
+              {' '}To add more branches, upgrade your plan or purchase an Extra Branch add-on.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Card className="border-slate-200">
         <CardContent className="p-0">

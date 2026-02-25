@@ -258,7 +258,7 @@ export default function SuperAdminPage() {
                   className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-600 pl-9 h-10" />
               </div>
               <div className="flex gap-1.5">
-                {['all', 'trial', 'basic', 'standard', 'pro', 'suspended'].map(p => (
+                {['all', 'trial', 'basic', 'standard', 'pro', 'founders', 'suspended'].map(p => (
                   <button key={p} onClick={() => setFilterPlan(p)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filterPlan === p ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>
                     {p === 'all' ? 'All' : p.charAt(0).toUpperCase() + p.slice(1)}

@@ -253,6 +253,25 @@ export default function Layout({ children }) {
             </div>
           );
         })()}
+        {/* Trial expiry banner */}
+        {user?.subscription?.plan === 'trial' && (() => {
+          const daysLeft = user.subscription.trial_ends_at
+            ? Math.ceil((new Date(user.subscription.trial_ends_at) - new Date()) / 86400000)
+            : null;
+          if (!daysLeft || daysLeft > 5) return null;
+          return (
+            <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-amber-800">
+                Your free trial ends in <strong>{daysLeft} day{daysLeft !== 1 ? 's' : ''}</strong>.
+                Upgrade to keep access to all features.
+              </span>
+              <button onClick={() => navigate('/upgrade')}
+                className="text-xs bg-amber-600 text-white px-3 py-1 rounded-full hover:bg-amber-700 shrink-0">
+                Upgrade Now
+              </button>
+            </div>
+          );
+        })()}
         <div className="flex-1 overflow-auto p-4 lg:p-6">
           {children}
         </div>

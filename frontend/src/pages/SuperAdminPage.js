@@ -6,8 +6,8 @@ import {
   Building2, Users, BarChart3, Shield, RefreshCw, ArrowLeft,
   CheckCircle, AlertTriangle, XCircle, ChevronDown, ChevronUp,
   Search, TrendingUp, Edit3, Save, X, Plus, Minus, GitBranch,
-  CreditCard, Upload, Eye, EyeOff, Globe, Phone, Settings,
-  Clock, Layers, Image, Trash2, ExternalLink
+  CreditCard, Upload, Globe, Phone, Settings,
+  Clock, Layers, Trash2, Star
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';

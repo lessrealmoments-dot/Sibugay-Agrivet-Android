@@ -29,6 +29,8 @@ from .returns import router as returns_router
 from .audit import router as audit_router
 from .uploads import router as uploads_router
 from .verify import router as verify_router
+from .organizations import router as organizations_router
+from .superadmin import router as superadmin_router
 
 __all__ = [
     'auth_router', 'branches_router', 'users_router', 'products_router',
@@ -37,5 +39,6 @@ __all__ = [
     'daily_ops_router', 'suppliers_router', 'sync_router', 'employees_router',
     'settings_router', 'count_sheets_router', 'setup_router', 'branch_prices_router',
     'import_router', 'notifications_router', 'branch_transfers_router', 'reports_router',
-    'returns_router', 'audit_router', 'uploads_router',
+    'returns_router', 'audit_router', 'uploads_router', 'verify_router',
+    'organizations_router', 'superadmin_router',
 ]

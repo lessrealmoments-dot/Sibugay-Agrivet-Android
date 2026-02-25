@@ -69,12 +69,31 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
         choice = capital_choices.get(pid, "last_purchase")
         new_capital = moving_avg if choice == "moving_average" else price
 
+        # Fetch old capital to log the change
+        product = await db.products.find_one({"id": pid}, {"_id": 0})
+        old_capital = float(product.get("cost_price", 0)) if product else 0
+
         product_update = {
             "last_vendor": po["vendor"],
             "cost_price": new_capital,
             "moving_average_cost": moving_avg,
         }
         await db.products.update_one({"id": pid}, {"$set": product_update})
+
+        # Log capital change
+        await db.capital_changes.insert_one({
+            "id": new_id(),
+            "product_id": pid,
+            "old_capital": old_capital,
+            "new_capital": new_capital,
+            "method": choice,
+            "source_type": "purchase_order",
+            "source_ref": po["po_number"],
+            "vendor": po.get("vendor", ""),
+            "changed_by_id": user["id"],
+            "changed_by_name": user.get("full_name", user.get("username", "")),
+            "changed_at": now_iso(),
+        })
 
         # Update vendor last_price
         await db.product_vendors.update_many(

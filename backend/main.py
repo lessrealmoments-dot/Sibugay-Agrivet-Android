@@ -264,26 +264,26 @@ async def startup():
     await _raw_db.products.create_index("parent_id")
     # Text index for fast product search (name + sku + barcode)
     try:
-        await db.products.create_index(
+        await _raw_db.products.create_index(
             [("name", "text"), ("sku", "text"), ("barcode", "text")],
             name="product_text_search", default_language="none"
         )
     except Exception:
         pass  # Index may already exist with different options
-    await db.inventory.create_index([("product_id", 1), ("branch_id", 1)], unique=True)
-    await db.sales.create_index("branch_id")
-    await db.sales.create_index("created_at")
-    await db.invoices.create_index("branch_id")
-    await db.invoices.create_index("customer_id")
-    await db.invoices.create_index("created_at")
-    await db.customers.create_index("id", unique=True)
-    await db.customers.create_index("branch_id")
-    await db.branches.create_index("id", unique=True)
-    await db.movements.create_index([("product_id", 1), ("branch_id", 1)])
-    await db.movements.create_index("created_at")
-    await db.branch_prices.create_index([("product_id", 1), ("branch_id", 1)], unique=True)
-    await db.notifications.create_index("created_at")
-    await db.notifications.create_index("target_user_ids")
+    await _raw_db.inventory.create_index([("product_id", 1), ("branch_id", 1)], unique=True)
+    await _raw_db.sales.create_index("branch_id")
+    await _raw_db.sales.create_index("created_at")
+    await _raw_db.invoices.create_index("branch_id")
+    await _raw_db.invoices.create_index("customer_id")
+    await _raw_db.invoices.create_index("created_at")
+    await _raw_db.customers.create_index("id", unique=True)
+    await _raw_db.customers.create_index("branch_id")
+    await _raw_db.branches.create_index("id", unique=True)
+    await _raw_db.movements.create_index([("product_id", 1), ("branch_id", 1)])
+    await _raw_db.movements.create_index("created_at")
+    await _raw_db.branch_prices.create_index([("product_id", 1), ("branch_id", 1)], unique=True)
+    await _raw_db.notifications.create_index("created_at")
+    await _raw_db.notifications.create_index("target_user_ids")
     logger.info("Database indexes created")
 
     # ── Provision 4-wallet system for all existing branches ──────────────────

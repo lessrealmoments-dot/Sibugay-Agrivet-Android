@@ -371,6 +371,12 @@ export default function LandingPage() {
                       <CheckCircle size={14} className="text-emerald-500 shrink-0" />
                       {plan.users}
                     </div>
+                    {getPlanHighlights(plan.key).map(f => (
+                      <div key={f} className="flex items-center gap-2">
+                        <CheckCircle size={14} className="text-emerald-500 shrink-0" />
+                        {f}
+                      </div>
+                    ))}
                   </div>
                   <Button
                     onClick={() => navigate('/register')}

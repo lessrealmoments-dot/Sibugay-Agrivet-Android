@@ -16,21 +16,23 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs'
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
 const PLAN_COLORS = {
-  trial: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  basic: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-  standard: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-  pro: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-  suspended: 'bg-red-500/15 text-red-300 border-red-500/30',
-  grace_period: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  expired: 'bg-red-500/15 text-red-400 border-red-500/30',
+  trial:       'bg-blue-500/15 text-blue-300 border-blue-500/30',
+  basic:       'bg-slate-500/15 text-slate-300 border-slate-500/30',
+  standard:    'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  pro:         'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+  founders:    'bg-amber-400/20 text-amber-300 border-amber-400/40',
+  suspended:   'bg-red-500/15 text-red-300 border-red-500/30',
+  grace_period:'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  expired:     'bg-red-500/15 text-red-400 border-red-500/30',
 };
 
 const STATUS_DOT = {
-  active: 'bg-emerald-400',
-  trial: 'bg-blue-400',
+  active:       'bg-emerald-400',
+  trial:        'bg-blue-400',
   grace_period: 'bg-amber-400',
-  expired: 'bg-red-400',
-  suspended: 'bg-red-600',
+  expired:      'bg-red-400',
+  suspended:    'bg-red-600',
+  founders:     'bg-amber-400',
 };
 
 function BranchGauge({ used, max }) {

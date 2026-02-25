@@ -84,12 +84,14 @@ function AppRoutes() {
   }
 
   // If setup is needed (fresh install, no users), show setup wizard
+  // NOTE: /admin is always accessible so the super admin can log in even on fresh installs
   if (setupNeeded && !user) {
     return (
       <Routes>
         <Route path="/setup" element={<SetupWizardPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/" element={<LandingPage />} />
+        <Route path="/admin" element={<AdminLoginPage />} />
         <Route path="*" element={<Navigate to="/setup" replace />} />
       </Routes>
     );

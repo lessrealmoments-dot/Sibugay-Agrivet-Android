@@ -132,23 +132,29 @@ async def update_subscription(org_id: str, data: dict, user=Depends(require_supe
         else:
             update["subscription_status"] = "active"
 
-    # Extra branches
-    extra = int(data.get("extra_branches", existing.get("extra_branches", 0)))
-    base_limit = PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"])["max_branches"]
-    update["max_branches"] = base_limit + extra
-    update["extra_branches"] = extra
-    update["max_users"] = PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"])["max_users"]
+    # Extra branches (skip for founders — unlimited)
+    if effective_plan != "founders":
+        extra = int(data.get("extra_branches", existing.get("extra_branches", 0)))
+        base_limit = PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"])["max_branches"]
+        update["max_branches"] = base_limit + extra
+        update["extra_branches"] = extra
+        update["max_users"] = PLAN_LIMITS.get(effective_plan, PLAN_LIMITS["basic"])["max_users"]
 
     # Trial extension
-    if "trial_days" in data and int(data["trial_days"]) > 0:
+    if "trial_days" in data and int(data.get("trial_days", 0)) > 0:
         trial_end = (datetime.now(timezone.utc) + timedelta(days=int(data["trial_days"]))).isoformat()
         update["trial_ends_at"] = trial_end
         update["plan"] = "trial"
         update["subscription_status"] = "trial"
 
-    # Subscription expiry (for paid plans)
+    # Subscription expiry for paid plans
+    # If admin provides a date, use it. Otherwise auto-set 30 days when activating a paid plan.
     if "subscription_expires_at" in data:
-        update["subscription_expires_at"] = data["subscription_expires_at"]
+        update["subscription_expires_at"] = data["subscription_expires_at"] or None
+    elif plan in ("basic", "standard", "pro") and not existing.get("subscription_expires_at"):
+        # Auto-set 30 days from today as default when first activating a paid plan
+        auto_expiry = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+        update["subscription_expires_at"] = auto_expiry
 
     if "notes" in data:
         update["admin_notes"] = data["notes"]

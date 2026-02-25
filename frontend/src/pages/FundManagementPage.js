@@ -88,16 +88,14 @@ const TRANSFER_TYPES = [
     auth: 'Admin TOTP',
     icon: '🏦',
     from: 'safe', to: 'bank',
-    adminOnly: true,
   },
   {
     key: 'capital_add',
     label: 'Capital Injection',
-    desc: 'Admin adds operating capital to cashier',
-    auth: 'Admin role',
+    desc: 'Add operating capital to cashier or safe — requires admin authorization',
+    auth: 'Owner PIN or TOTP',
     icon: '💰',
     to: 'cashier',
-    adminOnly: true,
   },
 ];
 

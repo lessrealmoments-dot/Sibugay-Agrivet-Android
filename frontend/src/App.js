@@ -93,8 +93,18 @@ function AppRoutes() {
 
   return (
     <Routes>
+      {/* Public routes */}
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+      <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
       <Route path="/setup" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+
+      {/* Super admin */}
+      <Route path="/superadmin" element={<ProtectedRoute><SuperAdminPage /></ProtectedRoute>} />
+
+      {/* Upgrade page (inside app) */}
+      <Route path="/upgrade" element={<ProtectedRoute><UpgradePage /></ProtectedRoute>} />
+
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
       <Route path="/branch-transfers" element={<ProtectedRoute><BranchTransferPage /></ProtectedRoute>} />

@@ -791,6 +791,15 @@ export default function AuditCenterPage() {
             {prepStats && <span className="ml-1.5 bg-emerald-500 text-white text-[10px] rounded-full px-1.5 py-0.5">✓</span>}
           </TabsTrigger>
           <TabsTrigger value="history" data-testid="audit-history-tab"><History size={14} className="mr-1.5" />Audit History</TabsTrigger>
+          <TabsTrigger value="security" data-testid="security-flags-tab" className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700">
+            <KeyRound size={14} className="mr-1.5" />
+            Security Flags
+            {securityFlags.filter(e => !e.acknowledged).length > 0 && (
+              <span className="ml-1.5 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                {securityFlags.filter(e => !e.acknowledged).length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── RUN AUDIT TAB ────────────────────────────────────────────── */}

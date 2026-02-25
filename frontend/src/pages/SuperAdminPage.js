@@ -578,6 +578,178 @@ function EditSubscriptionModal({ org, onClose, onSaved }) {
 
 const PLAN_LIMITS_MAP = { trial: 5, basic: 1, standard: 2, pro: 5, suspended: 0 };
 
+/* ── Feature Flags Panel ────────────────────────────────────────────────── */
+function FeatureFlagsPanel() {
+  const [defs, setDefs] = useState([]);
+  const [flags, setFlags] = useState({ basic: {}, standard: {}, pro: {} });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    api.get('/superadmin/settings/features').then(r => {
+      setDefs(r.data.feature_definitions || []);
+      setFlags(r.data.flags || { basic: {}, standard: {}, pro: {} });
+      setLastUpdated(r.data.last_updated);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const toggle = (plan, featureKey) => {
+    if (plan === 'trial') return; // Trial always mirrors Pro - read-only
+    setFlags(prev => ({
+      ...prev,
+      [plan]: { ...prev[plan], [featureKey]: !prev[plan]?.[featureKey] },
+    }));
+    setHasChanges(true);
+  };
+
+  const setAll = (plan, value) => {
+    if (plan === 'trial') return;
+    const locked = defs.filter(d => d.locked_on?.includes(plan)).map(d => d.key);
+    setFlags(prev => ({
+      ...prev,
+      [plan]: {
+        ...prev[plan],
+        ...Object.fromEntries(defs.map(d => [d.key, locked.includes(d.key) ? true : value])),
+      },
+    }));
+    setHasChanges(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.put('/superadmin/settings/features', { flags });
+      setHasChanges(false);
+      setLastUpdated(new Date().toISOString());
+      toast.success('Feature flags saved! Landing page updated live.');
+    } catch {
+      toast.error('Failed to save feature flags');
+    }
+    setSaving(false);
+  };
+
+  const categories = [...new Set(defs.map(d => d.category))];
+  const PLANS = [
+    { key: 'basic', label: 'Basic', color: '#64748b', price: '₱1,500' },
+    { key: 'standard', label: 'Standard', color: '#10b981', price: '₱4,000' },
+    { key: 'pro', label: 'Pro', color: '#6366f1', price: '₱7,500' },
+  ];
+
+  if (loading) return <div className="text-center py-12 text-slate-500">Loading feature flags...</div>;
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-white font-bold text-lg">Feature Flags</h2>
+          <p className="text-slate-400 text-sm">
+            Control which features are available per plan. Changes are live immediately on the pricing page.
+            {lastUpdated && <span className="text-slate-600 ml-2">Last saved: {new Date(lastUpdated).toLocaleString()}</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {hasChanges && (
+            <span className="text-amber-400 text-xs flex items-center gap-1">
+              <AlertTriangle size={12} /> Unsaved changes
+            </span>
+          )}
+          <Button onClick={handleSave} disabled={saving || !hasChanges}
+            className={`gap-2 font-semibold ${hasChanges ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 text-slate-400 cursor-not-allowed'}`}>
+            <Save size={14} /> {saving ? 'Saving...' : 'Save & Publish'}
+          </Button>
+        </div>
+      </div>
+
+      {/* Trial note */}
+      <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-4 py-3 text-blue-300 text-xs flex items-center gap-2">
+        <Shield size={14} />
+        <span>Trial plan always mirrors Pro (all features unlocked) — this cannot be changed. Toggling Pro updates Trial automatically.</span>
+      </div>
+
+      {/* Feature table */}
+      <div className="bg-slate-800/20 border border-slate-700/40 rounded-2xl overflow-hidden">
+        {/* Column headers */}
+        <div className="grid border-b border-slate-700/40" style={{ gridTemplateColumns: '1fr repeat(3, 160px)' }}>
+          <div className="px-5 py-4 text-slate-400 text-xs font-semibold uppercase tracking-wider">Feature</div>
+          {PLANS.map(p => (
+            <div key={p.key} className="px-4 py-4 text-center border-l border-slate-700/30">
+              <div className="font-bold text-sm" style={{ color: p.color }}>{p.label}</div>
+              <div className="text-slate-500 text-xs">{p.price}/mo</div>
+              <div className="flex gap-1.5 justify-center mt-2">
+                <button onClick={() => setAll(p.key, true)}
+                  className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-emerald-600 text-slate-400 hover:text-white rounded transition-colors">
+                  All On
+                </button>
+                <button onClick={() => setAll(p.key, false)}
+                  className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-red-600 text-slate-400 hover:text-white rounded transition-colors">
+                  All Off
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Features grouped by category */}
+        {categories.map(cat => (
+          <div key={cat}>
+            {/* Category header */}
+            <div className="px-5 py-2.5 bg-slate-900/40 border-b border-slate-700/30">
+              <span className="text-slate-400 text-xs font-semibold uppercase tracking-widest">{cat}</span>
+            </div>
+            {defs.filter(d => d.category === cat).map((feature, idx, arr) => {
+              const isLast = idx === arr.length - 1;
+              return (
+                <div key={feature.key}
+                  className={`grid items-center hover:bg-slate-800/30 transition-colors ${!isLast ? 'border-b border-slate-700/20' : ''}`}
+                  style={{ gridTemplateColumns: '1fr repeat(3, 160px)' }}>
+                  {/* Feature info */}
+                  <div className="px-5 py-3.5">
+                    <div className="text-slate-200 text-sm font-medium">{feature.name}</div>
+                    <div className="text-slate-500 text-xs mt-0.5 leading-relaxed">{feature.description}</div>
+                  </div>
+                  {/* Toggle per plan */}
+                  {PLANS.map(p => {
+                    const isLocked = feature.locked_on?.includes(p.key);
+                    const enabled = isLocked ? true : (flags[p.key]?.[feature.key] ?? false);
+                    return (
+                      <div key={p.key} className="px-4 py-3.5 flex justify-center border-l border-slate-700/20">
+                        <button
+                          data-testid={`toggle-${p.key}-${feature.key}`}
+                          onClick={() => !isLocked && toggle(p.key, feature.key)}
+                          disabled={isLocked}
+                          title={isLocked ? 'This feature is always included' : (enabled ? 'Click to disable' : 'Click to enable')}
+                          className={`relative w-11 h-6 rounded-full transition-all focus:outline-none ${
+                            isLocked
+                              ? 'opacity-50 cursor-not-allowed'
+                              : 'cursor-pointer'
+                          } ${enabled ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
+                        {isLocked && <span className="ml-2 text-xs text-slate-600">always</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Preview note */}
+      <div className="bg-slate-800/30 border border-slate-700/40 rounded-xl px-4 py-3 text-slate-400 text-xs">
+        <strong className="text-slate-300">How it works:</strong> When you save, the pricing page ({window.location.origin}) and feature comparison table update instantly — no code changes needed.
+        Customers on active plans see the features their plan currently has. Changes don't revoke access mid-subscription.
+      </div>
+    </div>
+  );
+}
+
 /* ── Payment Settings Panel ─────────────────────────────────────────────── */
 function PaymentSettingsPanel({ settings, setSettings, saving, setSaving }) {
   const fileRefs = { gcash: useRef(), maya: useRef(), bank: useRef(), paypal: useRef() };

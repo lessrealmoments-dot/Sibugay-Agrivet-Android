@@ -150,6 +150,11 @@ async def verify_transaction(
     pin = str(data.get("pin", ""))
     verifier = await _resolve_pin(pin)
     if not verifier:
+        # Log the failed attempt silently — alert admin if threshold exceeded
+        doc_label = doc.get("po_number") or doc.get("reference_number") or doc_id[:8]
+        await log_failed_pin_attempt(
+            user, f"Verify {doc_type}: {doc_label}", "transaction_verify"
+        )
         raise HTTPException(status_code=400, detail="Invalid PIN — not recognized as admin PIN, TOTP, or auditor PIN")
 
     has_discrepancy = bool(data.get("has_discrepancy", False))

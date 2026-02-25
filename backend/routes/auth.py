@@ -117,10 +117,11 @@ async def get_me(user=Depends(get_current_user)):
     result = {k: v for k, v in user.items() if k != "password_hash"}
     org_id = user.get("organization_id")
     if org_id:
-        from routes.organizations import get_effective_plan, PLAN_FEATURES, PLAN_LIMITS
+        from routes.organizations import get_effective_plan, PLAN_FEATURES, PLAN_LIMITS, get_grace_info
         org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
         if org:
             effective = get_effective_plan(org)
+            grace = get_grace_info(org)
             result["subscription"] = {
                 "plan": org.get("plan"),
                 "effective_plan": effective,
@@ -130,6 +131,7 @@ async def get_me(user=Depends(get_current_user)):
                 "max_branches": org.get("max_branches", 1),
                 "max_users": org.get("max_users", 5),
                 "org_name": org.get("name"),
+                "grace_info": grace,
             }
     return result
 

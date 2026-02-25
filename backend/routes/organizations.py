@@ -86,6 +86,10 @@ def get_effective_plan(org: dict) -> str:
     plan = org.get("plan", "basic")
     now = datetime.now(timezone.utc)
 
+    # Founders = permanent, never expires
+    if plan == "founders":
+        return "founders"
+
     # Suspended = locked
     if plan == "suspended":
         return "suspended"
@@ -97,7 +101,6 @@ def get_effective_plan(org: dict) -> str:
             try:
                 end_dt = datetime.fromisoformat(trial_ends.replace("Z", "+00:00"))
                 if now > end_dt:
-                    # Check grace period
                     grace_ends = end_dt + timedelta(days=GRACE_PERIOD_DAYS)
                     if now > grace_ends:
                         return "expired"
@@ -106,7 +109,9 @@ def get_effective_plan(org: dict) -> str:
                 pass
         return "pro"  # Trial still active → all pro features
 
-    # Paid plan expiry check
+    # Paid plan expiry check (basic / standard / pro)
+    # If subscription_expires_at is not set, the plan doesn't expire yet.
+    # Admin must set it when activating a paid subscription.
     sub_expires = org.get("subscription_expires_at")
     if sub_expires and plan in ("basic", "standard", "pro"):
         try:

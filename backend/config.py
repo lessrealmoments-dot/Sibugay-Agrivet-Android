@@ -32,6 +32,7 @@ TENANT_COLLECTIONS = {
     'discrepancy_log', 'notifications', 'view_tokens', 'safe_lots',
     'price_schemes', 'settings', 'system_settings', 'accounts_payable',
     'capital_changes',
+    'security_events', 'pin_attempt_log',
 }
 
 

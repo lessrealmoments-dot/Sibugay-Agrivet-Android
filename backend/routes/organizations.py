@@ -376,8 +376,9 @@ async def get_live_feature_flags() -> dict:
     setting = await _raw_db.platform_settings.find_one({"key": "feature_flags"}, {"_id": 0})
     if setting and setting.get("value"):
         flags = setting["value"]
-        # Ensure trial always mirrors pro
+        # Trial and founders always mirror pro
         flags["trial"] = flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"])
+        flags["founders"] = flags.get("pro", DEFAULT_FEATURE_FLAGS["pro"])
         return flags
     return DEFAULT_FEATURE_FLAGS
 

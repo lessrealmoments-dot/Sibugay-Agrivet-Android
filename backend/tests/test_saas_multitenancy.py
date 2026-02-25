@@ -242,26 +242,22 @@ class TestLogin:
         })
         assert resp.status_code == 401
 
-    def test_login_returns_subscription_for_org_user(self, session):
+    def test_login_returns_subscription_for_org_user(self, session, new_org_token):
         """New org user's login should include subscription info"""
-        resp = session.post(f"{BASE_URL}/api/auth/login", json={
-            "email": TEST_ORG_EMAIL,
-            "password": TEST_ORG_PASSWORD
-        })
+        resp = session.get(f"{BASE_URL}/api/auth/me",
+                          headers={"Authorization": f"Bearer {new_org_token}"})
         assert resp.status_code == 200
         data = resp.json()
         # Subscription info should be present
-        assert "subscription" in data, "No subscription key in login response"
+        assert "subscription" in data, "No subscription key in /auth/me response"
         sub = data["subscription"]
         assert sub is not None
         assert "plan" in sub
         assert "effective_plan" in sub
 
-    def test_login_new_org_has_trial_plan(self, session):
-        resp = session.post(f"{BASE_URL}/api/auth/login", json={
-            "email": TEST_ORG_EMAIL,
-            "password": TEST_ORG_PASSWORD
-        })
+    def test_login_new_org_has_trial_plan(self, session, new_org_token):
+        resp = session.get(f"{BASE_URL}/api/auth/me",
+                          headers={"Authorization": f"Bearer {new_org_token}"})
         assert resp.status_code == 200
         data = resp.json()
         sub = data.get("subscription", {})

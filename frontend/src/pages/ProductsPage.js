@@ -212,7 +212,7 @@ export default function ProductsPage() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const params = { skip: page * LIMIT, limit: LIMIT };
+      const params = { skip: page * LIMIT, limit: LIMIT, sort_by: sortBy };
       if (search) params.search = search;
       if (filter === 'parent') params.is_repack = false;
       if (filter === 'repack') params.is_repack = true;
@@ -220,7 +220,7 @@ export default function ProductsPage() {
       setProducts(res.data.products);
       setTotal(res.data.total);
     } catch { toast.error('Failed to load products'); }
-  }, [search, filter, page]);
+  }, [search, filter, sortBy, page]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
   useEffect(() => {

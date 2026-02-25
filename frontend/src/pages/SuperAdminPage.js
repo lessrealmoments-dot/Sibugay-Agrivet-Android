@@ -93,6 +93,16 @@ export default function SuperAdminPage() {
   const [paymentSettings, setPaymentSettings] = useState({});
   const [savingPayment, setSavingPayment] = useState(false);
 
+  // Payment submissions + approve/reject
+  const [submissions, setSubmissions] = useState([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [approveModal, setApproveModal] = useState(null); // { org, submission }
+  const [rejectModal, setRejectModal] = useState(null);   // { org, submission }
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [approveForm, setApproveForm] = useState({ plan: 'basic', extra_branches: 0, subscription_expires_at: '', note: '' });
+  const [proofPreview, setProofPreview] = useState(null); // image URL to preview
+
   const load = useCallback(async () => {
     if (!user?.is_super_admin) { navigate('/dashboard'); return; }
     setLoading(true);

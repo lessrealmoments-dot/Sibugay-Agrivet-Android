@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
-import { CheckCircle, X, MessageCircle, Phone, CreditCard, ArrowLeft } from 'lucide-react';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { CheckCircle, X, MessageCircle, Phone, CreditCard, ArrowLeft, Upload, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, api } from '../contexts/AuthContext';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

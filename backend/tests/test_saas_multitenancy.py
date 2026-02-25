@@ -144,11 +144,21 @@ class TestOrganizationRegistration:
         assert "trial_ends_at" in data
 
     def test_register_duplicate_email_fails(self, session):
+        # Register a fresh email first
+        dup_email = f"dup_test_{int(time.time())}@duptest.com"
+        first = session.post(f"{BASE_URL}/api/organizations/register", json={
+            "company_name": "First Company",
+            "admin_email": dup_email,
+            "admin_password": "FirstPass@123",
+            "admin_name": "First Admin"
+        })
+        assert first.status_code in [200, 201], f"First registration failed: {first.status_code}"
+
         # Try to register with same email again
         resp = session.post(f"{BASE_URL}/api/organizations/register", json={
             "company_name": "Duplicate Company",
-            "admin_email": TEST_ORG_EMAIL,
-            "admin_password": TEST_ORG_PASSWORD,
+            "admin_email": dup_email,
+            "admin_password": "DupPass@123",
             "admin_name": "Dup Admin"
         })
         # Should fail with 400 (email already registered)

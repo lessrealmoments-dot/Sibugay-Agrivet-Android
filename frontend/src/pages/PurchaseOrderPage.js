@@ -1601,9 +1601,6 @@ export default function PurchaseOrderPage() {
       )}
     </div>
 
-      )}
-    </div>
-
     {/* Smart Capital Pricing Dialog */}
     {capitalDialog && capitalPreview && (
       <Dialog open={capitalDialog} onOpenChange={setCapitalDialog}>

@@ -408,7 +408,8 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
 
     # ── Receive inventory for cash + terms ────────────────────────────────
     if po_type in ("cash", "terms"):
-        await _apply_po_inventory(po, user)
+        capital_choices = data.get("capital_choices", {})
+        await _apply_po_inventory(po, user, capital_choices)
 
     return po
 

@@ -88,8 +88,8 @@ export default function FeatureGate({ featureKey, children }) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Always allow super admin and admin role
-  if (user?.is_super_admin || user?.role === 'admin') {
+  // Always allow super admin (platform admin only, not org admin)
+  if (user?.is_super_admin) {
     return children;
   }
 

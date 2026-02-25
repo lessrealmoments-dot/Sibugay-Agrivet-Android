@@ -32,7 +32,13 @@ export default function BranchesPage() {
 
   useEffect(() => { fetchBranches(); }, []);
 
-  const openCreate = () => { setEditing(null); setForm({ name: '', address: '', phone: '' }); setDialogOpen(true); };
+  const openCreate = () => {
+    if (atLimit) {
+      toast.error(`Branch limit reached (${branches.length}/${maxBranches}). Upgrade your plan to add more branches.`);
+      return;
+    }
+    setEditing(null); setForm({ name: '', address: '', phone: '' }); setDialogOpen(true);
+  };
   const openEdit = (b) => { setEditing(b); setForm({ name: b.name, address: b.address || '', phone: b.phone || '' }); setDialogOpen(true); };
 
   const handleSave = async () => {

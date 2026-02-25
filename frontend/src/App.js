@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UpgradePage from './pages/UpgradePage';
 import SuperAdminPage from './pages/SuperAdminPage';
+import AdminLoginPage from './pages/AdminLoginPage';
 import SetupWizardPage from './pages/SetupWizardPage';
 import DashboardPage from './pages/DashboardPage';
 import BranchesPage from './pages/BranchesPage';

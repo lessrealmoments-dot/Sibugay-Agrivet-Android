@@ -124,6 +124,9 @@ api_router.include_router(organizations_router)
 # Super Admin (platform management)
 api_router.include_router(superadmin_router)
 
+# Admin Portal Auth (separate login)
+api_router.include_router(admin_auth_router)
+
 # =============================================================================
 # STARTUP & SHUTDOWN
 # =============================================================================

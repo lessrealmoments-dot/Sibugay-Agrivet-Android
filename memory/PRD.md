@@ -122,19 +122,14 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Multi-tenancy foundation (TenantDB wrapper)
 - [x] Email-only login (removed username)
 - [x] Self-registration + 14-day trial
-- [x] Landing page with pricing
-- [x] Super Admin panel (v2: tabbed Overview/Organizations/Settings)
-  - [x] KPI cards (total, active, trial, expiring, suspended, users)
-  - [x] Organization list with branch gauge (X/Y branches), plan badge, status dot
-  - [x] Expandable org detail (branches list + subscription info)
-  - [x] Edit Subscription modal (plan, extra branches, trial extension, expiry date)
-  - [x] Payment Settings tab (GCash/Maya/Bank/PayPal QR upload + account details)
-- [x] Separate admin portal at /admin with Google Authenticator TOTP
-- [x] TOTP setup + 8 backup recovery codes (emailed)
-- [x] Upgrade/payment page (fetches QR codes from backend)
+- [x] Landing page with dynamic pricing + feature table (live from backend)
+- [x] Super Admin panel (v3: 4-tab Overview/Organizations/Feature Flags/Payment Settings)
+  - [x] Feature Flags tab — toggle per-plan per-feature with All On/Off, Save & Publish
+  - [x] Dynamic feature matrix stored in DB, fetched by landing page
+  - [x] Pricing cards show live top features from DB
+- [x] Separate admin portal at /admin with Google Authenticator TOTP + backup codes
 - [x] Email notifications via Resend (welcome, trial warning, grace, locked, activated)
-- [x] 3-day grace period after subscription expiry
-- [x] Daily subscription check scheduler (9 AM) - sends warnings + locks expired accounts
+- [x] 3-day grace period + daily subscription check scheduler - sends warnings + locks expired accounts
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

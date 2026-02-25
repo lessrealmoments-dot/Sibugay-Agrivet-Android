@@ -123,10 +123,15 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Email-only login (removed username)
 - [x] Self-registration + 14-day trial
 - [x] Landing page with pricing
-- [x] Super Admin panel at /superadmin
+- [x] Super Admin panel (v2: tabbed Overview/Organizations/Settings)
+  - [x] KPI cards (total, active, trial, expiring, suspended, users)
+  - [x] Organization list with branch gauge (X/Y branches), plan badge, status dot
+  - [x] Expandable org detail (branches list + subscription info)
+  - [x] Edit Subscription modal (plan, extra branches, trial extension, expiry date)
+  - [x] Payment Settings tab (GCash/Maya/Bank/PayPal QR upload + account details)
 - [x] Separate admin portal at /admin with Google Authenticator TOTP
 - [x] TOTP setup + 8 backup recovery codes (emailed)
-- [x] Upgrade/payment page
+- [x] Upgrade/payment page (fetches QR codes from backend)
 - [x] Email notifications via Resend (welcome, trial warning, grace, locked, activated)
 - [x] 3-day grace period after subscription expiry
 - [x] Daily subscription check scheduler (9 AM) - sends warnings + locks expired accounts

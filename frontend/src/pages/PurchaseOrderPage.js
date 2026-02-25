@@ -377,10 +377,40 @@ export default function PurchaseOrderPage() {
 
   // ── PO List actions ────────────────────────────────────────────────────
   const receivePO = async (poId) => {
-    if (!window.confirm('Mark as received? This will add items to inventory.')) return;
     try {
-      await api.post(`/purchase-orders/${poId}/receive`);
+      // 1. Get capital preview
+      const preview = await api.get(`/purchase-orders/${poId}/capital-preview`);
+      const data = preview.data;
+
+      if (data.has_warnings) {
+        // 2. Price drops detected — show smart capital dialog
+        const defaultChoices = {};
+        data.items.forEach(item => {
+          // Auto-apply new price for items with NO warning (new >= current)
+          // For warnings, default to last_purchase but let user choose
+          defaultChoices[item.product_id] = 'last_purchase';
+        });
+        setCapitalChoices(defaultChoices);
+        setCapitalPreview(data);
+        setCapitalPendingPOId(poId);
+        setCapitalDialog(true);
+      } else {
+        // 3. No warnings — confirm and receive directly
+        if (!window.confirm('Mark as received? This will add items to inventory.')) return;
+        await api.post(`/purchase-orders/${poId}/receive`, { capital_choices: {} });
+        toast.success('PO received — inventory updated');
+        fetchOrders();
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+  };
+
+  const confirmReceivePO = async () => {
+    try {
+      await api.post(`/purchase-orders/${capitalPendingPOId}/receive`, { capital_choices: capitalChoices });
       toast.success('PO received — inventory updated');
+      setCapitalDialog(false);
+      setCapitalPreview(null);
+      setCapitalPendingPOId(null);
       fetchOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };

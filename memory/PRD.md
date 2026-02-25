@@ -156,7 +156,7 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data
 - Payment QR codes (actual Maya/GCash/Bank/PayPal QR codes)
-- Smart capital pricing for branch transfers (same logic as PO)
+- Smart capital pricing for branch transfers (same logic as PO) ✅ DONE
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers

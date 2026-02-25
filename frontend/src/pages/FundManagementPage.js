@@ -114,6 +114,7 @@ export default function FundManagementPage() {
   const [note, setNote] = useState('');
   const [managerPin, setManagerPin] = useState('');
   const [totpCode, setTotpCode] = useState('');
+  const [ownerPin, setOwnerPin] = useState(''); // Owner PIN or TOTP for capital_add
   const [showAuth, setShowAuth] = useState(false);
   const [saving, setSaving] = useState(false);
 

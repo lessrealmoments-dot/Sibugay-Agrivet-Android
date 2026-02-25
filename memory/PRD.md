@@ -181,6 +181,10 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] capital_changes MongoDB collection (tenant-isolated) — logged on PO receive, transfer receive, manual edit
 - [x] GET /products/{id}/capital-history endpoint
 - [x] Capital History accordion section in ProductDetailPage — timeline with source badges (PO/Transfer/Manual), price delta arrows, method labels, by whom
+- [x] Inventory Correction bug fixed — admin path silently returned due to pendingCorrection not being set (now passes data directly)
+- [x] Owner PIN + TOTP 3-mode verification dialog — TotpVerifyDialog now has 3 tabs: Owner PIN (in-person), TOTP/Authenticator (remote), Password (fallback)
+- [x] verify-admin-action endpoint now supports mode='pin' — checks system_settings.admin_pin (the existing "Admin Verification PIN" in Audit Setup tab)
+- [x] Settings labels updated: Security tab clarifies TOTP is for remote approvals; Audit Setup tab renamed "Owner PIN — For In-Person Approvals"
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

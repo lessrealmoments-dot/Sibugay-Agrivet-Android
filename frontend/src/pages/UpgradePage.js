@@ -227,12 +227,13 @@ export default function UpgradePage() {
               </div>
             </div>
 
+            {/* Payment method selector */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
               {PAYMENT_METHODS.map(pm => (
                 <button
                   key={pm.name}
                   data-testid={`payment-${pm.name.toLowerCase().replace(' ', '-')}`}
-                  onClick={() => setSelectedPayment(pm.name === selectedPayment ? null : pm.name)}
+                  onClick={() => setSelectedPayment(selectedPayment === pm.name ? null : pm.name)}
                   className={`border-2 rounded-xl p-3 text-center transition-all ${
                     selectedPayment === pm.name
                       ? 'border-emerald-500 bg-emerald-50'
@@ -245,18 +246,53 @@ export default function UpgradePage() {
               ))}
             </div>
 
-            {selectedPayment && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5">
-                <h4 className="font-semibold text-slate-800 mb-2 text-sm">{selectedPayment} Payment Details</h4>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700 mb-3">
-                  Payment QR codes and exact account details will be displayed here once configured by the admin.
-                  Please contact us directly for payment instructions.
+            {selectedPayment && (() => {
+              const pm = PAYMENT_METHODS.find(p => p.name === selectedPayment);
+              const info = paymentInfo?.methods?.[pm?.key] || {};
+              const hasInfo = Object.values(info).some(v => v && v !== '');
+
+              return (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5">
+                  <h4 className="font-semibold text-slate-800 mb-3 text-sm flex items-center gap-2">
+                    <span>{pm.icon}</span> {selectedPayment} Payment Details
+                  </h4>
+                  {!hasInfo ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+                      Payment details for {selectedPayment} haven't been configured yet.
+                      Please contact us directly for payment instructions.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {/* QR Code */}
+                      {info.qr_base64 && (
+                        <div className="flex justify-center mb-3">
+                          <div className="bg-white p-3 rounded-xl border border-slate-200 inline-block">
+                            <img src={info.qr_base64} alt={`${selectedPayment} QR`} className="w-40 h-40 object-contain" />
+                            <p className="text-xs text-slate-500 text-center mt-2">Scan to pay</p>
+                          </div>
+                        </div>
+                      )}
+                      {/* Account details */}
+                      <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1.5 text-sm">
+                        {info.number && <div><span className="text-slate-500">Number:</span> <strong className="text-slate-800">{info.number}</strong></div>}
+                        {info.account_name && <div><span className="text-slate-500">Name:</span> <strong className="text-slate-800">{info.account_name}</strong></div>}
+                        {info.bank_name && <div><span className="text-slate-500">Bank:</span> <strong className="text-slate-800">{info.bank_name}</strong></div>}
+                        {info.account_number && <div><span className="text-slate-500">Account:</span> <strong className="text-slate-800">{info.account_number}</strong></div>}
+                        {info.email && <div><span className="text-slate-500">Email:</span> <strong className="text-slate-800">{info.email}</strong></div>}
+                        {info.link && (
+                          <div><span className="text-slate-500">Link:</span>{' '}
+                            <a href={info.link} target="_blank" rel="noreferrer" className="text-emerald-600 hover:underline font-medium">{info.link}</a>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Include your company name <strong>"{user?.subscription?.org_name || 'your company'}"</strong> as payment reference.
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <pre className="text-xs text-slate-600 whitespace-pre-wrap font-mono bg-white border border-slate-200 rounded-lg p-3">
-                  {PAYMENT_METHODS.find(p => p.name === selectedPayment)?.instructions}
-                </pre>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <div className="flex items-start gap-3">

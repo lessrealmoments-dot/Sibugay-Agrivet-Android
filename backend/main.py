@@ -387,7 +387,8 @@ async def startup():
         id="daily_subscription_check",
         replace_existing=True,
     )
-    logger.info("Subscription check scheduled — daily at 09:00")
+    _scheduler.start()
+    logger.info("Backup scheduler started — daily at %02d:00", backup_hour)
 
 
 @app.on_event("shutdown")

@@ -320,8 +320,74 @@ async def startup():
         id="daily_backup",
         replace_existing=True,
     )
-    _scheduler.start()
-    logger.info("Backup scheduler started — daily at %02d:00", backup_hour)
+    # ── Update owner email ────────────────────────────────────────────────────
+    await _raw_db.users.update_one(
+        {"username": "owner", "is_super_admin": {"$ne": True}},
+        {"$set": {"email": "sibugayagrivetsupply@gmail.com"}}
+    )
+
+    # ── Daily subscription notification job ───────────────────────────────────
+    async def _daily_subscription_check():
+        """Check all orgs, send expiry warnings and lock expired accounts."""
+        from routes.organizations import get_effective_plan, GRACE_PERIOD_DAYS
+        from services.email_service import (
+            send_trial_warning, send_grace_period_warning,
+            send_account_locked
+        )
+        now = datetime.now(timezone.utc)
+        orgs = await _raw_db.organizations.find(
+            {"is_default": {"$ne": True}, "plan": {"$ne": "suspended"}},
+            {"_id": 0}
+        ).to_list(500)
+
+        for org in orgs:
+            if not org.get("owner_email"):
+                continue
+            email = org["owner_email"]
+            name = org["name"]
+            plan = org.get("plan", "basic")
+            effective = get_effective_plan(org)
+
+            # Determine reference date (trial_ends_at or subscription_expires_at)
+            ref_date_str = org.get("trial_ends_at") if plan == "trial" else org.get("subscription_expires_at")
+            if not ref_date_str:
+                continue
+            try:
+                ref_dt = datetime.fromisoformat(ref_date_str.replace("Z", "+00:00"))
+            except Exception:
+                continue
+
+            days_until_expiry = (ref_dt - now).days
+
+            # Expiry warnings (7, 3, 1 days before)
+            if effective in ("trial", "basic", "standard", "pro") and days_until_expiry in (7, 3, 1):
+                await send_trial_warning(email, name, days_until_expiry, ref_dt.strftime("%B %d, %Y"))
+
+            # Grace period warnings
+            elif effective == "grace_period":
+                grace_ends = ref_dt + timedelta(days=GRACE_PERIOD_DAYS)
+                grace_days_left = max(0, (grace_ends - now).days)
+                await send_grace_period_warning(email, name, grace_days_left, grace_ends.strftime("%B %d, %Y"))
+
+            # Lock expired accounts
+            elif effective == "expired":
+                current_status = org.get("subscription_status")
+                if current_status != "expired":
+                    await _raw_db.organizations.update_one(
+                        {"id": org["id"]},
+                        {"$set": {"subscription_status": "expired", "plan": "suspended"}}
+                    )
+                    await send_account_locked(email, name)
+
+        logger.info("Subscription check complete — %d orgs checked", len(orgs))
+
+    _scheduler.add_job(
+        _daily_subscription_check,
+        CronTrigger(hour=9, minute=0),  # 9 AM daily
+        id="daily_subscription_check",
+        replace_existing=True,
+    )
+    logger.info("Subscription check scheduled — daily at 09:00")
 
 
 @app.on_event("shutdown")

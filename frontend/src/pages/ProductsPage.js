@@ -437,6 +437,16 @@ export default function ProductsPage() {
             <SelectItem value="repack">Repacks Only</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sortBy} onValueChange={v => { setSortBy(v); setPage(0); }}>
+          <SelectTrigger data-testid="product-sort" className="w-[185px] h-10">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Sort: Name (A–Z)</SelectItem>
+            <SelectItem value="type">Sort: Type (Parents first)</SelectItem>
+            <SelectItem value="grouped">Sort: Grouped (Repacks below parent)</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Bulk Actions */}

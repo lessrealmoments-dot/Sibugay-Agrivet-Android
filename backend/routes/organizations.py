@@ -293,6 +293,72 @@ async def register_organization(data: dict):
 
 
 # ---------------------------------------------------------------------------
+# Payment Proof Submission (authenticated customer)
+# ---------------------------------------------------------------------------
+@router.post("/submit-payment-proof")
+async def submit_payment_proof(data: dict, user=Depends(get_current_user)):
+    """
+    Customer submits payment proof (base64 image + reference details).
+    Creates a payment_submission record for super admin to review.
+    """
+    org_id = user.get("organization_id")
+    if not org_id:
+        raise HTTPException(status_code=400, detail="No organization linked to this account")
+
+    org = await _raw_db.organizations.find_one({"id": org_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    required = ["plan_requested", "amount", "payment_method"]
+    for f in required:
+        if not data.get(f):
+            raise HTTPException(status_code=400, detail=f"Missing field: {f}")
+
+    submission = {
+        "id": new_id(),
+        "organization_id": org_id,
+        "submitted_by_id": user["id"],
+        "submitted_by_name": user.get("full_name") or user.get("username", ""),
+        "plan_requested": data["plan_requested"],
+        "amount": float(data["amount"]),
+        "payment_method": data["payment_method"],
+        "reference_number": data.get("reference_number", ""),
+        "notes": data.get("notes", ""),
+        "proof_image": data.get("proof_image", ""),   # base64 data URL
+        "status": "pending",
+        "submitted_at": now_iso(),
+        "reviewed_at": None,
+        "reviewed_by": None,
+        "rejection_reason": None,
+    }
+    await _raw_db.payment_submissions.insert_one(submission)
+
+    # Notify platform admin
+    import asyncio
+    if PLATFORM_ADMIN_EMAIL:
+        from services.email_service import send_email, _base
+        html = _base(
+            content=f"""
+            <h1 style="color:#0f172a;font-size:20px;margin:0 0 8px;">New Payment Proof Submitted</h1>
+            <p style="color:#475569;font-size:15px;">
+              <strong>{org['name']}</strong> has submitted payment proof for the
+              <strong>{data['plan_requested'].capitalize()} Plan</strong>.
+            </p>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;font-size:14px;">
+              <div><strong>Amount:</strong> ₱{data['amount']:,.2f}</div>
+              <div><strong>Method:</strong> {data['payment_method']}</div>
+              <div><strong>Reference:</strong> {data.get('reference_number','—')}</div>
+            </div>
+            """,
+            cta_url=os.environ.get("REACT_APP_FRONTEND_URL", "") + "/superadmin",
+            cta_label="Review in Admin Panel →"
+        )
+        asyncio.create_task(send_email(PLATFORM_ADMIN_EMAIL, f"Payment Proof: {org['name']} — {data['plan_requested'].capitalize()} Plan", html))
+
+    return {"success": True, "submission_id": submission["id"], "message": "Payment proof submitted. We'll review and activate your plan within 24 hours."}
+
+
+# ---------------------------------------------------------------------------
 # Authenticated: get own org info
 # ---------------------------------------------------------------------------
 @router.get("/my")

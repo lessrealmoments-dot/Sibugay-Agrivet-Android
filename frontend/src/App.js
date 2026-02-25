@@ -4,6 +4,7 @@ import axios from 'axios';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import Layout from './components/Layout';
+import FeatureGate from './components/FeatureGate';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';

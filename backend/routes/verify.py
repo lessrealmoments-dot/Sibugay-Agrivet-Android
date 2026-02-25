@@ -149,7 +149,7 @@ async def verify_transaction(
     pin = str(data.get("pin", ""))
     verifier = await _resolve_pin(pin)
     if not verifier:
-        raise HTTPException(status_code=401, detail="Invalid PIN — not recognized as admin PIN, TOTP, or auditor PIN")
+        raise HTTPException(status_code=400, detail="Invalid PIN — not recognized as admin PIN, TOTP, or auditor PIN")
 
     has_discrepancy = bool(data.get("has_discrepancy", False))
     discrepancy_note = data.get("discrepancy_note", "")

@@ -238,7 +238,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                 authorized_by = mgr.get("full_name", mgr["username"])
                 break
         if not authorized_by:
-            raise HTTPException(status_code=401, detail="Invalid manager PIN")
+            raise HTTPException(status_code=400, detail="Invalid manager PIN")
 
     elif transfer_type == "safe_to_bank":
         # Admin TOTP required
@@ -256,7 +256,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                     authorized_by = admin.get("full_name", admin["username"])
                     break
         if not authorized_by:
-            raise HTTPException(status_code=401, detail="Invalid TOTP code — check your authenticator app")
+            raise HTTPException(status_code=400, detail="Invalid TOTP code — check your authenticator app")
 
     elif transfer_type == "capital_add":
         # Admin role only

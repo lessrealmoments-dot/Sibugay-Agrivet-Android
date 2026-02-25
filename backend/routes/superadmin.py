@@ -27,6 +27,7 @@ async def platform_stats(user=Depends(require_super_admin)):
     total_orgs = await _raw_db.organizations.count_documents({})
     trial_orgs = await _raw_db.organizations.count_documents({"plan": "trial"})
     active_orgs = await _raw_db.organizations.count_documents({"subscription_status": "active"})
+    founders_orgs = await _raw_db.organizations.count_documents({"plan": "founders"})
     suspended_orgs = await _raw_db.organizations.count_documents({"plan": "suspended"})
     total_users = await _raw_db.users.count_documents({"active": True, "is_super_admin": {"$ne": True}})
 

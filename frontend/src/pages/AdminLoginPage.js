@@ -120,9 +120,10 @@ export default function AdminLoginPage() {
     setLoading(false);
   };
 
-  const finishLogin = (token, user) => {
+  const finishLogin = (token, _user) => {
     localStorage.setItem('agripos_token', token);
-    navigate('/superadmin');
+    // Full reload so AuthContext reinitializes from localStorage with the new token
+    window.location.href = '/superadmin';
   };
 
   const afterCodesSaved = () => {

@@ -30,6 +30,7 @@ export default function SuperAdminPage() {
   const [editForm, setEditForm] = useState({});
 
   const load = useCallback(async () => {
+    if (!user?.is_super_admin) { navigate('/dashboard'); return; }
     setLoading(true);
     try {
       const [statsRes, orgsRes] = await Promise.all([
@@ -42,7 +43,7 @@ export default function SuperAdminPage() {
       if (err.response?.status === 403) navigate('/dashboard');
     }
     setLoading(false);
-  }, [navigate]);
+  }, [navigate, user]);
 
   useEffect(() => { load(); }, [load]);
 

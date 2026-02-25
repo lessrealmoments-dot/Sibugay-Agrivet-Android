@@ -199,11 +199,12 @@ export default function SuperAdminPage() {
                   <h3 className="text-white font-semibold mb-5 flex items-center gap-2">
                     <Layers size={16} className="text-slate-400" /> Plan Breakdown
                   </h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { plan: 'basic', label: 'Basic', color: '#64748b', price: '₱1,500' },
-                      { plan: 'standard', label: 'Standard', color: '#10b981', price: '₱4,000' },
-                      { plan: 'pro', label: 'Pro', color: '#6366f1', price: '₱7,500' },
+                      { plan: 'basic',    label: 'Basic',      color: '#64748b', price: '₱1,500' },
+                      { plan: 'standard', label: 'Standard',   color: '#10b981', price: '₱4,000' },
+                      { plan: 'pro',      label: 'Pro',        color: '#6366f1', price: '₱7,500' },
+                      { plan: 'founders', label: '★ Founders', color: '#f59e0b', price: 'Lifetime' },
                     ].map(({ plan, label, color, price }) => {
                       const count = stats.by_plan?.[plan] || 0;
                       const maxVal = Math.max(...Object.values(stats.by_plan || {}), 1);

@@ -534,6 +534,31 @@ export default function AuditCenterPage() {
     setLoadingDisc(false);
   };
 
+  const loadSecurityFlags = async () => {
+    setLoadingFlags(true);
+    try {
+      const params = new URLSearchParams();
+      if (periodFrom) params.set('period_from', periodFrom);
+      if (periodTo)   params.set('period_to',   periodTo);
+      const res = await api.get(`${BACKEND_URL}/api/audit/security-flags?${params}`);
+      setSecurityFlags(res.data.events || []);
+    } catch { }
+    setLoadingFlags(false);
+  };
+
+  const acknowledgeFlag = async () => {
+    if (!ackDialog) return;
+    setAckSaving(true);
+    try {
+      await api.post(`${BACKEND_URL}/api/audit/security-flags/${ackDialog.id}/acknowledge`, { note: ackNote });
+      toast.success('Flag acknowledged and recorded');
+      setAckDialog(null);
+      setAckNote('');
+      loadSecurityFlags();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setAckSaving(false);
+  };
+
   const prepareForAudit = async () => {
     if (!auditBranchId) { toast.error('Select a branch first'); return; }
     setPreparing(true);

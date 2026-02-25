@@ -34,6 +34,7 @@ from routes import (
     settings_router, count_sheets_router, setup_router, branch_prices_router,
     import_router, notifications_router, branch_transfers_router, reports_router,
     returns_router, audit_router, uploads_router, verify_router,
+    organizations_router, superadmin_router,
 )
 from routes.backups import router as backups_router
 

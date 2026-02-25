@@ -129,7 +129,9 @@ api_router.include_router(superadmin_router)
 # =============================================================================
 @app.on_event("startup")
 async def startup():
-    """Initialize database indexes. User/branch creation moved to setup wizard."""
+    """Initialize database indexes and run multi-tenancy migration."""
+    from config import _raw_db, TENANT_COLLECTIONS
+
     # ── Security check ────────────────────────────────────────────────────────
     if len(JWT_SECRET) < 32:
         logger.warning(
@@ -138,13 +140,65 @@ async def startup():
             len(JWT_SECRET)
         )
 
+    # ── Multi-tenancy migration ───────────────────────────────────────────────
+    # If existing data has no organization_id, migrate it to a default org
+    default_org = await _raw_db.organizations.find_one({"is_default": True}, {"_id": 0})
+    if not default_org:
+        user_count = await _raw_db.users.count_documents({"is_super_admin": {"$ne": True}})
+        if user_count > 0:
+            default_org_id = new_id()
+            default_org_doc = {
+                "id": default_org_id,
+                "name": "AgriBooks (Default)",
+                "owner_email": "",
+                "plan": "pro",
+                "subscription_status": "active",
+                "trial_ends_at": None,
+                "max_branches": 999,
+                "max_users": 0,
+                "extra_branches": 0,
+                "annual_billing": False,
+                "is_demo": False,
+                "is_default": True,
+                "created_at": now_iso(),
+            }
+            await _raw_db.organizations.insert_one(default_org_doc)
+            # Tag all existing data with this org_id
+            migrated = 0
+            for col_name in TENANT_COLLECTIONS:
+                result = await _raw_db[col_name].update_many(
+                    {"organization_id": {"$exists": False}},
+                    {"$set": {"organization_id": default_org_id}}
+                )
+                migrated += result.modified_count
+            logger.info("Multi-tenancy migration: %d documents tagged with default org", migrated)
+
+    # ── Super Admin creation ──────────────────────────────────────────────────
+    SUPER_ADMIN_EMAIL = "janmarkeahig@gmail.com"
+    SUPER_ADMIN_PASS = "Aa@58798546521325"
+    existing_super = await _raw_db.users.find_one({"is_super_admin": True}, {"_id": 0})
+    if not existing_super:
+        await _raw_db.users.insert_one({
+            "id": new_id(),
+            "username": "superadmin",
+            "full_name": "Platform Admin",
+            "email": SUPER_ADMIN_EMAIL,
+            "password_hash": hash_password(SUPER_ADMIN_PASS),
+            "role": "admin",
+            "is_super_admin": True,
+            "organization_id": None,
+            "active": True,
+            "created_at": now_iso(),
+        })
+        logger.info("Super admin created: %s", SUPER_ADMIN_EMAIL)
+
     # Check if setup is needed (no auto-creation of users)
     user_count = await db.users.count_documents({})
     if user_count == 0:
         logger.info("No users found - system needs setup via /api/setup/initialize")
-    
-    # Create default price schemes if none exist
-    schemes = await db.price_schemes.count_documents({})
+
+    # Create default price schemes if none exist (for fresh installs only)
+    schemes = await _raw_db.price_schemes.count_documents({})
     if schemes == 0:
         default_schemes = [
             {
@@ -192,7 +246,7 @@ async def startup():
                 "created_at": now_iso()
             },
         ]
-        await db.price_schemes.insert_many(default_schemes)
+        await _raw_db.price_schemes.insert_many(default_schemes)
         logger.info("Default price schemes created")
 
     # Create indexes

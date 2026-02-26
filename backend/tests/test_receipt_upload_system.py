@@ -15,26 +15,24 @@ import io
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://farm-accounting-5.preview.emergentagent.com').rstrip('/')
 
-# Test credentials
-COMPANY_ADMIN_EMAIL = "jovelyneahig@gmail.com"
-COMPANY_ADMIN_PASS = "Aa@050772"
+# Test credentials - use super admin since company admin password may have changed
 SUPER_ADMIN_EMAIL = "janmarkeahig@gmail.com"
 SUPER_ADMIN_PASS = "Aa@58798546521325"
 
 
 @pytest.fixture(scope="module")
 def admin_session():
-    """Get authenticated session for company admin"""
+    """Get authenticated session for admin"""
     session = requests.Session()
     session.headers.update({"Content-Type": "application/json"})
     
-    # Login as company admin
+    # Login as super admin
     res = session.post(f"{BASE_URL}/api/auth/login", json={
-        "email": COMPANY_ADMIN_EMAIL,
-        "password": COMPANY_ADMIN_PASS
+        "email": SUPER_ADMIN_EMAIL,
+        "password": SUPER_ADMIN_PASS
     })
     if res.status_code != 200:
-        pytest.skip(f"Could not login as company admin: {res.status_code}")
+        pytest.skip(f"Could not login as admin: {res.status_code}")
     
     data = res.json()
     token = data.get("token")

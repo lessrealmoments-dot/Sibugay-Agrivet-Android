@@ -295,11 +295,11 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Form pre-fill fix**: Added `skipResetRef` to prevent useEffect from clearing pre-filled form data when branch selectors trigger reset effects.
 
 ### P1 — Upcoming
+- Internal Invoicing (Phase 2): Auto-create internal invoice on transfer receive, internal AP/AR for branches, payment terms
+- Auto-Settlement via Branch Bank (Phase 3): Due date notifications, auto-deduct from branch bank, PIN/TOTP required for payment approval
 - Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data
-- Payment QR codes (actual Maya/GCash/Bank/PayPal QR codes)
-- Smart capital pricing for branch transfers (same logic as PO) ✅ DONE
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers

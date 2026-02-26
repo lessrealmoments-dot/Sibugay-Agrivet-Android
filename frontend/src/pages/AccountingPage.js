@@ -73,6 +73,7 @@ export default function AccountingPage() {
     due_date: '', terms: ''
   });
   const [payableForm, setPayableForm] = useState({ supplier: '', description: '', amount: 0, due_date: '' });
+  const [expenseReceiptData, setExpenseReceiptData] = useState(null);
   
   // Filters
   const [filters, setFilters] = useState({

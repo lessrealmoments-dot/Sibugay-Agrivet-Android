@@ -149,7 +149,9 @@ export default function ProductDetailPage() {
 
   const handleAddVendor = async () => {
     try {
-      await api.post(`/products/${id}/vendors`, vendorForm);
+      const payload = { ...vendorForm };
+      if (currentBranch) payload.branch_id = currentBranch.id;
+      await api.post(`/products/${id}/vendors`, payload);
       toast.success('Vendor added');
       setVendorDialog(false);
       fetchDetail();

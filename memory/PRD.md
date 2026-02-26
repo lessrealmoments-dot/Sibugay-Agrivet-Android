@@ -233,6 +233,14 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - `mark_po_reviewed()` and `mark_record_reviewed()` now import and use `_resolve_pin` instead of custom logic
   - Both phone (public) and desktop (authenticated) verify endpoints now also update `receipt_review_status` field when record has uploaded receipts
   - Result: Manager PIN works on phone AND desktop. Phone verification updates desktop PO status.
+- [x] Unified PIN Management UI (Feb 2026):
+  - Settings tab renamed from "Audit Setup" to "PIN Management"
+  - Overview card explaining 3 PIN types: Admin PIN, Manager PIN, TOTP
+  - Admin PIN section: system-wide PIN, only admin can set/change
+  - My PIN section: managers/admins change their own PIN (requires current PIN)
+  - Staff Manager PINs table: admin sets/resets any user's PIN with audit trail
+  - Auditor Access section: toggle auditor role + set auditor PIN
+  - Backend: PUT /auth/change-my-pin — validates current PIN before allowing change
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

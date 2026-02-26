@@ -122,6 +122,9 @@ export default function PurchaseOrderPage() {
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   const [viewQROpen, setViewQROpen] = useState(false);
   const [viewQRFileCount, setViewQRFileCount] = useState(0);
+  const [reviewPinDialog, setReviewPinDialog] = useState(false);
+  const [reviewPin, setReviewPin] = useState('');
+  const [reviewSaving, setReviewSaving] = useState(false);
   const [payAdjDialog, setPayAdjDialog] = useState(false);
   const [payAdjData, setPayAdjData] = useState(null); // { po, delta, oldTotal, newTotal }
   const [payAdjFundSource, setPayAdjFundSource] = useState('cashier');

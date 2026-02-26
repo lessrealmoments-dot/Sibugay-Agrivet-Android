@@ -61,6 +61,29 @@ async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = Non
     branch_prices = []
     if branch_id:
         branch_prices = await db.branch_prices.find({"branch_id": branch_id}, {"_id": 0}).to_list(10000)
+
+    # Merge inventory into products — inject `available` field per product
+    inv_map = {inv["product_id"]: float(inv.get("quantity", 0)) for inv in inventory}
+    bp_map  = {bp["product_id"]: bp for bp in branch_prices}
+
+    enriched_products = []
+    for p in products:
+        p = dict(p)
+        if p.get("is_repack") and p.get("parent_id"):
+            # Repack: derive from parent stock
+            parent_qty = inv_map.get(p["parent_id"], 0)
+            units = p.get("units_per_parent", 1) or 1
+            p["available"] = round(parent_qty * units, 4)
+        else:
+            p["available"] = inv_map.get(p["id"], 0)
+        # Apply branch price overrides
+        if p["id"] in bp_map:
+            bp = bp_map[p["id"]]
+            if bp.get("prices"):
+                p["prices"] = {**(p.get("prices") or {}), **bp["prices"]}
+            if bp.get("cost_price") is not None:
+                p["cost_price"] = bp["cost_price"]
+        enriched_products.append(p)
     
     return {
         "products": products,

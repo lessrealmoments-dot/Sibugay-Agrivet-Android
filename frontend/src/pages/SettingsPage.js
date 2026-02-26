@@ -378,7 +378,7 @@ export default function SettingsPage() {
           )}
           {isAdmin && (
             <TabsTrigger value="audit-setup" data-testid="audit-setup-tab" className="flex items-center gap-1.5">
-              <ShieldCheck size={14} /> Audit Setup
+              <Key size={14} /> PIN Management
             </TabsTrigger>
           )}
         </TabsList>

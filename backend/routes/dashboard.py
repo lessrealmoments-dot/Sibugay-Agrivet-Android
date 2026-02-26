@@ -236,7 +236,7 @@ async def dashboard_stats(
 
     # ── Total customers ───────────────────────────────────────────────────────
     customer_query = {"active": True}
-    if branch_filter and user.get("role") != "admin":
+    if branch_filter:
         customer_query = apply_branch_filter(customer_query, branch_filter)
     total_customers = await db.customers.count_documents(customer_query)
 

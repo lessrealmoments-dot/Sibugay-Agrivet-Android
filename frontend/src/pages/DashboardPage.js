@@ -399,6 +399,18 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Pending Receipt Reviews */}
+        <Card className="border-slate-200" data-testid="pending-reviews-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <FileCheck size={14} className="text-amber-600" /> Pending Receipt Reviews
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <PendingReviewsWidget />
+          </CardContent>
+        </Card>
+
         {/* Bottom row */}
         <div className="grid lg:grid-cols-3 gap-5">
           {/* Top branches by sales */}

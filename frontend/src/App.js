@@ -136,6 +136,7 @@ function AppRoutes() {
       <Route path="/fund-management" element={<ProtectedRoute><FeatureGate featureKey="full_fund_management"><FundManagementPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/team" element={<ProtectedRoute><TeamPage /></ProtectedRoute>} />
       <Route path="/user-permissions" element={<ProtectedRoute><FeatureGate featureKey="granular_permissions"><UserPermissionsPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/accounts" element={<ProtectedRoute><AccountsPage /></ProtectedRoute>} />
       <Route path="/employees" element={<ProtectedRoute><FeatureGate featureKey="employee_management"><EmployeesPage /></FeatureGate></ProtectedRoute>} />

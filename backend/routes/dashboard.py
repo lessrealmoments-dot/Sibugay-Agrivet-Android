@@ -139,6 +139,10 @@ async def dashboard_stats(
         inv.get("grand_total", 0) for inv in today_invoices
         if inv.get("payment_type") in ("credit", "partial")
     ), 2)
+    today_digital_sales = round(sum(
+        inv.get("grand_total", 0) for inv in today_invoices
+        if inv.get("payment_type") in ("digital", "split")
+    ), 2)
 
     # Customers who got credit today
     credit_customers_today = [

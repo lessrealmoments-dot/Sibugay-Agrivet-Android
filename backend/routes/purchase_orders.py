@@ -173,6 +173,19 @@ async def list_purchase_orders(
     
     total = await db.purchase_orders.count_documents(query)
     items = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+
+    # Enrich with receipt count for POs that don't have it stored yet
+    po_ids = [po["id"] for po in items]
+    if po_ids:
+        receipt_agg = await db.upload_sessions.aggregate([
+            {"$match": {"record_type": "purchase_order", "record_id": {"$in": po_ids}}},
+            {"$group": {"_id": "$record_id", "count": {"$sum": "$file_count"}}}
+        ]).to_list(len(po_ids))
+        receipt_map = {r["_id"]: r["count"] for r in receipt_agg}
+        for po in items:
+            if "receipt_count" not in po:
+                po["receipt_count"] = receipt_map.get(po["id"], 0)
+
     return {"purchase_orders": items, "total": total}
 
 

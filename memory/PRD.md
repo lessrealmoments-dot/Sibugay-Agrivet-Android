@@ -247,12 +247,16 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Unified Team & Settings Consolidation (Feb 2026):
   - **Problem**: Settings, Accounts, and Permissions pages were redundant — all managed users/roles/PINs
   - **Solution**: Merged into two clean pages:
-    - **Team page** (`/team`): Members tab (user CRUD, PIN mgmt, disable/delete) + Permissions tab (granular per-user permissions, presets)
+    - **Team page** (`/team`): Members tab (user CRUD, PIN mgmt, disable/delete, expandable row details) + Permissions tab (granular per-user permissions, presets)
     - **Settings page** (`/settings`): My Account tab (profile, password, PIN — all roles) + Security tab (Admin PIN, TOTP, Auditor Access — admin only)
   - Sidebar: Removed "Accounts" and "Permissions" nav items, replaced with "Team"
   - Backend: Added `DELETE /api/users/{id}/permanent` (hard delete), `PUT /api/users/{id}/reactivate`, `GET /api/users?include_inactive=true`
   - "Show disabled" toggle on Team page to reveal deactivated users
-  - Non-admin users only see Settings > My Account (no Team page access)
+  - Expandable user rows with quick-action buttons (Edit, Set PIN, Reset PW)
+- [x] Bug Fix: Sales History Miscategorization (Feb 2026):
+  - **Problem**: Sales paid via GCash/digital/split were showing as "Credit Sales" in the Sales History board. Cash sales showed zero for digital payments.
+  - **Root cause**: Backend `invoices/history/by-date` categorized everything not "cash" as credit. Frontend only had Cash/Credit binary classification.
+  - **Fix**: Backend now returns separate `digital` total for `payment_type in ("digital", "split")`. Frontend board now shows 5 stat cards: Cash Sales, Digital Sales, Credit Sales, Grand Total, Transactions. Row badges show actual platform (e.g., "GCash") with blue badge instead of binary Cash/Credit.
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

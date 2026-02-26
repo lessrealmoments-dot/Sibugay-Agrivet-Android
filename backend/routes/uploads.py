@@ -347,6 +347,179 @@ async def get_view_session(token: str):
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Direct upload (authenticated, inline — for PO creation, expense, transfers)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/direct")
+async def direct_upload(
+    files: List[UploadFile] = File(...),
+    record_type: str = Form("purchase_order"),
+    session_id: Optional[str] = Form(None),
+    user=Depends(get_current_user),
+):
+    """
+    Authenticated direct upload — stores files and returns a session_id.
+    Use session_id to link files to a record later via /uploads/reassign.
+    If session_id is provided, appends to existing session.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    if session_id:
+        # Append to existing session
+        session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        current_count = session.get("file_count", 0)
+        if current_count + len(files) > MAX_FILES:
+            raise HTTPException(status_code=400, detail=f"Max {MAX_FILES} files. Already has {current_count}.")
+    else:
+        # Create new session with a pending record_id
+        session_id = new_id()
+        pending_record_id = f"pending_{new_id()}"
+        session = {
+            "id": session_id,
+            "token": "",
+            "record_type": record_type,
+            "record_id": pending_record_id,
+            "record_summary": {},
+            "files": [],
+            "file_count": 0,
+            "is_pending": True,
+            "created_by": user["id"],
+            "created_by_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        }
+        await db.upload_sessions.insert_one(session)
+        del session["_id"]
+        current_count = 0
+
+    record_id = session.get("record_id", session_id)
+    record_dir = UPLOAD_DIR / record_type / record_id
+    record_dir.mkdir(parents=True, exist_ok=True)
+
+    saved = []
+    file_ids = []
+    for file in files:
+        file_id = new_id()
+        ext = Path(file.filename).suffix if file.filename else ".jpg"
+        safe_ext = ext.lower() if ext.lower() in (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".pdf") else ".jpg"
+        filename = f"{file_id}{safe_ext}"
+        filepath = record_dir / filename
+
+        content = await file.read()
+        with open(filepath, "wb") as f:
+            f.write(content)
+
+        saved.append({
+            "id": file_id,
+            "filename": file.filename or filename,
+            "stored_path": str(filepath),
+            "content_type": file.content_type or "image/jpeg",
+            "size": len(content),
+            "uploaded_at": now_iso(),
+        })
+        file_ids.append(file_id)
+
+    await db.upload_sessions.update_one(
+        {"id": session_id},
+        {"$push": {"files": {"$each": saved}}, "$inc": {"file_count": len(saved)}}
+    )
+
+    return {
+        "session_id": session_id,
+        "uploaded": len(saved),
+        "total_files": current_count + len(saved),
+        "file_ids": file_ids,
+    }
+
+
+@router.delete("/direct/{session_id}/{file_id}")
+async def delete_direct_file(session_id: str, file_id: str, user=Depends(get_current_user)):
+    """Remove a single file from a direct upload session."""
+    session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    file_meta = next((f for f in session.get("files", []) if f["id"] == file_id), None)
+    if not file_meta:
+        raise HTTPException(status_code=404, detail="File not found in session")
+
+    # Delete physical file
+    filepath = Path(file_meta.get("stored_path", ""))
+    if filepath.exists():
+        filepath.unlink()
+
+    # Update session
+    await db.upload_sessions.update_one(
+        {"id": session_id},
+        {"$pull": {"files": {"id": file_id}}, "$inc": {"file_count": -1}}
+    )
+    return {"message": "File removed"}
+
+
+@router.post("/reassign")
+async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
+    """
+    Link a pending upload session to an actual record.
+    Moves files to the correct directory and updates the session.
+    """
+    session_id = data.get("session_id", "")
+    new_record_type = data.get("record_type", "")
+    new_record_id = data.get("record_id", "")
+    if not session_id or not new_record_id:
+        raise HTTPException(status_code=400, detail="session_id and record_id required")
+
+    session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    old_record_id = session.get("record_id", "")
+    record_type = new_record_type or session.get("record_type", "purchase_order")
+
+    # Move files if record_id changed
+    if old_record_id != new_record_id:
+        old_dir = UPLOAD_DIR / record_type / old_record_id
+        new_dir = UPLOAD_DIR / record_type / new_record_id
+        new_dir.mkdir(parents=True, exist_ok=True)
+
+        updated_files = []
+        for f in session.get("files", []):
+            old_path = Path(f.get("stored_path", ""))
+            if old_path.exists():
+                new_path = new_dir / old_path.name
+                old_path.rename(new_path)
+                f["stored_path"] = str(new_path)
+            updated_files.append(f)
+
+        # Clean up old directory if empty
+        if old_dir.exists() and not any(old_dir.iterdir()):
+            old_dir.rmdir()
+
+        # Get record summary for the new record
+        summary = await _get_record_summary(record_type, new_record_id)
+
+        await db.upload_sessions.update_one(
+            {"id": session_id},
+            {"$set": {
+                "record_type": record_type,
+                "record_id": new_record_id,
+                "record_summary": summary,
+                "files": updated_files,
+                "is_pending": False,
+                "reassigned_at": now_iso(),
+            }}
+        )
+    else:
+        await db.upload_sessions.update_one(
+            {"id": session_id},
+            {"$set": {"is_pending": False, "reassigned_at": now_iso()}}
+        )
+
+    return {"message": "Upload session linked to record", "record_id": new_record_id}
+
+
 @router.get("/file/{record_type}/{record_id}/{file_id}")
 async def serve_file(
     record_type: str,

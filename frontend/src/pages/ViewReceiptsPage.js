@@ -69,7 +69,7 @@ export default function ViewReceiptsPage() {
     setVerifyLoading(true);
     setVerifyMsg('');
     try {
-      await axios.post(`${BACKEND_URL}/api/verify/${data.record_type}/${data.record_id}`, {
+      await axios.post(`${BACKEND_URL}/api/verify/public/${data.record_type}/${data.record_id}`, {
         pin, has_discrepancy: hasDisc, discrepancy_note: discNote,
         item_description: itemDesc,
         expected_qty: expQty !== '' ? parseFloat(expQty) : null,

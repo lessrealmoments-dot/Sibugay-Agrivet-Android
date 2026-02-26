@@ -289,6 +289,38 @@ async def pricing_scan(
         {"_id": 0}
     ).to_list(5000)
 
+    # Load repack products separately (cost derived from parent)
+    repacks = await db.products.find(
+        {"active": True, "is_repack": True},
+        {"_id": 0}
+    ).to_list(5000)
+
+    # Build parent cost map for repack cost derivation
+    parent_ids = list({r["parent_id"] for r in repacks if r.get("parent_id")})
+    parent_cost_map = {}
+    if parent_ids:
+        parents = await db.products.find(
+            {"id": {"$in": parent_ids}, "active": True},
+            {"_id": 0, "id": 1, "cost_price": 1, "name": 1}
+        ).to_list(len(parent_ids))
+        parent_cost_map = {p["id"]: p for p in parents}
+
+    # Compute effective cost for repacks and add to products list
+    for r in repacks:
+        parent = parent_cost_map.get(r.get("parent_id"))
+        if not parent:
+            continue
+        parent_cost = float(parent.get("cost_price", 0))
+        # Check if branch has a cost override for the parent
+        if branch_id:
+            bp_parent = bp_map.get(r.get("parent_id"))
+            if bp_parent and bp_parent.get("cost_price") is not None:
+                parent_cost = float(bp_parent["cost_price"])
+        units = max(r.get("units_per_parent", 1), 1)
+        r["_derived_cost"] = round(parent_cost / units, 4)
+        r["_parent_name"] = parent.get("name", "")
+        products.append(r)
+
     # Load all price schemes to know the keys
     schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
     scheme_keys = [s["key"] for s in schemes]

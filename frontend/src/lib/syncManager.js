@@ -16,7 +16,7 @@ import { api } from '../contexts/AuthContext';
 import {
   getPendingSales, removePendingSale,
   cacheProducts, cacheCustomers, cachePriceSchemes, cacheInventory, cacheBranchPrices,
-  setMeta, getPendingSaleCount,
+  setMeta, getMeta, getPendingSaleCount, putProduct,
 } from './offlineDB';
 
 let syncInProgress = false;

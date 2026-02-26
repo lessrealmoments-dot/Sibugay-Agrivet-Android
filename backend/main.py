@@ -126,6 +126,9 @@ api_router.include_router(organizations_router)
 # Super Admin (platform management)
 api_router.include_router(superadmin_router)
 
+# Internal Invoices (branch-to-branch billing)
+api_router.include_router(internal_invoices_router)
+
 # Admin Portal Auth (separate login)
 api_router.include_router(admin_auth_router)
 

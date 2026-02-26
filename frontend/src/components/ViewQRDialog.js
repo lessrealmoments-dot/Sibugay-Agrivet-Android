@@ -3,6 +3,7 @@
  * Separate from UploadQRDialog. Read-only — cannot upload from this QR.
  */
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../contexts/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { Smartphone, RefreshCw, Copy, Clock, X, Images } from 'lucide-react';

@@ -28,7 +28,7 @@ class TestRepackPricingScan:
                 "password": "Aa@58798546521325"
             })
             assert res.status_code == 200, f"Login failed: {res.text}"
-            TestRepackPricingScan.token = res.json().get("access_token")
+            TestRepackPricingScan.token = res.json().get("token")
         self.headers = {"Authorization": f"Bearer {TestRepackPricingScan.token}"}
     
     def test_01_pricing_scan_endpoint_works(self):
@@ -190,7 +190,7 @@ class TestVerifySpecificRepack:
                 "password": "Aa@58798546521325"
             })
             assert res.status_code == 200
-            TestVerifySpecificRepack.token = res.json().get("access_token")
+            TestVerifySpecificRepack.token = res.json().get("token")
         self.headers = {"Authorization": f"Bearer {TestVerifySpecificRepack.token}"}
     
     def test_find_vitamin_pro_repack(self):
@@ -239,7 +239,7 @@ class TestRegressionCheckoutBelowCapital:
                 "password": "Aa@58798546521325"
             })
             assert res.status_code == 200
-            TestRegressionCheckoutBelowCapital.token = res.json().get("access_token")
+            TestRegressionCheckoutBelowCapital.token = res.json().get("token")
         self.headers = {"Authorization": f"Bearer {TestRegressionCheckoutBelowCapital.token}"}
     
     def test_product_search_detail_returns_repack_cost(self):

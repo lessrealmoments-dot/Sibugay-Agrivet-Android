@@ -198,3 +198,55 @@ export async function getInventoryItem(productId) {
     request.onerror = () => { db.close(); reject(request.error); };
   });
 }
+
+/**
+ * Deduct inventory locally after an offline sale.
+ * This ensures the cashier sees updated stock even when offline.
+ */
+export async function deductLocalInventory(items) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORES.INVENTORY, STORES.PRODUCTS], 'readwrite');
+    const invStore = tx.objectStore(STORES.INVENTORY);
+    const prodStore = tx.objectStore(STORES.PRODUCTS);
+
+    items.forEach(item => {
+      const productId = item.product_id;
+      const qty = parseFloat(item.quantity) || 0;
+
+      // Update inventory store
+      const invReq = invStore.get(productId);
+      invReq.onsuccess = () => {
+        const inv = invReq.result;
+        if (inv) {
+          inv.quantity = Math.max(0, (inv.quantity || 0) - qty);
+          inv.updated_at = new Date().toISOString();
+          invStore.put(inv);
+        }
+      };
+
+      // Update product's "available" field
+      const prodReq = prodStore.get(productId);
+      prodReq.onsuccess = () => {
+        const prod = prodReq.result;
+        if (prod) {
+          prod.available = Math.max(0, (prod.available || 0) - qty);
+          prodStore.put(prod);
+        }
+      };
+    });
+
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+/**
+ * Check if there are pending sales that haven't been synced.
+ * Used to warn before logout/close.
+ */
+export async function hasPendingSales() {
+  const count = await countStore(STORES.PENDING_SALES);
+  return count > 0;
+}
+

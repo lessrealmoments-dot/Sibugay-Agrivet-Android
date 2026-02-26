@@ -160,6 +160,10 @@ export default function OfflineIndicator() {
         setStepLabel('Sync paused — network unstable');
         setSyncing(false);
       }
+      // Background refresh events (silent — just update cache info)
+      if (data.type === 'background_refresh') {
+        if (data.status === 'complete') loadCacheInfo();
+      }
     });
     return unsub;
   }, [loadCacheInfo]);

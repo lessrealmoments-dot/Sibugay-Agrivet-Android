@@ -322,45 +322,48 @@ export default function ReceiptUploadInline({
 
 // ── QR Code Panel ─────────────────────────────────────────────────────────
 function QRPanel({ uploadUrl, phoneFileCount, onCopy, onClose }) {
-  return (
-    <div className="mt-3 p-4 rounded-xl border border-blue-200 bg-blue-50/50" data-testid="qr-upload-panel">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-            <Smartphone size={14} className="text-blue-600" />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-700">Scan with Phone</p>
-            <p className="text-[10px] text-slate-400">Use camera or gallery to upload</p>
-          </div>
-        </div>
-        <button type="button" onClick={onClose} className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
-          <X size={11} className="text-slate-500" />
-        </button>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="shrink-0" style={{ border: '2px solid #1A4D2E', borderRadius: '10px', padding: '6px', background: '#fff' }}>
-          <QRCodeSVG value={uploadUrl} size={110} level="M" fgColor="#1A4D2E" bgColor="#FFFFFF" />
-        </div>
-        <div className="flex-1 min-w-0 space-y-2">
-          <p className="text-[10px] text-slate-500">Point your phone camera at the QR code. The upload page opens automatically with camera and gallery options.</p>
-          <div className="flex items-center gap-1.5">
-            <div className="flex-1 min-w-0 bg-white rounded-lg px-2 py-1 text-[9px] font-mono text-slate-500 truncate border border-slate-200">
-              {uploadUrl}
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50" onClick={onClose} style={{ pointerEvents: 'auto' }}>
+      <div className="bg-white rounded-2xl p-5 shadow-2xl max-w-sm w-full mx-4" onClick={e => e.stopPropagation()} data-testid="qr-upload-panel">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Smartphone size={16} className="text-blue-600" />
             </div>
-            <button type="button" onClick={onCopy}
-              className="shrink-0 w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center" title="Copy link">
-              <Copy size={11} className="text-slate-500" />
-            </button>
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Upload from Phone</p>
+              <p className="text-xs text-slate-400">Scan QR with phone camera</p>
+            </div>
           </div>
-          <div className={`flex items-center gap-1.5 text-[11px] ${phoneFileCount > 0 ? 'text-emerald-600 font-medium' : 'text-slate-400'}`}>
-            {phoneFileCount > 0 ? <Check size={11} /> : <Clock size={11} />}
-            {phoneFileCount > 0
-              ? `${phoneFileCount} photo${phoneFileCount > 1 ? 's' : ''} uploaded from phone`
-              : 'Waiting for phone upload...'}
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+            <X size={13} className="text-slate-500" />
+          </button>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <div style={{ border: '3px solid #1A4D2E', borderRadius: '12px', padding: '8px', background: '#fff' }}>
+            <QRCodeSVG value={uploadUrl} size={160} level="M" fgColor="#1A4D2E" bgColor="#FFFFFF" />
+          </div>
+          <div className="w-full space-y-2">
+            <p className="text-xs text-slate-500 text-center">Point your phone camera at the QR code to open the upload page.</p>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 min-w-0 bg-slate-50 rounded-lg px-2.5 py-1.5 text-[10px] font-mono text-slate-500 truncate border border-slate-200">
+                {uploadUrl}
+              </div>
+              <button type="button" onClick={onCopy}
+                className="shrink-0 w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 flex items-center justify-center" title="Copy link">
+                <Copy size={12} className="text-slate-500" />
+              </button>
+            </div>
+            <div className={`flex items-center justify-center gap-1.5 text-sm py-2 rounded-lg ${phoneFileCount > 0 ? 'text-emerald-600 font-semibold bg-emerald-50' : 'text-slate-400 bg-slate-50'}`}>
+              {phoneFileCount > 0 ? <Check size={14} /> : <Clock size={14} />}
+              {phoneFileCount > 0
+                ? `${phoneFileCount} photo${phoneFileCount > 1 ? 's' : ''} uploaded!`
+                : 'Waiting for phone upload...'}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -396,6 +396,7 @@ async def branch_summary(user=Depends(get_current_user)):
         today_sales_count = len(today_invoices)
         today_cash_sales = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") == "cash"), 2)
         today_new_credit = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") in ("credit", "partial")), 2)
+        today_digital_sales = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") in ("digital", "split")), 2)
 
         # AR collected today (payments on older invoices)
         ar_today = await db.invoices.aggregate([

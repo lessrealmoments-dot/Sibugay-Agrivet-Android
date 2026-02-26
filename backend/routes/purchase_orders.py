@@ -84,6 +84,7 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
         await db.capital_changes.insert_one({
             "id": new_id(),
             "product_id": pid,
+            "branch_id": branch_id,
             "old_capital": old_capital,
             "new_capital": new_capital,
             "method": choice,

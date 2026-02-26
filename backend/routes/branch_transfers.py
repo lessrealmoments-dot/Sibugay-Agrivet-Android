@@ -730,6 +730,7 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         await db.capital_changes.insert_one({
             "id": new_id(),
             "product_id": product_id,
+            "branch_id": to_branch_id,
             "old_capital": old_dest_capital,
             "new_capital": dest_capital,
             "method": choice,

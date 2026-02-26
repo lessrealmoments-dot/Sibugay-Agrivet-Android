@@ -9,8 +9,9 @@ import { DollarSign, ShoppingCart, Package, Users, AlertTriangle,
   TrendingUp, ArrowDown, Building2, Wallet, Receipt, ArrowRight,
   Truck, Clock, CreditCard, Banknote, CheckCircle2, Calendar,
   BarChart3, RefreshCw, ArrowUpRight, ArrowDownRight, Lock, ShieldCheck,
-  CalendarClock, ChevronDown, ChevronRight
+  CalendarClock, ChevronDown, ChevronRight, FileCheck
 } from 'lucide-react';import { formatPHP } from '../lib/utils';
+import PendingReviewsWidget from '../components/PendingReviewsWidget';
 
 // ─────────────────────────────────────────────────────────────────
 // Upcoming Payables Widget — cash flow timeline for supplier payments

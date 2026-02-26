@@ -240,20 +240,46 @@ export function startAutoSync(getBranchId) {
     }
   }, 30000);
 
+  // Background cache refresh every 5 minutes (delta sync — lightweight)
+  cacheRefreshInterval = setInterval(async () => {
+    if (navigator.onLine && !syncInProgress) {
+      const branchId = typeof getBranchId === 'function' ? getBranchId() : getBranchId;
+      if (branchId && branchId !== 'all') {
+        emit({ type: 'background_refresh', status: 'start' });
+        await refreshPOSCache(branchId);
+        emit({ type: 'background_refresh', status: 'complete' });
+      }
+    }
+  }, CACHE_REFRESH_MS);
+
   // On reconnect, wait 2s then run full sync
-  window.addEventListener('online', () => {
+  const onReconnect = () => {
     setTimeout(async () => {
       if (!syncInProgress) {
         const branchId = typeof getBranchId === 'function' ? getBranchId() : getBranchId;
         await fullSync(branchId);
       }
     }, 2000);
-  });
+  };
+  window.addEventListener('online', onReconnect);
+
+  // Store cleanup reference
+  startAutoSync._onReconnect = onReconnect;
 }
 
 export function stopAutoSync() {
   if (autoSyncInterval) {
     clearInterval(autoSyncInterval);
     autoSyncInterval = null;
+  }
+  if (cacheRefreshInterval) {
+    clearInterval(cacheRefreshInterval);
+    cacheRefreshInterval = null;
+  }
+  if (startAutoSync._onReconnect) {
+    window.removeEventListener('online', startAutoSync._onReconnect);
+    startAutoSync._onReconnect = null;
+  }
+}
   }
 }

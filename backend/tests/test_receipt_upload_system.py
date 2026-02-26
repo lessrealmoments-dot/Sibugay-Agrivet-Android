@@ -48,9 +48,18 @@ def admin_session():
 @pytest.fixture(scope="module")
 def test_branch_id(admin_session):
     """Get a branch ID for testing"""
-    branches = admin_session.branches
+    # First try from login response
+    branches = getattr(admin_session, 'branches', [])
     if branches:
         return branches[0].get("id")
+    
+    # Fallback: fetch branches from API
+    res = admin_session.get(f"{BASE_URL}/api/branches")
+    if res.status_code == 200:
+        branches = res.json() if isinstance(res.json(), list) else res.json().get("branches", [])
+        if branches:
+            return branches[0].get("id")
+    
     pytest.skip("No branches available for testing")
 
 

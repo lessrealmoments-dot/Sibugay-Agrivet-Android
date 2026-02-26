@@ -10,11 +10,25 @@ import { api, useAuth } from '../contexts/AuthContext';
 import { Bell, Check, CheckCheck, Zap, CreditCard, Briefcase, Shield, AlertTriangle, Package, ArrowLeftRight, ClipboardCheck, XCircle } from 'lucide-react';
 
 const TYPE_ICONS = {
-  credit_sale:            { icon: CreditCard,    color: 'text-blue-500',   bg: 'bg-blue-50'   },
-  employee_advance:       { icon: Briefcase,     color: 'text-amber-500',  bg: 'bg-amber-50'  },
-  price_override:         { icon: Zap,           color: 'text-violet-500', bg: 'bg-violet-50' },
-  pin_used:               { icon: Shield,        color: 'text-slate-500',  bg: 'bg-slate-50'  },
-  security_alert:         { icon: AlertTriangle, color: 'text-red-600',    bg: 'bg-red-50'    },
+  credit_sale:            { icon: CreditCard,      color: 'text-blue-500',    bg: 'bg-blue-50'    },
+  employee_advance:       { icon: Briefcase,       color: 'text-amber-500',   bg: 'bg-amber-50'   },
+  price_override:         { icon: Zap,             color: 'text-violet-500',  bg: 'bg-violet-50'  },
+  pin_used:               { icon: Shield,          color: 'text-slate-500',   bg: 'bg-slate-50'   },
+  security_alert:         { icon: AlertTriangle,   color: 'text-red-600',     bg: 'bg-red-50'     },
+  branch_stock_request:   { icon: Package,         color: 'text-blue-600',    bg: 'bg-blue-50'    },
+  transfer_incoming:      { icon: ArrowLeftRight,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  transfer_variance_review: { icon: AlertTriangle, color: 'text-amber-600',   bg: 'bg-amber-50'   },
+  transfer_accepted:      { icon: ClipboardCheck,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  transfer_disputed:      { icon: XCircle,         color: 'text-red-600',     bg: 'bg-red-50'     },
+};
+
+// Map notification types to navigation routes
+const NOTIFICATION_ROUTES = {
+  branch_stock_request:     '/branch-transfers?tab=history&subtab=requests',
+  transfer_incoming:        '/branch-transfers?tab=history&subtab=incoming',
+  transfer_variance_review: '/branch-transfers?tab=history&subtab=outgoing',
+  transfer_accepted:        '/branch-transfers?tab=history&subtab=incoming',
+  transfer_disputed:        '/branch-transfers?tab=history&subtab=outgoing',
 };
 
 function timeAgo(isoStr) {

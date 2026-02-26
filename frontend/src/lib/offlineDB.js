@@ -1,10 +1,28 @@
 /**
  * AgriPOS Offline Database (IndexedDB)
- * Stores products, customers, price schemes, inventory, and pending offline sales
+ * Stores products, customers, price schemes, inventory, and pending offline sales.
+ * Org-scoped: each company gets its own database to prevent cross-tenant data leaks.
  */
 
-const DB_NAME = 'agripos_offline';
-const DB_VERSION = 4; // bumped: added branch_prices store
+let _currentOrgId = null;
+
+function getDBName() {
+  return _currentOrgId ? `agripos_offline_${_currentOrgId}` : 'agripos_offline';
+}
+
+/** Set the current organization for DB scoping. Call on login. */
+export function setOfflineOrg(orgId) {
+  if (orgId && orgId !== _currentOrgId) {
+    _currentOrgId = orgId;
+  }
+}
+
+/** Get current org ID */
+export function getOfflineOrg() {
+  return _currentOrgId;
+}
+
+const DB_VERSION = 4;
 
 const STORES = {
   PRODUCTS: 'products',

@@ -459,6 +459,81 @@ async def delete_direct_file(session_id: str, file_id: str, user=Depends(get_cur
     return {"message": "File removed"}
 
 
+@router.post("/generate-pending-link")
+async def generate_pending_link(data: dict, user=Depends(get_current_user)):
+    """
+    Generate a QR-scannable upload link for records that don't exist yet
+    (e.g. during PO creation, before the PO is saved).
+    If session_id is provided, creates a token for an existing pending session.
+    Otherwise creates a fresh pending session with a token.
+    """
+    record_type = data.get("record_type", "purchase_order")
+    session_id = data.get("session_id", "")
+    custom_summary = data.get("record_summary", {})
+
+    token = secrets.token_urlsafe(24)
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+
+    if session_id:
+        # Add token to existing pending session
+        session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        await db.upload_sessions.update_one(
+            {"id": session_id},
+            {"$set": {
+                "token": token,
+                "token_expires_at": expires_at,
+                "record_summary": custom_summary or session.get("record_summary", {}),
+            }}
+        )
+        record_id = session.get("record_id", "")
+    else:
+        # Create new pending session with token
+        session_id = new_id()
+        record_id = f"pending_{new_id()}"
+        session = {
+            "id": session_id,
+            "token": token,
+            "token_expires_at": expires_at,
+            "record_type": record_type,
+            "record_id": record_id,
+            "record_summary": custom_summary or {
+                "type_label": RECORD_TYPE_LABELS.get(record_type, record_type),
+                "title": f"New {RECORD_TYPE_LABELS.get(record_type, record_type)}",
+                "description": "Receipt will be linked when record is saved",
+            },
+            "files": [],
+            "file_count": 0,
+            "is_pending": True,
+            "created_by": user["id"],
+            "created_by_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        }
+        await db.upload_sessions.insert_one(session)
+        del session["_id"]
+
+    return {
+        "token": token,
+        "session_id": session_id,
+        "record_id": record_id,
+        "expires_at": expires_at,
+    }
+
+
+@router.get("/session-status/{session_id}")
+async def get_session_status(session_id: str, user=Depends(get_current_user)):
+    """Poll endpoint — returns current file count and files for a session."""
+    session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0, "token": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": session_id,
+        "file_count": session.get("file_count", 0),
+        "files": [{"id": f["id"], "filename": f["filename"], "content_type": f.get("content_type", "")} for f in session.get("files", [])],
+    }
+
+
 @router.post("/reassign")
 async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
     """

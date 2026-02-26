@@ -72,10 +72,11 @@ export default function BranchTransferPage() {
   const isAdmin = user?.role === 'admin';
   const searchTimers = useRef({});
   const dropdownRefs = useRef({});
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Lists / history ────────────────────────────────────────────────────────
-  const [tab, setTab] = useState('new');
-  const [historyTab, setHistoryTab] = useState('outgoing'); // outgoing | incoming | requests
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'new');
+  const [historyTab, setHistoryTab] = useState(() => searchParams.get('subtab') || 'outgoing');
   const [stockRequests, setStockRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [generatingTransfer, setGeneratingTransfer] = useState(null); // request id being processed

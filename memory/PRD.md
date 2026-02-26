@@ -265,6 +265,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Repack Products in Price-Below-Capital Scan (Feb 2026):
   - **Problem**: The PriceScanManager background scan (every 5 min) excluded repack products, so repacks priced below their derived cost were never flagged.
   - **Fix**: Backend `pricing-scan` endpoint now loads repacks, derives their cost from `parent_cost / units_per_parent`, and includes them in the scan. Moving average and last purchase also derived from parent history. Frontend shows purple "REPACK" badge with parent info and "(derived)" cost indicator.
+- [x] Interactive Dashboard Redesign with Draggable Widgets (Feb 2026):
+  - **Drag-and-drop layout**: All dashboard widgets are draggable using `react-grid-layout`. Per-user layout persistence via localStorage. "Reset Layout" button restores optimized default.
+  - **Sales Trends Widget**: Interactive period selector (This Month, Last Month, Quarter, Year) with area chart showing daily revenue. Summary cards for Revenue, Cash, Digital, Credit breakdown.
+  - **Branch Comparison Widget**: Bar chart comparing branch revenue with leaderboard ranking. Period-synced with Sales Trends.
+  - **Accounts Payable Widget**: Total outstanding, overdue (red), due this week (amber), upcoming. Shows individual overdue/due-soon POs with vendor and amount. Available on both owner and branch dashboards.
+  - **Backend**: New endpoints `GET /api/dashboard/sales-analytics` (daily aggregation with split payment handling, branch breakdown) and `GET /api/dashboard/accounts-payable` (AP summary with overdue/due-soon/upcoming).
+  - Existing KPI cards, cash position, AR overview, pending reviews, branch cards all preserved and improved.
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

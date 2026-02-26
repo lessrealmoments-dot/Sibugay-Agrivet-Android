@@ -64,9 +64,21 @@ export default function POSPage() {
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
     startAutoSync();
+
+    // Warn before closing/refreshing if there are pending sales
+    const handleBeforeUnload = async (e) => {
+      const has = await hasPendingSales();
+      if (has) {
+        e.preventDefault();
+        e.returnValue = 'You have unsynced sales. Are you sure you want to leave?';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       stopAutoSync();
     };
   }, []);

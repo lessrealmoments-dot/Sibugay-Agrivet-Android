@@ -3,6 +3,7 @@
  * Custom modal (no Shadcn Dialog) for full layout control.
  */
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../contexts/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { Upload, RefreshCw, Check, Copy, Clock, AlertTriangle, X } from 'lucide-react';

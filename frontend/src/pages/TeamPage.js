@@ -323,7 +323,9 @@ export default function TeamPage() {
                     const isMe = u.id === currentUser?.id;
                     const isActive = u.active !== false;
                     return (
-                      <tr key={u.id} className={`border-b border-slate-100 transition-colors ${isActive ? 'hover:bg-slate-50/50' : 'bg-slate-50/30 opacity-60'}`} data-testid={`user-row-${u.id}`}>
+                      <tr key={u.id} className={`border-b border-slate-100 transition-colors cursor-pointer ${isActive ? 'hover:bg-slate-50/50' : 'bg-slate-50/30 opacity-60'} ${expandedUser === u.id ? 'bg-slate-50' : ''}`}
+                        data-testid={`user-row-${u.id}`}
+                        onClick={() => setExpandedUser(expandedUser === u.id ? null : u.id)}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold ${role.avatar}`}>
@@ -334,7 +336,20 @@ export default function TeamPage() {
                                 {u.full_name || u.username}
                                 {isMe && <span className="text-[10px] text-slate-400 ml-1">(you)</span>}
                               </p>
-                              <p className="text-xs text-slate-400">@{u.username}</p>
+                              <p className="text-xs text-slate-400">@{u.username}{u.email ? ` · ${u.email}` : ''}</p>
+                              {expandedUser === u.id && (
+                                <div className="mt-2 pt-2 border-t border-slate-100 space-y-1 text-xs text-slate-500" onClick={e => e.stopPropagation()}>
+                                  <p>Created: {u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}</p>
+                                  {u.pin_set_by_name && <p>PIN set by: {u.pin_set_by_name}</p>}
+                                  {u.permission_preset && <p>Permission preset: <Badge className="text-[9px] bg-slate-100 text-slate-600">{u.permission_preset}</Badge></p>}
+                                  {u.is_auditor && <p className="text-amber-600">Has auditor access</p>}
+                                  <div className="flex gap-1 pt-1">
+                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => openEdit(u)}>Edit</Button>
+                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => openPinDialog(u)}>Set PIN</Button>
+                                    <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => handleResetPassword(u)}>Reset PW</Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>

@@ -1468,23 +1468,23 @@ async def reverse_customer_cashout(expense_id: str, data: dict, user=Depends(get
     fund_source = expense.get("fund_source", "cashier")
     reason = data.get("reason", "Reversed by manager")
 
-    # Re-deduct the cash advance amount from cashier (it was paid out, now we're taking it back)
+    # Return cash to fund (the original cash-out deducted from fund; reversal adds it back)
     ref_text = f"Reversal — Customer advance {expense.get('description', '')} — {reason}"
     if fund_source == "safe":
         safe_wallet = await db.fund_wallets.find_one(
             {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
         )
         if safe_wallet:
-            remaining = amount
-            for lot in await db.safe_lots.find(
-                {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
-            ).sort("remaining_amount", -1).to_list(500):
-                if remaining <= 0: break
-                take = min(lot["remaining_amount"], remaining)
-                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
-                remaining -= take
+            await db.safe_lots.insert_one({
+                "id": new_id(), "branch_id": branch_id,
+                "wallet_id": safe_wallet["id"],
+                "date_received": now_iso()[:10],
+                "original_amount": amount, "remaining_amount": amount,
+                "source_reference": ref_text,
+                "created_by": user["id"], "created_at": now_iso(),
+            })
     else:
-        await update_cashier_wallet(branch_id, -amount, ref_text)
+        await update_cashier_wallet(branch_id, amount, ref_text)
 
     # Reduce customer AR balance
     customer_id = expense.get("customer_id")

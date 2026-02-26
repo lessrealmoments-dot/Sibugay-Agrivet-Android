@@ -101,6 +101,7 @@ export default function BranchTransferPage() {
   const [receiveDialog, setReceiveDialog] = useState(false);
   const [receiveSaving, setReceiveSaving] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null); // ID of draft being edited
+  const [requestContext, setRequestContext] = useState(null); // { po_id, po_number } when generated from stock request
 
   // Smart Capital Dialog for branch transfers
   const [transferCapitalDialog, setTransferCapitalDialog] = useState(false);

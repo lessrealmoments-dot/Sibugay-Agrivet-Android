@@ -91,7 +91,7 @@ class TestInternalInvoices:
         assert len(products) > 0, "Need at least one product"
         product = products[0]
         
-        # Create a branch transfer
+        # Create a branch transfer - use qty=2 to avoid stock issues
         from_branch = self.branches[0]
         to_branch = self.branches[1]
         
@@ -105,7 +105,7 @@ class TestInternalInvoices:
                 "sku": product.get("sku", "SKU001"),
                 "category": product.get("category", "General"),
                 "unit": product.get("unit", "pc"),
-                "qty": 5,
+                "qty": 2,  # Small qty to avoid insufficient stock
                 "branch_capital": 100.00,
                 "transfer_capital": 110.00,
                 "branch_retail": 150.00
@@ -157,12 +157,12 @@ class TestInternalInvoices:
         items = invoice["items"]
         assert len(items) == 1, f"Invoice should have 1 item: {len(items)}"
         item = items[0]
-        assert item["qty"] == 5, f"Item qty should be 5: {item['qty']}"
+        assert item["qty"] == 2, f"Item qty should be 2: {item['qty']}"
         assert item["transfer_capital"] == 110.00, f"Item transfer_capital should be 110: {item['transfer_capital']}"
         assert "line_total" in item, "Item should have line_total"
         
         # Verify grand_total calculation
-        expected_total = 110.00 * 5  # transfer_capital * qty
+        expected_total = 110.00 * 2  # transfer_capital * qty
         assert invoice["grand_total"] == expected_total, f"Grand total should be {expected_total}: {invoice['grand_total']}"
         
         # Verify branch names enrichment

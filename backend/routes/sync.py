@@ -52,10 +52,16 @@ async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = Non
     # Price schemes (global)
     schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
     
-    # Inventory quantities for branch
+    # Inventory quantities for branch (or aggregated across all branches)
     inventory = []
     if branch_id:
         inventory = await db.inventory.find({"branch_id": branch_id}, {"_id": 0}).to_list(10000)
+    else:
+        # No branch specified — aggregate total stock across all branches
+        agg = await db.inventory.aggregate([
+            {"$group": {"_id": "$product_id", "quantity": {"$sum": "$quantity"}}}
+        ]).to_list(10000)
+        inventory = [{"product_id": r["_id"], "quantity": r["quantity"]} for r in agg]
     
     # Branch price overrides — so cashiers sell at correct branch price offline
     branch_prices = []

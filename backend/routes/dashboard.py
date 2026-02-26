@@ -518,3 +518,152 @@ async def branch_summary(user=Depends(get_current_user)):
             "branch_count": len(summaries),
         }
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Pending Reviews endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+@router.get("/pending-reviews")
+async def get_pending_reviews(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+):
+    """
+    Returns records that have upload sessions but haven't been reviewed yet.
+    Covers: purchase_orders, branch_transfers, expenses.
+    Admin/owner: all branches (grouped by branch). Branch user: own branch only.
+    """
+    is_admin = user.get("role") in ("admin", "owner", "manager")
+    user_branches = await get_user_branches(user)
+    user_branch_ids = [b["id"] for b in user_branches]
+
+    # Determine which branches to query
+    if branch_id and not is_admin:
+        target_branches = [branch_id] if branch_id in user_branch_ids else []
+    elif branch_id:
+        target_branches = [branch_id]
+    elif is_admin:
+        target_branches = user_branch_ids
+    else:
+        # Regular user: their assigned branch
+        default = await get_default_branch(user)
+        target_branches = [default["id"]] if default else user_branch_ids[:1]
+
+    if not target_branches:
+        return {"items": [], "total_count": 0, "by_branch": {}}
+
+    # Build branch name lookup
+    all_branches = await db.branches.find(
+        {"id": {"$in": target_branches}}, {"_id": 0, "id": 1, "name": 1}
+    ).to_list(100)
+    branch_names = {b["id"]: b["name"] for b in all_branches}
+
+    items = []
+
+    # ── POs with receipts not reviewed ────────────────────────────────────
+    po_query = {
+        "branch_id": {"$in": target_branches},
+        "status": {"$ne": "cancelled"},
+        "receipt_review_status": {"$ne": "reviewed"},
+    }
+    pos = await db.purchase_orders.find(po_query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    # Filter: only POs that have at least one upload session
+    for po in pos:
+        sessions = await db.upload_sessions.find(
+            {"record_type": "purchase_order", "record_id": po["id"], "is_pending": {"$ne": True}},
+            {"_id": 0, "file_count": 1, "created_at": 1, "created_by_name": 1}
+        ).to_list(20)
+        total_files = sum(s.get("file_count", 0) for s in sessions)
+        if total_files > 0:
+            items.append({
+                "id": po["id"],
+                "record_type": "purchase_order",
+                "record_number": po.get("po_number", ""),
+                "description": f"{po.get('vendor', 'Unknown Supplier')} - {po.get('item_count', len(po.get('items', [])))} items",
+                "amount": po.get("grand_total", 0),
+                "branch_id": po.get("branch_id", ""),
+                "branch_name": branch_names.get(po.get("branch_id", ""), ""),
+                "receipt_count": total_files,
+                "submitted_by": po.get("created_by_name", ""),
+                "submitted_at": po.get("created_at", ""),
+                "status": po.get("status", ""),
+            })
+
+    # ── Branch transfers with receipts not reviewed ───────────────────────
+    bt_query = {
+        "$or": [
+            {"from_branch_id": {"$in": target_branches}},
+            {"to_branch_id": {"$in": target_branches}},
+        ],
+        "status": {"$in": ["received", "completed", "received_pending"]},
+        "receipt_review_status": {"$ne": "reviewed"},
+    }
+    bts = await db.branch_transfer_orders.find(bt_query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for bt in bts:
+        sessions = await db.upload_sessions.find(
+            {"record_type": "branch_transfer", "record_id": bt["id"], "is_pending": {"$ne": True}},
+            {"_id": 0, "file_count": 1}
+        ).to_list(20)
+        total_files = sum(s.get("file_count", 0) for s in sessions)
+        if total_files > 0:
+            from_name = branch_names.get(bt.get("from_branch_id", ""), bt.get("from_branch_id", ""))
+            to_name = branch_names.get(bt.get("to_branch_id", ""), bt.get("to_branch_id", ""))
+            items.append({
+                "id": bt["id"],
+                "record_type": "branch_transfer",
+                "record_number": bt.get("order_number", ""),
+                "description": f"{from_name} → {to_name}",
+                "amount": bt.get("total_capital", 0),
+                "branch_id": bt.get("to_branch_id", bt.get("from_branch_id", "")),
+                "branch_name": to_name,
+                "receipt_count": total_files,
+                "submitted_by": bt.get("received_by_name", bt.get("created_by_name", "")),
+                "submitted_at": bt.get("received_at", bt.get("created_at", "")),
+                "status": bt.get("status", ""),
+            })
+
+    # ── Expenses with receipts not reviewed ───────────────────────────────
+    exp_query = {
+        "branch_id": {"$in": target_branches},
+        "receipt_review_status": {"$ne": "reviewed"},
+    }
+    exps = await db.expenses.find(exp_query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    for exp in exps:
+        sessions = await db.upload_sessions.find(
+            {"record_type": "expense", "record_id": exp["id"], "is_pending": {"$ne": True}},
+            {"_id": 0, "file_count": 1}
+        ).to_list(20)
+        total_files = sum(s.get("file_count", 0) for s in sessions)
+        if total_files > 0:
+            items.append({
+                "id": exp["id"],
+                "record_type": "expense",
+                "record_number": exp.get("reference_number", exp.get("id", "")[:8]),
+                "description": f"{exp.get('category', '')} - {exp.get('description', '')}",
+                "amount": exp.get("amount", 0),
+                "branch_id": exp.get("branch_id", ""),
+                "branch_name": branch_names.get(exp.get("branch_id", ""), ""),
+                "receipt_count": total_files,
+                "submitted_by": exp.get("created_by_name", ""),
+                "submitted_at": exp.get("created_at", ""),
+                "status": "recorded",
+            })
+
+    # Sort by submitted_at descending
+    items.sort(key=lambda x: x.get("submitted_at", ""), reverse=True)
+
+    # Group by branch for admin view
+    by_branch = {}
+    for item in items:
+        bid = item["branch_id"]
+        bname = item["branch_name"] or bid
+        if bname not in by_branch:
+            by_branch[bname] = {"branch_id": bid, "branch_name": bname, "count": 0, "items": []}
+        by_branch[bname]["count"] += 1
+        by_branch[bname]["items"].append(item)
+
+    return {
+        "items": items,
+        "total_count": len(items),
+        "by_branch": by_branch,
+    }

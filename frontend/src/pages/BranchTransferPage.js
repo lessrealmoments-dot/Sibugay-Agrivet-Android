@@ -135,6 +135,7 @@ export default function BranchTransferPage() {
 
   // Reset rows and template when source branch changes
   useEffect(() => {
+    if (skipResetRef.current) return;
     setRows([newRow()]);
     setToBranchId('');
     setTemplateLoaded(false);
@@ -143,6 +144,7 @@ export default function BranchTransferPage() {
   // Load markup template when destination branch changes
   useEffect(() => {
     if (!toBranchId) { setTemplateLoaded(false); return; }
+    if (skipResetRef.current) { skipResetRef.current = false; setTemplateLoaded(true); return; }
     setRows([newRow()]); // Reset rows for new destination
     api.get(`/branch-transfers/markup-template/${toBranchId}`)
       .then(r => {

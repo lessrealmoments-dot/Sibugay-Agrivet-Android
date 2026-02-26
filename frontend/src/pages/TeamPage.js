@@ -53,6 +53,7 @@ export default function TeamPage() {
   const [form, setForm] = useState(BLANK_FORM);
   const [pinForm, setPinForm] = useState({ pin: '', confirm: '' });
   const [saving, setSaving] = useState(false);
+  const [expandedUser, setExpandedUser] = useState(null);
 
   // Permissions state
   const [modules, setModules] = useState({});

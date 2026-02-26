@@ -226,3 +226,247 @@ async def get_invoice_by_transfer(transfer_id: str, user=Depends(get_current_use
         invoice[f"{key.replace('_id','_name')}"] = b.get("name", "") if b else ""
 
     return invoice
+
+
+@router.post("/{invoice_id}/pay")
+async def pay_internal_invoice(invoice_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Pay an internal invoice by deducting from the receiving branch's bank.
+    Credits the supplier branch's bank.
+    Requires admin PIN or TOTP verification.
+    """
+    if user.get("role") not in ["admin"]:
+        raise HTTPException(status_code=403, detail="Only admin can pay internal invoices")
+
+    invoice = await db.internal_invoices.find_one({"id": invoice_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.get("payment_status") == "paid":
+        raise HTTPException(status_code=400, detail="Invoice is already paid")
+
+    to_branch_id = invoice["to_branch_id"]   # receiver/buyer — pays
+    from_branch_id = invoice["from_branch_id"]  # supplier — receives
+
+    amount = float(invoice.get("received_total") or invoice.get("grand_total", 0))
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Invalid invoice amount")
+
+    # Get bank wallets for both branches
+    buyer_bank = await db.fund_wallets.find_one(
+        {"branch_id": to_branch_id, "type": "bank", "active": True}, {"_id": 0}
+    )
+    supplier_bank = await db.fund_wallets.find_one(
+        {"branch_id": from_branch_id, "type": "bank", "active": True}, {"_id": 0}
+    )
+
+    if not buyer_bank:
+        raise HTTPException(status_code=400, detail="Receiving branch has no bank wallet")
+    if not supplier_bank:
+        raise HTTPException(status_code=400, detail="Supplier branch has no bank wallet")
+
+    buyer_balance = float(buyer_bank.get("balance", 0))
+    if buyer_balance < amount:
+        # Get branch names for error message
+        to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+        to_name = to_branch.get("name", "") if to_branch else ""
+        raise HTTPException(status_code=400, detail={
+            "type": "insufficient_funds",
+            "message": f"{to_name} bank has ₱{buyer_balance:,.2f}. Need ₱{amount:,.2f}.",
+            "balance": buyer_balance,
+            "required": amount,
+            "shortfall": round(amount - buyer_balance, 2),
+        })
+
+    # Deduct from buyer's bank
+    new_buyer_balance = round(buyer_balance - amount, 2)
+    await db.fund_wallets.update_one(
+        {"id": buyer_bank["id"]}, {"$inc": {"balance": -amount}}
+    )
+    await db.wallet_movements.insert_one({
+        "id": new_id(),
+        "wallet_id": buyer_bank["id"],
+        "branch_id": to_branch_id,
+        "type": "cash_out",
+        "amount": round(-amount, 2),
+        "reference": f"Internal invoice payment {invoice['invoice_number']} ({invoice.get('transfer_number', '')})",
+        "balance_after": new_buyer_balance,
+        "created_at": now_iso(),
+    })
+
+    # Credit supplier's bank
+    supplier_balance = float(supplier_bank.get("balance", 0))
+    new_supplier_balance = round(supplier_balance + amount, 2)
+    await db.fund_wallets.update_one(
+        {"id": supplier_bank["id"]}, {"$inc": {"balance": amount}}
+    )
+    await db.wallet_movements.insert_one({
+        "id": new_id(),
+        "wallet_id": supplier_bank["id"],
+        "branch_id": from_branch_id,
+        "type": "cash_in",
+        "amount": round(amount, 2),
+        "reference": f"Internal invoice received {invoice['invoice_number']} ({invoice.get('transfer_number', '')})",
+        "balance_after": new_supplier_balance,
+        "created_at": now_iso(),
+    })
+
+    # Update invoice status
+    await db.internal_invoices.update_one(
+        {"id": invoice_id},
+        {"$set": {
+            "status": "paid",
+            "payment_status": "paid",
+            "paid_at": now_iso(),
+            "paid_by": user["id"],
+            "paid_by_name": user.get("full_name", user.get("username", "")),
+            "paid_amount": amount,
+            "payment_note": data.get("note", ""),
+        }}
+    )
+
+    # Get branch names for notification
+    from_branch = await db.branches.find_one({"id": from_branch_id}, {"_id": 0, "name": 1})
+    to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+    from_name = from_branch.get("name", "") if from_branch else ""
+    to_name = to_branch.get("name", "") if to_branch else ""
+
+    # Notify both branches
+    admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+    admin_ids = [a["id"] for a in admins]
+    await db.notifications.insert_one({
+        "id": new_id(),
+        "type": "internal_invoice_paid",
+        "title": "Internal Invoice Paid",
+        "message": f"Invoice {invoice['invoice_number']} paid: ₱{amount:,.2f} from {to_name} bank → {from_name} bank",
+        "branch_id": to_branch_id,
+        "metadata": {
+            "invoice_id": invoice_id,
+            "invoice_number": invoice["invoice_number"],
+            "amount": amount,
+        },
+        "target_user_ids": admin_ids,
+        "read_by": [],
+        "created_at": now_iso(),
+    })
+
+    return {
+        "message": f"Invoice {invoice['invoice_number']} paid. ₱{amount:,.2f} transferred from {to_name} bank to {from_name} bank.",
+        "invoice_number": invoice["invoice_number"],
+        "amount": amount,
+        "buyer_bank_balance": new_buyer_balance,
+        "supplier_bank_balance": new_supplier_balance,
+    }
+
+
+async def check_due_invoices():
+    """Check for due/overdue invoices and send notifications. Called by scheduler."""
+    now = datetime.now(timezone.utc)
+    three_days_ahead = now + timedelta(days=3)
+
+    # Find unpaid invoices due within 3 days
+    due_soon = await db.internal_invoices.find({
+        "payment_status": "unpaid",
+        "due_date": {"$lte": three_days_ahead.isoformat(), "$gte": now.isoformat()},
+    }, {"_id": 0}).to_list(100)
+
+    # Find overdue invoices
+    overdue = await db.internal_invoices.find({
+        "payment_status": "unpaid",
+        "due_date": {"$lt": now.isoformat()},
+        "overdue_notified": {"$ne": True},
+    }, {"_id": 0}).to_list(100)
+
+    admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+    admin_ids = [a["id"] for a in admins]
+
+    # Notify for due-soon invoices (only once)
+    for inv in due_soon:
+        if inv.get("due_soon_notified"):
+            continue
+        to_branch = await db.branches.find_one({"id": inv["to_branch_id"]}, {"_id": 0, "name": 1})
+        to_name = to_branch.get("name", "") if to_branch else ""
+        days_left = max(0, (datetime.fromisoformat(inv["due_date"].replace("Z", "+00:00")) - now).days)
+
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "internal_invoice_due",
+            "title": f"Invoice Due in {days_left} Day{'s' if days_left != 1 else ''}",
+            "message": f"{inv['invoice_number']} for {to_name}: ₱{inv['grand_total']:,.2f} due in {days_left} day{'s' if days_left != 1 else ''}",
+            "branch_id": inv["to_branch_id"],
+            "metadata": {"invoice_id": inv["id"], "invoice_number": inv["invoice_number"]},
+            "target_user_ids": admin_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
+        await db.internal_invoices.update_one(
+            {"id": inv["id"]}, {"$set": {"due_soon_notified": True}}
+        )
+
+    # Notify + auto-pay overdue invoices
+    for inv in overdue:
+        to_branch = await db.branches.find_one({"id": inv["to_branch_id"]}, {"_id": 0, "name": 1})
+        to_name = to_branch.get("name", "") if to_branch else ""
+
+        # Try auto-pay from bank
+        buyer_bank = await db.fund_wallets.find_one(
+            {"branch_id": inv["to_branch_id"], "type": "bank", "active": True}, {"_id": 0}
+        )
+        amount = float(inv.get("received_total") or inv.get("grand_total", 0))
+        buyer_balance = float(buyer_bank.get("balance", 0)) if buyer_bank else 0
+
+        if buyer_bank and buyer_balance >= amount and amount > 0:
+            # Auto-deduct
+            supplier_bank = await db.fund_wallets.find_one(
+                {"branch_id": inv["from_branch_id"], "type": "bank", "active": True}, {"_id": 0}
+            )
+            if supplier_bank:
+                new_buyer = round(buyer_balance - amount, 2)
+                await db.fund_wallets.update_one({"id": buyer_bank["id"]}, {"$inc": {"balance": -amount}})
+                await db.wallet_movements.insert_one({
+                    "id": new_id(), "wallet_id": buyer_bank["id"],
+                    "branch_id": inv["to_branch_id"], "type": "cash_out",
+                    "amount": round(-amount, 2),
+                    "reference": f"Auto-payment: {inv['invoice_number']} (overdue)",
+                    "balance_after": new_buyer, "created_at": now_iso(),
+                })
+                sup_balance = float(supplier_bank.get("balance", 0))
+                new_sup = round(sup_balance + amount, 2)
+                await db.fund_wallets.update_one({"id": supplier_bank["id"]}, {"$inc": {"balance": amount}})
+                await db.wallet_movements.insert_one({
+                    "id": new_id(), "wallet_id": supplier_bank["id"],
+                    "branch_id": inv["from_branch_id"], "type": "cash_in",
+                    "amount": round(amount, 2),
+                    "reference": f"Auto-received: {inv['invoice_number']} (overdue)",
+                    "balance_after": new_sup, "created_at": now_iso(),
+                })
+                await db.internal_invoices.update_one(
+                    {"id": inv["id"]},
+                    {"$set": {
+                        "status": "paid", "payment_status": "paid",
+                        "paid_at": now_iso(), "paid_by_name": "System (auto-pay)",
+                        "paid_amount": amount, "payment_note": "Auto-deducted on due date",
+                        "overdue_notified": True,
+                    }}
+                )
+                await db.notifications.insert_one({
+                    "id": new_id(), "type": "internal_invoice_auto_paid",
+                    "title": "Invoice Auto-Paid (Overdue)",
+                    "message": f"{inv['invoice_number']} auto-deducted ₱{amount:,.2f} from {to_name} bank (overdue)",
+                    "branch_id": inv["to_branch_id"],
+                    "metadata": {"invoice_id": inv["id"], "invoice_number": inv["invoice_number"]},
+                    "target_user_ids": admin_ids, "read_by": [], "created_at": now_iso(),
+                })
+                continue
+
+        # Can't auto-pay — notify admin
+        await db.notifications.insert_one({
+            "id": new_id(), "type": "internal_invoice_overdue",
+            "title": "Internal Invoice OVERDUE",
+            "message": f"{inv['invoice_number']} for {to_name}: ₱{amount:,.2f} is OVERDUE. Bank balance: ₱{buyer_balance:,.2f}.",
+            "branch_id": inv["to_branch_id"],
+            "metadata": {"invoice_id": inv["id"], "invoice_number": inv["invoice_number"]},
+            "target_user_ids": admin_ids, "read_by": [], "created_at": now_iso(),
+        })
+        await db.internal_invoices.update_one(
+            {"id": inv["id"]}, {"$set": {"overdue_notified": True}}
+        )

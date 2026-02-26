@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id, update_cashier_wallet,
-    update_digital_wallet, is_digital_payment,
+    update_digital_wallet, is_digital_payment, record_safe_movement,
     get_branch_filter, apply_branch_filter, verify_password
 )
 from utils.security import log_failed_pin_attempt

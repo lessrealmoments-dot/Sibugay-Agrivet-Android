@@ -634,7 +634,7 @@ REVIEWABLE_COLLECTIONS = {
 
 @router.post("/mark-reviewed/{record_type}/{record_id}")
 async def mark_record_reviewed(record_type: str, record_id: str, data: dict, user=Depends(get_current_user)):
-    """Mark a record's receipts as reviewed. Requires admin PIN or TOTP."""
+    """Mark a record's receipts as reviewed. Requires admin PIN, manager PIN, or TOTP."""
     collection_name = REVIEWABLE_COLLECTIONS.get(record_type)
     if not collection_name:
         raise HTTPException(status_code=400, detail=f"Unsupported record type: {record_type}")
@@ -648,34 +648,17 @@ async def mark_record_reviewed(record_type: str, record_id: str, data: dict, use
     if not pin:
         raise HTTPException(status_code=400, detail="Admin PIN or TOTP required")
 
-    managers = await db.users.find(
-        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
-    ).to_list(50)
-    reviewer = None
-    for mgr in managers:
-        mgr_pin = mgr.get("manager_pin", "") or mgr.get("owner_pin", "") or mgr.get("password_hash", "")[-4:]
-        if mgr_pin and pin == mgr_pin:
-            reviewer = mgr
-            break
-
-    if not reviewer:
-        import pyotp
-        for mgr in managers:
-            secret = mgr.get("totp_secret")
-            if secret:
-                totp = pyotp.TOTP(secret)
-                if totp.verify(pin, valid_window=1):
-                    reviewer = mgr
-                    break
-
-    if not reviewer:
+    # Use unified PIN resolver
+    from routes.verify import _resolve_pin
+    verifier = await _resolve_pin(pin)
+    if not verifier:
         raise HTTPException(status_code=401, detail="Invalid PIN or TOTP")
 
     review_notes = data.get("notes", "")
     await collection.update_one({"id": record_id}, {"$set": {
         "receipt_review_status": "reviewed",
-        "receipt_reviewed_by_id": reviewer["id"],
-        "receipt_reviewed_by_name": reviewer.get("full_name", reviewer["username"]),
+        "receipt_reviewed_by_id": verifier["verifier_id"],
+        "receipt_reviewed_by_name": verifier["verifier_name"],
         "receipt_reviewed_at": now_iso(),
         "receipt_review_notes": review_notes,
     }})
@@ -683,5 +666,5 @@ async def mark_record_reviewed(record_type: str, record_id: str, data: dict, use
     label = record.get("order_number", record.get("reference_number", record_id[:8]))
     return {
         "message": f"{RECORD_TYPE_LABELS.get(record_type, record_type)} {label} receipts marked as reviewed",
-        "reviewed_by": reviewer.get("full_name", reviewer["username"]),
+        "reviewed_by": verifier["verifier_name"],
     }

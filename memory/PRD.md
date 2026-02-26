@@ -258,6 +258,10 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Root cause**: Backend `invoices/history/by-date` categorized everything not "cash" as credit. Frontend only had Cash/Credit binary classification.
   - **Fix**: Backend now returns separate `digital` total for `payment_type in ("digital", "split")`. Frontend board now shows 5 stat cards: Cash Sales, Digital Sales, Credit Sales, Grand Total, Transactions. Row badges show actual platform (e.g., "GCash") with blue badge instead of binary Cash/Credit.
   - **Split payment fix**: Split invoices now properly allocate `cash_amount` → Cash Sales and `digital_amount` → Digital Sales (previously entire grand_total went to Digital). Row badges for split show "Split · GCash" (indigo) to distinguish from pure digital (blue). Fix applied to `/api/invoices/history/by-date`, `/api/dashboard` (owner stats), and `/api/dashboard` (branch cards).
+- [x] Bug Fix: Safe Wallet Movement History Empty (Feb 2026):
+  - **Problem**: Paying a PO from the safe deducted the balance correctly, but the movement history was empty.
+  - **Root cause**: Systemic — safe wallet operations modified `safe_lots` but never created `wallet_movements` entries. The `update_cashier_wallet()` helper always logged movements, but no equivalent existed for the safe.
+  - **Fix**: Created `record_safe_movement(branch_id, amount, reference)` helper in `utils/helpers.py`. Applied at all 7 code paths: PO payment from safe, PO adjust-payment (deduction + refund), cashier→safe, safe→cashier, safe→bank, capital injection to safe.
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

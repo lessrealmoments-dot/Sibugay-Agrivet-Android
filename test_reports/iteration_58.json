@@ -1,0 +1,110 @@
+{
+  "summary": "Iteration 58: Repack Products in Pricing Scan Feature - Backend tests ALL PASSED (10/10). Frontend code correctly implements REPACK badge, parent info, and (derived) indicator. API confirmed returning repack 'R VITMIN PRO POWDER' with is_repack=true, parent_name='updated by cashier', units_per_parent=20, effective_cost=25 (derived from 500/20).",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/products/pricing-scan",
+        "issue": "Pre-existing: Duplicate price_scheme keys in DB causing repeated entries in problem_schemes (retail appearing 17 times). Not related to repack fix.",
+        "priority": "LOW"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "PriceScanManager dialog",
+        "issues": [
+          "Dialog header shows '2 Products Below Cost' but only 1 product row was visible in screenshots - possible rendering or scroll issue, needs manual verification"
+        ]
+      }
+    ],
+    "console_warnings": [
+      "React key warnings: 'Encountered two children with the same key' for retail, wholesale, special - caused by duplicate scheme keys in database"
+    ]
+  },
+
+  "feature_verification": {
+    "BACKEND_API_TESTS": {
+      "test_01_pricing_scan_endpoint_works": "PASS - Returns 200 with issues array",
+      "test_02_pricing_scan_returns_repack_products": "PASS - Repack issues have is_repack=true",
+      "test_03_repack_cost_derivation_logic": "PASS - effective_cost correctly derived",
+      "test_04_repack_has_derived_indicator": "PASS - is_repack flag for frontend display",
+      "test_05_pricing_scan_with_branch_filter": "PASS - Branch filtering works",
+      "test_06_repack_moving_average_derived": "PASS - moving_average derived from parent",
+      "test_07_repack_last_purchase_derived": "PASS - last_purchase derived from parent",
+      "test_08_problem_schemes_for_repacks": "PASS - problem_schemes populated correctly",
+      "test_find_vitamin_pro_repack": "PASS - Found R VITMIN PRO POWDER repack",
+      "test_product_search_detail_returns_repack_cost": "PASS - search-detail returns effective_capital for repacks"
+    },
+    "API_RESPONSE_VERIFICATION": {
+      "repack_found": "R VITMIN PRO POWDER (1 X 20)",
+      "is_repack": true,
+      "parent_name": "updated by cashier",
+      "units_per_parent": 20,
+      "effective_cost": 25,
+      "moving_average": 24.62,
+      "last_purchase": 25,
+      "cost_derivation_verified": "25 = 500 (parent_cost) / 20 (units_per_parent)"
+    },
+    "FRONTEND_CODE_REVIEW": {
+      "REPACK_badge_implementation": "PASS - Line 337-339: purple badge with 'REPACK' text",
+      "parent_info_display": "PASS - Line 343-345: 'from {parent_name} ({units}/parent)'",
+      "derived_indicator": "PASS - Line 352-354: '(derived)' text for repack cost"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_repack_pricing_scan_58.py",
+    "/app/test_reports/pytest/pytest_repack_pricing_scan_58.xml"
+  ],
+
+  "action_items": [
+    "Manual verification recommended: Check price scan dialog displays both products (1 parent + 1 repack) correctly",
+    "Optional: Consider deduplicating price_schemes in database to fix React key warnings"
+  ],
+
+  "critical_code_review_comments": [
+    "Backend pricing-scan endpoint correctly loads repacks separately and builds parent_cost_map",
+    "Repack cost derivation: parent_cost / units_per_parent is correctly implemented",
+    "Branch price override for parent is correctly applied to repack derived cost",
+    "Moving avg and last purchase correctly lookup parent's movements and divide by units_per_parent",
+    "Frontend code has correct conditional rendering for is_repack products"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_repack_pricing_scan_58.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "Code verified correct, UI display needs manual verification"
+  },
+
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325"
+  },
+
+  "seed_data_creation": "No new seed data created. Used existing repack product 'R VITMIN PRO POWDER (1 X 20)'.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+
+  "context_for_next_testing_agent": "Iteration 58 verified the repack pricing scan feature. Backend confirmed working: GET /api/products/pricing-scan now returns repack products with is_repack=true, parent_name, units_per_parent, and derived effective_cost. The specific repack tested was 'R VITMIN PRO POWDER (1 X 20)' with derived cost 25 from parent cost 500/20 units. Frontend code at PriceScanManager.js lines 334-355 correctly displays: (1) REPACK badge in purple, (2) 'from {parent} ({units}/parent)' text, (3) '(derived)' indicator. Note: There are pre-existing duplicate price_schemes in DB causing React key warnings - not related to this feature.",
+
+  "rca_of_the_issue": {
+    "feature_summary": "Pricing scan now includes repack products with derived cost calculation",
+    "implementation_details": [
+      "1. Backend loads repacks separately: db.products.find({is_repack: true})",
+      "2. Builds parent cost map for cost derivation",
+      "3. Derived cost = parent_cost / units_per_parent",
+      "4. If branch has cost override for parent, uses that instead",
+      "5. Moving avg and last purchase also derived from parent purchase history / units_per_parent",
+      "6. Frontend shows REPACK badge, parent info, and (derived) indicator"
+    ]
+  }
+}

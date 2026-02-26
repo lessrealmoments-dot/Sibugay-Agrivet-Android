@@ -185,6 +185,9 @@ export default function AccountingPage() {
     try {
       const payload = { ...expenseForm, branch_id: currentBranch?.id };
       if (approvedBy) payload.manager_approved_by = approvedBy;
+      if (expenseReceiptData?.sessionId) {
+        payload.upload_session_ids = [expenseReceiptData.sessionId];
+      }
       if (editMode && expenseForm.id) {
         await api.put(`/expenses/${expenseForm.id}`, payload);
         toast.success('Expense updated');

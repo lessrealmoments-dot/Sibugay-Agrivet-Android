@@ -796,12 +796,13 @@ async def get_product_orders(product_id: str, branch_id: Optional[str] = None, l
 
 @router.post("/{product_id}/vendors")
 async def add_product_vendor(product_id: str, data: dict, user=Depends(get_current_user)):
-    """Add a vendor for a product."""
+    """Add a vendor for a product, optionally scoped to a branch."""
     check_perm(user, "products", "edit")
     
     vendor = {
         "id": new_id(),
         "product_id": product_id,
+        "branch_id": data.get("branch_id", ""),
         "vendor_name": data.get("vendor_name", ""),
         "vendor_contact": data.get("vendor_contact", ""),
         "last_price": float(data.get("last_price", 0)),

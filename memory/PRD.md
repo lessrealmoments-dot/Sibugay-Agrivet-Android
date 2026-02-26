@@ -241,6 +241,18 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Staff Manager PINs table: admin sets/resets any user's PIN with audit trail
   - Auditor Access section: toggle auditor role + set auditor PIN
   - Backend: PUT /auth/change-my-pin — validates current PIN before allowing change
+- [x] Bug Fix: Wrong PIN Logout (Feb 2026):
+  - Root cause: PUT /auth/change-my-pin returned HTTP 401 on wrong PIN, which triggered the global axios interceptor to log the user out
+  - Fix: Changed to HTTP 400 so it shows an error toast without destroying the session
+- [x] Unified Team & Settings Consolidation (Feb 2026):
+  - **Problem**: Settings, Accounts, and Permissions pages were redundant — all managed users/roles/PINs
+  - **Solution**: Merged into two clean pages:
+    - **Team page** (`/team`): Members tab (user CRUD, PIN mgmt, disable/delete) + Permissions tab (granular per-user permissions, presets)
+    - **Settings page** (`/settings`): My Account tab (profile, password, PIN — all roles) + Security tab (Admin PIN, TOTP, Auditor Access — admin only)
+  - Sidebar: Removed "Accounts" and "Permissions" nav items, replaced with "Team"
+  - Backend: Added `DELETE /api/users/{id}/permanent` (hard delete), `PUT /api/users/{id}/reactivate`, `GET /api/users?include_inactive=true`
+  - "Show disabled" toggle on Team page to reveal deactivated users
+  - Non-admin users only see Settings > My Account (no Team page access)
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

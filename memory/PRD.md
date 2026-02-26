@@ -314,6 +314,12 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Branch ranking**: Shows top branches by internal profit with revenue - cost = profit breakdown.
   - **Backend**: `GET /internal-invoices/profitability` endpoint with period filter, per-branch aggregation, sorted by profit.
   - **Navigation**: "View all invoices" link to Internal Invoices page.
+- [x] Bulletproof Offline Sales — Phase A (Feb 2026):
+  - **Local inventory deduction**: After any offline sale, stock is immediately deducted from the local IndexedDB cache (both inventory and product `available` fields). Cashier sees accurate stock even when offline.
+  - **Envelope ID for idempotency**: Every sale now includes a UUID `envelope_id`. The sync endpoint (`POST /sales/sync`) checks for duplicate `envelope_id` to prevent double-processing if a sale syncs twice.
+  - **Org-scoped IndexedDB**: Database name changed from `agripos_offline` to `agripos_offline_{org_id}`. Set on login/fetchUser via `setOfflineOrg()`. Prevents cross-tenant data leaks in multi-tenant SaaS.
+  - **beforeunload warning**: POS page registers a `beforeunload` event that checks for pending sales. If unsynced sales exist, browser prompts "You have unsynced sales" before closing.
+  - **Delta sync**: Backend `GET /sync/pos-data?last_sync={timestamp}` now filters products by `updated_at`/`created_at >= last_sync`. Returns `is_delta: true` flag. Frontend merges delta products via `putProduct()` instead of full cache replace.
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

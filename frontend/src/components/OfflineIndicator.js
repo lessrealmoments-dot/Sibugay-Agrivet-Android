@@ -329,18 +329,37 @@ export default function OfflineIndicator() {
         </div>
       )}
 
-      {/* Pending sales */}
+      {/* Pending sales — enhanced sync progress */}
       {pendingCount > 0 && (
-        <div className="flex items-center justify-between px-3 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/20">
-          <div className="flex items-center gap-2 text-xs text-amber-400">
-            <RefreshCw size={11} />
-            <span>{pendingCount} pending sale{pendingCount > 1 ? 's' : ''}</span>
+        <div className="rounded-md bg-amber-500/10 border border-amber-500/20 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center gap-2 text-xs text-amber-400">
+              <RefreshCw size={11} className={syncing ? 'animate-spin' : ''} />
+              <span className="font-semibold">{pendingCount} pending sale{pendingCount > 1 ? 's' : ''}</span>
+            </div>
+            {!isOnline && (
+              <span className="text-[9px] text-amber-500 bg-amber-500/20 px-1.5 py-0.5 rounded">waiting for internet</span>
+            )}
           </div>
-          {isOnline && (
+          {/* Sync progress detail */}
+          {syncing && stepLabel && stepLabel.includes('sale') && (
+            <div className="px-3 pb-2">
+              <div className="text-[10px] text-amber-300 mb-1">{stepLabel}</div>
+              <Progress value={syncPct} className="h-1 bg-amber-500/20" />
+            </div>
+          )}
+          {/* Sync button */}
+          {isOnline && !syncing && (
             <button data-testid="manual-sync-btn" onClick={handleManualSync}
-              className="text-[10px] text-amber-300 hover:text-amber-200 underline">
-              Push now
+              className="w-full py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5 border-t border-amber-500/20">
+              <RefreshCw size={10} />
+              Sync Now
             </button>
+          )}
+          {!isOnline && (
+            <div className="px-3 pb-2 text-[9px] text-amber-500/70">
+              Sales are safely stored. They will auto-sync when connection returns.
+            </div>
           )}
         </div>
       )}

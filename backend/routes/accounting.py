@@ -362,6 +362,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
             take = min(lot["remaining_amount"], remaining)
             await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
             remaining -= take
+        await record_safe_movement(branch_id, -amount, ref_text)
         # Add to bank wallet
         bank_w = await db.fund_wallets.find_one(
             {"branch_id": branch_id, "type": "bank", "active": True}, {"_id": 0}

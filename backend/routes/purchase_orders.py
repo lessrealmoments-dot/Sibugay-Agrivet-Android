@@ -690,6 +690,7 @@ async def adjust_po_payment(po_id: str, data: dict, user=Depends(get_current_use
                 take = min(lot["remaining_amount"], remaining)
                 await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
                 remaining -= take
+            await record_safe_movement(branch_id, -delta, ref_text)
         else:
             await update_cashier_wallet(branch_id, -delta, ref_text)
 

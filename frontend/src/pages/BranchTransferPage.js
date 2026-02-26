@@ -1019,12 +1019,41 @@ export default function BranchTransferPage() {
                               )}
                             </td>
 
-                            {/* Qty */}
+                            {/* Requested Qty — read only, from stock request */}
+                            {isFromRequest && (
+                              <td className="px-2 py-1.5 text-center">
+                                {row.requested_qty != null ? (
+                                  <span className="font-mono text-sm text-blue-600 font-semibold">{row.requested_qty}</span>
+                                ) : <span className="text-slate-300">—</span>}
+                              </td>
+                            )}
+                            {/* Available Stock — read only */}
+                            {isFromRequest && (
+                              <td className="px-2 py-1.5 text-center">
+                                {row.available_stock != null ? (
+                                  <span className={`font-mono text-sm font-semibold ${row.available_stock < (row.requested_qty || 0) ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                    {row.available_stock}
+                                    {row.available_stock < (row.requested_qty || 0) && (
+                                      <span className="block text-[9px] text-amber-500 font-normal">low</span>
+                                    )}
+                                  </span>
+                                ) : <span className="text-slate-300">—</span>}
+                              </td>
+                            )}
+
+                            {/* Qty / Send Qty */}
                             <td className="px-2 py-1.5 text-center">
-                              <Input type="number" min={1} value={row.qty}
+                              <Input type="number" min={0} value={row.qty}
                                 onChange={e => updateRow(row.id, { qty: e.target.value })}
-                                className="h-8 text-sm text-center font-mono w-16"
+                                className={`h-8 text-sm text-center font-mono w-16 ${
+                                  isFromRequest && row.requested_qty != null && parseFloat(row.qty) < row.requested_qty
+                                    ? 'border-amber-300 bg-amber-50'
+                                    : ''
+                                }`}
                                 data-testid={`qty-${row.id}`} />
+                              {isFromRequest && row.requested_qty != null && parseFloat(row.qty) < row.requested_qty && (
+                                <span className="text-[9px] text-amber-500 block">partial</span>
+                              )}
                             </td>
 
                             {/* Branch Capital — read-only */}

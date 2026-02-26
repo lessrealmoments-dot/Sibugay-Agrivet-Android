@@ -41,38 +41,49 @@ COLLECTION_MAP = {
 async def _resolve_pin(pin: str) -> Optional[dict]:
     """
     Returns verifier info dict if pin matches any of:
-      - Admin PIN (system_settings.admin_pin)
-      - Admin TOTP
+      - Admin PIN (system_settings.admin_pin — hashed)
+      - Manager/Admin PIN (user.manager_pin or user.owner_pin — plain text)
+      - Admin TOTP (6-digit code)
       - Auditor PIN (user with is_auditor=True)
     Returns None if no match.
     """
     if not pin:
         return None
 
-    # 1. Admin PIN (plain PIN stored in system settings)
+    # 1. System Admin PIN (hashed in system_settings)
     admin_pin_doc = await db.system_settings.find_one({"key": "admin_pin"}, {"_id": 0})
     if admin_pin_doc:
         stored = admin_pin_doc.get("pin_hash", "")
         if stored and verify_password(pin, stored):
             return {"verifier_id": "system_admin", "verifier_name": "Admin", "method": "admin_pin"}
 
-    # 2. Admin TOTP (6-digit code)
+    # 2. Manager/Admin PIN (plain text on user documents)
+    managers = await db.users.find(
+        {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
+    ).to_list(50)
+    for mgr in managers:
+        mgr_pin = mgr.get("manager_pin", "") or mgr.get("owner_pin", "")
+        if mgr_pin and pin == mgr_pin:
+            return {
+                "verifier_id": mgr["id"],
+                "verifier_name": mgr.get("full_name", mgr["username"]),
+                "method": "manager_pin",
+            }
+
+    # 3. Admin TOTP (6-digit code)
     if len(pin) == 6 and pin.isdigit():
-        admins = await db.users.find(
-            {"role": "admin", "active": True, "totp_enabled": True}, {"_id": 0}
-        ).to_list(10)
-        for admin in admins:
-            secret = admin.get("totp_secret")
-            if secret:
+        for mgr in managers:
+            secret = mgr.get("totp_secret")
+            if secret and mgr.get("totp_enabled"):
                 totp = pyotp.TOTP(secret)
                 if totp.verify(pin, valid_window=1):
                     return {
-                        "verifier_id": admin["id"],
-                        "verifier_name": admin.get("full_name", admin["username"]),
+                        "verifier_id": mgr["id"],
+                        "verifier_name": mgr.get("full_name", mgr["username"]),
                         "method": "totp",
                     }
 
-    # 3. Auditor PIN
+    # 4. Auditor PIN
     auditors = await db.users.find(
         {"is_auditor": True, "active": True}, {"_id": 0}
     ).to_list(50)

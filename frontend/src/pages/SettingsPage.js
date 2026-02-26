@@ -20,6 +20,141 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const PERMISSION_MODULES = []; // unused - permissions managed via /user-permissions page
 
+// ── My PIN change form (for managers/admins) ─────────────────────────────────
+function MyPinForm({ hasExistingPin }) {
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+
+  const handleSave = async () => {
+    if (newPin !== confirmPin) { toast.error('PINs do not match'); return; }
+    if (newPin.length < 4) { toast.error('PIN must be at least 4 digits'); return; }
+    if (hasExistingPin && !currentPin) { toast.error('Enter your current PIN'); return; }
+    setSaving(true);
+    try {
+      await api.put('/auth/change-my-pin', { current_pin: currentPin, new_pin: newPin });
+      toast.success('Your PIN has been updated');
+      setCurrentPin(''); setNewPin(''); setConfirmPin('');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to change PIN');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="max-w-sm space-y-3">
+      {hasExistingPin && (
+        <div>
+          <Label className="text-xs text-slate-500">Current PIN</Label>
+          <Input data-testid="my-current-pin" type="password" value={currentPin}
+            onChange={e => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            placeholder="Enter current PIN" className="mt-1" />
+        </div>
+      )}
+      <div>
+        <Label className="text-xs text-slate-500">{hasExistingPin ? 'New PIN' : 'Set PIN'}</Label>
+        <div className="relative mt-1">
+          <Input data-testid="my-new-pin" type={showPin ? 'text' : 'password'} value={newPin}
+            onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+            placeholder="Enter 4-8 digit PIN" className="pr-10" />
+          <button type="button" onClick={() => setShowPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+            {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs text-slate-500">Confirm PIN</Label>
+        <Input data-testid="my-confirm-pin" type="password" value={confirmPin}
+          onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          placeholder="Re-enter PIN" className="mt-1" />
+      </div>
+      {newPin && confirmPin && newPin !== confirmPin && (
+        <p className="text-xs text-red-500">PINs do not match</p>
+      )}
+      <Button data-testid="save-my-pin-btn" onClick={handleSave}
+        disabled={saving || !newPin || newPin !== confirmPin || (hasExistingPin && !currentPin)}
+        className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+        {saving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Key size={13} className="mr-1.5" />}
+        {hasExistingPin ? 'Change My PIN' : 'Set My PIN'}
+      </Button>
+    </div>
+  );
+}
+
+// ── Staff PIN row (admin sets/resets any user's PIN) ─────────────────────────
+function StaffPinRow({ user: u, onSaved, currentUserId }) {
+  const [newPin, setNewPin] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSet = async () => {
+    if (newPin.length < 4) { toast.error('PIN must be at least 4 digits'); return; }
+    setSaving(true);
+    try {
+      await api.put(`/users/${u.id}/pin`, { pin: newPin });
+      toast.success(`PIN set for ${u.full_name || u.username}`);
+      setNewPin('');
+      onSaved?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to set PIN');
+    }
+    setSaving(false);
+  };
+
+  const handleClear = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/users/${u.id}/pin`, { pin: '' });
+      toast.success(`PIN cleared for ${u.full_name || u.username}`);
+      onSaved?.();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to clear PIN');
+    }
+    setSaving(false);
+  };
+
+  const isMe = u.id === currentUserId;
+  return (
+    <TableRow>
+      <TableCell>
+        <p className="font-medium text-sm">{u.full_name || u.username} {isMe && <span className="text-[10px] text-slate-400">(you)</span>}</p>
+        <p className="text-xs text-slate-400">@{u.username}</p>
+      </TableCell>
+      <TableCell><Badge className="text-[10px] capitalize bg-slate-100 text-slate-600">{u.role}</Badge></TableCell>
+      <TableCell>
+        {u.manager_pin
+          ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700">Active</Badge>
+          : <Badge className="text-[10px] bg-slate-100 text-slate-400">Not Set</Badge>
+        }
+        {u.pin_set_by_name && <p className="text-[9px] text-slate-400 mt-0.5">Set by {u.pin_set_by_name}</p>}
+      </TableCell>
+      <TableCell>
+        <Input type="password" value={newPin}
+          onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+          placeholder={u.manager_pin ? 'New PIN' : '4-8 digits'}
+          className="h-8 w-28 text-sm" data-testid={`staff-pin-${u.id}`} />
+      </TableCell>
+      <TableCell>
+        <div className="flex gap-1">
+          {newPin.length >= 4 && (
+            <Button size="sm" onClick={handleSet} disabled={saving}
+              className="h-7 text-xs bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid={`save-staff-pin-${u.id}`}>
+              {saving ? <RefreshCw size={11} className="animate-spin" /> : 'Set'}
+            </Button>
+          )}
+          {u.manager_pin && (
+            <Button size="sm" variant="outline" onClick={handleClear} disabled={saving}
+              className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50">
+              Clear
+            </Button>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 export default function SettingsPage() {
   const { user: currentUser, branches } = useAuth();
   const navigate = useNavigate();

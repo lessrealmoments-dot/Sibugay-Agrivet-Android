@@ -41,6 +41,8 @@ function newRow() {
     productSearch: '', productMatches: [], product: null,
     activeSearchIndex: -1,
     qty: 1,
+    requested_qty: null,   // set when generated from stock request
+    available_stock: null,  // set when generated from stock request
     branch_capital: 0,
     global_cost_price: 0,
     is_branch_specific_cost: false,

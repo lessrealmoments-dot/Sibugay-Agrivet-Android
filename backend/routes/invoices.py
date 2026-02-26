@@ -767,6 +767,7 @@ async def get_invoices_by_date(
         "invoices": invoices,
         "totals": {
             "cash": round(cash_total, 2),
+            "digital": round(digital_total, 2),
             "credit": round(credit_total, 2),
             "grand_total": round(grand_total, 2),
             "count": len([i for i in invoices if i.get("status") != "voided"]),

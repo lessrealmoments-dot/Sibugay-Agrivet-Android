@@ -120,6 +120,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/branches" element={<ProtectedRoute><BranchesPage /></ProtectedRoute>} />
       <Route path="/branch-transfers" element={<ProtectedRoute><FeatureGate featureKey="branch_transfers"><BranchTransferPage /></FeatureGate></ProtectedRoute>} />
+      <Route path="/internal-invoices" element={<ProtectedRoute><InternalInvoicesPage /></ProtectedRoute>} />
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
       <Route path="/products/:id" element={<ProtectedRoute><ProductDetailPage /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />

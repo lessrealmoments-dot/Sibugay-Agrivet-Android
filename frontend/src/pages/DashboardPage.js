@@ -570,7 +570,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <ResponsiveGridLayout
+      <div ref={gridRef}>
+      {gridMounted && (
+      <Responsive
+        width={gridWidth}
         layouts={layouts}
         breakpoints={{ lg: 1200, md: 768 }}
         cols={{ lg: 12, md: 10 }}
@@ -589,7 +592,9 @@ export default function DashboardPage() {
             </GridWidget>
           </div>
         ))}
-      </ResponsiveGridLayout>
+      </Responsive>
+      )}
+      </div>
     </div>
   );
 }

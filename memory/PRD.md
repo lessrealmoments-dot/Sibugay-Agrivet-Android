@@ -262,6 +262,9 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Problem**: Paying a PO from the safe deducted the balance correctly, but the movement history was empty.
   - **Root cause**: Systemic — safe wallet operations modified `safe_lots` but never created `wallet_movements` entries. The `update_cashier_wallet()` helper always logged movements, but no equivalent existed for the safe.
   - **Fix**: Created `record_safe_movement(branch_id, amount, reference)` helper in `utils/helpers.py`. Applied at all 7 code paths: PO payment from safe, PO adjust-payment (deduction + refund), cashier→safe, safe→cashier, safe→bank, capital injection to safe.
+- [x] Repack Products in Price-Below-Capital Scan (Feb 2026):
+  - **Problem**: The PriceScanManager background scan (every 5 min) excluded repack products, so repacks priced below their derived cost were never flagged.
+  - **Fix**: Backend `pricing-scan` endpoint now loads repacks, derives their cost from `parent_cost / units_per_parent`, and includes them in the scan. Moving average and last purchase also derived from parent history. Frontend shows purple "REPACK" badge with parent info and "(derived)" cost indicator.
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

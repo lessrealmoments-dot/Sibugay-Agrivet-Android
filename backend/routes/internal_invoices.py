@@ -195,6 +195,97 @@ async def get_invoice_summary(
     }
 
 
+@router.get("/profitability")
+async def get_internal_profitability(
+    user=Depends(get_current_user),
+    period: str = "this_month",
+):
+    """
+    Get internal profitability per branch.
+    Revenue = total transfer capital from invoices where branch is supplier (from_branch_id).
+    Cost = total transfer capital from invoices where branch is buyer (to_branch_id).
+    Profit = Revenue - Cost.
+    """
+    now = datetime.now(timezone.utc)
+    if period == "last_month":
+        start = (now.replace(day=1) - timedelta(days=1)).replace(day=1)
+        end = now.replace(day=1)
+    elif period == "quarter":
+        q_month = ((now.month - 1) // 3) * 3 + 1
+        start = now.replace(month=q_month, day=1)
+        end = now
+    elif period == "year":
+        start = now.replace(month=1, day=1)
+        end = now
+    else:  # this_month
+        start = now.replace(day=1)
+        end = now
+
+    date_filter = {"created_at": {"$gte": start.isoformat(), "$lte": end.isoformat()}}
+
+    # Get all invoices in period (exclude cancelled)
+    invoices = await db.internal_invoices.find(
+        {**date_filter, "status": {"$ne": "cancelled"}}, {"_id": 0}
+    ).to_list(1000)
+
+    # Get all branches
+    all_branches = await db.branches.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(50)
+    branch_map = {b["id"]: b["name"] for b in all_branches}
+
+    # Build per-branch profitability
+    branch_data = {}
+    for b in all_branches:
+        branch_data[b["id"]] = {
+            "branch_id": b["id"],
+            "branch_name": b["name"],
+            "revenue": 0.0,      # supplied to others
+            "cost": 0.0,         # received from others
+            "invoice_count": 0,
+            "supplied_count": 0,
+            "received_count": 0,
+        }
+
+    for inv in invoices:
+        amount = float(inv.get("received_total") or inv.get("grand_total", 0))
+        from_id = inv.get("from_branch_id", "")
+        to_id = inv.get("to_branch_id", "")
+
+        if from_id in branch_data:
+            branch_data[from_id]["revenue"] += amount
+            branch_data[from_id]["supplied_count"] += 1
+        if to_id in branch_data:
+            branch_data[to_id]["cost"] += amount
+            branch_data[to_id]["received_count"] += 1
+            branch_data[to_id]["invoice_count"] += 1
+
+    # Calculate profit and sort by profit desc
+    result = []
+    total_revenue = 0.0
+    total_cost = 0.0
+    for bd in branch_data.values():
+        bd["profit"] = round(bd["revenue"] - bd["cost"], 2)
+        bd["revenue"] = round(bd["revenue"], 2)
+        bd["cost"] = round(bd["cost"], 2)
+        total_revenue += bd["revenue"]
+        total_cost += bd["cost"]
+        if bd["revenue"] > 0 or bd["cost"] > 0:
+            result.append(bd)
+
+    result.sort(key=lambda x: x["profit"], reverse=True)
+
+    return {
+        "period": period,
+        "branches": result,
+        "totals": {
+            "revenue": round(total_revenue, 2),
+            "cost": round(total_cost, 2),
+            "net": round(total_revenue - total_cost, 2),
+            "invoice_count": len(invoices),
+        }
+    }
+
+
+
 @router.get("/{invoice_id}")
 async def get_internal_invoice(invoice_id: str, user=Depends(get_current_user)):
     """Get a single internal invoice."""

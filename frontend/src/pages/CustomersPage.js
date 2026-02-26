@@ -131,7 +131,9 @@ export default function CustomersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Customers</h1>
-          <p className="text-sm text-slate-500 mt-1">{total} customers with price scheme assignment</p>
+          <p className="text-sm text-slate-500 mt-1">
+            {total} customers{currentBranch ? ` — ${currentBranch.name}` : ' (all branches)'}
+          </p>
         </div>
         <Button data-testid="create-customer-btn" onClick={openCreate} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
           <Plus size={16} className="mr-2" /> Add Customer

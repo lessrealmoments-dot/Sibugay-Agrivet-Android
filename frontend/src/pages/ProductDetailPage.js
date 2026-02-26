@@ -526,6 +526,7 @@ export default function ProductDetailPage() {
             <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
               <Activity size={18} className="text-violet-500" strokeWidth={1.5} />
               Capital History
+              {currentBranch && <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">{currentBranch.name}</span>}
               {capitalHistory.length > 0 && (
                 <span className="ml-2 text-xs font-normal text-slate-400">{capitalHistory.length} changes</span>
               )}

@@ -307,6 +307,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Due-soon notifications**: 3 days before due date, sends notification to admin.
   - **Sidebar navigation**: "Internal Invoices" added under Branches section.
   - **Notification types**: Added icons for internal_invoice_paid, auto_paid, due, overdue.
+- [x] Internal Profitability Dashboard Widget (Feb 2026):
+  - **Dashboard widget**: Added to Owner Dashboard showing per-branch internal revenue (supplied goods), cost (received goods), and profit/loss.
+  - **Bar chart**: Green bars for profit centers, red for cost centers using recharts.
+  - **Period selector**: This Month, Last Month, Quarter, Year with live data refresh.
+  - **Branch ranking**: Shows top branches by internal profit with revenue - cost = profit breakdown.
+  - **Backend**: `GET /internal-invoices/profitability` endpoint with period filter, per-branch aggregation, sorted by profit.
+  - **Navigation**: "View all invoices" link to Internal Invoices page.
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

@@ -701,6 +701,7 @@ async def adjust_po_payment(po_id: str, data: dict, user=Depends(get_current_use
 async def receive_purchase_order(po_id: str, data: dict = None, user=Depends(get_current_user)):
     """Receive a purchase order (Draft/Ordered) and update inventory.
     Accepts optional body: { capital_choices: { product_id: "last_purchase"|"moving_average" } }
+    Receipt upload is mandatory — at least 1 file must be attached before receiving.
     """
     if data is None:
         data = {}
@@ -712,15 +713,53 @@ async def receive_purchase_order(po_id: str, data: dict = None, user=Depends(get
     if po["status"] == "received":
         raise HTTPException(status_code=400, detail="PO already received")
 
+    # ── Mandatory receipt check ───────────────────────────────────────────
+    upload_sessions = await db.upload_sessions.find(
+        {"record_type": "purchase_order", "record_id": po_id},
+        {"_id": 0, "file_count": 1}
+    ).to_list(20)
+    total_receipts = sum(s.get("file_count", 0) for s in upload_sessions)
+    if total_receipts == 0 and not data.get("skip_receipt_check"):
+        raise HTTPException(
+            status_code=400,
+            detail="Receipt upload required. Please upload at least 1 receipt photo before receiving this PO."
+        )
+
     capital_choices = data.get("capital_choices", {})
     await _apply_po_inventory(po, user, capital_choices)
 
     await db.purchase_orders.update_one(
         {"id": po_id},
-        {"$set": {"status": "received", "received_date": now_iso()}}
+        {"$set": {
+            "status": "received",
+            "received_date": now_iso(),
+            "receipt_count": total_receipts,
+            "receipt_review_status": "pending",
+        }}
     )
 
-    return {"message": "PO received, inventory updated"}
+    # ── Notify owner/admin that PO was received and needs review ──────────
+    po_number = po.get("po_number", "")
+    vendor = po.get("vendor", "")
+    admins = await db.users.find(
+        {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+    ).to_list(10)
+    admin_ids = [a["id"] for a in admins]
+    if admin_ids:
+        notification = {
+            "id": new_id(),
+            "type": "po_receipt_review",
+            "title": f"PO {po_number} received — review receipts",
+            "message": f"{user.get('full_name', user['username'])} received PO {po_number} from {vendor} with {total_receipts} receipt photo(s). Please review.",
+            "target_user_ids": admin_ids,
+            "record_type": "purchase_order",
+            "record_id": po_id,
+            "read_by": [],
+            "created_at": now_iso(),
+        }
+        await db.notifications.insert_one(notification)
+
+    return {"message": "PO received, inventory updated", "receipt_count": total_receipts}
 
 
 @router.get("/{po_id}/capital-preview")

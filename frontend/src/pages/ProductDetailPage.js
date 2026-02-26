@@ -47,7 +47,14 @@ export default function ProductDetailPage() {
       const params = currentBranch ? { branch_id: currentBranch.id } : {};
       const res = await api.get(`/products/${id}/detail`, { params });
       setDetail(res.data);
-      setEditForm(res.data.product);
+      // If on a branch, merge branch-specific prices into the edit form
+      const product = res.data.product;
+      const branchPrices = res.data.cost?.branch_retail_prices;
+      if (currentBranch && branchPrices && Object.keys(branchPrices).length > 0) {
+        setEditForm({ ...product, prices: { ...(product.prices || {}), ...branchPrices } });
+      } else {
+        setEditForm(product);
+      }
     } catch (e) { toast.error('Failed to load product'); navigate('/products'); }
     setLoading(false);
   }, [id, navigate, currentBranch]);

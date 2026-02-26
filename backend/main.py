@@ -38,6 +38,7 @@ from routes import (
     organizations_router, superadmin_router, admin_auth_router,
 )
 from routes.backups import router as backups_router
+from routes.internal_invoices import router as internal_invoices_router
 
 # =============================================================================
 # APP SETUP

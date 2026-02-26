@@ -320,6 +320,20 @@ async def verify_transaction_public(
 
     await collection.update_one({"id": doc_id}, {"$set": verification})
 
+    # Also update receipt_review_status so desktop shows this as reviewed
+    # (bridges the gap between "verify transaction" and "review receipts")
+    upload_sessions = await db.upload_sessions.find(
+        {"record_type": doc_type, "record_id": doc_id, "is_pending": {"$ne": True}},
+        {"_id": 0, "file_count": 1}
+    ).to_list(20)
+    if sum(s.get("file_count", 0) for s in upload_sessions) > 0:
+        await collection.update_one({"id": doc_id}, {"$set": {
+            "receipt_review_status": "reviewed",
+            "receipt_reviewed_by_id": verifier["verifier_id"],
+            "receipt_reviewed_by_name": verifier["verifier_name"],
+            "receipt_reviewed_at": now_iso(),
+        }})
+
     # Log discrepancy
     if has_discrepancy:
         branch_id = doc.get("branch_id", "")

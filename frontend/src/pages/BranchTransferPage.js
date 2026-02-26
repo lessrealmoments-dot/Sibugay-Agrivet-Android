@@ -1658,6 +1658,22 @@ export default function BranchTransferPage() {
             </div>
           )}
 
+          {/* Invoice reference */}
+          {viewOrder?.invoice_number && (
+            <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs">
+              <span className="text-emerald-700 flex items-center gap-2">
+                <ClipboardCheck size={13} className="text-emerald-600" />
+                Invoice: <b>{viewOrder.invoice_number}</b>
+                <span className="text-slate-400">|</span>
+                Terms: Net 15
+              </span>
+              <Button variant="ghost" size="sm" className="h-6 text-xs text-emerald-700"
+                onClick={() => printTransferOrder(viewOrder)}>
+                Print Invoice
+              </Button>
+            </div>
+          )}
+
           <ScrollArea className="flex-1">
             {/* Reconciliation view for received orders */}
             {viewOrder?.status === 'received' ? (

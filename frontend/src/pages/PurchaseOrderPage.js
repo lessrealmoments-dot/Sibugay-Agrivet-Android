@@ -1059,7 +1059,7 @@ export default function PurchaseOrderPage() {
                     </TableRow>
                   ))}
                   {!filteredOrders.length && (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">No purchase orders found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={10} className="text-center py-8 text-slate-400">No purchase orders found</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

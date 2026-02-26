@@ -5,8 +5,9 @@
  * Auto-polls every 30s.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, useAuth } from '../contexts/AuthContext';
-import { Bell, Check, CheckCheck, Zap, CreditCard, Briefcase, Shield, AlertTriangle } from 'lucide-react';
+import { Bell, Check, CheckCheck, Zap, CreditCard, Briefcase, Shield, AlertTriangle, Package, ArrowLeftRight, ClipboardCheck, XCircle } from 'lucide-react';
 
 const TYPE_ICONS = {
   credit_sale:            { icon: CreditCard,    color: 'text-blue-500',   bg: 'bg-blue-50'   },

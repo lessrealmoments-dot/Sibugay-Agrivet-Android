@@ -242,7 +242,19 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    // Check for pending offline sales before logout
+    try {
+      const { hasPendingSales } = await import('../lib/offlineDB');
+      const pending = await hasPendingSales();
+      if (pending) {
+        const confirmed = window.confirm(
+          'You have unsynced offline sales! If you log out now, they will sync next time you log in.\n\nAre you sure you want to log out?'
+        );
+        if (!confirmed) return;
+      }
+    } catch { /* proceed with logout */ }
+
     localStorage.removeItem('agripos_token');
     localStorage.removeItem('agripos_user');
     localStorage.removeItem('agripos_selected_branch');

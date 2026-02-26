@@ -395,13 +395,18 @@ async def branch_summary(user=Depends(get_current_user)):
         # Today's revenue for this branch (by order_date)
         today_invoices = await db.invoices.find(
             {"branch_id": branch_id, "status": {"$ne": "voided"}, "order_date": today},
-            {"_id": 0, "grand_total": 1, "payment_type": 1}
+            {"_id": 0, "grand_total": 1, "payment_type": 1, "cash_amount": 1, "digital_amount": 1}
         ).to_list(10000)
         today_revenue = round(sum(inv.get("grand_total", 0) for inv in today_invoices), 2)
         today_sales_count = len(today_invoices)
         today_cash_sales = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") == "cash"), 2)
         today_new_credit = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") in ("credit", "partial")), 2)
-        today_digital_sales = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") in ("digital", "split")), 2)
+        today_digital_sales = round(sum(inv.get("grand_total", 0) for inv in today_invoices if inv.get("payment_type") == "digital"), 2)
+        # Split payments: cash portion → cash, digital portion → digital
+        for inv in today_invoices:
+            if inv.get("payment_type") == "split":
+                today_cash_sales = round(today_cash_sales + float(inv.get("cash_amount", 0)), 2)
+                today_digital_sales = round(today_digital_sales + float(inv.get("digital_amount", 0)), 2)
 
         # AR collected today (payments on older invoices)
         ar_today = await db.invoices.aggregate([

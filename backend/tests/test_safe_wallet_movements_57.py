@@ -158,14 +158,14 @@ class TestSafeWalletMovements:
         initial_movements = self.get_safe_movements(headers)
         initial_count = len(initial_movements)
         
-        # Try using owner PIN (2580 is common)
+        # Try using owner PIN (1234 is common manager PIN that works for capital too)
         capital_amount = 200.0
         resp = requests.post(f"{BASE_URL}/api/fund-transfers", headers=headers, json={
             "branch_id": TEST_BRANCH_ID,
             "transfer_type": "capital_add",
             "target_wallet": "safe",
             "amount": capital_amount,
-            "owner_pin": "2580",  # Standard owner PIN
+            "owner_pin": "1234",  # Standard manager PIN also works for capital
             "note": "TEST_CAPITAL_INJECTION_SAFE_57"
         })
         

@@ -1774,6 +1774,12 @@ export default function BranchTransferPage() {
                 required={true}
                 label="Receipt / DR Photo (Required)"
                 recordType="branch_transfer"
+                recordSummary={viewOrder ? {
+                  type_label: 'Branch Transfer',
+                  title: viewOrder.order_number || 'Transfer Receipt',
+                  description: `${viewOrder.items?.length || 0} item(s)`,
+                  amount: viewOrder.total_capital || 0,
+                } : undefined}
                 onUploaded={(data) => setReceiveReceiptData(data)}
               />
             </div>

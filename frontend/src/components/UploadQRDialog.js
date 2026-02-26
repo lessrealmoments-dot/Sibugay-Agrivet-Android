@@ -92,7 +92,7 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
       >
         {/* Close button */}
         <button
-          onClick={handleClose}
+          onClick={(e) => { e.stopPropagation(); handleClose(); }}
           data-testid="uploadqr-close-x"
           className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
           aria-label="Close"

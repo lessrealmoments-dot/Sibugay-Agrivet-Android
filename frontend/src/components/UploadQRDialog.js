@@ -78,7 +78,7 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     /* Overlay */
     <div
       className="fixed inset-0 flex items-center justify-center p-4"

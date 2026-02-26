@@ -893,16 +893,47 @@ export default function BranchTransferPage() {
             </Card>
           )}
 
+          {/* Request context banner */}
+          {requestContext && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200">
+              <Package size={18} className="text-blue-600 shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-blue-800">Fulfilling Stock Request {requestContext.po_number}</p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  Review requested quantities vs available stock. Adjust send qty based on what you can fulfill.
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { setRequestContext(null); cancelEdit(); }} className="text-blue-600 h-7">
+                Cancel
+              </Button>
+            </div>
+          )}
+
           {/* Product table */}
           {toBranchId && (
             <>
+              {(() => { const isFromRequest = !!requestContext; return (
               <Card className="border-slate-200 overflow-visible">
                 <CardContent className="p-0">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b-2 border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                         <th className="px-3 py-2 text-left" style={{minWidth:'200px'}}>Product</th>
-                        <th className="px-2 py-2 text-center" style={{minWidth:'70px'}}>Qty</th>
+                        {isFromRequest && (
+                          <>
+                            <th className="px-2 py-2 text-center" style={{minWidth:'70px'}}>
+                              Requested
+                              <span className="text-[9px] font-normal block text-blue-400">by branch</span>
+                            </th>
+                            <th className="px-2 py-2 text-center" style={{minWidth:'70px'}}>
+                              Available
+                              <span className="text-[9px] font-normal block text-slate-400">in stock</span>
+                            </th>
+                          </>
+                        )}
+                        <th className="px-2 py-2 text-center" style={{minWidth:'70px'}}>
+                          {isFromRequest ? 'Send' : 'Qty'}
+                        </th>
                         <th className="px-2 py-2 text-right" style={{minWidth:'100px'}}>Branch Capital</th>
                         <th className="px-2 py-2 text-right" style={{minWidth:'110px'}}>
                           Transfer Capital

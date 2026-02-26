@@ -1486,7 +1486,15 @@ export default function PurchaseOrderPage() {
       {/* ── UPLOAD QR DIALOG ────────────────────────────────────────────── */}
       <UploadQRDialog
         open={uploadQROpen}
-        onClose={(count) => { setUploadQROpen(false); if (count > 0) toast.success(`${count} receipt photo(s) uploaded!`); }}
+        onClose={(count) => {
+          setUploadQROpen(false);
+          if (count > 0) {
+            toast.success(`${count} receipt photo(s) uploaded!`);
+            // Update receipt count in detail PO and list
+            if (detailPO) setDetailPO(prev => ({ ...prev, receipt_count: (prev.receipt_count || 0) + count }));
+            fetchOrders();
+          }
+        }}
         recordType="purchase_order"
         recordId={uploadRecordId}
       />

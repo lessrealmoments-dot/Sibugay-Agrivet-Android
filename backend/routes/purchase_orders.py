@@ -318,6 +318,57 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     await db.purchase_orders.insert_one(po)
     del po["_id"]
 
+    # ── Link pending upload sessions (inline receipt uploads) ─────────────
+    upload_session_ids = data.get("upload_session_ids", [])
+    if upload_session_ids:
+        from pathlib import Path
+        upload_dir = Path("/app/uploads")
+        for sid in upload_session_ids:
+            session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
+            if not session:
+                continue
+            old_record_id = session.get("record_id", "")
+            new_dir = upload_dir / "purchase_order" / po["id"]
+            new_dir.mkdir(parents=True, exist_ok=True)
+            updated_files = []
+            for f in session.get("files", []):
+                old_path = Path(f.get("stored_path", ""))
+                if old_path.exists():
+                    new_path = new_dir / old_path.name
+                    old_path.rename(new_path)
+                    f["stored_path"] = str(new_path)
+                updated_files.append(f)
+            # Clean old dir
+            old_dir = upload_dir / "purchase_order" / old_record_id
+            if old_dir.exists() and not any(old_dir.iterdir()):
+                try:
+                    old_dir.rmdir()
+                except Exception:
+                    pass
+            await db.upload_sessions.update_one(
+                {"id": sid},
+                {"$set": {
+                    "record_type": "purchase_order",
+                    "record_id": po["id"],
+                    "is_pending": False,
+                    "reassigned_at": now_iso(),
+                    "files": updated_files,
+                }}
+            )
+        # Update PO with receipt count
+        total_receipts = sum(
+            s.get("file_count", 0)
+            for sid in upload_session_ids
+            for s in [await db.upload_sessions.find_one({"id": sid}, {"_id": 0, "file_count": 1})]
+            if s
+        )
+        if total_receipts > 0:
+            await db.purchase_orders.update_one(
+                {"id": po["id"]},
+                {"$set": {"receipt_count": total_receipts}}
+            )
+            po["receipt_count"] = total_receipts
+
     # ── Branch request: notify supply branch ──────────────────────────────
     if po_type == "branch_request":
         supply_branch_id = data.get("supply_branch_id", "")

@@ -1498,6 +1498,14 @@ export default function BranchTransferPage() {
                                 title="View" className="h-7 px-2" data-testid={`view-btn-${o.id}`}>
                                 <Eye size={13} />
                               </Button>
+                              {/* Print invoice — on outgoing for sent/received */}
+                              {historyTab === 'outgoing' && ['draft', 'sent', 'received', 'received_pending'].includes(o.status) && (
+                                <Button variant="ghost" size="sm" onClick={() => printTransferOrder(o)}
+                                  title="Print Invoice" className="h-7 px-2 text-slate-500"
+                                  data-testid={`print-btn-${o.id}`}>
+                                  <FileText size={13} />
+                                </Button>
+                              )}
                               {/* Edit draft — source branch only */}
                               {o.status === 'draft' && isSourceBranch && !isDestBranch && (
                                 <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}

@@ -1,26 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Settings, Plus, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock, RefreshCw, AlertTriangle, Users, ExternalLink, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import {
+  Settings, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock,
+  RefreshCw, AlertTriangle, ShieldCheck, Eye, EyeOff, User
+} from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
-const PERMISSION_MODULES = []; // unused - permissions managed via /user-permissions page
-
-// ── My PIN change form (for managers/admins) ─────────────────────────────────
+// ── My PIN change form ───────────────────────────────────────────────────────
 function MyPinForm({ hasExistingPin }) {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -70,9 +68,7 @@ function MyPinForm({ hasExistingPin }) {
           onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
           placeholder="Re-enter PIN" className="mt-1" />
       </div>
-      {newPin && confirmPin && newPin !== confirmPin && (
-        <p className="text-xs text-red-500">PINs do not match</p>
-      )}
+      {newPin && confirmPin && newPin !== confirmPin && <p className="text-xs text-red-500">PINs do not match</p>}
       <Button data-testid="save-my-pin-btn" onClick={handleSave}
         disabled={saving || !newPin || newPin !== confirmPin || (hasExistingPin && !currentPin)}
         className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
@@ -83,151 +79,77 @@ function MyPinForm({ hasExistingPin }) {
   );
 }
 
-// ── Staff PIN row (admin sets/resets any user's PIN) ─────────────────────────
-function StaffPinRow({ user: u, onSaved, currentUserId }) {
-  const [newPin, setNewPin] = useState('');
+// ── Change Password form ─────────────────────────────────────────────────────
+function ChangePasswordForm() {
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const handleSet = async () => {
-    if (newPin.length < 4) { toast.error('PIN must be at least 4 digits'); return; }
+  const handleSave = async () => {
+    if (newPw !== confirmPw) { toast.error('Passwords do not match'); return; }
+    if (newPw.length < 6) { toast.error('Password must be at least 6 characters'); return; }
     setSaving(true);
     try {
-      await api.put(`/users/${u.id}/pin`, { pin: newPin });
-      toast.success(`PIN set for ${u.full_name || u.username}`);
-      setNewPin('');
-      onSaved?.();
+      await api.put('/auth/change-password', { current_password: currentPw, new_password: newPw });
+      toast.success('Password changed');
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Failed to set PIN');
+      toast.error(e.response?.data?.detail || 'Failed to change password');
     }
     setSaving(false);
   };
 
-  const handleClear = async () => {
-    setSaving(true);
-    try {
-      await api.put(`/users/${u.id}/pin`, { pin: '' });
-      toast.success(`PIN cleared for ${u.full_name || u.username}`);
-      onSaved?.();
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Failed to clear PIN');
-    }
-    setSaving(false);
-  };
-
-  const isMe = u.id === currentUserId;
   return (
-    <TableRow>
-      <TableCell>
-        <p className="font-medium text-sm">{u.full_name || u.username} {isMe && <span className="text-[10px] text-slate-400">(you)</span>}</p>
-        <p className="text-xs text-slate-400">@{u.username}</p>
-      </TableCell>
-      <TableCell><Badge className="text-[10px] capitalize bg-slate-100 text-slate-600">{u.role}</Badge></TableCell>
-      <TableCell>
-        {u.manager_pin
-          ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700">Active</Badge>
-          : <Badge className="text-[10px] bg-slate-100 text-slate-400">Not Set</Badge>
-        }
-        {u.pin_set_by_name && <p className="text-[9px] text-slate-400 mt-0.5">Set by {u.pin_set_by_name}</p>}
-      </TableCell>
-      <TableCell>
-        <Input type="password" value={newPin}
-          onChange={e => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-          placeholder={u.manager_pin ? 'New PIN' : '4-8 digits'}
-          className="h-8 w-28 text-sm" data-testid={`staff-pin-${u.id}`} />
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-1">
-          {newPin.length >= 4 && (
-            <Button size="sm" onClick={handleSet} disabled={saving}
-              className="h-7 text-xs bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid={`save-staff-pin-${u.id}`}>
-              {saving ? <RefreshCw size={11} className="animate-spin" /> : 'Set'}
-            </Button>
-          )}
-          {u.manager_pin && (
-            <Button size="sm" variant="outline" onClick={handleClear} disabled={saving}
-              className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50">
-              Clear
-            </Button>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
+    <div className="max-w-sm space-y-3">
+      <div>
+        <Label className="text-xs text-slate-500">Current Password</Label>
+        <Input data-testid="current-password" type="password" value={currentPw}
+          onChange={e => setCurrentPw(e.target.value)} placeholder="Enter current password" className="mt-1" />
+      </div>
+      <div>
+        <Label className="text-xs text-slate-500">New Password</Label>
+        <Input data-testid="new-password" type="password" value={newPw}
+          onChange={e => setNewPw(e.target.value)} placeholder="Min. 6 characters" className="mt-1" />
+      </div>
+      <div>
+        <Label className="text-xs text-slate-500">Confirm Password</Label>
+        <Input data-testid="confirm-password" type="password" value={confirmPw}
+          onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter password" className="mt-1" />
+      </div>
+      {newPw && confirmPw && newPw !== confirmPw && <p className="text-xs text-red-500">Passwords do not match</p>}
+      <Button data-testid="save-password-btn" onClick={handleSave}
+        disabled={saving || !currentPw || !newPw || newPw !== confirmPw}
+        className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+        {saving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Lock size={13} className="mr-1.5" />}
+        Change Password
+      </Button>
+    </div>
   );
 }
 
 export default function SettingsPage() {
-  const { user: currentUser, branches } = useAuth();
-  const navigate = useNavigate();
+  const { user: currentUser, refreshUser } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
 
-  // ── User Management ───────────────────────────────────────────────────────
-  const [users, setUsers] = useState([]);
-  const [createDialog, setCreateDialog] = useState(false);
-  const [resetPwDialog, setResetPwDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [newPw, setNewPw] = useState('');
-  const [createForm, setCreateForm] = useState({
-    username: '', full_name: '', email: '', password: '', role: 'cashier', branch_id: ''
-  });
-
-  const fetchUsers = useCallback(async () => {
-    try { const res = await api.get('/users'); setUsers(res.data); }
-    catch { toast.error('Failed to load users'); }
-  }, []);
-
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
-
-  const handleCreate = async () => {
-    try {
-      await api.post('/auth/register', createForm);
-      toast.success('User created');
-      setCreateDialog(false);
-      fetchUsers();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
-  };
-
-  const openResetPw = (u) => { setSelectedUser(u); setNewPw(''); setResetPwDialog(true); };
-
-  const handleResetPw = async () => {
-    try {
-      await api.put(`/users/${selectedUser.id}/reset-password`, { new_password: newPw });
-      toast.success('Password reset');
-      setResetPwDialog(false);
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
-  };
-
-  const updateRole = async (userId, role) => {
-    try {
-      await api.put(`/users/${userId}`, { role });
-      toast.success('Role updated');
-      fetchUsers();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
-  };
-
-  // ── TOTP Setup ────────────────────────────────────────────────────────────
+  // ── TOTP ──────────────────────────────────────────────────────────────────
   const [totpStatus, setTotpStatus] = useState({ enabled: false, verified: false });
-  const [totpSetup, setTotpSetup] = useState(null);   // { secret, qr_uri } during setup
+  const [totpSetup, setTotpSetup] = useState(null);
   const [totpConfirmCode, setTotpConfirmCode] = useState('');
   const [totpLoading, setTotpLoading] = useState(false);
-  const [totpStep, setTotpStep] = useState('idle'); // 'idle' | 'scan' | 'verify'
+  const [totpStep, setTotpStep] = useState('idle');
 
   const loadTotpStatus = useCallback(async () => {
     if (!isAdmin) return;
-    try {
-      const res = await api.get('/auth/totp/status');
-      setTotpStatus(res.data);
-    } catch {}
+    try { const res = await api.get('/auth/totp/status'); setTotpStatus(res.data); } catch {}
   }, [isAdmin]);
 
   useEffect(() => { loadTotpStatus(); }, [loadTotpStatus]);
 
   const startTotpSetup = async () => {
     setTotpLoading(true);
-    try {
-      const res = await api.post('/auth/totp/setup');
-      setTotpSetup(res.data);
-      setTotpStep('scan');
-    } catch { toast.error('Failed to generate TOTP secret'); }
+    try { const res = await api.post('/auth/totp/setup'); setTotpSetup(res.data); setTotpStep('scan'); }
+    catch { toast.error('Failed to generate TOTP secret'); }
     setTotpLoading(false);
   };
 
@@ -238,78 +160,52 @@ export default function SettingsPage() {
       const res = await api.post('/auth/totp/verify-setup', { code: totpConfirmCode });
       if (res.data.verified) {
         toast.success('Authenticator app connected!');
-        setTotpStep('idle');
-        setTotpSetup(null);
-        setTotpConfirmCode('');
-        loadTotpStatus();
-      } else {
-        toast.error(res.data.error || 'Code mismatch — try again');
-      }
+        setTotpStep('idle'); setTotpSetup(null); setTotpConfirmCode(''); loadTotpStatus();
+      } else { toast.error(res.data.error || 'Code mismatch'); }
     } catch { toast.error('Verification failed'); }
     setTotpLoading(false);
   };
 
   const disableTotp = async () => {
-    if (!window.confirm('Disable TOTP? You will fall back to using your login password for admin verification.')) return;
-    try {
-      await api.delete('/auth/totp/disable');
-      toast.success('TOTP disabled');
-      loadTotpStatus();
-    } catch { toast.error('Failed to disable TOTP'); }
+    if (!window.confirm('Disable TOTP?')) return;
+    try { await api.delete('/auth/totp/disable'); toast.success('TOTP disabled'); loadTotpStatus(); }
+    catch { toast.error('Failed'); }
   };
 
-  // ── TOTP Controls ─────────────────────────────────────────────────────────
+  // ── TOTP Controls ──────────────────────────────────────────────────────────
   const [totpActions, setTotpActions] = useState([]);
   const [enabledActions, setEnabledActions] = useState([]);
   const [savingControls, setSavingControls] = useState(false);
 
   const loadTotpControls = useCallback(async () => {
     if (!isAdmin) return;
-    try {
-      const res = await api.get('/settings/totp-controls');
-      setTotpActions(res.data.actions || []);
-      setEnabledActions(res.data.enabled_actions || []);
-    } catch {}
+    try { const res = await api.get('/settings/totp-controls'); setTotpActions(res.data.actions || []); setEnabledActions(res.data.enabled_actions || []); } catch {}
   }, [isAdmin]);
 
   useEffect(() => { loadTotpControls(); }, [loadTotpControls]);
 
-  const toggleAction = (key) => {
-    setEnabledActions(prev =>
-      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
-    );
-  };
+  const toggleAction = (key) => setEnabledActions(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
   const saveControls = async () => {
     setSavingControls(true);
-    try {
-      await api.put('/settings/totp-controls', { enabled_actions: enabledActions });
-      toast.success('TOTP controls saved');
-    } catch { toast.error('Failed to save'); }
+    try { await api.put('/settings/totp-controls', { enabled_actions: enabledActions }); toast.success('TOTP controls saved'); }
+    catch { toast.error('Failed to save'); }
     setSavingControls(false);
   };
 
-  // Group actions by module for display
-  const actionsByModule = totpActions.reduce((acc, a) => {
-    if (!acc[a.module]) acc[a.module] = [];
-    acc[a.module].push(a);
-    return acc;
-  }, {});
+  const actionsByModule = totpActions.reduce((acc, a) => { if (!acc[a.module]) acc[a.module] = []; acc[a.module].push(a); return acc; }, {});
 
-  // ── Audit Setup ────────────────────────────────────────────────────────────
+  // ── Admin PIN ──────────────────────────────────────────────────────────────
   const [auditPinConfigured, setAuditPinConfigured] = useState(false);
   const [newAuditPin, setNewAuditPin] = useState('');
   const [confirmAuditPin, setConfirmAuditPin] = useState('');
   const [showAuditPin, setShowAuditPin] = useState(false);
   const [savingAuditPin, setSavingAuditPin] = useState(false);
-  const [auditorEdits, setAuditorEdits] = useState({}); // { userId: { is_auditor, auditor_pin } }
-  const [savingAuditor, setSavingAuditor] = useState({});
 
   useEffect(() => {
     if (isAdmin) {
       api.get(`${BACKEND_URL}/api/verify/admin-pin/status`)
-        .then(r => setAuditPinConfigured(r.data.configured))
-        .catch(() => {});
+        .then(r => setAuditPinConfigured(r.data.configured)).catch(() => {});
     }
   }, [isAdmin]); // eslint-disable-line
 
@@ -319,36 +215,25 @@ export default function SettingsPage() {
     setSavingAuditPin(true);
     try {
       await api.post(`${BACKEND_URL}/api/verify/admin-pin/set`, { pin: newAuditPin });
-      toast.success('Admin Verification PIN saved');
-      setNewAuditPin(''); setConfirmAuditPin('');
-      setAuditPinConfigured(true);
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save PIN'); }
+      toast.success('Admin PIN saved');
+      setNewAuditPin(''); setConfirmAuditPin(''); setAuditPinConfigured(true);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setSavingAuditPin(false);
   };
 
-  const saveAuditorAccess = async (userId) => {
-    const edit = auditorEdits[userId];
-    if (!edit) return;
-    if (edit.is_auditor && edit.auditor_pin && edit.auditor_pin.length < 4) {
-      toast.error('Auditor PIN must be at least 4 digits'); return;
-    }
-    setSavingAuditor(prev => ({ ...prev, [userId]: true }));
-    try {
-      await api.put(`/users/${userId}`, {
-        is_auditor: edit.is_auditor,
-        auditor_pin: edit.is_auditor ? (edit.auditor_pin || undefined) : null,
-      });
-      toast.success('Auditor access updated');
-      fetchUsers();
-      setAuditorEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to update'); }
-    setSavingAuditor(prev => ({ ...prev, [userId]: false }));
-  };
+  // ── Auditor Access ────────────────────────────────────────────────────────
+  const [users, setUsers] = useState([]);
+  const [auditorEdits, setAuditorEdits] = useState({});
+  const [savingAuditor, setSavingAuditor] = useState({});
 
-  const getAuditorState = (user) => {
-    if (auditorEdits[user.id] !== undefined) return auditorEdits[user.id];
-    return { is_auditor: user.is_auditor || false, auditor_pin: user.auditor_pin || '' };
-  };
+  const fetchUsers = useCallback(async () => {
+    if (!isAdmin) return;
+    try { const res = await api.get('/users'); setUsers(res.data); } catch {}
+  }, [isAdmin]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const getAuditorState = (u) => auditorEdits[u.id] !== undefined ? auditorEdits[u.id] : { is_auditor: u.is_auditor || false, auditor_pin: u.auditor_pin || '' };
 
   const updateAuditorEdit = (userId, field, value) => {
     setAuditorEdits(prev => ({
@@ -357,124 +242,182 @@ export default function SettingsPage() {
     }));
   };
 
+  const saveAuditorAccess = async (userId) => {
+    const edit = auditorEdits[userId];
+    if (!edit) return;
+    if (edit.is_auditor && edit.auditor_pin && edit.auditor_pin.length < 4) { toast.error('PIN must be at least 4 digits'); return; }
+    setSavingAuditor(prev => ({ ...prev, [userId]: true }));
+    try {
+      await api.put(`/users/${userId}`, { is_auditor: edit.is_auditor, auditor_pin: edit.is_auditor ? (edit.auditor_pin || undefined) : null });
+      toast.success('Auditor access updated'); fetchUsers();
+      setAuditorEdits(prev => { const n = { ...prev }; delete n[userId]; return n; });
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setSavingAuditor(prev => ({ ...prev, [userId]: false }));
+  };
+
+  // ── Profile Edit ───────────────────────────────────────────────────────────
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfileForm({ full_name: currentUser.full_name || '', email: currentUser.email || '' });
+    }
+  }, [currentUser]);
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      await api.put('/auth/update-profile', profileForm);
+      toast.success('Profile updated');
+      refreshUser?.();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setSavingProfile(false);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn" data-testid="settings-page">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Settings</h1>
-          <p className="text-sm text-slate-500 mt-1">User management, security & system settings</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Settings</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          {isAdmin ? 'Your account, security & system settings' : 'Your account settings'}
+        </p>
       </div>
 
-      <Tabs defaultValue="users">
+      <Tabs defaultValue="account">
         <TabsList className="mb-4">
-          <TabsTrigger value="users" className="flex items-center gap-1.5">
-            <Users size={14} /> Users
+          <TabsTrigger value="account" data-testid="account-tab" className="flex items-center gap-1.5">
+            <User size={14} /> My Account
           </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="security" data-testid="security-tab" className="flex items-center gap-1.5">
               <Shield size={14} /> Security
             </TabsTrigger>
           )}
-          {isAdmin && (
-            <TabsTrigger value="audit-setup" data-testid="audit-setup-tab" className="flex items-center gap-1.5">
-              <Key size={14} /> PIN Management
-            </TabsTrigger>
-          )}
         </TabsList>
 
-        {/* ── Users Tab ─────────────────────────────────────────────────── */}
-        <TabsContent value="users">
-          <div className="flex justify-end mb-3">
-            <Button data-testid="create-user-btn" onClick={() => {
-              setCreateForm({ username: '', full_name: '', email: '', password: '', role: 'cashier', branch_id: '' });
-              setCreateDialog(true);
-            }} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-              <Plus size={16} className="mr-2" /> Add User
-            </Button>
-          </div>
-
+        {/* ── My Account Tab ─────────────────────────────────────────── */}
+        <TabsContent value="account" className="space-y-6">
+          {/* Profile Info */}
           <Card className="border-slate-200">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50">
-                    <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">User</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Username</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Role</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Branch</TableHead>
-                    <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-48">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map(u => (
-                    <TableRow key={u.id} className="table-row-hover">
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{u.full_name || u.username}</p>
-                          <p className="text-xs text-slate-400">{u.email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{u.username}</TableCell>
-                      <TableCell>
-                        <Select value={u.role} onValueChange={v => updateRole(u.id, v)} disabled={u.id === currentUser?.id}>
-                          <SelectTrigger className="h-8 w-28 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="cashier">Cashier</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-500">
-                        {branches.find(b => b.id === u.branch_id)?.name || 'All'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="outline" size="sm" data-testid={`perms-btn-${u.id}`}
-                            onClick={() => navigate('/user-permissions')}
-                            title="Manage full permissions in the User Permissions page">
-                            <Shield size={12} className="mr-1" /> Permissions
-                            <ExternalLink size={10} className="ml-1 opacity-50" />
-                          </Button>
-                          <Button variant="outline" size="sm" data-testid={`reset-pw-${u.id}`} onClick={() => openResetPw(u)}>
-                            <Key size={12} className="mr-1" /> Reset PW
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                <User size={18} className="text-[#1A4D2E]" /> Profile
+              </CardTitle>
+              <p className="text-sm text-slate-500">Update your display name and email</p>
+            </CardHeader>
+            <CardContent>
+              <div className="max-w-sm space-y-3">
+                <div>
+                  <Label className="text-xs text-slate-500">Full Name</Label>
+                  <Input data-testid="profile-fullname" value={profileForm.full_name}
+                    onChange={e => setProfileForm(p => ({ ...p, full_name: e.target.value }))}
+                    placeholder="Your name" className="mt-1" />
+                </div>
+                <div>
+                  <Label className="text-xs text-slate-500">Email</Label>
+                  <Input data-testid="profile-email" type="email" value={profileForm.email}
+                    onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))}
+                    placeholder="you@example.com" className="mt-1" />
+                </div>
+                <Button data-testid="save-profile-btn" onClick={saveProfile} disabled={savingProfile}
+                  className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                  {savingProfile ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <CheckCircle2 size={13} className="mr-1.5" />}
+                  Save Profile
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* ── Security Tab ──────────────────────────────────────────────── */}
-        {isAdmin && (
-          <TabsContent value="security" className="space-y-6">
+          {/* Change Password */}
+          <Card className="border-slate-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                <Lock size={18} className="text-[#1A4D2E]" /> Change Password
+              </CardTitle>
+            </CardHeader>
+            <CardContent><ChangePasswordForm /></CardContent>
+          </Card>
 
-            {/* TOTP Setup Card */}
+          {/* My PIN (managers/admins) */}
+          {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                  <Smartphone size={18} className="text-[#1A4D2E]" />
-                  Authenticator App (TOTP) — For Remote Approvals
-                  {totpStatus.enabled && totpStatus.verified ? (
-                    <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Active</Badge>
-                  ) : (
-                    <Badge className="text-[10px] bg-slate-100 text-slate-500 ml-2">Not Set Up</Badge>
-                  )}
+                  <Key size={18} className="text-blue-600" /> My PIN
+                  {currentUser?.manager_pin
+                    ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Set</Badge>
+                    : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
+                  }
                 </CardTitle>
                 <p className="text-sm text-slate-500">
-                  When you are away, workers call you and you read the 6-digit code from your phone.
-                  The code expires every 30 seconds and <strong>cannot be reused</strong> — making it safe for remote approvals.
-                  Set up your <strong>Owner PIN</strong> (below, in Audit Setup) for faster in-person approvals.
+                  Your personal PIN for verifying transactions and approving actions.
+                </p>
+              </CardHeader>
+              <CardContent><MyPinForm hasExistingPin={!!currentUser?.manager_pin} /></CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ── Security Tab (Admin Only) ──────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="security" className="space-y-6">
+
+            {/* Admin PIN */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  <ShieldCheck size={18} className="text-[#1A4D2E]" /> Admin PIN
+                  {auditPinConfigured
+                    ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Configured</Badge>
+                    : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>}
+                </CardTitle>
+                <p className="text-sm text-slate-500">
+                  A private PIN only you know. Used for sensitive actions like inventory corrections and price edits.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="max-w-sm space-y-3">
+                  <div>
+                    <Label className="text-xs text-slate-500">{auditPinConfigured ? 'New PIN' : 'Set PIN'}</Label>
+                    <div className="relative mt-1">
+                      <Input data-testid="audit-pin-input" type={showAuditPin ? 'text' : 'password'} value={newAuditPin}
+                        onChange={e => setNewAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Enter 4-8 digit PIN" className="pr-10" />
+                      <button type="button" onClick={() => setShowAuditPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        {showAuditPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Confirm PIN</Label>
+                    <Input data-testid="audit-pin-confirm" type="password" value={confirmAuditPin}
+                      onChange={e => setConfirmAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Re-enter PIN" className="mt-1" />
+                  </div>
+                  {newAuditPin && confirmAuditPin && newAuditPin !== confirmAuditPin && <p className="text-xs text-red-500">PINs do not match</p>}
+                  <Button data-testid="save-audit-pin-btn" onClick={saveAuditPin}
+                    disabled={savingAuditPin || !newAuditPin || newAuditPin !== confirmAuditPin}
+                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                    {savingAuditPin ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <ShieldCheck size={13} className="mr-1.5" />}
+                    {auditPinConfigured ? 'Update Admin PIN' : 'Set Admin PIN'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* TOTP Setup */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  <Smartphone size={18} className="text-[#1A4D2E]" /> Authenticator App (TOTP)
+                  {totpStatus.enabled && totpStatus.verified
+                    ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Active</Badge>
+                    : <Badge className="text-[10px] bg-slate-100 text-slate-500 ml-2">Not Set Up</Badge>}
+                </CardTitle>
+                <p className="text-sm text-slate-500">
+                  For remote approvals. Workers call you and you read the 6-digit code from your phone.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-
-                {/* ── Idle / Active state ── */}
                 {totpStep === 'idle' && (
                   <>
                     {totpStatus.enabled && totpStatus.verified ? (
@@ -483,7 +426,7 @@ export default function SettingsPage() {
                           <CheckCircle2 size={20} className="text-emerald-600" />
                           <div>
                             <p className="font-semibold text-emerald-800 text-sm">TOTP is active</p>
-                            <p className="text-xs text-emerald-600">Admin verification uses your authenticator app codes</p>
+                            <p className="text-xs text-emerald-600">Uses your authenticator app codes</p>
                           </div>
                         </div>
                         <div className="flex gap-2">
@@ -501,11 +444,10 @@ export default function SettingsPage() {
                           <AlertTriangle size={20} className="text-amber-600" />
                           <div>
                             <p className="font-semibold text-amber-800 text-sm">TOTP not configured</p>
-                            <p className="text-xs text-amber-600">Admin actions fall back to your login password</p>
+                            <p className="text-xs text-amber-600">Falls back to login password</p>
                           </div>
                         </div>
-                        <Button size="sm" onClick={startTotpSetup} disabled={totpLoading}
-                          className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
+                        <Button size="sm" onClick={startTotpSetup} disabled={totpLoading} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
                           {totpLoading ? <RefreshCw size={13} className="animate-spin mr-1" /> : <Smartphone size={13} className="mr-1" />}
                           Set Up Now
                         </Button>
@@ -513,62 +455,43 @@ export default function SettingsPage() {
                     )}
                   </>
                 )}
-
-                {/* ── Step 1: Scan QR ── */}
                 {totpStep === 'scan' && totpSetup && (
                   <div className="space-y-4">
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                      <strong>Step 1:</strong> Open your authenticator app and scan the QR code below.
-                      Then click <strong>Next</strong> to confirm it&apos;s working.
+                      <strong>Step 1:</strong> Scan the QR code with your authenticator app.
                     </div>
                     <div className="flex flex-col items-center gap-4 py-4">
                       <div className="p-4 bg-white border-2 border-slate-200 rounded-xl shadow-sm">
                         <QRCodeSVG value={totpSetup.qr_uri} size={180} level="M" />
                       </div>
                       <div className="text-center">
-                        <p className="text-xs text-slate-500 mb-1">Can&apos;t scan? Enter this secret manually:</p>
-                        <code className="text-sm bg-slate-100 px-3 py-1.5 rounded font-mono tracking-wider select-all">
-                          {totpSetup.secret}
-                        </code>
+                        <p className="text-xs text-slate-500 mb-1">Can&apos;t scan? Enter manually:</p>
+                        <code className="text-sm bg-slate-100 px-3 py-1.5 rounded font-mono tracking-wider select-all">{totpSetup.secret}</code>
                       </div>
                     </div>
                     <div className="flex gap-2 justify-end">
                       <Button variant="outline" onClick={() => { setTotpStep('idle'); setTotpSetup(null); }}>Cancel</Button>
-                      <Button onClick={() => setTotpStep('verify')} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-                        Next — Enter Code
-                      </Button>
+                      <Button onClick={() => setTotpStep('verify')} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Next</Button>
                     </div>
                   </div>
                 )}
-
-                {/* ── Step 2: Verify code ── */}
                 {totpStep === 'verify' && (
                   <div className="space-y-4">
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                      <strong>Step 2:</strong> Enter the current 6-digit code from your authenticator app
-                      to confirm it&apos;s working correctly.
+                      <strong>Step 2:</strong> Enter the 6-digit code from your app.
                     </div>
                     <div className="max-w-xs mx-auto space-y-2">
-                      <Label>Confirmation Code</Label>
-                      <Input
-                        data-testid="totp-confirm-input"
-                        value={totpConfirmCode}
+                      <Label>Code</Label>
+                      <Input data-testid="totp-confirm-input" value={totpConfirmCode}
                         onChange={e => setTotpConfirmCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="000000"
-                        className="text-center text-2xl tracking-[0.4em] font-mono h-12"
-                        maxLength={6}
-                        autoFocus
-                        onKeyDown={e => e.key === 'Enter' && confirmTotpSetup()}
-                      />
+                        placeholder="000000" className="text-center text-2xl tracking-[0.4em] font-mono h-12"
+                        maxLength={6} autoFocus onKeyDown={e => e.key === 'Enter' && confirmTotpSetup()} />
                     </div>
                     <div className="flex gap-2 justify-end">
                       <Button variant="outline" onClick={() => setTotpStep('scan')}>Back</Button>
-                      <Button
-                        data-testid="totp-confirm-btn"
-                        onClick={confirmTotpSetup}
+                      <Button data-testid="totp-confirm-btn" onClick={confirmTotpSetup}
                         disabled={totpLoading || totpConfirmCode.length !== 6}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      >
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white">
                         {totpLoading ? <RefreshCw size={13} className="animate-spin mr-1" /> : <CheckCircle2 size={13} className="mr-1" />}
                         Activate
                       </Button>
@@ -578,29 +501,19 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* TOTP Controls Card */}
+            {/* TOTP Controls */}
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                      <Lock size={18} className="text-[#1A4D2E]" />
-                      TOTP-Protected Actions
+                      <Lock size={18} className="text-[#1A4D2E]" /> TOTP-Protected Actions
                     </CardTitle>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      Toggle which actions require TOTP verification before proceeding.
-                      Non-admin users will need to enter a valid code from your app.
-                    </p>
+                    <p className="text-sm text-slate-500 mt-0.5">Toggle which actions require TOTP verification.</p>
                   </div>
-                  <Button
-                    data-testid="save-totp-controls-btn"
-                    size="sm"
-                    onClick={saveControls}
-                    disabled={savingControls}
-                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white shrink-0"
-                  >
-                    {savingControls ? <RefreshCw size={13} className="animate-spin mr-1" /> : null}
-                    Save
+                  <Button data-testid="save-totp-controls-btn" size="sm" onClick={saveControls} disabled={savingControls}
+                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white shrink-0">
+                    {savingControls ? <RefreshCw size={13} className="animate-spin mr-1" /> : null} Save
                   </Button>
                 </div>
               </CardHeader>
@@ -611,22 +524,10 @@ export default function SettingsPage() {
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">{module}</p>
                       <div className="grid sm:grid-cols-2 gap-2">
                         {actions.map(action => (
-                          <div
-                            key={action.key}
-                            data-testid={`totp-action-${action.key}`}
-                            onClick={() => toggleAction(action.key)}
-                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              enabledActions.includes(action.key)
-                                ? 'bg-amber-50 border-amber-200'
-                                : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                            }`}
-                          >
-                            <Switch
-                              checked={enabledActions.includes(action.key)}
-                              onCheckedChange={() => toggleAction(action.key)}
-                              className="data-[state=checked]:bg-amber-500"
-                              onClick={e => e.stopPropagation()}
-                            />
+                          <div key={action.key} data-testid={`totp-action-${action.key}`} onClick={() => toggleAction(action.key)}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${enabledActions.includes(action.key) ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
+                            <Switch checked={enabledActions.includes(action.key)} onCheckedChange={() => toggleAction(action.key)}
+                              className="data-[state=checked]:bg-amber-500" onClick={e => e.stopPropagation()} />
                             <div>
                               <p className="text-sm font-medium">{action.label}</p>
                               <p className="text-xs text-slate-400">{action.module}</p>
@@ -636,180 +537,24 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   ))}
-                  {totpActions.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-4">Loading actions...</p>
-                  )}
+                  {totpActions.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Loading actions...</p>}
                 </div>
               </CardContent>
             </Card>
 
-          </TabsContent>
-        )}
-
-        {/* ── Audit Setup Tab ────────────────────────────────────────────── */}
-        {isAdmin && (
-          <TabsContent value="audit-setup" className="space-y-6">
-
-            {/* ── Quick Overview ─────────────────────────────────────────── */}
-            <Card className="border-blue-200 bg-blue-50/30">
-              <CardContent className="py-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[#1A4D2E]/10 flex items-center justify-center shrink-0">
-                      <ShieldCheck size={18} className="text-[#1A4D2E]" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-700">Admin PIN</p>
-                      <p className="text-[10px] text-slate-500">System-wide PIN for sensitive actions. Only the admin can set or change this.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                      <Key size={18} className="text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-700">Manager PIN</p>
-                      <p className="text-[10px] text-slate-500">Per-user PIN. Admin can set for anyone. Managers must enter current PIN to change their own.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                      <Smartphone size={18} className="text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-700">TOTP (Time-Based)</p>
-                      <p className="text-[10px] text-slate-500">Google Authenticator code. Set up in the Security tab. Rotates every 30 seconds.</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── 1. Admin PIN (system-wide) ─────────────────────────────── */}
+            {/* Auditor Access */}
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                  <ShieldCheck size={18} className="text-[#1A4D2E]" />
-                  Admin PIN
-                  {auditPinConfigured
-                    ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Configured</Badge>
-                    : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
-                  }
+                  <Shield size={18} className="text-amber-600" /> Auditor Access
                 </CardTitle>
-                <p className="text-sm text-slate-500">
-                  A private PIN <strong>only you know</strong> — never share it with workers.
-                  Used to authorize sensitive actions like inventory corrections, price edits, and transaction verification.
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="max-w-sm space-y-3">
-                  <div>
-                    <Label className="text-xs text-slate-500">{auditPinConfigured ? 'New PIN' : 'Set PIN'}</Label>
-                    <div className="relative mt-1">
-                      <Input data-testid="audit-pin-input"
-                        type={showAuditPin ? 'text' : 'password'}
-                        value={newAuditPin}
-                        onChange={e => setNewAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                        placeholder="Enter 4-8 digit PIN" className="pr-10"
-                      />
-                      <button type="button" onClick={() => setShowAuditPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
-                        {showAuditPin ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-500">Confirm PIN</Label>
-                    <Input data-testid="audit-pin-confirm" type="password" value={confirmAuditPin}
-                      onChange={e => setConfirmAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                      placeholder="Re-enter PIN" className="mt-1" />
-                  </div>
-                  {newAuditPin && confirmAuditPin && newAuditPin !== confirmAuditPin && (
-                    <p className="text-xs text-red-500">PINs do not match</p>
-                  )}
-                  <Button data-testid="save-audit-pin-btn" onClick={saveAuditPin}
-                    disabled={savingAuditPin || !newAuditPin || newAuditPin !== confirmAuditPin}
-                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-                    {savingAuditPin ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <ShieldCheck size={13} className="mr-1.5" />}
-                    {auditPinConfigured ? 'Update Admin PIN' : 'Set Admin PIN'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── 2. My PIN (change own manager PIN) ─────────────────────── */}
-            {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
-              <Card className="border-slate-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                    <Key size={18} className="text-blue-600" />
-                    My PIN
-                    {currentUser?.manager_pin
-                      ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Set</Badge>
-                      : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
-                    }
-                  </CardTitle>
-                  <p className="text-sm text-slate-500">
-                    Your personal manager PIN — used for verifying transactions, approving receipts, and authorizing actions.
-                    {currentUser?.manager_pin ? ' Enter your current PIN to change it.' : ' Set your PIN to start using it.'}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <MyPinForm hasExistingPin={!!currentUser?.manager_pin} />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* ── 3. Staff Manager PINs (admin only) ─────────────────────── */}
-            <Card className="border-slate-200">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                  <Users size={18} className="text-[#1A4D2E]" />
-                  Staff Manager PINs
-                </CardTitle>
-                <p className="text-sm text-slate-500">
-                  Set or reset manager PINs for your staff. Managers and admins use these PINs to approve transactions.
-                </p>
+                <p className="text-sm text-slate-500">Grant auditor access so users can verify with their own PIN.</p>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-slate-50">
                       <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">User</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Role</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">PIN Status</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">New PIN</TableHead>
-                      <TableHead className="w-20" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.filter(u => u.role !== 'cashier').map(u => (
-                      <StaffPinRow key={u.id} user={u} onSaved={fetchUsers} currentUserId={currentUser?.id} />
-                    ))}
-                    {users.filter(u => u.role !== 'cashier').length === 0 && (
-                      <TableRow><TableCell colSpan={5} className="text-center text-slate-400 text-sm py-6">No managers or admins found</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            {/* ── 4. Auditor Access ──────────────────────────────────────── */}
-            <Card className="border-slate-200">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                  <Shield size={18} className="text-amber-600" />
-                  Auditor Access
-                </CardTitle>
-                <p className="text-sm text-slate-500">
-                  Grant auditor access so designated users can verify transactions using their own PIN — no Admin PIN or TOTP needed.
-                </p>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">User</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Role</TableHead>
                       <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Auditor</TableHead>
                       <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Auditor PIN</TableHead>
                       <TableHead className="w-20" />
@@ -823,9 +568,8 @@ export default function SettingsPage() {
                         <TableRow key={u.id}>
                           <TableCell>
                             <p className="font-medium text-sm">{u.full_name || u.username}</p>
-                            <p className="text-xs text-slate-400">@{u.username}</p>
+                            <p className="text-xs text-slate-400">@{u.username} &middot; {u.role}</p>
                           </TableCell>
-                          <TableCell><Badge className="text-[10px] capitalize bg-slate-100 text-slate-600">{u.role}</Badge></TableCell>
                           <TableCell>
                             <button onClick={() => updateAuditorEdit(u.id, 'is_auditor', !state.is_auditor)}
                               className={`w-10 h-5 rounded-full relative transition-colors ${state.is_auditor ? 'bg-[#1A4D2E]' : 'bg-slate-200'}`}>
@@ -857,62 +601,6 @@ export default function SettingsPage() {
           </TabsContent>
         )}
       </Tabs>
-      <Dialog open={createDialog} onOpenChange={setCreateDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Create User</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Username</Label><Input data-testid="new-username" value={createForm.username} onChange={e => setCreateForm({ ...createForm, username: e.target.value })} /></div>
-              <div><Label>Full Name</Label><Input data-testid="new-fullname" value={createForm.full_name} onChange={e => setCreateForm({ ...createForm, full_name: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Email</Label><Input value={createForm.email} onChange={e => setCreateForm({ ...createForm, email: e.target.value })} /></div>
-              <div><Label>Password</Label><Input data-testid="new-password" type="password" value={createForm.password} onChange={e => setCreateForm({ ...createForm, password: e.target.value })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Role</Label>
-                <Select value={createForm.role} onValueChange={v => setCreateForm({ ...createForm, role: v })}>
-                  <SelectTrigger data-testid="new-role-select"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="cashier">Cashier</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Branch</Label>
-                <Select value={createForm.branch_id} onValueChange={v => setCreateForm({ ...createForm, branch_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="All branches" /></SelectTrigger>
-                  <SelectContent>
-                    {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateDialog(false)}>Cancel</Button>
-              <Button data-testid="save-user-btn" onClick={handleCreate} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Create User</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reset Password Dialog */}
-      <Dialog open={resetPwDialog} onOpenChange={setResetPwDialog}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Reset Password</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <p className="text-sm text-slate-500">Reset password for: <span className="font-medium text-slate-800">{selectedUser?.username}</span></p>
-            <div><Label>New Password</Label><Input data-testid="reset-pw-input" type="password" value={newPw} onChange={e => setNewPw(e.target.value)} /></div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setResetPwDialog(false)}>Cancel</Button>
-              <Button data-testid="confirm-reset-pw-btn" onClick={handleResetPw} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Reset</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

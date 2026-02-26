@@ -4,6 +4,7 @@ import { useAuth, api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import UploadQRDialog from '../components/UploadQRDialog';
+import ReceiptUploadInline from '../components/ReceiptUploadInline';
 import VerificationBadge from '../components/VerificationBadge';
 import VerifyPinDialog from '../components/VerifyPinDialog';
 import ViewQRDialog from '../components/ViewQRDialog';

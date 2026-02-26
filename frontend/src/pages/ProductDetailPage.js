@@ -63,19 +63,31 @@ export default function ProductDetailPage() {
   }, [id, isAdmin]);
 
   const fetchMovements = useCallback(async () => {
-    try { const res = await api.get(`/products/${id}/movements`, { params: { limit: 50 } }); setMovements(res.data.movements); }
-    catch { }
-  }, [id]);
+    try {
+      const params = { limit: 50 };
+      if (currentBranch) params.branch_id = currentBranch.id;
+      const res = await api.get(`/products/${id}/movements`, { params });
+      setMovements(res.data.movements);
+    } catch { }
+  }, [id, currentBranch]);
 
   const fetchOrders = useCallback(async () => {
-    try { const res = await api.get(`/products/${id}/orders`, { params: { limit: 50 } }); setOrders(res.data.orders); }
-    catch { }
-  }, [id]);
+    try {
+      const params = { limit: 50 };
+      if (currentBranch) params.branch_id = currentBranch.id;
+      const res = await api.get(`/products/${id}/orders`, { params });
+      setOrders(res.data.orders);
+    } catch { }
+  }, [id, currentBranch]);
 
   const fetchCapitalHistory = useCallback(async () => {
-    try { const res = await api.get(`/products/${id}/capital-history`); setCapitalHistory(res.data || []); }
-    catch { }
-  }, [id]);
+    try {
+      const params = {};
+      if (currentBranch) params.branch_id = currentBranch.id;
+      const res = await api.get(`/products/${id}/capital-history`, { params });
+      setCapitalHistory(res.data || []);
+    } catch { }
+  }, [id, currentBranch]);
 
   useEffect(() => { fetchDetail(); api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, [fetchDetail]);
   useEffect(() => { fetchBranchOverrides(); }, [fetchBranchOverrides]);

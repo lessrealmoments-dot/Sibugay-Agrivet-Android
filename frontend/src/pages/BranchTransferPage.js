@@ -1471,8 +1471,8 @@ export default function BranchTransferPage() {
                     ) : filteredOrders.map(o => {
                       const toBranch = branches.find(b => b.id === o.to_branch_id);
                       const fromBranchObj = branches.find(b => b.id === o.from_branch_id);
-                      const isSourceBranch = isAdmin || o.from_branch_id === effectiveBranchId;
-                      const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
+                      const isSourceBranch = historyTab === 'incoming' ? false : (isAdmin || o.from_branch_id === effectiveBranchId);
+                      const isDestBranch = historyTab === 'outgoing' ? false : (isAdmin || o.to_branch_id === effectiveBranchId);
                       return (
                         <TableRow key={o.id} className="hover:bg-slate-50">
                           <TableCell className="font-mono text-sm text-blue-600">

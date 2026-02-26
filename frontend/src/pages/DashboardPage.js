@@ -180,6 +180,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [analyticsPeriod, setAnalyticsPeriod] = useState('this_month');
+  const { width: gridWidth, containerRef: gridRef, mounted: gridMounted } = useContainerWidth();
 
   const layoutKey = `${LAYOUT_KEY}_${user?.id || 'default'}_${isConsolidatedView ? 'owner' : 'branch'}`;
   const defaultLayout = isConsolidatedView ? OWNER_DEFAULT_LAYOUT : BRANCH_DEFAULT_LAYOUT;

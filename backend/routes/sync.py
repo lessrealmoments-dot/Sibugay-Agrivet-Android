@@ -86,7 +86,7 @@ async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = Non
         enriched_products.append(p)
     
     return {
-        "products": products,
+        "products": enriched_products,
         "customers": customers,
         "price_schemes": schemes,
         "inventory": inventory,

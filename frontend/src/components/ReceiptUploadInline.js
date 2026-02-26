@@ -4,6 +4,7 @@
  * Used in: PO creation (mandatory), Branch Transfer receive (mandatory), Expense (optional).
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../contexts/AuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { Upload, X, ImageIcon, RefreshCw, Check, Camera, AlertTriangle, Smartphone, Copy, Clock, ChevronDown, ChevronUp } from 'lucide-react';

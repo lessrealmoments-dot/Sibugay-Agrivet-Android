@@ -9,7 +9,7 @@ import uuid
 from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id, 
-    log_movement, update_cashier_wallet,
+    log_movement, update_cashier_wallet, record_safe_movement,
     get_branch_filter, apply_branch_filter, ensure_branch_access
 )
 

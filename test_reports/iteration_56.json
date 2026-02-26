@@ -1,0 +1,83 @@
+{
+  "summary": "Iteration 56: Split Payment Allocation Bug Fix - ALL TESTS PASSED. The fix properly allocates split payment amounts to their respective totals: cash_amount goes to cash_total, digital_amount goes to digital_total. Previously, split invoices had their entire grand_total counted in digital_total. Backend /api/invoices/history/by-date and /api/dashboard endpoints correctly separate the amounts. Frontend Sales History board shows correct totals and split invoices display 'Split · GCash' indigo badge instead of just 'GCash' blue badge.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "feature_verification": {
+    "SPLIT_PAYMENT_ALLOCATION_BUG_FIX": {
+      "GET /api/invoices/history/by-date splits amounts correctly": "PASS - cash_amount=612 → cash_total, digital_amount=408 → digital_total for SI-20260226-0117",
+      "Pure digital payments go entirely to digital total": "PASS - payment_type=digital invoices sum to digital_total (2440.0)",
+      "Cash payments go entirely to cash total": "PASS - payment_type=cash/null invoices sum to cash_total (38130.0)",
+      "Credit payments go entirely to credit total": "PASS - payment_type=credit/partial invoices sum to credit_total (14950.0)",
+      "Split payments properly separated": "PASS - 8 split invoices found, cash contributions (3566.0) and digital contributions (3974.0) correctly allocated"
+    },
+    "DASHBOARD_SPLIT_ALLOCATION": {
+      "GET /api/dashboard/stats separates split amounts": "PASS - today_cash_sales and today_digital_sales include respective split portions",
+      "GET /api/dashboard/branch-summary separates split amounts": "PASS - Branch cards show separated cash and digital amounts from splits"
+    },
+    "FRONTEND_BADGE_DISPLAY": {
+      "Split invoices show 'Split · GCash' indigo badge": "PASS - 8 split invoices have indigo badges with 'Split · {platform}' format",
+      "Pure digital invoices show blue badge": "PASS - 3 pure digital invoices show blue 'GCash/Maya' badges",
+      "Cash invoices show green badge": "PASS - 31 cash invoices show emerald 'Cash' badges",
+      "Credit invoices show amber badge": "PASS - 10 credit invoices show amber 'Credit' badges"
+    },
+    "SALES_HISTORY_TOTALS_VERIFIED": {
+      "Cash Sales total": "₱41,696.00 (cash invoices + split cash portions)",
+      "Digital Sales total": "₱6,414.00 (digital invoices + split digital portions)",
+      "Credit Sales total": "₱14,950.00 (credit/partial invoices)",
+      "Grand Total": "₱87,860.00 (all non-voided invoices)",
+      "Transactions": "52 (18 voided)"
+    }
+  },
+
+  "test_data_verified": {
+    "SI-20260226-0117": {"payment_type": "split", "cash_amount": 612, "digital_amount": 408, "grand_total": 1020},
+    "SI-20260226-0114": {"payment_type": "split", "cash_amount": 510, "digital_amount": 510, "grand_total": 1020},
+    "SI-20260226-0122": {"payment_type": "split", "cash_amount": 510, "digital_amount": 510, "grand_total": 1020},
+    "SI-20260226-0116": {"payment_type": "split", "cash_amount": 306, "digital_amount": 714, "grand_total": 1020}
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_split_payment_allocation_56.py",
+    "/app/test_reports/pytest/pytest_split_allocation_56.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend invoices.py lines 739-764: Correctly computes cash_total from cash/null payment_type invoices, then adds split cash_amount in separate loop",
+    "Backend invoices.py lines 747-758: digital_total computed from payment_type=digital, then split digital_amount added separately",
+    "Backend dashboard.py lines 134-150: Same split allocation pattern applied to dashboard stats",
+    "Backend dashboard.py lines 396-409: Branch summary cards also properly separate split amounts",
+    "Frontend UnifiedSalesPage.js lines 901-903: badgeInfo correctly returns 'Split · {platform}' with indigo styling for split payments"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_split_payment_allocation_56.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "100% (All UI features verified via Playwright)"
+  },
+
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325"
+  },
+
+  "seed_data_creation": "No new seed data created - used existing split invoices SI-20260226-0114 through 0122 and SI-20260226-0002",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 56 verified the split payment allocation bug fix. Key change: GET /api/invoices/history/by-date now properly separates split payment amounts - cash_amount goes to cash_total, digital_amount goes to digital_total. Before the fix, entire grand_total of split invoices was counted in digital_total. The split invoices have payment_type='split' and store cash_amount/digital_amount fields. Frontend badge for splits shows 'Split · GCash' (indigo) instead of just 'GCash' (blue). All 5 stat cards in Sales History board work correctly: Cash Sales, Digital Sales, Credit Sales, Grand Total, Transactions. Dashboard endpoints also have the same fix applied."
+}

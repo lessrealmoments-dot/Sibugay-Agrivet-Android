@@ -1,0 +1,98 @@
+{
+  "summary": "Iteration 57: Safe Wallet Movements Bug Fix - ALL 8 TESTS PASSED. The fix properly records wallet_movements for the safe wallet. Before the fix, safe operations modified safe_lots but never created wallet_movements entries, leaving the movement history empty. The new record_safe_movement() helper in utils/helpers.py is now called at all 7 locations where safe_lots are modified.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "feature_verification": {
+    "SAFE_WALLET_MOVEMENTS_BUG_FIX": {
+      "test_01_cashier_to_safe_creates_movement": "PASS - Fund transfer cashier→safe creates cash_in movement (+100.0)",
+      "test_02_safe_to_cashier_creates_movement": "PASS - Fund transfer safe→cashier creates cash_out movement (-50.0)",
+      "test_03_capital_add_to_safe_creates_movement": "PASS - Capital injection to safe creates cash_in movement (+200.0)",
+      "test_04_po_payment_from_safe_creates_movement": "PASS - PO payment from safe creates cash_out movement (-500.0)",
+      "test_05_po_adjust_payment_from_safe_creates_movement": "PASS - PO adjust-payment from safe creates cash_out movement (-100.0)",
+      "test_06_cashier_wallet_movements_regression": "PASS - Cashier wallet movements still work correctly",
+      "test_07_movements_endpoint_returns_data": "PASS - GET /api/fund-wallets/{safe_id}/movements returns 12 movements",
+      "test_helper_exists_and_exported": "PASS - record_safe_movement() helper exists and is exported from utils"
+    },
+    "MOVEMENTS_API_VERIFICATION": {
+      "Main Branch Safe before fix": "0 movements (despite having balance 54997.0)",
+      "Main Branch Safe after fix": "12 movements tracking all safe operations",
+      "Movement types created": "cash_in (5), cash_out (7)"
+    },
+    "OPERATIONS_TRACKED": {
+      "PO Payments from safe": "3 movements",
+      "PO Payment adjustments from safe": "2 movements",
+      "Cashier → Safe transfers": "3 movements",
+      "Safe → Cashier transfers": "2 movements",
+      "Capital injections to safe": "2 movements"
+    }
+  },
+
+  "code_locations_fixed": {
+    "1_record_safe_movement_helper": "/app/backend/utils/helpers.py lines 162-186 - New helper function",
+    "2_export_in_init": "/app/backend/utils/__init__.py line 23 - Added to exports",
+    "3_pay_purchase_order": "/app/backend/routes/purchase_orders.py line 1047 - Called after safe_lots deduction",
+    "4_adjust_po_payment_deduction": "/app/backend/routes/purchase_orders.py line 693 - Called after additional payment from safe",
+    "5_adjust_po_payment_refund": "/app/backend/routes/purchase_orders.py line 722 - Called after overpayment refund to safe",
+    "6_cashier_to_safe": "/app/backend/routes/accounting.py line 320 - Called after deposit to safe",
+    "7_safe_to_cashier": "/app/backend/routes/accounting.py line 342 - Called after withdrawal from safe",
+    "8_safe_to_bank": "/app/backend/routes/accounting.py line 365 - Called after bank deposit from safe",
+    "9_capital_add_safe": "/app/backend/routes/accounting.py line 397 - Called after capital injection to safe"
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_safe_wallet_movements_57.py",
+    "/app/test_reports/pytest/pytest_safe_movements_57.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "✓ record_safe_movement() correctly computes balance_after from safe_lots AFTER the operation",
+    "✓ Movement type uses 'cash_in' for positive amounts, 'cash_out' for negative amounts",
+    "✓ All 7 locations properly import and call record_safe_movement()",
+    "✓ Cashier wallet movements via update_cashier_wallet() unchanged and still working",
+    "Note: safe_to_bank requires TOTP authentication - code path verified but not live-tested"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_safe_wallet_movements_57.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (8/8 tests passed)",
+    "frontend": "N/A (backend-only testing)"
+  },
+
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "manager_pin": "1234"
+  },
+
+  "seed_data_creation": "Created test POs and fund transfers to verify movement recording. All prefixed with TEST_ or FINAL_TEST_.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 57 verified the safe wallet movements bug fix. Key change: New record_safe_movement() helper in utils/helpers.py creates wallet_movements entries for the safe wallet. It's called at 7 locations: PO payment from safe, PO adjust-payment (both deduction and refund), fund transfers (cashier_to_safe, safe_to_cashier, safe_to_bank), and capital_add to safe. The Main Branch safe (ID: 6ccf740d-c26b-4a4e-8374-3631a45f4fcc) went from 0 movements to 12 movements after testing. GET /api/fund-wallets/{safe_id}/movements endpoint now returns proper history.",
+
+  "rca_of_the_issue": {
+    "root_cause": "Safe wallet operations modified safe_lots collection but never created corresponding wallet_movements entries. The update_cashier_wallet() helper already created movements, but there was no equivalent for safe.",
+    "reproduction_steps": [
+      "1. Pay a PO using fund_source='safe'",
+      "2. Check GET /api/fund-wallets/{safe_id}/movements",
+      "3. Before fix: Returns empty list despite balance being deducted",
+      "4. After fix: Returns movement entry with type='cash_out' and correct amount"
+    ],
+    "fix_applied": "Created record_safe_movement(branch_id, amount, reference) helper that inserts into wallet_movements collection. Applied it to all 7 code paths that modify safe_lots."
+  }
+}

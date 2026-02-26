@@ -56,7 +56,7 @@ export default function ViewQRDialog({ open, onClose, recordType, recordId, file
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center p-4"
       style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 9999 }}

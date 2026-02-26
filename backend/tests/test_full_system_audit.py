@@ -711,8 +711,9 @@ class TestFullSystemAudit:
         headers2 = {"Authorization": f"Bearer {TEST_DATA['org2_token']}"}
         
         # Org2 should NOT see Org1's products
-        products2 = requests.get(f"{BASE_URL}/api/products", headers=headers2).json()
-        product_names = [p.get('name', '') for p in products2]
+        products2_resp = requests.get(f"{BASE_URL}/api/products", headers=headers2).json()
+        products2 = products2_resp.get('products', []) if isinstance(products2_resp, dict) else products2_resp
+        product_names = [p.get('name', '') for p in products2 if isinstance(p, dict)]
         
         org1_product = TEST_DATA.get('product_name', '')
         assert org1_product not in product_names, f"Org2 should NOT see Org1's product: {org1_product}"
@@ -756,8 +757,9 @@ class TestFullSystemAudit:
             org2_product_name = prod2_resp.json().get('name')
             
             # Org1 should NOT see Org2's product
-            products1 = requests.get(f"{BASE_URL}/api/products", headers=headers1).json()
-            product_names1 = [p.get('name', '') for p in products1]
+            products1_resp = requests.get(f"{BASE_URL}/api/products", headers=headers1).json()
+            products1 = products1_resp.get('products', []) if isinstance(products1_resp, dict) else products1_resp
+            product_names1 = [p.get('name', '') for p in products1 if isinstance(p, dict)]
             
             assert org2_product_name not in product_names1, f"Org1 should NOT see Org2's product"
             

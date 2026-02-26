@@ -546,7 +546,7 @@ async def get_pending_reviews(
     else:
         # Regular user: their assigned branch
         default = await get_default_branch(user)
-        target_branches = [default["id"]] if default else user_branch_ids[:1]
+        target_branches = [default] if default else user_branch_ids[:1]
 
     if not target_branches:
         return {"items": [], "total_count": 0, "by_branch": {}}

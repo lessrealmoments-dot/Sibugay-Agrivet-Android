@@ -156,7 +156,7 @@ export default function UnifiedSalesPage() {
     if (online) {
       try {
         const [posRes, custRes, termRes, prefixRes, userRes, schemeRes] = await Promise.all([
-          api.get('/sync/pos-data'),
+          api.get('/sync/pos-data', { params: currentBranch ? { branch_id: currentBranch.id } : {} }),
           api.get('/customers', { params: { limit: 500, ...(currentBranch ? { branch_id: currentBranch.id } : {}) } }),
           api.get('/settings/terms-options').catch(() => ({ data: [] })),
           api.get('/settings/invoice-prefixes').catch(() => ({ data: {} })),

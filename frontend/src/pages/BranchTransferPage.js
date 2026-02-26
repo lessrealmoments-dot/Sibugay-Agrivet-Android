@@ -463,6 +463,7 @@ export default function BranchTransferPage() {
 
   const cancelEdit = () => {
     setEditingOrderId(null);
+    setRequestContext(null);
     setRows([newRow()]);
     setFromBranchId(currentBranch?.id || '');
     setToBranchId('');

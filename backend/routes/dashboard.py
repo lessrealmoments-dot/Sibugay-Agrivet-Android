@@ -271,7 +271,10 @@ async def dashboard_stats(
     ]
 
     # ── Net cash flow today ───────────────────────────────────────────────────
-    today_net_cash = round(today_cash_sales + today_ar_collected - today_expense_total, 2)
+    # Cash inflow = cash sales + digital sales + AR collected (actual money received)
+    # Credit sales are receivables, not cash — exclude from cash flow
+    today_cash_inflow = round(today_cash_sales + today_digital_sales + today_ar_collected, 2)
+    today_net_cash = round(today_cash_inflow - today_expense_total, 2)
 
     # ── Branches ─────────────────────────────────────────────────────────────
     user_branches = await get_user_branches(user)

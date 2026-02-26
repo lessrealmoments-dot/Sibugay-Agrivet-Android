@@ -20,6 +20,10 @@ const TYPE_ICONS = {
   transfer_variance_review: { icon: AlertTriangle, color: 'text-amber-600',   bg: 'bg-amber-50'   },
   transfer_accepted:      { icon: ClipboardCheck,  color: 'text-emerald-600', bg: 'bg-emerald-50' },
   transfer_disputed:      { icon: XCircle,         color: 'text-red-600',     bg: 'bg-red-50'     },
+  internal_invoice_paid:  { icon: CreditCard,      color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  internal_invoice_auto_paid: { icon: CreditCard,   color: 'text-emerald-600', bg: 'bg-emerald-50' },
+  internal_invoice_due:   { icon: AlertTriangle,   color: 'text-amber-600',   bg: 'bg-amber-50'   },
+  internal_invoice_overdue: { icon: AlertTriangle,  color: 'text-red-600',     bg: 'bg-red-50'     },
 };
 
 // Map notification types to navigation routes

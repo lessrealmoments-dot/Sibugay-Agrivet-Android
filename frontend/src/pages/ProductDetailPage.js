@@ -106,10 +106,35 @@ export default function ProductDetailPage() {
       const payload = canEditCost
         ? editForm
         : (({ cost_price, capital_method, ...rest }) => rest)(editForm);
-      await api.put(`/products/${id}`, payload);
-      toast.success('Product updated');
+
+      if (currentBranch) {
+        // When on a branch: save prices to branch_prices, other fields to global product
+        const { prices, ...nonPriceFields } = payload;
+        // Save branch-specific prices
+        await api.put(`/branch-prices/${id}`, {
+          branch_id: currentBranch.id,
+          prices: prices || {},
+          cost_price: canEditCost ? (payload.cost_price || null) : null,
+        });
+        // Save non-price fields (name, category, etc.) to global product - exclude prices
+        const globalPayload = { ...nonPriceFields };
+        delete globalPayload.prices;
+        if (!canEditCost) {
+          delete globalPayload.cost_price;
+          delete globalPayload.capital_method;
+        }
+        if (Object.keys(globalPayload).length > 0) {
+          await api.put(`/products/${id}`, globalPayload);
+        }
+        toast.success(`Prices saved for ${currentBranch.name}`);
+      } else {
+        // No branch context: save everything globally
+        await api.put(`/products/${id}`, payload);
+        toast.success('Product updated (global)');
+      }
       setEditMode(false);
       fetchDetail();
+      fetchBranchOverrides();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error saving'); }
   };
 

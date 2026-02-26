@@ -153,6 +153,7 @@ export default function CustomersPage() {
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Name</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Phone</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Price Scheme</TableHead>
+                {!currentBranch && <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Branch</TableHead>}
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Balance</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Credit Limit</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-32">Actions</TableHead>
@@ -166,6 +167,9 @@ export default function CustomersPage() {
                   <TableCell>
                     <Badge variant="outline" className="text-[10px] capitalize">{c.price_scheme}</Badge>
                   </TableCell>
+                  {!currentBranch && (
+                    <TableCell className="text-xs text-slate-400">{c.branch_id ? c.branch_id.slice(0, 6) + '…' : '—'}</TableCell>
+                  )}
                   <TableCell className="text-right">
                     <span className={c.balance > 0 ? 'text-red-600 font-semibold' : 'text-emerald-600'}>{formatPHP(c.balance || 0)}</span>
                   </TableCell>
@@ -190,7 +194,9 @@ export default function CustomersPage() {
                 </TableRow>
               ))}
               {!customers.length && (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">No customers yet</TableCell></TableRow>
+                <TableRow><TableCell colSpan={currentBranch ? 6 : 7} className="text-center py-8 text-slate-400">
+                  {currentBranch ? `No customers for ${currentBranch.name} yet` : 'No customers found'}
+                </TableCell></TableRow>
               )}
             </TableBody>
           </Table>

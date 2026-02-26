@@ -155,9 +155,10 @@ export default function UnifiedSalesPage() {
     const online = forceOnline || navigator.onLine;
     if (online) {
       try {
+        const branchParams = currentBranch ? { branch_id: currentBranch.id } : {};
         const [posRes, custRes, termRes, prefixRes, userRes, schemeRes] = await Promise.all([
-          api.get('/sync/pos-data', { params: currentBranch ? { branch_id: currentBranch.id } : {} }),
-          api.get('/customers', { params: { limit: 500, ...(currentBranch ? { branch_id: currentBranch.id } : {}) } }),
+          api.get('/sync/pos-data', { params: branchParams }),
+          api.get('/customers', { params: { limit: 500, ...branchParams } }),
           api.get('/settings/terms-options').catch(() => ({ data: [] })),
           api.get('/settings/invoice-prefixes').catch(() => ({ data: {} })),
           api.get('/users').catch(() => ({ data: [] })),
@@ -185,7 +186,13 @@ export default function UnifiedSalesPage() {
     setDataLoaded(true);
   };
 
-  useEffect(() => { loadData(); getPendingSaleCount().then(setPendingCount); }, []);
+  // Initial load
+  useEffect(() => { loadData(); getPendingSaleCount().then(setPendingCount); }, []); // eslint-disable-line
+
+  // Reload products with correct branch inventory when branch changes
+  useEffect(() => {
+    if (dataLoaded) loadData();
+  }, [currentBranch?.id]); // eslint-disable-line
 
   // Load history when tab becomes active or date/search changes
   const loadHistory = useCallback(async () => {

@@ -82,12 +82,38 @@ async def update_user(user_id: str, data: dict, user=Depends(get_current_user)):
 
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: str, user=Depends(get_current_user)):
-    """Soft delete a user."""
+    """Soft delete a user (deactivate)."""
     check_perm(user, "settings", "manage_users")
     if user["id"] == user_id:
         raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
-    await db.users.update_one({"id": user_id}, {"$set": {"active": False}})
-    return {"message": "User deleted"}
+    await db.users.update_one({"id": user_id}, {"$set": {"active": False, "updated_at": now_iso()}})
+    return {"message": "User deactivated"}
+
+
+@router.delete("/users/{user_id}/permanent")
+async def permanently_delete_user(user_id: str, user=Depends(get_current_user)):
+    """Permanently delete a user. Admin only."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can permanently delete users")
+    if user["id"] == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.users.delete_one({"id": user_id})
+    return {"message": f"User {target.get('username', user_id)} permanently deleted"}
+
+
+@router.put("/users/{user_id}/reactivate")
+async def reactivate_user(user_id: str, user=Depends(get_current_user)):
+    """Reactivate a disabled user. Admin only."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can reactivate users")
+    target = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.users.update_one({"id": user_id}, {"$set": {"active": True, "updated_at": now_iso()}})
+    return {"message": f"User {target.get('username', user_id)} reactivated"}
 
 
 @router.put("/users/{user_id}/pin")

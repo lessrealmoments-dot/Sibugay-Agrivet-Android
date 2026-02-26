@@ -163,7 +163,12 @@ export async function refreshPOSCache(branchId = null) {
     const { products = [], customers = [], price_schemes = [], inventory = [], branch_prices = [], sync_time, is_delta } = response.data;
 
     emit({ type: 'sync_step', stepLabel: `Saving ${products.length} products...`, pct: 25 });
-    await cacheProducts(products);
+    if (is_delta && products.length > 0) {
+      // Delta: merge updated products into existing cache
+      for (const p of products) await putProduct(p);
+    } else if (products.length > 0) {
+      await cacheProducts(products);
+    }
 
     emit({ type: 'sync_step', stepLabel: 'Saving inventory levels...', pct: 50 });
     if (inventory.length) {

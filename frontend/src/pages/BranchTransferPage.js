@@ -1406,7 +1406,12 @@ export default function BranchTransferPage() {
                       const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
                       return (
                         <TableRow key={o.id} className="hover:bg-slate-50">
-                          <TableCell className="font-mono text-sm text-blue-600">{o.order_number}</TableCell>
+                          <TableCell className="font-mono text-sm text-blue-600">
+                            {o.order_number}
+                            {o.request_po_number && (
+                              <span className="block text-[9px] text-blue-400 font-sans font-normal">from {o.request_po_number}</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-sm text-slate-500">{fromBranchObj?.name || o.from_branch_id?.slice(0,8) || '—'}</TableCell>
                           <TableCell className="font-medium">{toBranch?.name || o.to_branch_id}</TableCell>
                           <TableCell className="text-slate-500">{o.items?.length || 0} products</TableCell>

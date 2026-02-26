@@ -327,7 +327,8 @@ class TestInvoiceFieldValidation:
             "password": "521325"
         })
         assert login_response.status_code == 200
-        token = login_response.json().get("access_token")
+        token = login_response.json().get("token")
+        assert token, "No token in response"
         self.session.headers.update({"Authorization": f"Bearer {token}"})
         yield
 

@@ -408,6 +408,7 @@ export default function BranchTransferPage() {
 
   // ── Edit existing draft order ──────────────────────────────────────────────
   const loadOrderIntoEdit = (order) => {
+    skipResetRef.current = true;
     setFromBranchId(order.from_branch_id || '');
     setToBranchId(order.to_branch_id || '');
     setMinMargin(order.min_margin ?? 20);

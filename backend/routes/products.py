@@ -357,10 +357,11 @@ async def pricing_scan(
                 effective_prices[k] = float(v or 0)
 
         problem_schemes = []
+        critical_keys = ('retail',) if is_repack else ('retail', 'wholesale')
         for key in scheme_keys:
             price_val = effective_prices.get(key, 0)
             if price_val > 0 and price_val < effective_cost:
-                is_critical = key in ('retail', 'wholesale')
+                is_critical = key in critical_keys
                 problem_schemes.append({
                     "scheme_key": key,
                     "scheme_name": next((s["name"] for s in schemes if s["key"] == key), key),

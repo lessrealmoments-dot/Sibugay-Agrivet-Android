@@ -154,8 +154,13 @@ export async function refreshPOSCache(branchId = null) {
 
     const params = {};
     if (branchId) params.branch_id = branchId;
+
+    // Delta sync: pass last_sync timestamp to only fetch changes
+    const lastSync = await getMeta('last_sync');
+    if (lastSync) params.last_sync = lastSync;
+
     const response = await api.get('/sync/pos-data', { params });
-    const { products = [], customers = [], price_schemes = [], inventory = [], branch_prices = [], sync_time } = response.data;
+    const { products = [], customers = [], price_schemes = [], inventory = [], branch_prices = [], sync_time, is_delta } = response.data;
 
     emit({ type: 'sync_step', stepLabel: `Saving ${products.length} products...`, pct: 25 });
     await cacheProducts(products);

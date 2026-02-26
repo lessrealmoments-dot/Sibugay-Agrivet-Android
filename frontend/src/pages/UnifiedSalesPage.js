@@ -1042,21 +1042,38 @@ export default function UnifiedSalesPage() {
               </div>
               <ScrollArea className="flex-1">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {filteredProducts.slice(0, 50).map(p => (
-                    <button
-                      key={p.id}
-                      data-testid={`product-${p.id}`}
-                      onClick={() => addToCart(p)}
-                      className="text-left p-3 rounded-lg border border-slate-200 hover:border-[#1A4D2E]/50 hover:bg-slate-50 transition-all"
-                    >
-                      <p className="font-medium text-sm truncate">{p.name}</p>
-                      <p className="text-xs text-slate-400 truncate">{p.sku}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <span className="text-sm font-semibold text-[#1A4D2E]">{formatPHP(getPriceForCustomer(p))}</span>
-                        <Badge variant="outline" className="text-[10px]">{p.available ?? '?'}</Badge>
-                      </div>
-                    </button>
-                  ))}
+                  {filteredProducts.slice(0, 50).map(p => {
+                    const avail = p.available ?? 0;
+                    const isOut = avail <= 0;
+                    const isLow = avail > 0 && avail <= (p.reorder_point || 5);
+                    return (
+                      <button
+                        key={p.id}
+                        data-testid={`product-${p.id}`}
+                        onClick={() => addToCart(p)}
+                        className={`text-left p-3 rounded-lg border transition-all ${
+                          isOut
+                            ? 'border-red-200 bg-red-50/40 opacity-70'
+                            : isLow
+                            ? 'border-amber-200 hover:border-amber-400 hover:bg-amber-50'
+                            : 'border-slate-200 hover:border-[#1A4D2E]/50 hover:bg-slate-50'
+                        }`}
+                      >
+                        <p className="font-medium text-sm truncate leading-tight">{p.name}</p>
+                        <p className="text-xs text-slate-400 truncate">{p.sku}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-sm font-semibold text-[#1A4D2E]">{formatPHP(getPriceForCustomer(p))}</span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                            isOut ? 'bg-red-100 text-red-600' :
+                            isLow ? 'bg-amber-100 text-amber-700' :
+                            'bg-emerald-50 text-emerald-700'
+                          }`}>
+                            {isOut ? 'Out' : `${avail.toFixed(0)} ${p.unit || ''}`}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </div>

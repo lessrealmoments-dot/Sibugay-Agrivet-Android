@@ -219,6 +219,7 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Branch Transfer Receive: Receipt upload REQUIRED before confirming receipt (integrated into dialog)
   - Expense Creation: Receipt upload OPTIONAL (compact mode in expense form)
   - Backward compatible: old POs/records can still upload via edit/view QR flow
+  - QR Code Phone Upload: "Use Phone" button generates QR code, phone scans to open upload page with record details, camera/gallery options, auto-polls for uploads
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

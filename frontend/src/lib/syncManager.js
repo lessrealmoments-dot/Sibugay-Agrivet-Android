@@ -281,5 +281,3 @@ export function stopAutoSync() {
     startAutoSync._onReconnect = null;
   }
 }
-  }
-}

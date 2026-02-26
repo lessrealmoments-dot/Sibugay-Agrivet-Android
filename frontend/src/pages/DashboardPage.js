@@ -21,6 +21,7 @@ import PendingReviewsWidget from '../components/PendingReviewsWidget';
 import SalesTrendsWidget from '../components/dashboard/SalesTrendsWidget';
 import BranchComparisonWidget from '../components/dashboard/BranchComparisonWidget';
 import AccountsPayableWidget from '../components/dashboard/AccountsPayableWidget';
+import InternalProfitWidget from '../components/dashboard/InternalProfitWidget';
 
 const LAYOUT_KEY = 'agribooks_dashboard_layout';
 

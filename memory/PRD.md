@@ -279,6 +279,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Owner Dashboard: "Pending Receipt Reviews" card with expandable branch sections, inline review dialog with PIN/TOTP, receipt photo preview
   - Branch Dashboard: "Receipts Awaiting Review" card showing only that branch's pending items (branch users see "Pending" badge, admins get "Review" button)
   - Review dialog: shows record details, receipt photo thumbnails, review notes field, PIN/TOTP verification, "View Full Record" link
+- [x] Branch-to-Branch Stock Request Workflow Fix (Feb 2026):
+  - **Problem**: When a branch creates a stock request (branch_request PO), the supply branch gets a notification but has no clear way to find or process the request.
+  - **Fix**: Added notification navigation in NotificationBell.js — clicking transfer-related notifications (branch_stock_request, transfer_incoming, transfer_variance_review, transfer_accepted, transfer_disputed) navigates directly to the Branch Transfers page with the correct tab/subtab selected.
+  - Added proper icons for all transfer notification types (Package, ArrowLeftRight, AlertTriangle, ClipboardCheck, XCircle) with color-coded backgrounds.
+  - Added URL deep-linking via `useSearchParams` in BranchTransferPage.js — supports `?tab=history&subtab=requests` to open directly to Stock Requests tab.
+  - Added "View →" indicator on navigable notifications so users know they can click to navigate.
+  - Full workflow: Notification → Click → Branch Transfers → Stock Requests tab → Generate Transfer → Pre-filled New Transfer form.
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

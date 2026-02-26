@@ -201,6 +201,8 @@ export default function BranchTransferPage() {
       const transferData = res.data;
       // Store request context for linking
       setRequestContext({ po_id: transferData.po_id, po_number: transferData.po_number });
+      // Skip reset effects when pre-filling from request
+      skipResetRef.current = true;
       // Pre-load the New Transfer form with the data
       setFromBranchId(transferData.from_branch_id || '');
       setToBranchId(transferData.to_branch_id || '');

@@ -214,6 +214,36 @@ async def set_manager_pin(data: dict, user=Depends(get_current_user)):
     return {"message": "PIN set successfully"}
 
 
+@router.put("/change-my-pin")
+async def change_my_pin(data: dict, user=Depends(get_current_user)):
+    """Manager/admin changes their own PIN — must provide current PIN first."""
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Only managers/admins have PINs")
+
+    current_pin = data.get("current_pin", "")
+    new_pin = data.get("new_pin", "")
+
+    if not new_pin or len(new_pin) < 4:
+        raise HTTPException(status_code=400, detail="New PIN must be at least 4 digits")
+
+    stored_pin = user.get("manager_pin", "")
+    # If user already has a PIN, require current PIN
+    if stored_pin:
+        if not current_pin:
+            raise HTTPException(status_code=400, detail="Current PIN is required")
+        if current_pin != stored_pin:
+            raise HTTPException(status_code=401, detail="Current PIN is incorrect")
+
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "manager_pin": new_pin,
+            "pin_changed_at": now_iso(),
+        }}
+    )
+    return {"message": "PIN changed successfully"}
+
+
 # ── TOTP ──────────────────────────────────────────────────────────────────────
 
 @router.get("/totp/status")

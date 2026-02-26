@@ -287,6 +287,10 @@ export default function PurchaseOrderPage() {
       base.supply_branch_id = supplyBranchId;
       base.show_retail = showRetailToggle;
     }
+    // Attach inline receipt upload sessions
+    if (createReceiptData?.sessionId) {
+      base.upload_session_ids = [createReceiptData.sessionId];
+    }
     return base;
   };
 

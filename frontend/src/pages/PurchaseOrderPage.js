@@ -1306,6 +1306,47 @@ export default function PurchaseOrderPage() {
               {/* Receipts gallery (if uploaded) */}
               <ReceiptGallery recordType="purchase_order" recordId={detailPO.id} />
 
+              {/* Receipt Review Status */}
+              {(detailPO.receipt_count > 0 || detailPO.receipt_review_status) && (
+                <div className={`p-3 rounded-xl border ${
+                  detailPO.receipt_review_status === 'reviewed'
+                    ? 'bg-emerald-50 border-emerald-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {detailPO.receipt_review_status === 'reviewed' ? (
+                        <>
+                          <ShieldCheck size={16} className="text-emerald-600" />
+                          <div>
+                            <p className="text-xs font-semibold text-emerald-700">Receipts Reviewed</p>
+                            <p className="text-[10px] text-emerald-600">
+                              by {detailPO.receipt_reviewed_by_name} {detailPO.receipt_reviewed_at ? `on ${detailPO.receipt_reviewed_at.slice(0, 10)}` : ''}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle size={16} className="text-amber-600" />
+                          <div>
+                            <p className="text-xs font-semibold text-amber-700">Receipts Pending Review</p>
+                            <p className="text-[10px] text-amber-600">{detailPO.receipt_count || 0} photo(s) attached</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {detailPO.receipt_review_status !== 'reviewed' && detailPO.status === 'received' && (
+                      <Button size="sm" variant="outline"
+                        className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
+                        onClick={() => setReviewPinDialog(true)}
+                        data-testid="mark-reviewed-btn">
+                        <ShieldCheck size={12} className="mr-1" /> Mark as Reviewed
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Header info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-slate-500">Vendor:</span> <b>{detailPO.vendor}</b></div>

@@ -843,7 +843,7 @@ async def create_customer_cashout(data: dict, user=Depends(get_current_user)):
 
 @router.post("/expenses/employee-advance")
 async def create_employee_advance(data: dict, user=Depends(get_current_user)):
-    """Create an employee advance expense."""
+    """Create an employee advance expense. Enforces monthly CA limit."""
     check_perm(user, "accounting", "create_expense")
     
     employee_id = data.get("employee_id")
@@ -856,6 +856,23 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
     
     amount = float(data["amount"])
     branch_id = data["branch_id"]
+
+    # ── Enforce monthly CA limit ──────────────────────────────────────────
+    monthly_limit = float(employee.get("monthly_ca_limit", 0))
+    if monthly_limit > 0:
+        now_dt = datetime.now(timezone.utc)
+        month_start = f"{now_dt.year}-{now_dt.month:02d}-01"
+        agg = await db.expenses.aggregate([
+            {"$match": {"employee_id": employee_id, "category": "Employee Advance", "date": {"$gte": month_start}}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+        ]).to_list(1)
+        this_month_total = agg[0]["total"] if agg else 0
+        new_total = this_month_total + amount
+        if new_total > monthly_limit and not data.get("manager_approved_by"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Monthly CA limit exceeded. Limit: ₱{monthly_limit:.2f}, This month: ₱{this_month_total:.2f}, This advance: ₱{amount:.2f}. Manager approval required."
+            )
     
     expense = {
         "id": new_id(),

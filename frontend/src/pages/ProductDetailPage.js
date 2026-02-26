@@ -99,6 +99,8 @@ export default function ProductDetailPage() {
   useEffect(() => { fetchDetail(); api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, [fetchDetail]);
   useEffect(() => { fetchBranchOverrides(); }, [fetchBranchOverrides]);
   useEffect(() => { fetchCapitalHistory(); }, [fetchCapitalHistory]);
+  // Reset lazy-loaded data when branch changes so stale cross-branch data doesn't linger
+  useEffect(() => { setMovements([]); setOrders([]); }, [currentBranch]);
 
   const handleSave = async () => {
     try {

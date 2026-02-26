@@ -115,6 +115,11 @@ export async function cacheProducts(products) {
   await clearAndPut(STORES.PRODUCTS, products);
 }
 
+/** Upsert a single product (for delta sync) */
+export async function putProduct(product) {
+  await putOne(STORES.PRODUCTS, product);
+}
+
 export async function getProducts() {
   return getAll(STORES.PRODUCTS);
 }

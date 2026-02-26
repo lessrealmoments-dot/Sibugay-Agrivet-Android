@@ -362,6 +362,7 @@ export default function PurchaseOrderPage() {
   // ── Open Terms Dialog ──────────────────────────────────────────────────
   const openTermsDialog = () => {
     const valid = validate(); if (!valid) return;
+    if (!createReceiptData?.fileCount) { toast.error('Please upload at least 1 receipt photo before proceeding'); return; }
     // Pre-populate from header payment type selection
     const days = header.payment_type === 'terms' ? header.terms_days : termsForm.terms_days;
     const label = header.payment_type === 'terms' ? header.terms_label : termsForm.terms_label;

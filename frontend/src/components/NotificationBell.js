@@ -155,12 +155,13 @@ export default function NotificationBell() {
               notifications.map(n => {
                 const config = TYPE_ICONS[n.type] || TYPE_ICONS[n.context_type] || TYPE_ICONS.pin_used;
                 const Icon = config.icon;
+                const hasRoute = !!NOTIFICATION_ROUTES[n.type];
                 return (
                   <div key={n.id}
-                    onClick={() => !n.is_read && markRead(n.id)}
+                    onClick={() => handleNotificationClick(n)}
                     data-testid={`notification-${n.id}`}
-                    className={`flex gap-3 px-4 py-3 transition-colors ${
-                      n.is_read ? 'bg-white' : 'bg-blue-50/40 hover:bg-blue-50/60 cursor-pointer'
+                    className={`flex gap-3 px-4 py-3 transition-colors cursor-pointer ${
+                      n.is_read ? 'bg-white hover:bg-slate-50' : 'bg-blue-50/40 hover:bg-blue-50/60'
                     }`}
                   >
                     {/* Icon */}

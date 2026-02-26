@@ -222,6 +222,8 @@ export function AuthProvider({ children }) {
     localStorage.setItem('agripos_token', res.data.token);
     setToken(res.data.token);
     setUser(res.data.user);
+    // Scope offline DB to this organization
+    if (res.data.user?.organization_id) setOfflineOrg(res.data.user.organization_id);
     
     // Store subscription info if present
     if (res.data.subscription) {

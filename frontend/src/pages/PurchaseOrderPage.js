@@ -144,6 +144,9 @@ export default function PurchaseOrderPage() {
   const [capitalChoices, setCapitalChoices] = useState({}); // { product_id: 'last_purchase'|'moving_average' }
   const [capitalPendingPOId, setCapitalPendingPOId] = useState(null);
 
+  // ── Receipt upload inline (during creation) ─────────────────────────
+  const [createReceiptData, setCreateReceiptData] = useState(null); // { sessionId, fileCount }
+
   // ── Supplier history dialog ────────────────────────────────────────────
   const [historyDialog, setHistoryDialog] = useState(false);
   const [historyVendor, setHistoryVendor] = useState('');

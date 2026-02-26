@@ -14,9 +14,10 @@ router = APIRouter(tags=["Users & Permissions"])
 
 # ==================== USER MANAGEMENT ====================
 @router.get("/users")
-async def list_users(user=Depends(get_current_user)):
-    """List all users."""
-    users = await db.users.find({"active": True}, {"_id": 0, "password_hash": 0}).to_list(100)
+async def list_users(include_inactive: bool = False, user=Depends(get_current_user)):
+    """List users. Admin can include inactive users."""
+    query = {} if (include_inactive and user.get("role") == "admin") else {"active": True}
+    users = await db.users.find(query, {"_id": 0, "password_hash": 0}).to_list(200)
     return users
 
 

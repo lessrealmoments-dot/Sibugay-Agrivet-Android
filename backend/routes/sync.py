@@ -208,7 +208,7 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
                         item.get("product_id"), branch_id, "sale", -qty,
                         sale_id, inv_number, rate,
                         user["id"], user.get("full_name", user["username"]),
-                        f"Offline sale (synced)"
+                        "Offline sale (synced)"
                     )
 
             # Create invoice

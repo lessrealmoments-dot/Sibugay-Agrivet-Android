@@ -287,6 +287,11 @@ export default function ProductDetailPage() {
           <AccordionTrigger className="px-5 py-4 hover:no-underline" data-testid="section-sales">
             <div className="flex items-center gap-2 text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
               <Tags size={18} className="text-[#1A4D2E]" strokeWidth={1.5} /> Sales Information (Pricing Tiers)
+              {currentBranch && (
+                <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                  {currentBranch.name}
+                </span>
+              )}
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">

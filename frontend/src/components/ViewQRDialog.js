@@ -59,10 +59,11 @@ export default function ViewQRDialog({ open, onClose, recordType, recordId, file
   return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 9999 }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 99999, pointerEvents: 'auto' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      data-testid="viewqr-overlay"
     >
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full overflow-y-auto" style={{ maxWidth: '340px', maxHeight: '90vh' }}>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full overflow-y-auto" style={{ maxWidth: '340px', maxHeight: '90vh', pointerEvents: 'auto' }}>
         <button onClick={(e) => { e.stopPropagation(); onClose(); }} data-testid="viewqr-close-x" className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
           <X size={14} className="text-slate-500" />
         </button>

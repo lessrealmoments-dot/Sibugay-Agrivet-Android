@@ -447,6 +447,64 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     if order["status"] not in ["sent", "draft"]:
         raise HTTPException(status_code=400, detail="Transfer is not in a receivable state")
 
+    # ── Mandatory receipt check for final receiving ──────────────────────
+    upload_session_ids = data.get("upload_session_ids", [])
+    if not data.get("skip_receipt_check"):
+        # Check existing uploads + new inline uploads
+        existing_sessions = await db.upload_sessions.find(
+            {"record_type": "branch_transfer", "record_id": transfer_id},
+            {"_id": 0, "file_count": 1}
+        ).to_list(20)
+        existing_count = sum(s.get("file_count", 0) for s in existing_sessions)
+        # Count files from inline upload sessions being submitted now
+        inline_count = 0
+        for sid in upload_session_ids:
+            s = await db.upload_sessions.find_one({"id": sid}, {"_id": 0, "file_count": 1})
+            if s:
+                inline_count += s.get("file_count", 0)
+        total_receipts = existing_count + inline_count
+        if total_receipts == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Receipt upload required. Please upload at least 1 receipt/DR photo before confirming receipt."
+            )
+
+    # ── Link pending upload sessions ──────────────────────────────────────
+    if upload_session_ids:
+        from pathlib import Path
+        upload_dir = Path("/app/uploads")
+        for sid in upload_session_ids:
+            session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
+            if not session:
+                continue
+            old_record_id = session.get("record_id", "")
+            new_dir = upload_dir / "branch_transfer" / transfer_id
+            new_dir.mkdir(parents=True, exist_ok=True)
+            updated_files = []
+            for f in session.get("files", []):
+                old_path = Path(f.get("stored_path", ""))
+                if old_path.exists():
+                    new_path = new_dir / old_path.name
+                    old_path.rename(new_path)
+                    f["stored_path"] = str(new_path)
+                updated_files.append(f)
+            old_dir = upload_dir / "branch_transfer" / old_record_id
+            if old_dir.exists() and not any(old_dir.iterdir()):
+                try:
+                    old_dir.rmdir()
+                except Exception:
+                    pass
+            await db.upload_sessions.update_one(
+                {"id": sid},
+                {"$set": {
+                    "record_type": "branch_transfer",
+                    "record_id": transfer_id,
+                    "is_pending": False,
+                    "reassigned_at": now_iso(),
+                    "files": updated_files,
+                }}
+            )
+
     from_branch_id = order["from_branch_id"]
     to_branch_id = order["to_branch_id"]
 

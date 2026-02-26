@@ -1364,6 +1364,24 @@ export default function BranchTransferPage() {
                               {req.status === 'in_progress' && (
                                 <Badge className="text-[10px] bg-amber-100 text-amber-700">Transfer In Progress</Badge>
                               )}
+                              {req.status === 'fulfilled' && (
+                                <div className="flex items-center gap-1.5">
+                                  <CheckCircle2 size={13} className="text-emerald-600" />
+                                  <span className="text-xs text-emerald-700 font-medium">Fulfilled</span>
+                                  {req.fulfilled_transfer_number && (
+                                    <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>
+                                  )}
+                                </div>
+                              )}
+                              {req.status === 'partially_fulfilled' && (
+                                <div className="flex items-center gap-1.5">
+                                  <AlertTriangle size={13} className="text-yellow-600" />
+                                  <span className="text-xs text-yellow-700 font-medium">Partial</span>
+                                  {req.fulfilled_transfer_number && (
+                                    <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>
+                                  )}
+                                </div>
+                              )}
                             </TableCell>
                           </TableRow>
                         );

@@ -42,6 +42,7 @@ import ReportsPage from './pages/ReportsPage';
 import PriceScanManager from './components/PriceScanManager';
 import ReturnRefundWizard from './pages/ReturnRefundWizard';
 import AuditCenterPage from './pages/AuditCenterPage';
+import TeamPage from './pages/TeamPage';
 import UploadPage from './pages/UploadPage';
 import ViewReceiptsPage from './pages/ViewReceiptsPage';
 

@@ -196,7 +196,8 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
 
           {/* Action button */}
           <button
-            onClick={handleClose}
+            onClick={(e) => { e.stopPropagation(); handleClose(); }}
+            data-testid="uploadqr-close-btn"
             className={`w-full mt-4 py-2.5 rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-1.5
               ${fileCount > 0
                 ? 'bg-[#1A4D2E] hover:bg-[#14532d] text-white'

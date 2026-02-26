@@ -187,6 +187,12 @@ export default function NotificationBell() {
                             <span className="text-[11px] text-slate-400">{n.branch_name}</span>
                           </>
                         )}
+                        {hasRoute && (
+                          <>
+                            <span className="text-slate-300">·</span>
+                            <span className="text-[11px] text-blue-500 font-medium">View &rarr;</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

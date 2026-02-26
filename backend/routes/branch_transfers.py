@@ -386,6 +386,13 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
 
     return {"message": "Transfer sent", "status": "sent"}
 
+    # Update internal invoice status
+    from routes.internal_invoices import update_invoice_status
+    try:
+        await update_invoice_status(transfer_id, "sent")
+    except Exception:
+        pass
+
 
 @router.get("/{transfer_id}/capital-preview")
 async def get_transfer_capital_preview(transfer_id: str, user=Depends(get_current_user)):

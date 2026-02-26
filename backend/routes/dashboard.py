@@ -534,8 +534,7 @@ async def get_pending_reviews(
     Admin/owner: all branches (grouped by branch). Branch user: own branch only.
     """
     is_admin = user.get("role") in ("admin", "owner", "manager")
-    user_branches = await get_user_branches(user)
-    user_branch_ids = [b["id"] for b in user_branches]
+    user_branch_ids = await get_user_branches(user)
 
     # Determine which branches to query
     if branch_id and not is_admin:

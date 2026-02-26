@@ -744,11 +744,17 @@ async def get_invoices_by_date(
         and inv.get("payment_type") in ("cash", None)
         and inv.get("sale_type") != "cash_advance"
     )
+    digital_total = sum(
+        float(inv.get("grand_total", 0))
+        for inv in invoices
+        if inv.get("status") != "voided"
+        and inv.get("payment_type") in ("digital", "split")
+    )
     credit_total = sum(
         float(inv.get("grand_total", 0))
         for inv in invoices
         if inv.get("status") != "voided"
-        and inv.get("payment_type") not in ("cash", None)
+        and inv.get("payment_type") in ("credit", "partial")
     )
     grand_total = sum(
         float(inv.get("grand_total", 0))

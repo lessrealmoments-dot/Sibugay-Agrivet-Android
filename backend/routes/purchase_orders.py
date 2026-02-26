@@ -894,7 +894,7 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
 async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_current_user)):
     """
     Convert a branch_request PO into a Branch Transfer order.
-    Pre-loads all items from the PO into a new branch transfer.
+    Pre-loads all items from the PO with requested qty + available stock from source branch.
     Returns the pre-filled transfer data for the frontend to open in Branch Transfer form.
     """
     if user.get("role") not in ["admin", "manager"]:
@@ -915,7 +915,11 @@ async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_cur
     if not from_branch_id or not to_branch_id:
         raise HTTPException(status_code=400, detail="Branch IDs missing from request")
 
-    # Build pre-filled transfer items — fetch branch capital for each product
+    # Get branch names for context
+    from_branch = await db.branches.find_one({"id": from_branch_id}, {"_id": 0, "name": 1})
+    to_branch = await db.branches.find_one({"id": to_branch_id}, {"_id": 0, "name": 1})
+
+    # Build pre-filled transfer items — fetch branch capital + available stock for each product
     transfer_items = []
     for item in po.get("items", []):
         product_id = item.get("product_id", "")
@@ -929,10 +933,19 @@ async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_cur
         )
         branch_capital = float(bp["cost_price"]) if bp and bp.get("cost_price") else float(product.get("cost_price", 0))
 
+        # Get available stock at source branch
+        inv = await db.inventory.find_one(
+            {"product_id": product_id, "branch_id": from_branch_id}, {"_id": 0}
+        )
+        available_stock = float(inv["quantity"]) if inv else 0.0
+
         # Get last retail at destination (price memory)
         mem = await db.branch_transfer_price_memory.find_one(
             {"product_id": product_id, "branch_id": to_branch_id}, {"_id": 0}
         )
+
+        requested_qty = float(item.get("quantity", 1))
+        send_qty = min(requested_qty, available_stock)  # default = min of requested & available
 
         transfer_items.append({
             "product_id": product_id,
@@ -940,7 +953,9 @@ async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_cur
             "sku": product.get("sku", ""),
             "category": product.get("category", "General"),
             "unit": product.get("unit", item.get("unit", "")),
-            "qty": float(item.get("quantity", 1)),
+            "requested_qty": requested_qty,
+            "available_stock": available_stock,
+            "qty": send_qty,
             "branch_capital": branch_capital,
             "transfer_capital": branch_capital,  # default = source cost, manager can adjust
             "branch_retail": mem.get("last_retail_price") if mem else 0.0,
@@ -961,6 +976,8 @@ async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_cur
         "po_number": po["po_number"],
         "from_branch_id": from_branch_id,
         "to_branch_id": to_branch_id,
+        "from_branch_name": from_branch.get("name", "") if from_branch else "",
+        "to_branch_name": to_branch.get("name", "") if to_branch else "",
         "show_retail": po.get("show_retail", True),
         "items": transfer_items,
         "notes": po.get("notes", ""),

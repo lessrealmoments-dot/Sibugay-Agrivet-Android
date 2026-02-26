@@ -219,6 +219,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Branch Transfer Receive: Receipt upload REQUIRED before confirming receipt (integrated into dialog)
   - Expense Creation: Receipt upload OPTIONAL (compact mode in expense form)
   - Backward compatible: old POs/records can still upload via edit/view QR flow
+- [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
+  - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
+  - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)
+  - `PendingReviewsWidget` React component — branch-grouped view for owner/admin, single-branch view for branch users
+  - Owner Dashboard: "Pending Receipt Reviews" card with expandable branch sections, inline review dialog with PIN/TOTP, receipt photo preview
+  - Branch Dashboard: "Receipts Awaiting Review" card showing only that branch's pending items (branch users see "Pending" badge, admins get "Review" button)
+  - Review dialog: shows record details, receipt photo thumbnails, review notes field, PIN/TOTP verification, "View Full Record" link
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

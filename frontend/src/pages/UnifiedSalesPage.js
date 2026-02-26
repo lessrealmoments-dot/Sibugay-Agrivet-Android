@@ -846,9 +846,10 @@ export default function UnifiedSalesPage() {
         <div className="flex-1 overflow-auto px-1">
           {/* Running totals */}
           {historyTotals && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
               {[
                 { label: 'Cash Sales', value: formatPHP(historyTotals.cash), color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
+                { label: 'Digital Sales', value: formatPHP(historyTotals.digital || 0), color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
                 { label: 'Credit Sales', value: formatPHP(historyTotals.credit), color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200' },
                 { label: 'Grand Total', value: formatPHP(historyTotals.grand_total), color: 'text-[#1A4D2E]', bg: 'bg-emerald-50', border: 'border-[#1A4D2E]/30' },
                 { label: 'Transactions', value: historyTotals.count, color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-200', sub: historyTotals.voided_count > 0 ? `${historyTotals.voided_count} voided` : null },

@@ -394,6 +394,7 @@ export default function BranchTransferPage() {
       });
       toast.success('Branch transfer order created!');
       setRows([newRow()]);
+      setRequestContext(null);
       setTab('history');
       loadOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to create transfer'); }

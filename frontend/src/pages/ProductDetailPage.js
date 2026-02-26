@@ -379,20 +379,27 @@ export default function ProductDetailPage() {
                       </div>
                     ) : (
                       <div>
-                        <p className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(product.prices?.[s.key])}</p>
-                        {/* Show markup in view mode too, as a small hint */}
                         {(() => {
-                          const p = parseFloat(product.prices?.[s.key]) || 0;
+                          const branchPrice = cost.branch_retail_prices?.[s.key];
+                          const globalPrice = product.prices?.[s.key];
+                          const effectivePrice = branchPrice !== undefined ? branchPrice : globalPrice;
+                          const isBranchOverride = branchPrice !== undefined && currentBranch;
+                          const p = parseFloat(effectivePrice) || 0;
                           const c = cost.moving_average || cost.cost_price || 0;
-                          if (p > 0 && c > 0) {
-                            const m = (p - c) / c * 100;
-                            return (
-                              <p className={`text-[10px] mt-0.5 font-medium ${m < 0 ? 'text-red-500' : m < 5 ? 'text-amber-500' : 'text-slate-400'}`}>
-                                {m >= 0 ? '+' : ''}{m.toFixed(1)}% markup
-                              </p>
-                            );
-                          }
-                          return null;
+                          const m = (p > 0 && c > 0) ? (p - c) / c * 100 : null;
+                          return (
+                            <>
+                              <p className="text-lg font-bold" style={{ fontFamily: 'Manrope' }}>{formatPHP(effectivePrice)}</p>
+                              {isBranchOverride && (
+                                <p className="text-[10px] text-violet-600 font-medium mt-0.5">Branch price</p>
+                              )}
+                              {m !== null && (
+                                <p className={`text-[10px] mt-0.5 font-medium ${m < 0 ? 'text-red-500' : m < 5 ? 'text-amber-500' : 'text-slate-400'}`}>
+                                  {m >= 0 ? '+' : ''}{m.toFixed(1)}% markup
+                                </p>
+                              )}
+                            </>
+                          );
                         })()}
                       </div>
                     )}

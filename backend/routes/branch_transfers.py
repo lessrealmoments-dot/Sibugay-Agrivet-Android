@@ -785,6 +785,22 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         }}
     )
 
+    # Update linked stock request PO status (fulfilled / partially_fulfilled)
+    request_po_id = order.get("request_po_id", "")
+    if request_po_id:
+        total_requested = sum(float(i.get("requested_qty", i.get("qty", 0))) for i in items)
+        total_sent = sum(float(i.get("qty_received", i.get("qty", 0))) for i in items)
+        fulfillment_status = "fulfilled" if total_sent >= total_requested else "partially_fulfilled"
+        await db.purchase_orders.update_one(
+            {"id": request_po_id},
+            {"$set": {
+                "status": fulfillment_status,
+                "fulfilled_at": now_iso(),
+                "fulfilled_transfer_id": transfer_id,
+                "fulfilled_transfer_number": order.get("order_number", ""),
+            }}
+        )
+
     return {
         "message": f"Transfer received. {len(items)} product(s) updated.",
         "order_number": order["order_number"],

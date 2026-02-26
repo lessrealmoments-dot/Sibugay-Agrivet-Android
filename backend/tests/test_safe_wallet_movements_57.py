@@ -67,14 +67,8 @@ class TestSafeWalletMovements:
 
     def get_manager_pin(self, headers):
         """Get a manager/admin PIN for fund transfers."""
-        # Check system settings for admin PIN
-        resp = requests.get(f"{BASE_URL}/api/system-settings", headers=headers)
-        if resp.status_code == 200:
-            settings = resp.json()
-            for s in settings:
-                if s.get("key") == "admin_pin":
-                    return "2580"  # Common default PIN
-        return "2580"  # Fallback
+        # Known working PIN from test users
+        return "1234"
 
     # =========================================================================
     # TEST 1: Fund Transfer - Cashier to Safe (should create cash_in movement)

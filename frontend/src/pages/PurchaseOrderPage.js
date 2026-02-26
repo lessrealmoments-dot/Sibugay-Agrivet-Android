@@ -1524,6 +1524,44 @@ export default function PurchaseOrderPage() {
         }}
       />
 
+      {/* ── MARK AS REVIEWED PIN DIALOG ──────────────────────────────── */}
+      <Dialog open={reviewPinDialog} onOpenChange={v => { if (!v) { setReviewPinDialog(false); setReviewPin(''); } }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+              <ShieldCheck size={18} className="text-[#1A4D2E]" /> Review Receipts
+            </DialogTitle>
+            <DialogDescription>
+              Enter your admin PIN or TOTP to confirm you have reviewed the receipt photos for PO {detailPO?.po_number}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <Label className="text-xs">Admin PIN or TOTP</Label>
+              <Input
+                type="password"
+                value={reviewPin}
+                onChange={e => setReviewPin(e.target.value)}
+                placeholder="Enter PIN..."
+                className="mt-1"
+                onKeyDown={e => { if (e.key === 'Enter') handleMarkReviewed(); }}
+                data-testid="review-pin-input"
+              />
+            </div>
+            <Button
+              onClick={handleMarkReviewed}
+              disabled={reviewSaving || !reviewPin}
+              className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+              data-testid="confirm-review-btn"
+            >
+              {reviewSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <ShieldCheck size={13} className="mr-1.5" />}
+              Confirm Review
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       {/* ── CREATE PRODUCT DIALOG ────────────────────────────────────── */}
       <Dialog open={createProdDialog} onOpenChange={setCreateProdDialog}>
         <DialogContent className="sm:max-w-lg">

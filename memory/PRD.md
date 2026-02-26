@@ -192,7 +192,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Settings labels updated: Security tab clarifies TOTP is for remote approvals; Audit Setup tab renamed "Owner PIN — For In-Person Approvals"
 
 ### Bug Fixes — Feb 2026
-- [x] Fixed Quick Sales inventory race condition: Combined two separate useEffects into one `[currentBranch?.id]` effect in `UnifiedSalesPage.js`. The old code had a `dataLoaded` guard that could miss the branch-change reload when branches loaded before the initial API call finished, causing all products to show "Out" stock.
+- [x] Fixed Quick Sales inventory race condition: Used `effectiveBranchId` (from localStorage/user data, immediately available) instead of `currentBranch?.id` (async, requires branches API). Added backend fallback to aggregate all-branch inventory when no branch_id sent.
+- [x] Fixed Dashboard data inconsistencies:
+  - Added `today_digital_sales` tracking (digital/split payments were invisible on both dashboards)
+  - Fixed Net Cash Flow formula: now = cash sales + digital sales + AR collected − expenses (was missing digital)
+  - Made branch-summary and stats formulas consistent (both now use same cash-flow logic)
+  - Updated frontend KPIs: "Walk-in Sales" → "Total Sales" (shows all revenue), "Cash Sales" shows cash-only with digital sub-text
+  - Owner branch cards now show 6 metrics: Total Sales, Cash Sales, New Credit, Digital Sales, Cashier+Safe, AR Outstanding
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

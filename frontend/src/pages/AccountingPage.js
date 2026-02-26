@@ -745,6 +745,16 @@ export default function AccountingPage() {
               <Label className="text-xs text-slate-500">Reference # (Check/Receipt/OR)</Label>
               <Input className="h-10" value={expenseForm.reference_number} onChange={e => setExpenseForm({ ...expenseForm, reference_number: e.target.value })} placeholder="Optional reference number" />
             </div>
+            {/* Receipt upload — optional for expense */}
+            {!editMode && (
+              <ReceiptUploadInline
+                required={false}
+                label="Receipt Photo (Optional)"
+                recordType="expense"
+                compact={true}
+                onUploaded={(data) => setExpenseReceiptData(data)}
+              />
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setExpenseDialog(false)}>Cancel</Button>
               <Button onClick={handleSaveExpense} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid="save-expense-btn">

@@ -640,10 +640,18 @@ async def update_product(product_id: str, data: dict, user=Depends(get_current_u
 
 
 @router.get("/{product_id}/capital-history")
-async def get_capital_history(product_id: str, limit: int = 50, user=Depends(get_current_user)):
-    """Return the capital change log for a product, newest first."""
+async def get_capital_history(product_id: str, branch_id: Optional[str] = None, limit: int = 50, user=Depends(get_current_user)):
+    """Return the capital change log for a product, newest first. Filtered by branch when provided."""
+    if branch_id:
+        # Show records tagged with this branch_id, plus old records without branch_id (backward compat)
+        query = {"product_id": product_id, "$or": [
+            {"branch_id": branch_id},
+            {"branch_id": {"$exists": False}},
+        ]}
+    else:
+        query = {"product_id": product_id}
     history = await db.capital_changes.find(
-        {"product_id": product_id}, {"_id": 0}
+        query, {"_id": 0}
     ).sort("changed_at", -1).limit(limit).to_list(limit)
     return history
 
@@ -720,27 +728,70 @@ async def get_repacks(product_id: str, user=Depends(get_current_user)):
 
 
 @router.get("/{product_id}/movements")
-async def get_product_movements(product_id: str, limit: int = 50, user=Depends(get_current_user)):
-    """Get stock movements for a product."""
+async def get_product_movements(product_id: str, branch_id: Optional[str] = None, limit: int = 50, user=Depends(get_current_user)):
+    """Get stock movements for a product, optionally filtered by branch."""
+    query = {"product_id": product_id}
+    if branch_id:
+        query["branch_id"] = branch_id
     movements = await db.movements.find(
-        {"product_id": product_id}, 
+        query, 
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
     return {"movements": movements}
 
 
 @router.get("/{product_id}/orders")
-async def get_product_orders(product_id: str, limit: int = 50, user=Depends(get_current_user)):
-    """Get purchase orders containing this product."""
-    # Find POs that have this product in their items
-    pipeline = [
-        {"$match": {"items.product_id": product_id}},
-        {"$sort": {"created_at": -1}},
-        {"$limit": limit},
-        {"$project": {"_id": 0}}
-    ]
-    orders = await db.purchase_orders.aggregate(pipeline).to_list(limit)
-    return {"orders": orders}
+async def get_product_orders(product_id: str, branch_id: Optional[str] = None, limit: int = 50, user=Depends(get_current_user)):
+    """Get order history for a product (POs + Sales), optionally filtered by branch."""
+    results = []
+
+    # --- Purchase Orders ---
+    po_match = {"items.product_id": product_id}
+    if branch_id:
+        po_match["branch_id"] = branch_id
+    pos = await db.purchase_orders.find(po_match, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    for po in pos:
+        for item in po.get("items", []):
+            if item.get("product_id") == product_id:
+                results.append({
+                    "date": po.get("created_at", ""),
+                    "type": "purchase",
+                    "reference": po.get("po_number", ""),
+                    "party": po.get("vendor", po.get("supplier_name", "")),
+                    "quantity": item.get("quantity", 0),
+                    "price": item.get("unit_price") or item.get("cost") or item.get("unit_cost") or 0,
+                    "total": round((item.get("quantity", 0)) * float(item.get("unit_price") or item.get("cost") or item.get("unit_cost") or 0), 2),
+                    "status": po.get("status", ""),
+                    "branch_id": po.get("branch_id", ""),
+                })
+                break
+
+    # --- Sales ---
+    sale_match = {"items.product_id": product_id}
+    if branch_id:
+        sale_match["branch_id"] = branch_id
+    sales = await db.sales.find(sale_match, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    for sale in sales:
+        for item in sale.get("items", []):
+            if item.get("product_id") == product_id:
+                qty = float(item.get("quantity", 0))
+                price = float(item.get("rate") or item.get("price") or 0)
+                results.append({
+                    "date": sale.get("created_at", sale.get("date", "")),
+                    "type": "sale",
+                    "reference": sale.get("invoice_number", ""),
+                    "party": sale.get("customer_name", "Walk-in"),
+                    "quantity": qty,
+                    "price": price,
+                    "total": round(qty * price, 2),
+                    "status": sale.get("status", "completed"),
+                    "branch_id": sale.get("branch_id", ""),
+                })
+                break
+
+    # Sort combined results by date descending
+    results.sort(key=lambda x: x.get("date", ""), reverse=True)
+    return {"orders": results[:limit]}
 
 
 @router.post("/{product_id}/vendors")

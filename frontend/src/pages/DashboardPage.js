@@ -327,6 +327,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       ),
+      'internal-profit': <InternalProfitWidget />,
     };
 
     return (

@@ -496,12 +496,12 @@ export default function DashboardPage() {
       {/* Row 1: Today's performance */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
-          { label: 'Walk-in Sales', value: formatPHP(stats?.today_cash_sales), icon: DollarSign, color: { bg: 'bg-emerald-50', text: 'text-emerald-700' }, sub: 'Paid today', testId: 'kpi-cash-sales' },
+          { label: 'Total Sales', value: formatPHP(stats?.today_revenue), icon: DollarSign, color: { bg: 'bg-emerald-50', text: 'text-emerald-700' }, sub: `${stats?.today_sales_count || 0} transactions`, testId: 'kpi-total-sales' },
+          { label: 'Cash Sales', value: formatPHP(stats?.today_cash_sales), icon: Banknote, color: { bg: 'bg-green-50', text: 'text-green-700' }, sub: stats?.today_digital_sales > 0 ? `+${formatPHP(stats?.today_digital_sales)} digital` : 'Cash received', testId: 'kpi-cash-sales' },
           { label: 'New Credit', value: formatPHP(stats?.today_credit_sales), icon: CreditCard, color: { bg: 'bg-amber-50', text: 'text-amber-700' }, sub: 'AR created today', testId: 'kpi-new-credit' },
-          { label: 'AR Collected', value: formatPHP(stats?.today_ar_collected), icon: Banknote, color: { bg: 'bg-blue-50', text: 'text-blue-700' }, sub: 'Payments received', testId: 'kpi-ar-collected' },
+          { label: 'AR Collected', value: formatPHP(stats?.today_ar_collected), icon: Receipt, color: { bg: 'bg-blue-50', text: 'text-blue-700' }, sub: 'Payments received', testId: 'kpi-ar-collected' },
           { label: 'Expenses', value: formatPHP(stats?.today_expenses), icon: ArrowDown, color: { bg: 'bg-red-50', text: 'text-red-600' }, sub: 'Paid out today', testId: 'kpi-expenses' },
-          { label: 'Net Cash Flow', value: (todayNetCash >= 0 ? '+' : '') + formatPHP(todayNetCash), icon: todayNetCash >= 0 ? TrendingUp : ArrowDownRight, color: { bg: todayNetCash >= 0 ? 'bg-emerald-50' : 'bg-red-50', text: todayNetCash >= 0 ? 'text-emerald-700' : 'text-red-600' }, sub: 'Cash in - out', testId: 'kpi-net-cash' },
-          { label: 'Transactions', value: stats?.today_sales_count || 0, icon: ShoppingCart, color: { bg: 'bg-slate-50', text: 'text-slate-700' }, sub: 'Today', testId: 'kpi-transactions' },
+          { label: 'Net Cash Flow', value: (todayNetCash >= 0 ? '+' : '') + formatPHP(todayNetCash), icon: todayNetCash >= 0 ? TrendingUp : ArrowDownRight, color: { bg: todayNetCash >= 0 ? 'bg-emerald-50' : 'bg-red-50', text: todayNetCash >= 0 ? 'text-emerald-700' : 'text-red-600' }, sub: 'Cash + digital in − out', testId: 'kpi-net-cash' },
         ].map(kpi => <KpiCard key={kpi.label} {...kpi} />)}
       </div>
 

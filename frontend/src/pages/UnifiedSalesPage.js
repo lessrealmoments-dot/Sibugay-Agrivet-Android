@@ -891,9 +891,16 @@ export default function UnifiedSalesPage() {
             <div className="space-y-1.5">
               {historyList.map(inv => {
                 const isVoided = inv.status === 'voided';
-                const isCash = inv.payment_type === 'cash' || !inv.customer_id;
+                const ptype = inv.payment_type || 'cash';
+                const isDigital = ptype === 'digital' || ptype === 'split';
+                const isCash = ptype === 'cash' || (ptype !== 'credit' && ptype !== 'partial' && !isDigital && !inv.customer_id);
+                const isCredit = ptype === 'credit' || ptype === 'partial';
                 const hasBalance = inv.balance > 0 && !isVoided;
                 const time = inv.created_at?.slice(11, 16) || '';
+                const badgeInfo = isVoided ? { label: 'VOIDED', cls: 'bg-slate-200 text-slate-500' }
+                  : isDigital ? { label: inv.digital_platform || 'Digital', cls: 'bg-blue-100 text-blue-700' }
+                  : isCredit ? { label: 'Credit', cls: 'bg-amber-100 text-amber-700' }
+                  : { label: 'Cash', cls: 'bg-emerald-100 text-emerald-700' };
                 return (
                   <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
                     data-testid={`history-row-${inv.id}`}

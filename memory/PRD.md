@@ -286,6 +286,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Added URL deep-linking via `useSearchParams` in BranchTransferPage.js — supports `?tab=history&subtab=requests` to open directly to Stock Requests tab.
   - Added "View →" indicator on navigable notifications so users know they can click to navigate.
   - Full workflow: Notification → Click → Branch Transfers → Stock Requests tab → Generate Transfer → Pre-filled New Transfer form.
+- [x] Enhanced Stock Request → Transfer Workflow (Phase 1, Feb 2026):
+  - **Requested vs Available vs Send columns**: When generating a transfer from a stock request, shows Requested Qty (what branch wants), Available Stock (from source inventory), and Send Qty (auto-defaults to min of both). Amber "low" indicator when available < requested, "partial" indicator on send qty.
+  - **Role-based pricing**: Admin can set both Transfer Capital and Branch Retail. Managers can only set Transfer Capital — Branch Retail is disabled with "Admin sets retail" hint.
+  - **Request status tracking**: Stock request PO updates to "fulfilled" or "partially_fulfilled" when the generated transfer is received. Status badges shown on Stock Requests tab.
+  - **Transfer-to-request linking**: Transfers store `request_po_id` and `request_po_number`. History list shows "from PO-xxx" reference. Detail dialog shows blue request reference badge.
+  - **Status Timeline**: Transfer detail dialog shows a visual timeline: Requested → Transfer Created → Sent → Received → Settled. Each step shows date and completion status.
+  - **Form pre-fill fix**: Added `skipResetRef` to prevent useEffect from clearing pre-filled form data when branch selectors trigger reset effects.
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

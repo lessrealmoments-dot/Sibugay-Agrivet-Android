@@ -1009,6 +1009,26 @@ export default function PurchaseOrderPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          {(po.receipt_count || 0) > 0 ? (
+                            <>
+                              <Badge className="text-[10px] bg-emerald-100 text-emerald-700">
+                                {po.receipt_count} photo{po.receipt_count !== 1 ? 's' : ''}
+                              </Badge>
+                              {po.receipt_review_status === 'reviewed' ? (
+                                <span className="text-[9px] text-emerald-600 flex items-center gap-0.5">
+                                  <Check size={9} /> {po.receipt_reviewed_by_name || 'Reviewed'}
+                                </span>
+                              ) : po.status === 'received' ? (
+                                <span className="text-[9px] text-amber-600 font-medium">Pending review</span>
+                              ) : null}
+                            </>
+                          ) : (
+                            <Badge className="text-[10px] bg-red-50 text-red-500">No receipts</Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {(po.status === 'draft' || po.status === 'ordered') && (
                             <Button size="sm" variant="outline" onClick={() => receivePO(po.id)}

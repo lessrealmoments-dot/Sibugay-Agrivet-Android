@@ -81,8 +81,16 @@ export default function CustomersPage() {
 
   const handleSave = async () => {
     try {
-      if (editing) { await api.put(`/customers/${editing.id}`, form); toast.success('Customer updated'); }
-      else { await api.post('/customers', form); toast.success('Customer created'); }
+      if (editing) {
+        await api.put(`/customers/${editing.id}`, form);
+        toast.success('Customer updated');
+      } else {
+        // Always assign new customer to the currently selected branch
+        const payload = { ...form };
+        if (currentBranch) payload.branch_id = currentBranch.id;
+        await api.post('/customers', payload);
+        toast.success('Customer created');
+      }
       setDialogOpen(false); fetchCustomers();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error saving customer'); }
   };

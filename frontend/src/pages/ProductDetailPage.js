@@ -231,7 +231,7 @@ export default function ProductDetailPage() {
             <>
               <Button variant="outline" size="sm" onClick={() => { setEditMode(false); setEditForm(product); }}>Cancel</Button>
               <Button size="sm" data-testid="save-product-detail" onClick={handleSave} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
-                <Save size={14} className="mr-1" /> Save
+                <Save size={14} className="mr-1" /> {currentBranch ? `Save (${currentBranch.name})` : 'Save (Global)'}
               </Button>
             </>
           ) : (

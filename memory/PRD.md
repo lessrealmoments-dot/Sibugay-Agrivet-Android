@@ -300,10 +300,15 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **API endpoints**: `GET /internal-invoices` (list with branch enrichment), `GET /internal-invoices/summary` (payable/receivable totals with overdue/due-soon), `GET /internal-invoices/{id}`, `GET /internal-invoices/by-transfer/{transfer_id}`.
   - **Frontend**: Transfer detail dialog shows invoice badge (INV-xxx, Terms: Net 15) with "Print Invoice" button. History list shows invoice reference.
   - **Physical workflow**: Invoice printed (2 copies) → driver carries copy → Branch 1 counts actual vs invoice → writes corrections on paper → uploads photo (QR phone or PC) → confirms receipt in system.
+- [x] Auto-Settlement via Branch Bank (Phase 3, Feb 2026):
+  - **Pay Now endpoint**: `POST /internal-invoices/{id}/pay` — admin-only, deducts from receiving branch's bank wallet, credits supplier branch's bank wallet. Validates balance, creates wallet_movements for both branches.
+  - **Internal Invoices page**: New `/internal-invoices` page with summary cards (Total Payable, Overdue, Due This Week, Total Receivable), invoice list with All/Unpaid/Paid tabs, and "Pay Now" button with confirmation dialog showing bank-to-bank transfer details.
+  - **Auto-pay scheduler**: Daily at 8AM, checks for overdue invoices. If bank has sufficient balance, auto-deducts and notifies admin. If insufficient, sends overdue notification.
+  - **Due-soon notifications**: 3 days before due date, sends notification to admin.
+  - **Sidebar navigation**: "Internal Invoices" added under Branches section.
+  - **Notification types**: Added icons for internal_invoice_paid, auto_paid, due, overdue.
 
 ### P1 — Upcoming
-- Auto-Settlement via Branch Bank (Phase 3): Due date notifications, auto-deduct from branch bank, PIN/TOTP required for payment approval
-- Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data
 

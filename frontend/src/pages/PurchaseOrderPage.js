@@ -908,6 +908,14 @@ export default function PurchaseOrderPage() {
               </div>
 
               {/* Action Buttons — change based on source type */}
+              {/* Receipt Upload — mandatory for actual PO */}
+              <ReceiptUploadInline
+                required={true}
+                label="Receipt / DR Photo (Required)"
+                recordType="purchase_order"
+                onUploaded={(data) => setCreateReceiptData(data)}
+              />
+
               {sourceType === 'branch_request' ? (
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}

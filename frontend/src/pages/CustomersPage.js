@@ -53,11 +53,12 @@ export default function CustomersPage() {
     try {
       const params = { skip: page * LIMIT, limit: LIMIT };
       if (search) params.search = search;
+      if (currentBranch) params.branch_id = currentBranch.id;  // branch-scoped
       const res = await api.get('/customers', { params });
       setCustomers(res.data.customers);
       setTotal(res.data.total);
     } catch { toast.error('Failed to load customers'); }
-  }, [search, page]);
+  }, [search, page, currentBranch]);
 
   useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
   useEffect(() => { api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {}); }, []);

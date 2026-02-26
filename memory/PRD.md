@@ -199,6 +199,9 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Made branch-summary and stats formulas consistent (both now use same cash-flow logic)
   - Updated frontend KPIs: "Walk-in Sales" → "Total Sales" (shows all revenue), "Cash Sales" shows cash-only with digital sub-text
   - Owner branch cards now show 6 metrics: Total Sales, Cash Sales, New Credit, Digital Sales, Cashier+Safe, AR Outstanding
+- [x] Fixed Employee Advance: Backend now enforces monthly_ca_limit and requires manager_approved_by when exceeded (was frontend-only check)
+- [x] Fixed Customer Cashout Reversal: Now correctly returns funds to cashier (+amount) instead of double-deducting (-amount)
+- [x] Full System Audit: 24/24 backend tests passing — covers registration, setup, products, POs, sales, all expense types, CA limits, reversals, fund wallets, uploads/QR, dashboard, returns, POS sync, and multi-tenant isolation
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

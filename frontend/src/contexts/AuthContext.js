@@ -188,6 +188,8 @@ export function AuthProvider({ children }) {
     try {
       const res = await api.get('/auth/me');
       setUser(res.data);
+      // Scope offline DB to this organization
+      if (res.data.organization_id) setOfflineOrg(res.data.organization_id);
       
       const branchRes = await api.get('/branches');
       setBranches(branchRes.data);

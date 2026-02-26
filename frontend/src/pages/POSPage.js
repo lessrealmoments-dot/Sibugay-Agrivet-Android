@@ -63,7 +63,7 @@ export default function POSPage() {
     };
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
-    startAutoSync();
+    startAutoSync(() => currentBranch?.id);
 
     // Warn before closing/refreshing if there are pending sales
     const handleBeforeUnload = async (e) => {

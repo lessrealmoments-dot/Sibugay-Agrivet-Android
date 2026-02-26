@@ -338,7 +338,7 @@ isolation_items = [
 for item in isolation_items:
     pdf.set_font('Helvetica', '', 9)
     pdf.set_text_color(26, 128, 46)
-    pdf.cell(5, 5, chr(10003))
+    pdf.cell(5, 5, "[OK]")
     pdf.set_text_color(50, 50, 50)
     pdf.cell(0, 5, item, new_x="LMARGIN", new_y="NEXT")
 
@@ -358,7 +358,7 @@ for action, result, ok in perms:
     pdf.set_font('Helvetica', '', 9)
     color = (26, 128, 46) if ok else (200, 0, 0)
     pdf.set_text_color(*color)
-    pdf.cell(5, 5, chr(10003) if ok else chr(10007))
+    pdf.cell(8, 5, "[OK]" if ok else "[NO]")
     pdf.set_text_color(50, 50, 50)
     pdf.cell(100, 5, action)
     pdf.set_text_color(*color)

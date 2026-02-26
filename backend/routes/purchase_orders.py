@@ -1076,6 +1076,56 @@ async def get_unpaid_po_summary(user=Depends(get_current_user), branch_id: Optio
     }
 
 
+
+@router.post("/{po_id}/mark-reviewed")
+async def mark_po_reviewed(po_id: str, data: dict, user=Depends(get_current_user)):
+    """Mark a PO's receipts as reviewed. Requires admin PIN or TOTP."""
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+
+    # Verify PIN
+    pin = str(data.get("pin", ""))
+    if not pin:
+        raise HTTPException(status_code=400, detail="Admin PIN or TOTP required")
+
+    managers = await db.users.find(
+        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
+    ).to_list(50)
+    reviewer = None
+    for mgr in managers:
+        mgr_pin = mgr.get("manager_pin", "") or mgr.get("owner_pin", "") or mgr.get("password_hash", "")[-4:]
+        if mgr_pin and pin == mgr_pin:
+            reviewer = mgr
+            break
+
+    # Try TOTP
+    if not reviewer:
+        import pyotp
+        for mgr in managers:
+            secret = mgr.get("totp_secret")
+            if secret:
+                totp = pyotp.TOTP(secret)
+                if totp.verify(pin, valid_window=1):
+                    reviewer = mgr
+                    break
+
+    if not reviewer:
+        raise HTTPException(status_code=401, detail="Invalid PIN or TOTP")
+
+    await db.purchase_orders.update_one({"id": po_id}, {"$set": {
+        "receipt_review_status": "reviewed",
+        "receipt_reviewed_by_id": reviewer["id"],
+        "receipt_reviewed_by_name": reviewer.get("full_name", reviewer["username"]),
+        "receipt_reviewed_at": now_iso(),
+    }})
+
+    return {
+        "message": f"PO {po.get('po_number')} receipts marked as reviewed",
+        "reviewed_by": reviewer.get("full_name", reviewer["username"]),
+    }
+
+
 @router.get("/payables-by-supplier")
 async def get_payables_by_supplier(user=Depends(get_current_user), branch_id: Optional[str] = None):
     """Get unpaid POs grouped by supplier for Pay Supplier page."""

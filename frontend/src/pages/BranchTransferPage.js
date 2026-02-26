@@ -1531,6 +1531,60 @@ export default function BranchTransferPage() {
               {viewOrder?.verified && <VerificationBadge doc={viewOrder} />}
             </div>
           </DialogHeader>
+
+          {/* ── Status Timeline ── */}
+          {viewOrder && (() => {
+            const status = viewOrder.status;
+            const steps = [
+              { key: 'requested', label: 'Requested', done: true, date: viewOrder.created_at?.slice(0,10), by: viewOrder.created_by_name },
+              { key: 'draft', label: 'Transfer Created', done: ['draft','sent','received_pending','received','disputed'].includes(status), date: viewOrder.created_at?.slice(0,10), by: viewOrder.created_by_name },
+              { key: 'sent', label: 'Sent', done: ['sent','received_pending','received','disputed'].includes(status), date: viewOrder.sent_at?.slice(0,10) },
+              { key: 'received', label: status === 'received_pending' ? 'Pending Review' : status === 'disputed' ? 'Disputed' : 'Received',
+                done: ['received_pending','received','disputed'].includes(status),
+                date: viewOrder.received_at?.slice(0,10) || viewOrder.pending_receipt_at?.slice(0,10),
+                by: viewOrder.received_by_name || viewOrder.pending_receipt_by_name,
+                variant: status === 'disputed' ? 'error' : status === 'received_pending' ? 'warning' : 'success' },
+              { key: 'settled', label: 'Settled', done: status === 'received' && !viewOrder.has_shortage, date: viewOrder.received_at?.slice(0,10) },
+            ];
+            // Filter out "requested" if not from a stock request
+            const filteredSteps = viewOrder.request_po_id ? steps : steps.filter(s => s.key !== 'requested');
+            const currentIdx = filteredSteps.findIndex(s => !s.done) - 1;
+            return (
+              <div className="flex items-center gap-0 px-2 py-2 mb-1 bg-slate-50 rounded-lg overflow-x-auto" data-testid="transfer-timeline">
+                {filteredSteps.map((step, i) => {
+                  const isActive = i === currentIdx || (i === filteredSteps.length - 1 && step.done);
+                  const variantColors = {
+                    error: 'bg-red-500', warning: 'bg-amber-500', success: 'bg-emerald-500',
+                  };
+                  const dotColor = step.done
+                    ? (step.variant ? variantColors[step.variant] : 'bg-emerald-500')
+                    : 'bg-slate-300';
+                  const lineColor = step.done ? 'bg-emerald-400' : 'bg-slate-200';
+                  return (
+                    <div key={step.key} className="flex items-center flex-1 min-w-0">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full ${dotColor} ${isActive ? 'ring-2 ring-offset-1 ring-emerald-300' : ''}`} />
+                        <p className={`text-[10px] mt-1 text-center leading-tight whitespace-nowrap ${step.done ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}>{step.label}</p>
+                        {step.done && step.date && <p className="text-[9px] text-slate-400">{step.date}</p>}
+                      </div>
+                      {i < filteredSteps.length - 1 && (
+                        <div className={`flex-1 h-0.5 mx-1 ${lineColor} rounded`} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
+          {/* Request reference */}
+          {viewOrder?.request_po_id && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs">
+              <Package size={13} className="text-blue-600" />
+              <span className="text-blue-700">From stock request: <b>{viewOrder.request_po_number}</b></span>
+            </div>
+          )}
+
           <ScrollArea className="flex-1">
             {/* Reconciliation view for received orders */}
             {viewOrder?.status === 'received' ? (

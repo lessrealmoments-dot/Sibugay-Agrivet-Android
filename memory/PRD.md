@@ -191,6 +191,9 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] verify-admin-action endpoint now supports mode='pin' — checks system_settings.admin_pin (the existing "Admin Verification PIN" in Audit Setup tab)
 - [x] Settings labels updated: Security tab clarifies TOTP is for remote approvals; Audit Setup tab renamed "Owner PIN — For In-Person Approvals"
 
+### Bug Fixes — Feb 2026
+- [x] Fixed Quick Sales inventory race condition: Combined two separate useEffects into one `[currentBranch?.id]` effect in `UnifiedSalesPage.js`. The old code had a `dataLoaded` guard that could miss the branch-change reload when branches loaded before the initial API call finished, causing all products to show "Out" stock.
+
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)

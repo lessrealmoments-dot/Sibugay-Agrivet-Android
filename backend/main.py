@@ -392,6 +392,23 @@ async def startup():
         id="daily_subscription_check",
         replace_existing=True,
     )
+
+    # ── Internal invoice due date checker ─────────────────────────────────
+    async def _daily_invoice_check():
+        from routes.internal_invoices import check_due_invoices
+        try:
+            await check_due_invoices()
+            logger.info("Internal invoice due date check completed")
+        except Exception as e:
+            logger.error(f"Invoice check failed: {e}")
+
+    _scheduler.add_job(
+        _daily_invoice_check,
+        CronTrigger(hour=8, minute=0),  # 8 AM daily
+        id="daily_invoice_check",
+        replace_existing=True,
+    )
+
     _scheduler.start()
     logger.info("Backup scheduler started — daily at %02d:00", backup_hour)
 

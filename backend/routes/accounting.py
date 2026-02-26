@@ -541,6 +541,44 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
     await update_cashier_wallet(data["branch_id"], -float(data["amount"]), ref_text)
 
     del expense["_id"]
+
+    # ── Link pending upload sessions (inline receipt uploads) ─────────────
+    upload_session_ids = data.get("upload_session_ids", [])
+    if upload_session_ids:
+        from pathlib import Path
+        upload_dir = Path("/app/uploads")
+        for sid in upload_session_ids:
+            session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
+            if not session:
+                continue
+            old_record_id = session.get("record_id", "")
+            new_dir = upload_dir / "expense" / expense["id"]
+            new_dir.mkdir(parents=True, exist_ok=True)
+            updated_files = []
+            for f in session.get("files", []):
+                old_path = Path(f.get("stored_path", ""))
+                if old_path.exists():
+                    new_path = new_dir / old_path.name
+                    old_path.rename(new_path)
+                    f["stored_path"] = str(new_path)
+                updated_files.append(f)
+            old_dir = upload_dir / "expense" / old_record_id
+            if old_dir.exists() and not any(old_dir.iterdir()):
+                try:
+                    old_dir.rmdir()
+                except Exception:
+                    pass
+            await db.upload_sessions.update_one(
+                {"id": sid},
+                {"$set": {
+                    "record_type": "expense",
+                    "record_id": expense["id"],
+                    "is_pending": False,
+                    "reassigned_at": now_iso(),
+                    "files": updated_files,
+                }}
+            )
+
     return expense
 
 

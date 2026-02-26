@@ -818,6 +818,21 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
             }}
         )
 
+    # Update internal invoice status to "received"
+    from routes.internal_invoices import update_invoice_status
+    try:
+        # Update invoice with actual received amounts
+        actual_total = round(sum(
+            float(i.get("transfer_capital", 0)) * float(i.get("qty_received", i.get("qty", 0)))
+            for i in items
+        ), 2)
+        await update_invoice_status(transfer_id, "received", {
+            "received_total": actual_total,
+            "has_variance": len(shortages) > 0 or len(excesses) > 0,
+        })
+    except Exception:
+        pass
+
     return {
         "message": f"Transfer received. {len(items)} product(s) updated.",
         "order_number": order["order_number"],

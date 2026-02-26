@@ -30,6 +30,7 @@ const getSaleTypeBadge = (inv) => {
 };
 
 export default function CustomersPage() {
+  const { currentBranch } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');

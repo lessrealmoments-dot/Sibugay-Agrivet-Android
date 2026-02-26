@@ -267,9 +267,13 @@ export default function OfflineIndicator() {
                   {syncCounts.inventory > 0 && ` · ${syncCounts.inventory} stock records`}
                 </div>
               )}
+              <div className="text-[10px] text-slate-600 flex items-center gap-1">
+                <RefreshCw size={8} className="text-slate-500" />
+                Auto-refreshes every 5 min
+              </div>
               <button onClick={startSync} disabled={!isOnline}
                 className="mt-1 text-[10px] text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors disabled:opacity-30">
-                Re-sync
+                Re-sync now
               </button>
             </div>
           )}

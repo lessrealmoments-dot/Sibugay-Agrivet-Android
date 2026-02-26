@@ -128,6 +128,7 @@ const OWNER_DEFAULT_LAYOUT = {
     { i: 'payables', x: 0, y: 28, w: 4, h: 7 },
     { i: 'alerts', x: 4, y: 28, w: 4, h: 7 },
     { i: 'top-revenue', x: 8, y: 28, w: 4, h: 7 },
+    { i: 'internal-profit', x: 0, y: 35, w: 6, h: 10 },
   ],
   md: [
     { i: 'kpis', x: 0, y: 0, w: 10, h: 3, static: true },
@@ -139,6 +140,7 @@ const OWNER_DEFAULT_LAYOUT = {
     { i: 'payables', x: 0, y: 37, w: 5, h: 7 },
     { i: 'alerts', x: 5, y: 37, w: 5, h: 7 },
     { i: 'top-revenue', x: 0, y: 44, w: 10, h: 6 },
+    { i: 'internal-profit', x: 0, y: 50, w: 10, h: 10 },
   ],
 };
 

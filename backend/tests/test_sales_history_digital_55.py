@@ -35,8 +35,8 @@ class TestSalesHistoryDigitalSeparation:
             "password": SUPER_ADMIN_PASSWORD
         })
         assert login_resp.status_code == 200, f"Login failed: {login_resp.text}"
-        token = login_resp.json().get("access_token")
-        assert token, "No access_token in login response"
+        token = login_resp.json().get("token")  # Note: field is 'token' not 'access_token'
+        assert token, "No token in login response"
         self.session.headers.update({"Authorization": f"Bearer {token}"})
         
     def test_history_by_date_returns_digital_field(self):
@@ -145,7 +145,7 @@ class TestUsersEndpoint:
             "password": SUPER_ADMIN_PASSWORD
         })
         assert login_resp.status_code == 200
-        token = login_resp.json().get("access_token")
+        token = login_resp.json().get("token")
         self.session.headers.update({"Authorization": f"Bearer {token}"})
 
     def test_get_users_list(self):
@@ -207,7 +207,7 @@ class TestTeamPageEndpoints:
             "password": SUPER_ADMIN_PASSWORD
         })
         assert login_resp.status_code == 200
-        token = login_resp.json().get("access_token")
+        token = login_resp.json().get("token")
         self.session.headers.update({"Authorization": f"Bearer {token}"})
 
     def test_permissions_modules_endpoint(self):

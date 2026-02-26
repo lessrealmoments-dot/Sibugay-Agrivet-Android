@@ -96,6 +96,15 @@ export default function NotificationBell() {
     if (!open) fetchNotifications(); // refresh on open
   };
 
+  const handleNotificationClick = (n) => {
+    if (!n.is_read) markRead(n.id);
+    const route = NOTIFICATION_ROUTES[n.type];
+    if (route) {
+      setOpen(false);
+      navigate(route);
+    }
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Bell button */}

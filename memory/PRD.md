@@ -210,6 +210,15 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - "Mark as Reviewed" button with admin PIN/TOTP verification
   - Auto-notification sent to owner/admin when PO is received with receipts
   - Upload page (phone) has "Take Photo" and "Choose from Gallery" options
+- [x] Inline Receipt Upload During Creation (Feb 2026):
+  - New `POST /api/uploads/direct` endpoint for authenticated inline file uploads
+  - New `DELETE /api/uploads/direct/{session_id}/{file_id}` endpoint to remove files
+  - New `POST /api/uploads/reassign` endpoint to link pending upload sessions to actual records
+  - `ReceiptUploadInline` reusable React component (compact + full modes, drag & drop, multi-file)
+  - PO Creation: Receipt upload REQUIRED before Cash/Terms submission (integrated into form)
+  - Branch Transfer Receive: Receipt upload REQUIRED before confirming receipt (integrated into dialog)
+  - Expense Creation: Receipt upload OPTIONAL (compact mode in expense form)
+  - Backward compatible: old POs/records can still upload via edit/view QR flow
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

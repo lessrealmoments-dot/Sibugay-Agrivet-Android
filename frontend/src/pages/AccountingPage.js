@@ -752,6 +752,13 @@ export default function AccountingPage() {
                 label="Receipt Photo (Optional)"
                 recordType="expense"
                 compact={true}
+                recordSummary={{
+                  type_label: 'Expense',
+                  title: expenseForm.category || 'Expense',
+                  description: expenseForm.description || '',
+                  amount: expenseForm.amount || 0,
+                  date: expenseForm.date,
+                }}
                 onUploaded={(data) => setExpenseReceiptData(data)}
               />
             )}

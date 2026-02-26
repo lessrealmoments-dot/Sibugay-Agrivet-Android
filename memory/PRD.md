@@ -320,6 +320,12 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Org-scoped IndexedDB**: Database name changed from `agripos_offline` to `agripos_offline_{org_id}`. Set on login/fetchUser via `setOfflineOrg()`. Prevents cross-tenant data leaks in multi-tenant SaaS.
   - **beforeunload warning**: POS page registers a `beforeunload` event that checks for pending sales. If unsynced sales exist, browser prompts "You have unsynced sales" before closing.
   - **Delta sync**: Backend `GET /sync/pos-data?last_sync={timestamp}` now filters products by `updated_at`/`created_at >= last_sync`. Returns `is_delta: true` flag. Frontend merges delta products via `putProduct()` instead of full cache replace.
+- [x] Smart Data Caching — Phase B (Feb 2026):
+  - **Background refresh every 5 min**: `startAutoSync` now sets up a `cacheRefreshInterval` (5-minute delta sync) in addition to the 30s pending-sales check. Lightweight — only fetches changed records via delta sync.
+  - **Org change detection**: When a different company logs in, `setOfflineOrg()` detects the change and calls `clearOrgCache()` to delete the old org's IndexedDB. Pending sales are preserved — old DB only deleted if no pending sales remain.
+  - **Proper cleanup**: `stopAutoSync` clears all intervals and removes the `online` event listener reference.
+  - **Branch-aware refresh**: `startAutoSync` accepts a branch ID getter function so background refresh targets the correct branch.
+  - **UI indicator**: OfflineIndicator shows "Auto-refreshes every 5 min" when cache is ready.
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

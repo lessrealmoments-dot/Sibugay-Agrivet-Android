@@ -14,9 +14,10 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff
 import { toast } from 'sonner';
 import {
   cacheProducts, getProducts, cacheCustomers, getCustomers,
-  cachePriceSchemes, getPriceSchemes, addPendingSale, getPendingSaleCount
+  cachePriceSchemes, getPriceSchemes, addPendingSale, getPendingSaleCount,
+  deductLocalInventory, hasPendingSales
 } from '../lib/offlineDB';
-import { syncPendingSales, refreshPOSCache, startAutoSync, stopAutoSync } from '../lib/syncManager';
+import { syncPendingSales, refreshPOSCache, startAutoSync, stopAutoSync, newEnvelopeId } from '../lib/syncManager';
 
 export default function POSPage() {
   const { currentBranch, user } = useAuth();

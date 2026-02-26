@@ -158,6 +158,35 @@ def is_digital_payment(method: str) -> bool:
     return m in DIGITAL_PAYMENT_METHODS or m not in ("cash", "check", "cheque", "credit", "")
 
 
+
+async def record_safe_movement(branch_id: str, amount: float, reference: str = ""):
+    """
+    Record a wallet_movements entry for the safe wallet.
+    amount: negative for outflow, positive for inflow.
+    """
+    safe_wallet = await db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+    )
+    if not safe_wallet:
+        return
+    # Compute current safe balance from lots
+    lots = await db.safe_lots.find(
+        {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0, "remaining_amount": 1}
+    ).to_list(500)
+    balance_after = round(sum(lot["remaining_amount"] for lot in lots), 2)
+    await db.wallet_movements.insert_one({
+        "id": new_id(),
+        "wallet_id": safe_wallet["id"],
+        "branch_id": branch_id,
+        "type": "cash_in" if amount >= 0 else "cash_out",
+        "amount": round(amount, 2),
+        "reference": reference,
+        "balance_after": balance_after,
+        "created_at": now_iso(),
+    })
+
+
+
 async def update_digital_wallet(branch_id: str, amount: float, reference: str = "",
                                 platform: str = "", sender: str = "", ref_number: str = ""):
     """

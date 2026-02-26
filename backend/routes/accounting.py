@@ -484,6 +484,28 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
     branch_id = data.get("branch_id") or ""  # Safe: never raise KeyError
     if not branch_id:
         raise HTTPException(status_code=400, detail="Branch is required. Please select a specific branch before recording expenses.")
+
+    # ── Employee Advance: enforce monthly CA limit on backend ──────────────
+    if data.get("category") == "Employee Advance" and data.get("employee_id"):
+        employee = await db.employees.find_one({"id": data["employee_id"]}, {"_id": 0})
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        monthly_limit = float(employee.get("monthly_ca_limit", 0))
+        if monthly_limit > 0:
+            now_dt = datetime.now(timezone.utc)
+            month_start = f"{now_dt.year}-{now_dt.month:02d}-01"
+            agg = await db.expenses.aggregate([
+                {"$match": {"employee_id": data["employee_id"], "category": "Employee Advance", "date": {"$gte": month_start}}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]).to_list(1)
+            this_month_total = agg[0]["total"] if agg else 0
+            new_total = this_month_total + float(data["amount"])
+            if new_total > monthly_limit and not data.get("manager_approved_by"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Monthly CA limit exceeded. Limit: ₱{monthly_limit:.2f}, This month: ₱{this_month_total:.2f}, This advance: ₱{float(data['amount']):.2f}. Manager approval required."
+                )
+
     expense = {
         "id": new_id(),
         "branch_id": branch_id,

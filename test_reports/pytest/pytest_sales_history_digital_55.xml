@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="3" failures="4" skipped="0" tests="7" time="2.820" timestamp="2026-02-26T08:53:36.886571+00:00" hostname="agent-env-6d9fcdf4-7818-427e-b2d1-1faabd8d5ea0"><testcase classname="backend.tests.test_sales_history_digital_55.TestSalesHistoryDigitalSeparation" name="test_history_by_date_returns_digital_field" time="0.446"><error message="failed on setup with &quot;AssertionError: No access_token in login response&#10;assert None&quot;">backend/tests/test_sales_history_digital_55.py:39: in setup
+    assert token, "No access_token in login response"
+E   AssertionError: No access_token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_sales_history_digital_55.TestSalesHistoryDigitalSeparation" name="test_history_returns_invoices_with_payment_type" time="0.327"><error message="failed on setup with &quot;AssertionError: No access_token in login response&#10;assert None&quot;">backend/tests/test_sales_history_digital_55.py:39: in setup
+    assert token, "No access_token in login response"
+E   AssertionError: No access_token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_sales_history_digital_55.TestSalesHistoryDigitalSeparation" name="test_history_calculates_digital_total_correctly" time="0.323"><error message="failed on setup with &quot;AssertionError: No access_token in login response&#10;assert None&quot;">backend/tests/test_sales_history_digital_55.py:39: in setup
+    assert token, "No access_token in login response"
+E   AssertionError: No access_token in login response
+E   assert None</error></testcase><testcase classname="backend.tests.test_sales_history_digital_55.TestUsersEndpoint" name="test_get_users_list" time="0.406"><failure message="AssertionError: Failed: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_sales_history_digital_55.py:155: in test_get_users_list
+    assert response.status_code == 200, f"Failed: {response.text}"
+E   AssertionError: Failed: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_sales_history_digital_55.TestUsersEndpoint" name="test_get_user_permissions" time="0.393"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_sales_history_digital_55.py:181: in test_get_user_permissions
+    assert users_resp.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_sales_history_digital_55.TestTeamPageEndpoints" name="test_permissions_modules_endpoint" time="0.376"><failure message="AssertionError: Failed: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_sales_history_digital_55.py:217: in test_permissions_modules_endpoint
+    assert response.status_code == 200, f"Failed: {response.text}"
+E   AssertionError: Failed: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_sales_history_digital_55.TestTeamPageEndpoints" name="test_permissions_presets_endpoint" time="0.443"><failure message="AssertionError: Failed: {&quot;detail&quot;:&quot;Invalid token&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_sales_history_digital_55.py:227: in test_permissions_presets_endpoint
+    assert response.status_code == 200, f"Failed: {response.text}"
+E   AssertionError: Failed: {"detail":"Invalid token"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase></testsuite></testsuites>

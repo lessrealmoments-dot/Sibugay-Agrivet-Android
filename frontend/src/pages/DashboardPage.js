@@ -239,12 +239,20 @@ function BranchCard({ branch, onSelect }) {
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
           <div>
-            <p className="text-slate-400">Walk-in Sales Today</p>
-            <p className="font-bold text-emerald-700">{formatPHP(branch.today_cash_sales || 0)}</p>
+            <p className="text-slate-400">Total Sales Today</p>
+            <p className="font-bold text-emerald-700">{formatPHP(branch.today_revenue || 0)}</p>
+          </div>
+          <div>
+            <p className="text-slate-400">Cash Sales</p>
+            <p className="font-bold text-green-700">{formatPHP(branch.today_cash_sales || 0)}</p>
           </div>
           <div>
             <p className="text-slate-400">New Credit</p>
             <p className="font-bold text-amber-700">{formatPHP(branch.today_new_credit || 0)}</p>
+          </div>
+          <div>
+            <p className="text-slate-400">Digital Sales</p>
+            <p className="font-bold text-indigo-700">{formatPHP(branch.today_digital_sales || 0)}</p>
           </div>
           <div>
             <p className="text-slate-400">Cashier + Safe</p>

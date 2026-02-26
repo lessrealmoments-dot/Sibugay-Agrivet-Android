@@ -63,7 +63,7 @@ export default function ViewQRDialog({ open, onClose, recordType, recordId, file
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="relative bg-white rounded-2xl shadow-2xl w-full overflow-y-auto" style={{ maxWidth: '340px', maxHeight: '90vh' }}>
-        <button onClick={onClose} className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+        <button onClick={onClose} data-testid="viewqr-close-x" className="absolute top-3 right-3 z-10 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
           <X size={14} className="text-slate-500" />
         </button>
 

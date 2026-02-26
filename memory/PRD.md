@@ -309,6 +309,7 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Notification types**: Added icons for internal_invoice_paid, auto_paid, due, overdue.
 
 ### P1 — Upcoming
+- Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data
 

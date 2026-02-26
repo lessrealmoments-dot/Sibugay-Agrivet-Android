@@ -482,6 +482,13 @@ export default function BranchTransferPage() {
 
   const handleReceive = async () => {
     if (!viewOrder) return;
+
+    // Receipt is mandatory for final receiving
+    if (!receiveReceiptData?.fileCount) {
+      toast.error('Please upload at least 1 receipt / DR photo before confirming receipt');
+      return;
+    }
+
     const { hasVariance } = getVariances(viewOrder.items);
 
     // First click with variance: show double-check step

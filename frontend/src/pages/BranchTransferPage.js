@@ -453,6 +453,7 @@ export default function BranchTransferPage() {
   const [btVerifyOpen, setBtVerifyOpen] = useState(false);
   const [btVerifyId, setBtVerifyId] = useState(null);
   const [btViewQROpen, setBtViewQROpen] = useState(false);
+  const [receiveReceiptData, setReceiveReceiptData] = useState(null);
 
   const openReceive = (order) => {
     setViewOrder(order);
@@ -461,6 +462,7 @@ export default function BranchTransferPage() {
     setReceiveQtys(qtys);
     setReceiveNotes('');
     setReceiveConfirmStep(false);
+    setReceiveReceiptData(null);
     setReceiveDialog(true);
   };
 

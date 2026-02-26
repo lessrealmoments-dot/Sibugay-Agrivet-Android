@@ -73,10 +73,9 @@ const NAV_SECTIONS = [
     items: [
       { path: '/employees',       label: 'Employees',    icon: Briefcase, perm: 'settings.manage_users',       featureFlag: 'employee_management' },
       { path: '/price-schemes',   label: 'Price Schemes', icon: Tags,     perm: 'price_schemes.view' },
-      { path: '/accounts',        label: 'Accounts',     icon: UserCog,   perm: 'settings.manage_users' },
+      { path: '/team',            label: 'Team',         icon: UserCog,   perm: 'settings.manage_users' },
       { path: '/import',          label: 'Import Center', icon: Upload,   perm: 'products.create' },
-      { path: '/user-permissions',label: 'Permissions',  icon: Shield,    perm: 'settings.manage_permissions', featureFlag: 'granular_permissions' },
-      { path: '/settings',        label: 'Settings',     icon: Settings,  perm: 'settings.view' },
+      { path: '/settings',        label: 'Settings',     icon: Settings },
     ],
   },
 ];

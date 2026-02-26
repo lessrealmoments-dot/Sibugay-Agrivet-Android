@@ -22,8 +22,6 @@ import SalesTrendsWidget from '../components/dashboard/SalesTrendsWidget';
 import BranchComparisonWidget from '../components/dashboard/BranchComparisonWidget';
 import AccountsPayableWidget from '../components/dashboard/AccountsPayableWidget';
 
-const ResponsiveGridLayout = WidthProvider(Responsive);
-
 const LAYOUT_KEY = 'agribooks_dashboard_layout';
 
 // ── Shared small components ──────────────────────────────────────────────────

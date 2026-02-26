@@ -332,12 +332,25 @@ export default function PriceScanManager() {
                     <tr key={issue.product_id} className="border-b border-slate-100 hover:bg-amber-50/20">
                       {/* Product info */}
                       <td className="px-3 py-2">
-                        <p className="font-semibold text-sm text-slate-800">{issue.product_name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{issue.sku} · {issue.category}</p>
+                        <p className="font-semibold text-sm text-slate-800">
+                          {issue.product_name}
+                          {issue.is_repack && (
+                            <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 align-middle">REPACK</span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-mono">
+                          {issue.sku} · {issue.category}
+                          {issue.is_repack && issue.parent_name && (
+                            <span className="ml-1 text-purple-500"> from {issue.parent_name} ({issue.units_per_parent || 1}/parent)</span>
+                          )}
+                        </p>
                         <p className="text-[10px] text-amber-700 font-semibold mt-0.5">
                           Capital: {formatPHP(issue.effective_cost)}
                           {issue.is_branch_specific_cost && (
                             <span className="ml-1 text-slate-400">(branch)</span>
+                          )}
+                          {issue.is_repack && (
+                            <span className="ml-1 text-purple-500">(derived)</span>
                           )}
                         </p>
                       </td>

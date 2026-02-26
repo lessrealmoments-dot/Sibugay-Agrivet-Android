@@ -42,7 +42,11 @@ class AuditReport(FPDF):
     def status_row(self, num, feature, verified, result, status="PASS"):
         self.set_font('Helvetica', '', 8)
         # Alternating row bg
-        if int(num) % 2 == 0:
+        try:
+            alt = int(num) % 2 == 0
+        except ValueError:
+            alt = num.endswith(('2','4','6','8','0'))
+        if alt:
             self.set_fill_color(245, 245, 245)
             fill = True
         else:

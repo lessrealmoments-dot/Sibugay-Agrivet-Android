@@ -80,6 +80,19 @@ export default function BranchTransferPage() {
   const [stockRequests, setStockRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [generatingTransfer, setGeneratingTransfer] = useState(null); // request id being processed
+
+  // Sync tab state from URL params (for deep-linking from notifications)
+  useEffect(() => {
+    const urlTab = searchParams.get('tab');
+    const urlSubtab = searchParams.get('subtab');
+    if (urlTab && urlTab !== tab) setTab(urlTab);
+    if (urlSubtab && urlSubtab !== historyTab) setHistoryTab(urlSubtab);
+    // Clean up search params after applying
+    if (urlTab || urlSubtab) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]); // eslint-disable-line
+
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [viewOrder, setViewOrder] = useState(null);

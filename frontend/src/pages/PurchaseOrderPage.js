@@ -445,6 +445,26 @@ export default function PurchaseOrderPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };
 
+  const handleMarkReviewed = async () => {
+    if (!reviewPin) { toast.error('Enter admin PIN or TOTP'); return; }
+    setReviewSaving(true);
+    try {
+      const res = await api.post(`/purchase-orders/${detailPO.id}/mark-reviewed`, { pin: reviewPin });
+      toast.success(res.data.message);
+      setReviewPinDialog(false);
+      setReviewPin('');
+      setDetailPO(prev => ({
+        ...prev,
+        receipt_review_status: 'reviewed',
+        receipt_reviewed_by_name: res.data.reviewed_by,
+        receipt_reviewed_at: new Date().toISOString(),
+      }));
+      fetchOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Review failed'); }
+    setReviewSaving(false);
+  };
+
+
   // ── Pay Supplier tab (now standalone page) ────────────────────────────
   const openDetailForEdit = (po) => {
     setDetailPO(po);

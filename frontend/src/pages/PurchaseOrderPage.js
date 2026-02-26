@@ -310,6 +310,7 @@ export default function PurchaseOrderPage() {
   // ── Open Cash Dialog ───────────────────────────────────────────────────
   const openCashDialog = async () => {
     const valid = validate(); if (!valid) return;
+    if (!createReceiptData?.fileCount) { toast.error('Please upload at least 1 receipt photo before proceeding'); return; }
     setCashLoading(true);
     try {
       const res = await api.get('/purchase-orders/fund-balances', { params: { branch_id: currentBranch.id } });

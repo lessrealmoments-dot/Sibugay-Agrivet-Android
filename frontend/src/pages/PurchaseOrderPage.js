@@ -971,6 +971,7 @@ export default function PurchaseOrderPage() {
                     <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
                     <TableHead className="text-xs uppercase text-slate-500">Receive</TableHead>
                     <TableHead className="text-xs uppercase text-slate-500">Payment</TableHead>
+                    <TableHead className="text-xs uppercase text-slate-500">Receipts</TableHead>
                     <TableHead className="w-36">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

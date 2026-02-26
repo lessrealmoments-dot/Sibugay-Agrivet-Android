@@ -316,6 +316,16 @@ async def create_transfer(data: dict, user=Depends(get_current_user)):
 
     await db.branch_transfer_orders.insert_one(transfer)
     del transfer["_id"]
+
+    # Auto-create internal invoice for this transfer
+    from routes.internal_invoices import create_internal_invoice
+    try:
+        invoice = await create_internal_invoice(transfer, user)
+        transfer["invoice_id"] = invoice["id"]
+        transfer["invoice_number"] = invoice["invoice_number"]
+    except Exception:
+        pass  # Invoice creation failure should not block transfer creation
+
     return transfer
 
 

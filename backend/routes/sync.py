@@ -40,8 +40,20 @@ async def get_sync_estimate(user=Depends(get_current_user), branch_id: str = Non
 
 @router.get("/sync/pos-data")
 async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = None, last_sync: str = None):
-    """Get data for offline POS sync — includes branch-specific prices."""
+    """Get data for offline POS sync — includes branch-specific prices.
+    If last_sync is provided, only returns records updated since that timestamp (delta sync).
+    """
     query = {"active": True}
+
+    # Delta sync: only fetch records updated since last_sync
+    if last_sync:
+        try:
+            query["$or"] = [
+                {"updated_at": {"$gte": last_sync}},
+                {"created_at": {"$gte": last_sync}},
+            ]
+        except Exception:
+            pass  # Invalid date — fall back to full sync
     
     # Products catalog (global)
     products = await db.products.find(query, {"_id": 0}).to_list(10000)

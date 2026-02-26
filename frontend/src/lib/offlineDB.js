@@ -13,13 +13,49 @@ function getDBName() {
 /** Set the current organization for DB scoping. Call on login. */
 export function setOfflineOrg(orgId) {
   if (orgId && orgId !== _currentOrgId) {
+    const previousOrg = _currentOrgId;
     _currentOrgId = orgId;
+    // If switching to a different org, clear the old org's data (except pending sales)
+    if (previousOrg && previousOrg !== orgId) {
+      clearOrgCache(previousOrg);
+    }
   }
 }
 
 /** Get current org ID */
 export function getOfflineOrg() {
   return _currentOrgId;
+}
+
+/**
+ * Clear cached data for a previous org (on org switch).
+ * Preserves pending_sales (they must sync first) and meta.
+ */
+async function clearOrgCache(oldOrgId) {
+  const oldDbName = `agripos_offline_${oldOrgId}`;
+  try {
+    // Check if old DB has pending sales — if so, don't delete it yet
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open(oldDbName, DB_VERSION);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const tx = db.transaction('pending_sales', 'readonly');
+    const count = await new Promise((resolve) => {
+      const req = tx.objectStore('pending_sales').count();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(0);
+    });
+    db.close();
+
+    if (count === 0) {
+      // Safe to delete — no pending sales
+      indexedDB.deleteDatabase(oldDbName);
+    }
+    // If pending sales exist, keep the DB — they'll sync when that org logs in again
+  } catch {
+    // Silently ignore — old DB may not exist
+  }
 }
 
 const DB_VERSION = 4;

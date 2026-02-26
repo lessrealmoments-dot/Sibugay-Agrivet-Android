@@ -313,10 +313,10 @@ class TestSafeWalletMovements:
         assert cashier, "No cashier wallet found"
         cashier_id = cashier.get("id")
         
-        # Get initial movements
+        # Get initial movements (most recent) - note: API limits to 50
         init_resp = requests.get(f"{BASE_URL}/api/fund-wallets/{cashier_id}/movements", headers=headers)
         assert init_resp.status_code == 200
-        initial_count = len(init_resp.json())
+        initial_movements = init_resp.json()
         
         # Create a terms PO and pay from cashier
         po_resp = requests.post(f"{BASE_URL}/api/purchase-orders", headers=headers, json={
@@ -351,12 +351,15 @@ class TestSafeWalletMovements:
         assert new_resp.status_code == 200
         new_movements = new_resp.json()
         
-        assert len(new_movements) > initial_count, \
-            f"Cashier movement not created. Before: {initial_count}, After: {len(new_movements)}"
-        
+        # Check that most recent movement is our payment (regardless of total count due to API limit)
+        assert len(new_movements) > 0, "No movements returned"
         latest = new_movements[0]
-        assert latest.get("amount") == -150.0, f"Cashier amount mismatch: {latest.get('amount')}"
+        
+        # Verify the latest movement is our test payment
+        assert latest.get("amount") == -150.0, f"Cashier latest movement amount mismatch: {latest.get('amount')}"
         assert latest.get("type") == "cash_out", f"Cashier type should be cash_out: {latest.get('type')}"
+        assert "CASHIER_REGRESSION" in latest.get("reference", "") or "PO Payment" in latest.get("reference", ""), \
+            f"Should be our test PO payment: {latest.get('reference')}"
         
         print(f"✓ Cashier wallet movements still working: {latest.get('type')} {latest.get('amount')}")
 

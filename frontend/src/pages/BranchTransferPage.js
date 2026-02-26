@@ -527,11 +527,15 @@ export default function BranchTransferPage() {
   const _doReceive = async (items, capitalChoices) => {
     setReceiveSaving(true);
     try {
-      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, {
+      const payload = {
         items,
         notes: receiveNotes,
         capital_choices: capitalChoices,
-      });
+      };
+      if (receiveReceiptData?.sessionId) {
+        payload.upload_session_ids = [receiveReceiptData.sessionId];
+      }
+      const res = await api.post(`/branch-transfers/${viewOrder.id}/receive`, payload);
       if (res.data.status === 'received_pending') {
         toast.warning('Quantities have variance — submitted for source branch confirmation.');
       } else {

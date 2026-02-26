@@ -74,6 +74,7 @@ export default function BranchTransferPage() {
   const isAdmin = user?.role === 'admin';
   const searchTimers = useRef({});
   const dropdownRefs = useRef({});
+  const skipResetRef = useRef(false); // skip row/branch reset when loading from request
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Lists / history ────────────────────────────────────────────────────────

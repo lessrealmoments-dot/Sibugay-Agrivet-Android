@@ -204,10 +204,18 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
         # Stock & availability
         if p.get("is_repack") and p.get("parent_id"):
             parent = await db.products.find_one({"id": p["parent_id"]}, {"_id": 0})
-            pinv = await db.inventory.find_one(
-                {"product_id": p["parent_id"], "branch_id": branch_id}, {"_id": 0}
-            ) if branch_id else None
-            parent_stock = pinv["quantity"] if pinv else 0
+            if branch_id:
+                pinv = await db.inventory.find_one(
+                    {"product_id": p["parent_id"], "branch_id": branch_id}, {"_id": 0}
+                )
+                parent_stock = float(pinv["quantity"]) if pinv else 0
+            else:
+                # No branch — sum all branches
+                agg = await db.inventory.aggregate([
+                    {"$match": {"product_id": p["parent_id"]}},
+                    {"$group": {"_id": None, "total": {"$sum": "$quantity"}}}
+                ]).to_list(1)
+                parent_stock = float(agg[0]["total"]) if agg else 0
             units_per_parent = p.get("units_per_parent", 1)
             result = {
                 **p, **capital_data,
@@ -219,20 +227,28 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
                 "derived_from_parent": True,
             }
         else:
-            inv = await db.inventory.find_one(
-                {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
-            ) if branch_id else None
-            available = inv["quantity"] if inv else 0
+            if branch_id:
+                inv = await db.inventory.find_one(
+                    {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
+                )
+                available = float(inv["quantity"]) if inv else 0
+            else:
+                # No branch — sum all branches
+                agg = await db.inventory.aggregate([
+                    {"$match": {"product_id": p["id"]}},
+                    {"$group": {"_id": None, "total": {"$sum": "$quantity"}}}
+                ]).to_list(1)
+                available = float(agg[0]["total"]) if agg else 0
 
             coming_r = await db.purchase_orders.aggregate([
-                {"$match": {"status": {"$in": ["ordered", "draft"]}}},
+                {"$match": {"status": {"$in": ["ordered", "draft"]}, **({"branch_id": branch_id} if branch_id else {})}},
                 {"$unwind": "$items"},
                 {"$match": {"items.product_id": p["id"]}},
                 {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
             ]).to_list(1)
 
             reserved_r = await db.sales.aggregate([
-                {"$match": {"status": "reserved"}},
+                {"$match": {"status": "reserved", **({"branch_id": branch_id} if branch_id else {})}},
                 {"$unwind": "$items"},
                 {"$match": {"items.product_id": p["id"]}},
                 {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}

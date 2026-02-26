@@ -18,6 +18,7 @@ from .helpers import (
     get_active_date,
     update_cashier_wallet,
     update_digital_wallet,
+    record_safe_movement,
     is_digital_payment,
     provision_branch_wallets,
     DIGITAL_PAYMENT_METHODS,

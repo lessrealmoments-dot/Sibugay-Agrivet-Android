@@ -340,7 +340,9 @@ async def dashboard_stats(
         "today_sales_count": today_count,
         "today_cash_sales": today_cash_sales,
         "today_credit_sales": today_credit_sales,
+        "today_digital_sales": today_digital_sales,
         "today_ar_collected": today_ar_collected,
+        "today_cash_inflow": today_cash_inflow,
         "today_net_cash": today_net_cash,
         "today_expenses": today_expense_total,
         # Cash position

@@ -275,3 +275,4 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - Stripe/PayMongo integration for automated billing
 - Refactor SuperAdminPage.jsx (1000+ lines → smaller components)
 - AdminLoginPage.jsx: replace window.location.href with React state update
+- Smarter Price Suggestions: Auto-suggest retail price based on capital + margin

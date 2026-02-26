@@ -6,7 +6,7 @@ from typing import Optional
 from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id,
-    get_branch_filter, apply_branch_filter, get_default_branch, CUSTOMER_SCOPE
+    get_default_branch, ensure_branch_access
 )
 
 router = APIRouter(prefix="/customers", tags=["Customers"])

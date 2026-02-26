@@ -24,6 +24,7 @@ _current_org_id: ContextVar = ContextVar('_current_org_id', default=None)
 
 # Collections that must be isolated per organization
 TENANT_COLLECTIONS = {
+    # Core business data
     'users', 'branches', 'products', 'inventory', 'customers',
     'invoices', 'sales', 'purchase_orders', 'suppliers', 'employees',
     'movements', 'fund_wallets', 'wallet_movements', 'fund_transfers',
@@ -31,8 +32,21 @@ TENANT_COLLECTIONS = {
     'count_sheets', 'daily_closings', 'sales_log', 'returns',
     'discrepancy_log', 'notifications', 'view_tokens', 'safe_lots',
     'price_schemes', 'settings', 'system_settings', 'accounts_payable',
-    'capital_changes',
-    'security_events', 'pin_attempt_log',
+    'capital_changes', 'security_events', 'pin_attempt_log',
+    # Previously missing — added after isolation audit
+    'payables',                      # Accounts payable (supplier credit terms)
+    'receivables',                   # AR from credit customers
+    'product_vendors',               # Vendor pricing history per product
+    'invoice_edits',                 # Audit trail of invoice edits
+    'inventory_corrections',         # Admin inventory correction logs
+    'inventory_adjustments',         # Count sheet adjustments
+    'inventory_logs',                # General inventory movement logs
+    'employee_advance_logs',         # Cash advance history per employee
+    'safe_lot_usages',               # Safe lot drawdown records
+    'branch_transfer_price_memory',  # Last transfer capital/retail per product/branch
+    'branch_transfer_templates',     # Saved markup templates per destination branch
+    'audits',                        # Audit session records
+    'upload_sessions',               # Receipt/document upload sessions
 }
 
 

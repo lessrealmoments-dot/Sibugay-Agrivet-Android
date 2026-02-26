@@ -515,12 +515,47 @@ export default function SettingsPage() {
         {isAdmin && (
           <TabsContent value="audit-setup" className="space-y-6">
 
-            {/* Admin Verification PIN */}
+            {/* ── Quick Overview ─────────────────────────────────────────── */}
+            <Card className="border-blue-200 bg-blue-50/30">
+              <CardContent className="py-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-[#1A4D2E]/10 flex items-center justify-center shrink-0">
+                      <ShieldCheck size={18} className="text-[#1A4D2E]" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Admin PIN</p>
+                      <p className="text-[10px] text-slate-500">System-wide PIN for sensitive actions. Only the admin can set or change this.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                      <Key size={18} className="text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">Manager PIN</p>
+                      <p className="text-[10px] text-slate-500">Per-user PIN. Admin can set for anyone. Managers must enter current PIN to change their own.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+                      <Smartphone size={18} className="text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">TOTP (Time-Based)</p>
+                      <p className="text-[10px] text-slate-500">Google Authenticator code. Set up in the Security tab. Rotates every 30 seconds.</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ── 1. Admin PIN (system-wide) ─────────────────────────────── */}
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
                   <ShieldCheck size={18} className="text-[#1A4D2E]" />
-                  Owner PIN — For In-Person Approvals
+                  Admin PIN
                   {auditPinConfigured
                     ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Configured</Badge>
                     : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
@@ -528,8 +563,7 @@ export default function SettingsPage() {
                 </CardTitle>
                 <p className="text-sm text-slate-500">
                   A private PIN <strong>only you know</strong> — never share it with workers.
-                  Used when you are physically present to authorize sensitive actions like inventory corrections and price edits.
-                  For remote approvals when you are away, use the Authenticator App (TOTP) in the Security tab instead.
+                  Used to authorize sensitive actions like inventory corrections, price edits, and transaction verification.
                 </p>
               </CardHeader>
               <CardContent>
@@ -541,9 +575,9 @@ export default function SettingsPage() {
                         type={showAuditPin ? 'text' : 'password'}
                         value={newAuditPin}
                         onChange={e => setNewAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                        placeholder="Enter 4–8 digit PIN" className="pr-10"
+                        placeholder="Enter 4-8 digit PIN" className="pr-10"
                       />
-                      <button onClick={() => setShowAuditPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      <button type="button" onClick={() => setShowAuditPin(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                         {showAuditPin ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
@@ -561,21 +595,78 @@ export default function SettingsPage() {
                     disabled={savingAuditPin || !newAuditPin || newAuditPin !== confirmAuditPin}
                     className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">
                     {savingAuditPin ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <ShieldCheck size={13} className="mr-1.5" />}
-                    {auditPinConfigured ? 'Update PIN' : 'Set PIN'}
+                    {auditPinConfigured ? 'Update Admin PIN' : 'Set Admin PIN'}
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Auditor Access */}
+            {/* ── 2. My PIN (change own manager PIN) ─────────────────────── */}
+            {(currentUser?.role === 'admin' || currentUser?.role === 'manager') && (
+              <Card className="border-slate-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                    <Key size={18} className="text-blue-600" />
+                    My PIN
+                    {currentUser?.manager_pin
+                      ? <Badge className="text-[10px] bg-emerald-100 text-emerald-700 ml-2">Set</Badge>
+                      : <Badge className="text-[10px] bg-amber-100 text-amber-700 ml-2">Not Set</Badge>
+                    }
+                  </CardTitle>
+                  <p className="text-sm text-slate-500">
+                    Your personal manager PIN — used for verifying transactions, approving receipts, and authorizing actions.
+                    {currentUser?.manager_pin ? ' Enter your current PIN to change it.' : ' Set your PIN to start using it.'}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <MyPinForm hasExistingPin={!!currentUser?.manager_pin} />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ── 3. Staff Manager PINs (admin only) ─────────────────────── */}
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
                   <Users size={18} className="text-[#1A4D2E]" />
+                  Staff Manager PINs
+                </CardTitle>
+                <p className="text-sm text-slate-500">
+                  Set or reset manager PINs for your staff. Managers and admins use these PINs to approve transactions.
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-slate-50">
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">User</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Role</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">PIN Status</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">New PIN</TableHead>
+                      <TableHead className="w-20" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.filter(u => u.role !== 'cashier').map(u => (
+                      <StaffPinRow key={u.id} user={u} onSaved={fetchUsers} currentUserId={currentUser?.id} />
+                    ))}
+                    {users.filter(u => u.role !== 'cashier').length === 0 && (
+                      <TableRow><TableCell colSpan={5} className="text-center text-slate-400 text-sm py-6">No managers or admins found</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* ── 4. Auditor Access ──────────────────────────────────────── */}
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  <Shield size={18} className="text-amber-600" />
                   Auditor Access
                 </CardTitle>
                 <p className="text-sm text-slate-500">
-                  Grant auditor access so users can verify transactions using their own PIN — no Admin PIN or TOTP needed.
+                  Grant auditor access so designated users can verify transactions using their own PIN — no Admin PIN or TOTP needed.
                 </p>
               </CardHeader>
               <CardContent className="p-0">
@@ -610,7 +701,7 @@ export default function SettingsPage() {
                             {state.is_auditor && (
                               <Input type="password" value={state.auditor_pin}
                                 onChange={e => updateAuditorEdit(u.id, 'auditor_pin', e.target.value.replace(/\D/g, '').slice(0, 8))}
-                                placeholder="4–8 digits" className="h-8 w-28 text-sm" />
+                                placeholder="4-8 digits" className="h-8 w-28 text-sm" />
                             )}
                           </TableCell>
                           <TableCell>

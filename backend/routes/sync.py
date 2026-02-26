@@ -110,6 +110,7 @@ async def get_pos_sync_data(user=Depends(get_current_user), branch_id: str = Non
         "inventory": inventory,
         "branch_prices": branch_prices,
         "sync_time": now_iso(),
+        "is_delta": bool(last_sync),
     }
 
 

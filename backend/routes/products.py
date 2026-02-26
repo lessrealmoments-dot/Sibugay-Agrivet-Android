@@ -335,14 +335,21 @@ async def pricing_scan(
 
     issues = []
     for p in products:
-        effective_cost = float(p.get("cost_price", 0))
-        bp = bp_map.get(p["id"])
-        if bp and bp.get("cost_price") is not None:
-            effective_cost = float(bp["cost_price"])
+        is_repack = p.get("is_repack", False)
+
+        # Effective cost: use derived cost for repacks, or branch/global cost for parents
+        if is_repack and "_derived_cost" in p:
+            effective_cost = p["_derived_cost"]
+        else:
+            effective_cost = float(p.get("cost_price", 0))
+            bp = bp_map.get(p["id"])
+            if bp and bp.get("cost_price") is not None:
+                effective_cost = float(bp["cost_price"])
 
         if effective_cost <= 0:
             continue
 
+        bp = bp_map.get(p["id"])
         global_prices = {k: float(v or 0) for k, v in (p.get("prices") or {}).items()}
         effective_prices = dict(global_prices)
         if bp and bp.get("prices"):
@@ -363,31 +370,35 @@ async def pricing_scan(
                 })
 
         # Only flag the product if at least one CRITICAL scheme (retail/wholesale) is below cost
-        critical_problems = [p for p in problem_schemes if p["is_critical"]]
+        critical_problems = [ps for ps in problem_schemes if ps["is_critical"]]
         if not critical_problems:
             continue
 
+        # For repacks, look up parent's purchase history for moving avg
+        lookup_id = p.get("parent_id") if is_repack and p.get("parent_id") else p["id"]
+        units_per = max(p.get("units_per_parent", 1), 1) if is_repack else 1
+
         all_purchases = await db.movements.find(
-            {"product_id": p["id"], "type": "purchase", "quantity_change": {"$gt": 0}},
+            {"product_id": lookup_id, "type": "purchase", "quantity_change": {"$gt": 0}},
             {"_id": 0, "quantity_change": 1, "price_at_time": 1, "created_at": 1}
         ).to_list(1000)
         total_qty = sum(m["quantity_change"] for m in all_purchases)
         total_cost_val = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
-        moving_avg = round(total_cost_val / total_qty, 2) if total_qty > 0 else effective_cost
+        moving_avg = round(total_cost_val / total_qty / units_per, 2) if total_qty > 0 else effective_cost
 
         last_purchase_entry = await db.movements.find_one(
-            {"product_id": p["id"], "type": "purchase", "quantity_change": {"$gt": 0}},
+            {"product_id": lookup_id, "type": "purchase", "quantity_change": {"$gt": 0}},
             {"_id": 0, "price_at_time": 1},
             sort=[("created_at", -1)]
         )
-        last_purchase = float(last_purchase_entry.get("price_at_time", effective_cost)) if last_purchase_entry else effective_cost
+        last_purchase = round(float(last_purchase_entry.get("price_at_time", effective_cost)) / units_per, 2) if last_purchase_entry else effective_cost
 
-        issues.append({
+        issue_entry = {
             "product_id": p["id"],
             "product_name": p["name"],
             "sku": p.get("sku", ""),
             "category": p.get("category", ""),
-            "unit": p.get("unit", ""),
+            "unit": p.get("unit", p.get("repack_unit", "")),
             "effective_cost": effective_cost,
             "global_cost": float(p.get("cost_price", 0)),
             "moving_average": moving_avg,
@@ -396,7 +407,12 @@ async def pricing_scan(
             "problem_schemes": problem_schemes,
             "critical_count": len(critical_problems),
             "is_branch_specific_cost": bp is not None and bp.get("cost_price") is not None,
-        })
+            "is_repack": is_repack,
+        }
+        if is_repack:
+            issue_entry["parent_name"] = p.get("_parent_name", "")
+            issue_entry["units_per_parent"] = p.get("units_per_parent", 1)
+        issues.append(issue_entry)
 
     if notify and issues:
         admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)

@@ -356,12 +356,11 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
                 }}
             )
         # Update PO with receipt count
-        total_receipts = sum(
-            s.get("file_count", 0)
-            for sid in upload_session_ids
-            for s in [await db.upload_sessions.find_one({"id": sid}, {"_id": 0, "file_count": 1})]
-            if s
-        )
+        total_receipts = 0
+        for sid in upload_session_ids:
+            session_doc = await db.upload_sessions.find_one({"id": sid}, {"_id": 0, "file_count": 1})
+            if session_doc:
+                total_receipts += session_doc.get("file_count", 0)
         if total_receipts > 0:
             await db.purchase_orders.update_one(
                 {"id": po["id"]},

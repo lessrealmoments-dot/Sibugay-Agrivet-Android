@@ -378,6 +378,17 @@ export default function PurchaseOrderPage() {
   // ── PO List actions ────────────────────────────────────────────────────
   const receivePO = async (poId) => {
     try {
+      // 0. Check receipt count first
+      const po = orders.find(o => o.id === poId);
+      const receiptCount = po?.receipt_count || 0;
+      if (receiptCount === 0) {
+        toast.error('Receipt upload required before receiving. Open PO detail and upload at least 1 receipt photo.');
+        // Open PO detail for the user to upload
+        setDetailPO(po);
+        setDetailDialog(true);
+        return;
+      }
+
       // 1. Get capital preview
       const preview = await api.get(`/purchase-orders/${poId}/capital-preview`);
       const data = preview.data;

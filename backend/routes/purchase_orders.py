@@ -719,6 +719,7 @@ async def adjust_po_payment(po_id: str, data: dict, user=Depends(get_current_use
                 "source": "po_adjustment_refund", "notes": ref_text,
                 "created_at": now_iso(),
             })
+            await record_safe_movement(branch_id, abs(delta), ref_text)
         else:
             await update_cashier_wallet(branch_id, abs(delta), ref_text)
 

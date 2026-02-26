@@ -317,6 +317,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                 "source_reference": ref_text,
                 "created_by": user["id"], "created_at": now_iso(),
             })
+            await record_safe_movement(branch_id, amount, ref_text)
 
     elif transfer_type == "safe_to_cashier":
         # Validate safe has enough

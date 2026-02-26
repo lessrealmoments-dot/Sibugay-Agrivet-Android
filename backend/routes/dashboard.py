@@ -512,7 +512,7 @@ async def branch_summary(user=Depends(get_current_user)):
             "today_revenue": total_revenue,
             "total_receivables": total_receivables,
             "today_expenses": total_expenses,
-            "net_today": total_revenue - total_expenses,
+            "net_today": sum(s["net_today"] for s in summaries),
             "total_cash": total_cash,
             "low_stock_count": total_low_stock,
             "branch_count": len(summaries),

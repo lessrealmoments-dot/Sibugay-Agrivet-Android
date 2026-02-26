@@ -202,6 +202,7 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Fixed Employee Advance: Backend now enforces monthly_ca_limit and requires manager_approved_by when exceeded (was frontend-only check)
 - [x] Fixed Customer Cashout Reversal: Now correctly returns funds to cashier (+amount) instead of double-deducting (-amount)
 - [x] Full System Audit: 24/24 backend tests passing — covers registration, setup, products, POs, sales, all expense types, CA limits, reversals, fund wallets, uploads/QR, dashboard, returns, POS sync, and multi-tenant isolation
+- [x] Gap Audit: 26/26 additional tests — covers branch transfers, digital/split sales, invoice void, repack products (sell & derived stock), inventory correction, count sheets, daily close, interest/penalty generation, invoice edit with audit trail, AR/sales/expense reports, cashier role restrictions, branch pricing overrides, actual file upload (multipart), supplier CRUD, notifications, payment void, daily log/report, product movement history, customer statement
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

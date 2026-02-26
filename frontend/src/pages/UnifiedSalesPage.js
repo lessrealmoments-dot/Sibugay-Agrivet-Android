@@ -911,13 +911,7 @@ export default function UnifiedSalesPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-sm font-semibold text-blue-700">{inv.invoice_number}</span>
-                            {isVoided ? (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-500">VOIDED</span>
-                            ) : isCash ? (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Cash</span>
-                            ) : (
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Credit</span>
-                            )}
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeInfo.cls}`}>{badgeInfo.label}</span>
                           </div>
                           <p className="text-xs text-slate-500 truncate max-w-[180px]">{inv.customer_name || 'Walk-in'}</p>
                         </div>

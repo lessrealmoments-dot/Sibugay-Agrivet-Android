@@ -676,3 +676,181 @@ async def get_pending_reviews(
         "total_count": len(items),
         "by_branch": by_branch,
     }
+
+
+
+# ── Sales Analytics ───────────────────────────────────────────────────────────
+
+PERIOD_MAP = {
+    "this_month": lambda now: (now.replace(day=1).strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d")),
+    "last_month": lambda now: (
+        (now.replace(day=1) - timedelta(days=1)).replace(day=1).strftime("%Y-%m-%d"),
+        (now.replace(day=1) - timedelta(days=1)).strftime("%Y-%m-%d"),
+    ),
+    "this_quarter": lambda now: (
+        datetime(now.year, ((now.month - 1) // 3) * 3 + 1, 1).strftime("%Y-%m-%d"),
+        now.strftime("%Y-%m-%d"),
+    ),
+    "last_quarter": lambda now: (
+        datetime(now.year if now.month > 3 else now.year - 1,
+                 ((now.month - 1) // 3) * 3 - 2 if now.month > 3 else 10, 1).strftime("%Y-%m-%d"),
+        (datetime(now.year, ((now.month - 1) // 3) * 3 + 1, 1) - timedelta(days=1)).strftime("%Y-%m-%d"),
+    ),
+    "this_year": lambda now: (f"{now.year}-01-01", now.strftime("%Y-%m-%d")),
+    "last_year": lambda now: (f"{now.year - 1}-01-01", f"{now.year - 1}-12-31"),
+}
+
+
+@router.get("/sales-analytics")
+async def sales_analytics(
+    period: str = "this_month",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """
+    Aggregated sales analytics for charts.
+    Returns daily totals + branch breakdown for the selected period.
+    """
+    now = datetime.now(timezone.utc)
+    if period == "custom" and start_date and end_date:
+        d_start, d_end = start_date, end_date
+    elif period in PERIOD_MAP:
+        d_start, d_end = PERIOD_MAP[period](now)
+    else:
+        d_start = now.replace(day=1).strftime("%Y-%m-%d")
+        d_end = now.strftime("%Y-%m-%d")
+
+    branch_filter = await get_branch_filter(user, branch_id)
+    match = {"status": {"$ne": "voided"}, "order_date": {"$gte": d_start, "$lte": d_end}}
+    match = apply_branch_filter(match, branch_filter)
+
+    # Daily totals
+    daily_pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": "$order_date",
+            "revenue": {"$sum": "$grand_total"},
+            "cash": {"$sum": {"$cond": [{"$eq": ["$payment_type", "cash"]}, "$grand_total", 0]}},
+            "digital": {"$sum": {"$cond": [{"$eq": ["$payment_type", "digital"]}, "$grand_total", 0]}},
+            "credit": {"$sum": {"$cond": [{"$in": ["$payment_type", ["credit", "partial"]]}, "$grand_total", 0]}},
+            "split_cash": {"$sum": {"$cond": [{"$eq": ["$payment_type", "split"]}, {"$ifNull": ["$cash_amount", 0]}, 0]}},
+            "split_digital": {"$sum": {"$cond": [{"$eq": ["$payment_type", "split"]}, {"$ifNull": ["$digital_amount", 0]}, 0]}},
+            "count": {"$sum": 1},
+        }},
+        {"$sort": {"_id": 1}},
+    ]
+    daily_raw = await db.invoices.aggregate(daily_pipeline).to_list(400)
+    daily = []
+    for d in daily_raw:
+        daily.append({
+            "date": d["_id"],
+            "revenue": round(d["revenue"], 2),
+            "cash": round(d["cash"] + d["split_cash"], 2),
+            "digital": round(d["digital"] + d["split_digital"], 2),
+            "credit": round(d["credit"], 2),
+            "count": d["count"],
+        })
+
+    # Branch breakdown
+    branch_pipeline = [
+        {"$match": match},
+        {"$group": {
+            "_id": "$branch_id",
+            "revenue": {"$sum": "$grand_total"},
+            "count": {"$sum": 1},
+        }},
+        {"$sort": {"revenue": -1}},
+    ]
+    branch_raw = await db.invoices.aggregate(branch_pipeline).to_list(100)
+
+    branch_ids = [b["_id"] for b in branch_raw if b["_id"]]
+    branch_docs = {}
+    if branch_ids:
+        for bdoc in await db.branches.find({"id": {"$in": branch_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100):
+            branch_docs[bdoc["id"]] = bdoc["name"]
+
+    branches = [{
+        "branch_id": b["_id"],
+        "name": branch_docs.get(b["_id"], b["_id"] or "Unknown"),
+        "revenue": round(b["revenue"], 2),
+        "count": b["count"],
+    } for b in branch_raw if b["_id"]]
+
+    # Summary
+    total_revenue = sum(d["revenue"] for d in daily)
+    total_count = sum(d["count"] for d in daily)
+    total_cash = sum(d["cash"] for d in daily)
+    total_digital = sum(d["digital"] for d in daily)
+    total_credit = sum(d["credit"] for d in daily)
+
+    return {
+        "period": period,
+        "start_date": d_start,
+        "end_date": d_end,
+        "daily": daily,
+        "branches": branches,
+        "summary": {
+            "total_revenue": round(total_revenue, 2),
+            "total_transactions": total_count,
+            "avg_transaction": round(total_revenue / total_count, 2) if total_count else 0,
+            "total_cash": round(total_cash, 2),
+            "total_digital": round(total_digital, 2),
+            "total_credit": round(total_credit, 2),
+            "days_with_sales": len([d for d in daily if d["revenue"] > 0]),
+        },
+    }
+
+
+@router.get("/accounts-payable")
+async def accounts_payable_summary(
+    branch_id: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """Accounts payable summary — all unpaid POs on terms."""
+    branch_filter = await get_branch_filter(user, branch_id)
+    match = {"payment_status": {"$nin": ["paid", "voided"]}, "po_type": {"$in": ["terms", "credit"]}}
+    match = apply_branch_filter(match, branch_filter)
+
+    pos = await db.purchase_orders.find(match, {
+        "_id": 0, "id": 1, "po_number": 1, "vendor": 1, "balance": 1,
+        "due_date": 1, "branch_id": 1, "created_at": 1,
+    }).to_list(500)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    overdue = []
+    due_this_week = []
+    upcoming = []
+    total = 0
+
+    for po in pos:
+        bal = float(po.get("balance", 0))
+        if bal <= 0:
+            continue
+        total += bal
+        due = po.get("due_date", "")
+        days_left = (datetime.strptime(due, "%Y-%m-%d") - datetime.strptime(today, "%Y-%m-%d")).days if due else None
+        entry = {
+            "po_id": po["id"], "po_number": po["po_number"],
+            "vendor": po["vendor"], "balance": round(bal, 2),
+            "due_date": due, "days_left": days_left,
+            "branch_id": po.get("branch_id"),
+        }
+        if days_left is not None and days_left < 0:
+            overdue.append(entry)
+        elif days_left is not None and days_left <= 7:
+            due_this_week.append(entry)
+        else:
+            upcoming.append(entry)
+
+    return {
+        "total_payable": round(total, 2),
+        "overdue_total": round(sum(e["balance"] for e in overdue), 2),
+        "overdue_count": len(overdue),
+        "due_this_week_total": round(sum(e["balance"] for e in due_this_week), 2),
+        "due_this_week": due_this_week,
+        "overdue": overdue,
+        "upcoming_count": len(upcoming),
+        "upcoming_total": round(sum(e["balance"] for e in upcoming), 2),
+    }

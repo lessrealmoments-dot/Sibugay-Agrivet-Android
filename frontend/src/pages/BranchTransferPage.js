@@ -1768,6 +1768,15 @@ export default function BranchTransferPage() {
                 data-testid="receive-notes"
               />
             </div>
+            {/* Receipt upload — mandatory for final receiving */}
+            <div className="mx-3 mb-2">
+              <ReceiptUploadInline
+                required={true}
+                label="Receipt / DR Photo (Required)"
+                recordType="branch_transfer"
+                onUploaded={(data) => setReceiveReceiptData(data)}
+              />
+            </div>
           </ScrollArea>
 
           <div className="pt-3 border-t flex gap-2 justify-between items-center">

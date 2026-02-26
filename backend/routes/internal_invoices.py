@@ -230,7 +230,6 @@ async def get_internal_profitability(
 
     # Get all branches
     all_branches = await db.branches.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(50)
-    branch_map = {b["id"]: b["name"] for b in all_branches}
 
     # Build per-branch profitability
     branch_data = {}

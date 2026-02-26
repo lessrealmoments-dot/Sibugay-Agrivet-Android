@@ -252,6 +252,7 @@ export default function PurchaseOrderPage() {
     setSourceType('external');
     setSupplyBranchId('');
     setShowRetailToggle(isAdmin);
+    setCreateReceiptData(null);
   };
 
   // ── Validate ───────────────────────────────────────────────────────────

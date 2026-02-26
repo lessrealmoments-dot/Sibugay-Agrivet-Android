@@ -232,7 +232,7 @@ async def change_my_pin(data: dict, user=Depends(get_current_user)):
         if not current_pin:
             raise HTTPException(status_code=400, detail="Current PIN is required")
         if current_pin != stored_pin:
-            raise HTTPException(status_code=401, detail="Current PIN is incorrect")
+            raise HTTPException(status_code=400, detail="Current PIN is incorrect")
 
     await db.users.update_one(
         {"id": user["id"]},

@@ -373,6 +373,8 @@ export default function BranchTransferPage() {
         min_margin: minMargin,
         category_markups: categoryMarkups.filter(m => parseFloat(m.value) > 0),
         repack_price_updates,
+        request_po_id: requestContext?.po_id || '',
+        request_po_number: requestContext?.po_number || '',
         items: validRows.map(r => ({
           product_id: r.product.id,
           product_name: r.product.name,
@@ -380,6 +382,7 @@ export default function BranchTransferPage() {
           category: r.product.category,
           unit: r.product.unit,
           qty: parseFloat(r.qty) || 0,
+          requested_qty: r.requested_qty || null,
           branch_capital: r.branch_capital,
           transfer_capital: parseFloat(r.transfer_capital) || 0,
           branch_retail: parseFloat(r.branch_retail) || 0,

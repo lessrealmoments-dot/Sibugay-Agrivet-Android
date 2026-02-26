@@ -20,22 +20,33 @@ async def list_customers(
     skip: int = 0,
     limit: int = 50
 ):
-    """List all customers with optional search. Respects branch isolation."""
+    """List customers filtered by branch.
+    - Specific branch_id provided → only that branch's customers
+    - Admin with no branch_id → all customers (consolidated owner view)
+    - Non-admin with no branch_id → their assigned branch only
+    """
     query = {"active": True}
-    
-    # Apply branch filter if customer scope is branch-specific
-    if CUSTOMER_SCOPE == "branch":
-        branch_filter = await get_branch_filter(user, branch_id)
-        # For customers without branch_id (legacy), include them for admins
-        if branch_filter and user.get("role") != "admin":
-            query = apply_branch_filter(query, branch_filter)
-    
+
+    if branch_id:
+        # Explicit branch requested — verify access and filter
+        await ensure_branch_access(user, branch_id)
+        query["branch_id"] = branch_id
+    elif user.get("role") != "admin":
+        # Non-admin: restrict to their assigned branch
+        user_branch = user.get("branch_id")
+        if user_branch:
+            query["branch_id"] = user_branch
+        else:
+            # No branch assigned — show nothing
+            return {"customers": [], "total": 0}
+    # Admin with no branch_id → no filter (sees all, for consolidated view)
+
     if search:
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"phone": {"$regex": search, "$options": "i"}}
         ]
-    
+
     total = await db.customers.count_documents(query)
     customers = await db.customers.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     return {"customers": customers, "total": total}

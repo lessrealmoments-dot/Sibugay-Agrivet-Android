@@ -209,6 +209,7 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

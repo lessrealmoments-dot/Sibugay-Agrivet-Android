@@ -293,9 +293,15 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Transfer-to-request linking**: Transfers store `request_po_id` and `request_po_number`. History list shows "from PO-xxx" reference. Detail dialog shows blue request reference badge.
   - **Status Timeline**: Transfer detail dialog shows a visual timeline: Requested → Transfer Created → Sent → Received → Settled. Each step shows date and completion status.
   - **Form pre-fill fix**: Added `skipResetRef` to prevent useEffect from clearing pre-filled form data when branch selectors trigger reset effects.
+- [x] Internal Invoicing System (Phase 2, Feb 2026):
+  - **Auto-created invoices**: When a branch transfer is created, an internal invoice (INV-YYYYMMDD-XXXX) is auto-generated in the `internal_invoices` collection. Linked to the transfer via `invoice_id`/`invoice_number`.
+  - **Invoice status syncs with transfer**: prepared → sent → received. Timestamps (sent_at, received_at) set on each transition.
+  - **Printable invoice**: Enhanced print function generates a professional internal invoice with: From/To branches, product table with "Actual Rcvd" column (blank for manual corrections), corrections/discrepancy notes box, payment terms (Net 15, due date), signature lines (Prepared By, Driver, Received By).
+  - **API endpoints**: `GET /internal-invoices` (list with branch enrichment), `GET /internal-invoices/summary` (payable/receivable totals with overdue/due-soon), `GET /internal-invoices/{id}`, `GET /internal-invoices/by-transfer/{transfer_id}`.
+  - **Frontend**: Transfer detail dialog shows invoice badge (INV-xxx, Terms: Net 15) with "Print Invoice" button. History list shows invoice reference.
+  - **Physical workflow**: Invoice printed (2 copies) → driver carries copy → Branch 1 counts actual vs invoice → writes corrections on paper → uploads photo (QR phone or PC) → confirms receipt in system.
 
 ### P1 — Upcoming
-- Internal Invoicing (Phase 2): Auto-create internal invoice on transfer receive, internal AP/AR for branches, payment terms
 - Auto-Settlement via Branch Bank (Phase 3): Due date notifications, auto-deduct from branch bank, PIN/TOTP required for payment approval
 - Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)

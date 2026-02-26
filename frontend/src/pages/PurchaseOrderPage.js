@@ -913,6 +913,13 @@ export default function PurchaseOrderPage() {
                 required={true}
                 label="Receipt / DR Photo (Required)"
                 recordType="purchase_order"
+                recordSummary={{
+                  type_label: 'Purchase Order',
+                  title: header.vendor ? `PO for ${header.vendor}` : 'New Purchase Order',
+                  description: `${lines.filter(l => l.product_id).length} item(s)${header.dr_number ? ` · DR# ${header.dr_number}` : ''}`,
+                  amount: computed.grandTotal || 0,
+                  date: header.purchase_date,
+                }}
                 onUploaded={(data) => setCreateReceiptData(data)}
               />
 

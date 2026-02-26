@@ -190,10 +190,12 @@ export default function POSPage() {
     if (!cart.length) { toast.error('Cart is empty'); return; }
 
     const saleId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const envelopeId = newEnvelopeId();
     const saleNumber = `SL-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${saleId.slice(0, 6).toUpperCase()}`;
 
     const saleData = {
       id: saleId,
+      envelope_id: envelopeId,
       sale_number: saleNumber,
       branch_id: currentBranch.id,
       customer_id: selectedCustomer?.id || null,
@@ -216,17 +218,21 @@ export default function POSPage() {
     if (isOnline) {
       try {
         const res = await api.post('/sales', saleData);
+        // Deduct from local cache so stock levels stay accurate
+        await deductLocalInventory(saleData.items);
         toast.success(`Sale ${res.data.sale_number} completed!`);
       } catch (e) {
         // API failed while online - save offline as fallback
         await addPendingSale(saleData);
+        await deductLocalInventory(saleData.items);
         const count = await getPendingSaleCount();
         setPendingCount(count);
         toast.success(`Sale saved offline (will sync when stable)`);
       }
     } else {
-      // Offline: save locally
+      // Offline: save locally and deduct inventory
       await addPendingSale(saleData);
+      await deductLocalInventory(saleData.items);
       const count = await getPendingSaleCount();
       setPendingCount(count);
       toast.success(`Sale ${saleNumber} saved offline!`);

@@ -373,7 +373,7 @@ export default function TeamPage() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-1 justify-end">
+                          <div className="flex items-center gap-1 justify-end" onClick={e => e.stopPropagation()}>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-slate-700" onClick={() => openEdit(u)} title="Edit" data-testid={`edit-user-${u.id}`}>
                               <Edit2 size={14} />
                             </Button>

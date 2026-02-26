@@ -141,6 +141,7 @@ export default function ViewQRDialog({ open, onClose, recordType, recordId, file
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

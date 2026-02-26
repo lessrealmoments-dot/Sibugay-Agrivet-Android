@@ -36,7 +36,7 @@ const STORES = {
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(getDBName(), DB_VERSION);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       // Custom key paths per store

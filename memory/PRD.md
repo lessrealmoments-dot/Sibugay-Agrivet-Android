@@ -203,6 +203,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] Fixed Customer Cashout Reversal: Now correctly returns funds to cashier (+amount) instead of double-deducting (-amount)
 - [x] Full System Audit: 24/24 backend tests passing — covers registration, setup, products, POs, sales, all expense types, CA limits, reversals, fund wallets, uploads/QR, dashboard, returns, POS sync, and multi-tenant isolation
 - [x] Gap Audit: 26/26 additional tests — covers branch transfers, digital/split sales, invoice void, repack products (sell & derived stock), inventory correction, count sheets, daily close, interest/penalty generation, invoice edit with audit trail, AR/sales/expense reports, cashier role restrictions, branch pricing overrides, actual file upload (multipart), supplier CRUD, notifications, payment void, daily log/report, product movement history, customer statement
+- [x] PO Receipt Workflow:
+  - Mandatory receipt upload before PO can be received (backend enforced)
+  - Receipt count shown on PO list with badge (No receipts / X photos)
+  - Review status shown: "Pending review" / "Reviewed by [name]"
+  - "Mark as Reviewed" button with admin PIN/TOTP verification
+  - Auto-notification sent to owner/admin when PO is received with receipts
+  - Upload page (phone) has "Take Photo" and "Choose from Gallery" options
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

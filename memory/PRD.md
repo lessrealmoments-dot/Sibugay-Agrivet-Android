@@ -227,6 +227,12 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - New public endpoint POST /api/verify/public/{doc_type}/{doc_id} — doesn't require auth
   - ViewReceiptsPage now calls public endpoint for phone-based verification
   - Security maintained via PIN/TOTP validation itself
+- [x] Unified PIN Verification System (Feb 2026):
+  - Root cause: 3+ independent PIN check implementations across codebase (verify.py, purchase_orders.py, uploads.py) each checking different PIN types
+  - Fix: `_resolve_pin()` in verify.py now checks ALL 4 PIN types: system admin PIN (bcrypt), manager_pin/owner_pin (plain text), TOTP, auditor PIN
+  - `mark_po_reviewed()` and `mark_record_reviewed()` now import and use `_resolve_pin` instead of custom logic
+  - Both phone (public) and desktop (authenticated) verify endpoints now also update `receipt_review_status` field when record has uploaded receipts
+  - Result: Manager PIN works on phone AND desktop. Phone verification updates desktop PO status.
 - [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
   - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
   - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)

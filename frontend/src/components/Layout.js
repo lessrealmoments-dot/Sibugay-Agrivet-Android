@@ -49,6 +49,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/branches',         label: 'Branches',         icon: Building2, perm: 'branches.view' },
       { path: '/branch-transfers', label: 'Branch Transfers', icon: ArrowRight, perm: 'branches.view', featureFlag: 'branch_transfers' },
+      { path: '/internal-invoices', label: 'Internal Invoices', icon: FileText, perm: 'branches.view', featureFlag: 'branch_transfers' },
     ],
   },
   {

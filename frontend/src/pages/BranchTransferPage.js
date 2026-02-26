@@ -1088,19 +1088,22 @@ export default function BranchTransferPage() {
                               </div>
                             </td>
 
-                            {/* Branch Retail — editable */}
+                            {/* Branch Retail — admin only for editing */}
                             <td className="px-2 py-1.5">
                               <div>
                                 <Input type="number" min={0} step="0.01"
                                   value={row.branch_retail}
                                   onChange={e => updateRow(row.id, { branch_retail: e.target.value })}
                                   placeholder="0.00"
-                                  className={`h-8 text-sm text-right font-mono font-bold ${rowBad ? 'border-red-400 text-red-700 bg-red-50' : ''}`}
+                                  className={`h-8 text-sm text-right font-mono font-bold ${rowBad ? 'border-red-400 text-red-700 bg-red-50' : ''} ${!isAdmin ? 'bg-slate-50 text-slate-400' : ''}`}
                                   data-testid={`branch-retail-${row.id}`}
-                                  disabled={!row.product}
+                                  disabled={!row.product || !isAdmin}
                                 />
                                 {row.last_branch_retail != null && (
                                   <span className="text-[9px] text-blue-400 mt-0.5 block">Last: {formatPHP(row.last_branch_retail)}</span>
+                                )}
+                                {!isAdmin && row.product && (
+                                  <span className="text-[9px] text-slate-400 mt-0.5 block">Admin sets retail</span>
                                 )}
                               </div>
                             </td>

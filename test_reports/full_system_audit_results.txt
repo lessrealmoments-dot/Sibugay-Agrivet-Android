@@ -1,0 +1,33 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /root/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /app/backend
+plugins: anyio-4.12.1
+collecting ... collected 24 items
+
+tests/test_full_system_audit.py::TestFullSystemAudit::test_01_register_new_organization PASSED [  4%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_02_login_new_organization PASSED [  8%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_03_create_product PASSED [ 12%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_04_create_and_receive_purchase_order PASSED [ 16%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_05_create_cash_sale PASSED [ 20%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_06_create_credit_sale PASSED [ 25%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_07_create_regular_expense PASSED [ 29%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_08_create_farm_expense PASSED [ 33%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_09_create_customer_cashout PASSED [ 37%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_10_create_employee_and_advance PASSED [ 41%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_11_employee_advance_limit_enforcement PASSED [ 45%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_12_reverse_customer_cashout PASSED [ 50%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_13_reverse_employee_advance PASSED [ 54%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_14_fund_wallet_operations PASSED [ 58%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_15_fund_transfer PASSED [ 62%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_16_upload_flow PASSED [ 66%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_17_dashboard_stats PASSED [ 70%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_18_customer_operations PASSED [ 75%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_19_invoice_payment PASSED [ 79%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_20_create_return PASSED [ 83%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_21_pos_data_sync PASSED [ 87%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_22_register_second_organization PASSED [ 91%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_23_verify_tenant_isolation PASSED [ 95%]
+tests/test_full_system_audit.py::TestFullSystemAudit::test_24_verify_reverse_isolation PASSED [100%]
+
+============================== 24 passed in 8.06s ==============================

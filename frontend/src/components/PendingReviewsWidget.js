@@ -141,7 +141,7 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
 
   const loadReceiptPreview = async (item) => {
     try {
-      const res = await api.get(`/uploads/sessions/${item.record_type}/${item.id}`);
+      const res = await api.get(`/uploads/record/${item.record_type}/${item.id}`);
       const files = (res.data.sessions || []).flatMap(s => s.files || []);
       setReceiptPreview({ files, item });
     } catch {

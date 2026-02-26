@@ -196,6 +196,8 @@ export default function BranchTransferPage() {
     try {
       const res = await api.post(`/purchase-orders/${request.id}/generate-branch-transfer`);
       const transferData = res.data;
+      // Store request context for linking
+      setRequestContext({ po_id: transferData.po_id, po_number: transferData.po_number });
       // Pre-load the New Transfer form with the data
       setFromBranchId(transferData.from_branch_id || '');
       setToBranchId(transferData.to_branch_id || '');
@@ -204,6 +206,8 @@ export default function BranchTransferPage() {
         ...newRow(),
         product: { id: item.product_id, name: item.product_name, sku: item.sku, category: item.category, unit: item.unit },
         productSearch: item.product_name,
+        requested_qty: item.requested_qty ?? null,
+        available_stock: item.available_stock ?? null,
         qty: item.qty,
         branch_capital: item.branch_capital || 0,
         global_cost_price: item.branch_capital || 0,
@@ -214,7 +218,7 @@ export default function BranchTransferPage() {
       }));
       setRows(editRows.length ? editRows : [newRow()]);
       setTab('new');
-      toast.success(`Transfer pre-filled from ${request.po_number}! Set pricing and send.`);
+      toast.success(`Transfer pre-filled from ${transferData.po_number}! Review quantities and set pricing.`);
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Failed to generate transfer');
     }

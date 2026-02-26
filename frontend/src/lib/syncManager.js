@@ -22,6 +22,8 @@ import {
 let syncInProgress = false;
 let syncListeners = [];
 let autoSyncInterval = null;
+let cacheRefreshInterval = null;
+const CACHE_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
 export function onSyncUpdate(callback) {
   syncListeners.push(callback);

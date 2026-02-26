@@ -22,7 +22,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import {
   Plus, Trash2, Send, CheckCircle2, Search, RefreshCw, Settings2,
   AlertTriangle, ChevronDown, ChevronUp, Building2, Package, X,
-  TrendingUp, TrendingDown, Clock, ArrowRight, Eye, XCircle, Pencil, Upload, Check
+  TrendingUp, TrendingDown, Clock, ArrowRight, Eye, XCircle, Pencil, Upload, Check,
+  ClipboardCheck, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 

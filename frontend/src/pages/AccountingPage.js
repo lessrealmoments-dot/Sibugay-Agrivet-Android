@@ -197,6 +197,7 @@ export default function AccountingPage() {
       }
       setExpenseDialog(false);
       setCaSummary(null);
+      setExpenseReceiptData(null);
       fetchAll();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error saving expense'); }
   };

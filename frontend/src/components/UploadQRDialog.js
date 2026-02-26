@@ -82,13 +82,14 @@ export default function UploadQRDialog({ open, onClose, recordType, recordId }) 
     /* Overlay */
     <div
       className="fixed inset-0 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 9999 }}
+      style={{ backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 99999, pointerEvents: 'auto' }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      data-testid="uploadqr-overlay"
     >
       {/* Modal box */}
       <div
         className="relative bg-white rounded-2xl shadow-2xl w-full overflow-y-auto"
-        style={{ maxWidth: '360px', maxHeight: '90vh' }}
+        style={{ maxWidth: '360px', maxHeight: '90vh', pointerEvents: 'auto' }}
       >
         {/* Close button */}
         <button

@@ -688,6 +688,18 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Row 2d: Pending Receipt Reviews (branch-specific) */}
+      <Card className="border-slate-200" data-testid="branch-pending-reviews-card">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <FileCheck size={14} className="text-amber-600" /> Receipts Awaiting Review
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PendingReviewsWidget branchId={selectedBranchId !== 'all' ? selectedBranchId : undefined} compact={true} />
+        </CardContent>
+      </Card>
+
       {/* Row 3: Credits today + Recent payments */}
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Credit customers today */}

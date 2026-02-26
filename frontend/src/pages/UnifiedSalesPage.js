@@ -186,12 +186,10 @@ export default function UnifiedSalesPage() {
     setDataLoaded(true);
   };
 
-  // Initial load
-  useEffect(() => { loadData(); getPendingSaleCount().then(setPendingCount); }, []); // eslint-disable-line
-
-  // Reload products with correct branch inventory when branch changes
+  // Load data on mount and reload whenever branch changes
   useEffect(() => {
-    if (dataLoaded) loadData();
+    loadData();
+    getPendingSaleCount().then(setPendingCount);
   }, [currentBranch?.id]); // eslint-disable-line
 
   // Load history when tab becomes active or date/search changes

@@ -394,6 +394,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
                     "source_reference": ref_text_cap,
                     "created_by": user["id"], "created_at": now_iso(),
                 })
+                await record_safe_movement(branch_id, amount, ref_text_cap)
         else:
             await update_cashier_wallet(branch_id, amount, ref_text_cap)
 

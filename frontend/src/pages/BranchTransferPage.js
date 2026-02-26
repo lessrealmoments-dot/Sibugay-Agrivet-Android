@@ -1215,6 +1215,7 @@ export default function BranchTransferPage() {
                   </table>
                 </CardContent>
               </Card>
+              ); })()}
 
               {/* Add row + Totals + Submit */}
               <div className="flex items-start justify-between gap-4">

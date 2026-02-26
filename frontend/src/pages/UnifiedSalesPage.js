@@ -33,7 +33,7 @@ const EMPTY_LINE = {
 };
 
 export default function UnifiedSalesPage() {
-  const { currentBranch, user } = useAuth();
+  const { currentBranch, user, effectiveBranchId } = useAuth();
   
   // Mode: 'quick' or 'order'
   const [mode, setMode] = useState('quick');
@@ -155,7 +155,10 @@ export default function UnifiedSalesPage() {
     const online = forceOnline || navigator.onLine;
     if (online) {
       try {
-        const branchParams = currentBranch ? { branch_id: currentBranch.id } : {};
+        // Use effectiveBranchId (always available from localStorage/user data)
+        // currentBranch depends on branches[] loading first and may be null
+        const branchId = currentBranch?.id || (effectiveBranchId && effectiveBranchId !== 'all' ? effectiveBranchId : null);
+        const branchParams = branchId ? { branch_id: branchId } : {};
         const [posRes, custRes, termRes, prefixRes, userRes, schemeRes] = await Promise.all([
           api.get('/sync/pos-data', { params: branchParams }),
           api.get('/customers', { params: { limit: 500, ...branchParams } }),
@@ -187,10 +190,12 @@ export default function UnifiedSalesPage() {
   };
 
   // Load data on mount and reload whenever branch changes
+  // effectiveBranchId is available immediately (from localStorage/user.branch_id)
+  // while currentBranch requires branches[] to be loaded first
   useEffect(() => {
     loadData();
     getPendingSaleCount().then(setPendingCount);
-  }, [currentBranch?.id]); // eslint-disable-line
+  }, [effectiveBranchId]); // eslint-disable-line
 
   // Load history when tab becomes active or date/search changes
   const loadHistory = useCallback(async () => {

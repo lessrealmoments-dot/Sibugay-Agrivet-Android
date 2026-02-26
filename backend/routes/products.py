@@ -283,6 +283,18 @@ async def pricing_scan(
     Returns list of issues with product details, cost references, and current prices.
     If notify=true, creates a system notification for admins + branch managers.
     """
+    # Load all price schemes to know the keys
+    schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
+    scheme_keys = [s["key"] for s in schemes]
+
+    # Pre-load branch_prices for the branch
+    bp_map = {}
+    if branch_id:
+        bp_docs = await db.branch_prices.find(
+            {"branch_id": branch_id}, {"_id": 0}
+        ).to_list(5000)
+        bp_map = {d["product_id"]: d for d in bp_docs}
+
     # Load all active non-repack products
     products = await db.products.find(
         {"active": True, "is_repack": {"$ne": True}},
@@ -320,18 +332,6 @@ async def pricing_scan(
         r["_derived_cost"] = round(parent_cost / units, 4)
         r["_parent_name"] = parent.get("name", "")
         products.append(r)
-
-    # Load all price schemes to know the keys
-    schemes = await db.price_schemes.find({"active": True}, {"_id": 0}).to_list(50)
-    scheme_keys = [s["key"] for s in schemes]
-
-    # Pre-load branch_prices for the branch
-    bp_map = {}
-    if branch_id:
-        bp_docs = await db.branch_prices.find(
-            {"branch_id": branch_id}, {"_id": 0}
-        ).to_list(5000)
-        bp_map = {d["product_id"]: d for d in bp_docs}
 
     issues = []
     for p in products:

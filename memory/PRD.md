@@ -326,6 +326,10 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Proper cleanup**: `stopAutoSync` clears all intervals and removes the `online` event listener reference.
   - **Branch-aware refresh**: `startAutoSync` accepts a branch ID getter function so background refresh targets the correct branch.
   - **UI indicator**: OfflineIndicator shows "Auto-refreshes every 5 min" when cache is ready.
+- [x] Enhanced Sync Progress & Status — Phase C (Feb 2026):
+  - **Logout warning**: When user logs out with pending offline sales, shows confirmation dialog: "You have unsynced offline sales! They will sync next time you log in." Cancel prevents logout.
+  - **Enhanced pending sales indicator**: Shows bold count, sync progress bar ("Syncing sale 3/5..."), "waiting for internet" badge when offline, and "Sales are safely stored" reassurance message.
+  - **Prominent Sync Now button**: Full-width amber button replaces old "Push now" link for better visibility.
 
 ### P1 — Upcoming
 - Employee Cash Advance Summary Report

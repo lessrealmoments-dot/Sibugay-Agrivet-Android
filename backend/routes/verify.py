@@ -244,6 +244,106 @@ async def verify_transaction(
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Public verify (from phone via view token — no auth required)
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/public/{doc_type}/{doc_id}")
+async def verify_transaction_public(
+    doc_type: str,
+    doc_id: str,
+    data: dict,
+):
+    """
+    Public verify endpoint — called from phone's ViewReceiptsPage.
+    Validates the admin PIN/TOTP same as the authenticated version,
+    but doesn't require login. Security is ensured via the PIN/TOTP itself.
+    """
+    if doc_type not in COLLECTION_MAP:
+        raise HTTPException(status_code=400, detail=f"Invalid document type: {doc_type}")
+
+    collection = getattr(db, COLLECTION_MAP[doc_type])
+    doc = await collection.find_one({"id": doc_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    pin = str(data.get("pin", ""))
+    verifier = await _resolve_pin(pin)
+    if not verifier:
+        raise HTTPException(status_code=400, detail="Invalid PIN — not recognized as admin PIN, TOTP, or auditor PIN")
+
+    has_discrepancy = bool(data.get("has_discrepancy", False))
+    discrepancy_note = data.get("discrepancy_note", "")
+    expected_qty = data.get("expected_qty")
+    found_qty = data.get("found_qty")
+    unit_var = data.get("unit", "")
+    unit_cost = float(data.get("unit_cost", 0))
+    item_description = data.get("item_description", "")
+
+    value_impact = None
+    if has_discrepancy and expected_qty is not None and found_qty is not None:
+        variance = float(found_qty) - float(expected_qty)
+        value_impact = round(variance * unit_cost, 2)
+
+    verification = {
+        "verified": True,
+        "verified_by_id": verifier["verifier_id"],
+        "verified_by_name": verifier["verifier_name"],
+        "verified_method": verifier["method"],
+        "verified_at": now_iso(),
+        "verification_status": "discrepancy" if has_discrepancy else "clean",
+        "has_discrepancy": has_discrepancy,
+        "discrepancy": {
+            "note": discrepancy_note,
+            "item_description": item_description,
+            "expected_qty": expected_qty,
+            "found_qty": found_qty,
+            "unit": unit_var,
+            "unit_cost": unit_cost,
+            "value_impact": value_impact,
+            "resolved": False,
+            "resolution": None,
+            "resolved_at": None,
+            "resolved_by": None,
+        } if has_discrepancy else None,
+    }
+
+    await collection.update_one({"id": doc_id}, {"$set": verification})
+
+    # Log discrepancy
+    if has_discrepancy:
+        branch_id = doc.get("branch_id", "")
+        doc_date = doc.get("purchase_date") or doc.get("date") or doc.get("created_at", "")[:10]
+        doc_number = doc.get("po_number") or doc.get("order_number") or doc.get("id", "")
+        doc_title = doc.get("vendor") or doc.get("description") or doc.get("order_number", "")
+        log_entry = {
+            "id": new_id(),
+            "doc_type": doc_type,
+            "doc_id": doc_id,
+            "doc_number": doc_number,
+            "doc_title": doc_title,
+            "doc_date": doc_date,
+            "branch_id": branch_id,
+            "item_description": item_description,
+            "expected_qty": expected_qty,
+            "found_qty": found_qty,
+            "unit": unit_var,
+            "unit_cost": unit_cost,
+            "value_impact": value_impact,
+            "note": discrepancy_note,
+            "verified_by_name": verifier["verifier_name"],
+            "verified_at": now_iso(),
+            "resolved": False,
+        }
+        await db.discrepancy_log.insert_one(log_entry)
+
+    return {
+        "message": "Transaction verified",
+        "verified_by": verifier["verifier_name"],
+        "method": verifier["method"],
+        "status": "discrepancy" if has_discrepancy else "clean",
+    }
+
+
 @router.delete("/{doc_type}/{doc_id}")
 async def unverify_transaction(
     doc_type: str,

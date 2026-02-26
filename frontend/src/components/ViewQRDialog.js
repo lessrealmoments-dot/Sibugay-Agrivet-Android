@@ -134,7 +134,7 @@ export default function ViewQRDialog({ open, onClose, recordType, recordId, file
           )}
 
           <button
-            onClick={onClose}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
             data-testid="viewqr-close-btn"
             className="w-full mt-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
           >

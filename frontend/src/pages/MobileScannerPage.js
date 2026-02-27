@@ -17,7 +17,7 @@ export default function MobileScannerPage() {
 
   const API_URL = process.env.REACT_APP_BACKEND_URL;
 
-  // Validate session on load
+  // Validate session on load and notify server we're connected
   useEffect(() => {
     if (!sessionId) return;
     (async () => {
@@ -30,6 +30,10 @@ export default function MobileScannerPage() {
         }
         const data = await res.json();
         setBranchId(data.branch_id);
+
+        // Tell the server the phone is now connected
+        await fetch(`${API_URL}/api/scanner/connect/${sessionId}`, { method: 'POST' });
+
         setStatus('connected');
       } catch {
         setStatus('error');

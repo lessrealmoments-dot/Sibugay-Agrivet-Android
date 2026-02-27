@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Printer, Search, Package, Plus, Minus, Trash2, ScanBarcode, X, CheckCircle } from 'lucide-react';
+import { Printer, Search, Package, Plus, Minus, Trash2, ScanBarcode, X, CheckCircle, Warehouse } from 'lucide-react';
 import { toast } from 'sonner';
 
 const LABEL_SIZES = {

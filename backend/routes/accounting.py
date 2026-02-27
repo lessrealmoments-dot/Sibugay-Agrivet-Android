@@ -1482,7 +1482,7 @@ async def _verify_manager(manager_pin: str) -> dict:
         pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
         if pin and manager_pin == pin:
             return mgr
-    raise HTTPException(status_code=401, detail="Invalid manager PIN")
+    raise HTTPException(status_code=403, detail="Invalid manager PIN")
 
 
 # ── Fix #9: Reverse Customer Cash Advance ───────────────────────

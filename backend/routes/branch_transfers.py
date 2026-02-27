@@ -16,36 +16,21 @@ router = APIRouter(prefix="/branch-transfers", tags=["Branch Transfers"])
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-async def _get_po_refs(product_id: str):
-    """Get moving average and last purchase cost from PO history."""
-    last_po = await db.purchase_orders.find_one(
-        {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}},
-        {"items": 1}, sort=[("created_at", -1)]
-    )
-    last_purchase = 0.0
-    if last_po:
-        for item in last_po.get("items", []):
-            if item.get("product_id") == product_id:
-                raw = item.get("unit_price") or item.get("cost") or item.get("unit_cost")
-                if raw:
-                    last_purchase = float(raw)
-                break
+async def _get_po_refs(product_id: str, branch_id: str = None):
+    """Get moving average and last purchase cost from acquisition history (POs + transfers), branch-specific."""
+    # Use movements collection — includes both 'purchase' and 'transfer_in' with price_at_time
+    acq_query = {"product_id": product_id, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
+    if branch_id:
+        acq_query["branch_id"] = branch_id
 
-    avg_r = await db.purchase_orders.aggregate([
-        {"$match": {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}},
-        {"$unwind": "$items"},
-        {"$match": {"items.product_id": product_id}},
-        {"$group": {"_id": None,
-            "total": {"$sum": {"$multiply": ["$items.quantity",
-                {"$ifNull": ["$items.unit_price", {"$ifNull": ["$items.cost", 0]}]}]}},
-            "qty": {"$sum": "$items.quantity"}
-        }}
-    ]).to_list(1)
-    moving_average = (
-        round(avg_r[0]["total"] / avg_r[0]["qty"], 4)
-        if avg_r and avg_r[0]["qty"] > 0
-        else 0.0
-    )
+    last_acq = await db.movements.find_one(acq_query, {"_id": 0}, sort=[("created_at", -1)])
+    last_purchase = float(last_acq.get("price_at_time", 0)) if last_acq else 0.0
+
+    all_acqs = await db.movements.find(acq_query, {"_id": 0}).to_list(10000)
+    total_qty = sum(m["quantity_change"] for m in all_acqs)
+    total_cost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acqs)
+    moving_average = round(total_cost / total_qty, 4) if total_qty > 0 else 0.0
+
     return round(last_purchase, 2), round(moving_average, 2)
 
 

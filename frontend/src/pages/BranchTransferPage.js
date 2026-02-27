@@ -1735,7 +1735,7 @@ export default function BranchTransferPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(viewOrder?.items || []).map((item, i) => {
+                    {(viewOrder?.pending_items || viewOrder?.items || []).map((item, i) => {
                       const qtyOrdered = item.qty_ordered ?? item.qty;
                       const qtyReceived = item.qty_received ?? item.qty;
                       const variance = qtyOrdered - qtyReceived;

@@ -872,6 +872,7 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")
 
+    po_branch_id = po.get("branch_id", "")
     items_preview = []
     for item in po.get("items", []):
         pid = item.get("product_id")
@@ -883,11 +884,23 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
         product = await db.products.find_one({"id": pid}, {"_id": 0})
         if not product:
             continue
-        current_capital = float(product.get("cost_price", 0))
 
-        # Historical moving average (before this purchase)
+        # Use branch-specific cost if available, else global
+        global_capital = float(product.get("cost_price", 0))
+        current_capital = global_capital
+        if po_branch_id:
+            bp_doc = await db.branch_prices.find_one(
+                {"product_id": pid, "branch_id": po_branch_id}, {"_id": 0}
+            )
+            if bp_doc and bp_doc.get("cost_price") is not None:
+                current_capital = float(bp_doc["cost_price"])
+
+        # Historical moving average — BRANCH-SPECIFIC
+        purchase_query = {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}
+        if po_branch_id:
+            purchase_query["branch_id"] = po_branch_id
         all_purchases = await db.movements.find(
-            {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
+            purchase_query, {"_id": 0}
         ).to_list(10000)
         total_pqty = sum(m["quantity_change"] for m in all_purchases)
         total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)

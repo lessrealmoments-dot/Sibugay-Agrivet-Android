@@ -37,14 +37,15 @@ export default function SuppliersPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentBranch]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      const params = currentBranch ? { branch_id: currentBranch.id } : {};
       const [vendorsRes, suppliersRes] = await Promise.all([
         api.get('/purchase-orders/vendors'),
-        api.get('/suppliers')
+        api.get('/suppliers', { params })
       ]);
       setVendors(vendorsRes.data);
       setSuppliers(suppliersRes.data);

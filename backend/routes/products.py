@@ -251,6 +251,105 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
     return results
 
 
+
+# ── Barcode helpers ─────────────────────────────────────────────────────────
+async def _generate_unique_barcode() -> str:
+    """Generate a unique barcode with AG prefix + 8-digit number."""
+    for _ in range(100):  # max retries
+        num = random.randint(10000000, 99999999)
+        code = f"AG{num}"
+        exists = await db.products.find_one({"barcode": code}, {"_id": 0, "id": 1})
+        if not exists:
+            return code
+    raise HTTPException(status_code=500, detail="Could not generate unique barcode after 100 attempts")
+
+
+@router.get("/barcode-lookup/{barcode}")
+async def barcode_lookup(barcode: str, branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    """Look up a product by its barcode. Returns enriched data similar to search-detail."""
+    product = await db.products.find_one({"barcode": barcode, "active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="No product found with this barcode")
+
+    p = product
+    # Apply branch price overrides
+    if branch_id:
+        override = await db.branch_prices.find_one(
+            {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
+        )
+        if override and override.get("prices"):
+            merged_prices = {**(p.get("prices") or {}), **override["prices"]}
+            p = {**p, "prices": merged_prices}
+            if override.get("cost_price") is not None:
+                p = {**p, "cost_price": override["cost_price"]}
+
+    # Stock
+    if branch_id:
+        inv = await db.inventory.find_one(
+            {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
+        )
+        available = float(inv["quantity"]) if inv else 0
+    else:
+        agg = await db.inventory.aggregate([
+            {"$match": {"product_id": p["id"]}},
+            {"$group": {"_id": None, "total": {"$sum": "$quantity"}}}
+        ]).to_list(1)
+        available = float(agg[0]["total"]) if agg else 0
+
+    return {**p, "available": available}
+
+
+@router.post("/{product_id}/generate-barcode")
+async def generate_barcode(product_id: str, user=Depends(get_current_user)):
+    """Generate a unique barcode for a product that doesn't have one."""
+    check_perm(user, "products", "edit")
+    product = await db.products.find_one({"id": product_id, "active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product.get("barcode"):
+        return {"barcode": product["barcode"], "already_existed": True}
+
+    barcode = await _generate_unique_barcode()
+    await db.products.update_one({"id": product_id}, {"$set": {"barcode": barcode, "updated_at": now_iso()}})
+    return {"barcode": barcode, "already_existed": False}
+
+
+@router.post("/generate-barcodes-bulk")
+async def generate_barcodes_bulk(user=Depends(get_current_user)):
+    """Generate barcodes for all parent products that don't have one yet."""
+    check_perm(user, "products", "edit")
+    # Only target parent products (not repacks) without a barcode
+    products = await db.products.find(
+        {"active": True, "is_repack": {"$ne": True}, "$or": [{"barcode": ""}, {"barcode": None}, {"barcode": {"$exists": False}}]},
+        {"_id": 0, "id": 1, "name": 1}
+    ).to_list(10000)
+
+    generated = []
+    for p in products:
+        barcode = await _generate_unique_barcode()
+        await db.products.update_one({"id": p["id"]}, {"$set": {"barcode": barcode, "updated_at": now_iso()}})
+        generated.append({"id": p["id"], "name": p["name"], "barcode": barcode})
+
+    return {"generated": len(generated), "products": generated}
+
+
+@router.post("/barcode-check")
+async def barcode_check(data: dict, user=Depends(get_current_user)):
+    """Check if a barcode is already in use. Returns the product if found."""
+    barcode = data.get("barcode", "").strip()
+    if not barcode:
+        raise HTTPException(status_code=400, detail="Barcode is required")
+    exclude_product_id = data.get("exclude_product_id", "")
+    query = {"barcode": barcode, "active": True}
+    if exclude_product_id:
+        query["id"] = {"$ne": exclude_product_id}
+    existing = await db.products.find_one(query, {"_id": 0, "id": 1, "name": 1, "sku": 1, "barcode": 1})
+    if existing:
+        return {"duplicate": True, "product": existing}
+    return {"duplicate": False}
+
+
+
 @router.get("/categories")
 async def list_categories(user=Depends(get_current_user)):
     """Get all product categories."""

@@ -48,6 +48,7 @@ import UploadPage from './pages/UploadPage';
 import ViewReceiptsPage from './pages/ViewReceiptsPage';
 import BackupManagementPage from './pages/BackupManagementPage';
 import IncidentTicketsPage from './pages/IncidentTicketsPage';
+import BarcodePrintPage from './pages/BarcodePrintPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)
@@ -152,6 +153,7 @@ function AppRoutes() {
       <Route path="/audit" element={<ProtectedRoute><FeatureGate featureKey="audit_center"><AuditCenterPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/incident-tickets" element={<ProtectedRoute><IncidentTicketsPage /></ProtectedRoute>} />
       <Route path="/backups" element={<ProtectedRoute><BackupManagementPage /></ProtectedRoute>} />
+      <Route path="/barcode-print" element={<ProtectedRoute><BarcodePrintPage /></ProtectedRoute>} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />
       {/* Public view-receipts page — no auth, token-based */}

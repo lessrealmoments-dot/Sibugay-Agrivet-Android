@@ -265,6 +265,20 @@ export default function UnifiedSalesPage() {
     };
   }, []);
 
+  // Poll session status as fallback (in case WebSocket phone_connected message is missed)
+  useEffect(() => {
+    if (!scannerSession || scannerConnected) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/scanner/session/${scannerSession.session_id}`);
+        if (res.data.status === 'connected') {
+          setScannerConnected(true);
+        }
+      } catch {}
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [scannerSession, scannerConnected]);
+
 
 
   // Online/Offline detection

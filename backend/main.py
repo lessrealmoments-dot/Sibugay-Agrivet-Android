@@ -329,6 +329,33 @@ async def startup():
         id="daily_backup",
         replace_existing=True,
     )
+
+    # ── Per-org backup scheduler (every 6 hours by default) ───────────────────
+    from services.org_backup_service import create_org_backup
+
+    async def _org_backup_job():
+        """Backup all active organizations to R2."""
+        orgs = await _raw_db.organizations.find(
+            {"plan": {"$ne": "suspended"}},
+            {"_id": 0, "id": 1, "name": 1}
+        ).to_list(500)
+        logger.info("Running scheduled org backups for %d organizations...", len(orgs))
+        for org in orgs:
+            try:
+                result = await create_org_backup(org["id"], org.get("name", ""), "scheduled")
+                if result["success"]:
+                    logger.info("Org backup OK: %s (%d docs, %.2f MB)",
+                                org.get("name", org["id"][:8]), result["total_documents"], result["size_mb"])
+            except Exception as exc:
+                logger.error("Org backup FAILED for %s: %s", org.get("name", org["id"][:8]), exc)
+
+    for hour in [1, 7, 13, 19]:
+        _scheduler.add_job(
+            _org_backup_job,
+            CronTrigger(hour=hour, minute=15),
+            id=f"org_backup_{hour}",
+            replace_existing=True,
+        )
     # ── Update owner email ────────────────────────────────────────────────────
     await _raw_db.users.update_one(
         {"username": "owner", "is_super_admin": {"$ne": True}},

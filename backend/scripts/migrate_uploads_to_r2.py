@@ -76,10 +76,15 @@ async def migrate():
 
             local_file = Path(stored_path)
             if not local_file.exists():
-                print(f"  SKIP (missing): {stored_path}")
-                skipped += 1
-                updated_files.append(f)
-                continue
+                # Try alternate path (preview env uses /app/uploads, VPS uses relative)
+                alt_path = Path(stored_path.replace("/app/uploads", "uploads"))
+                if alt_path.exists():
+                    local_file = alt_path
+                else:
+                    print(f"  SKIP (missing): {stored_path}")
+                    skipped += 1
+                    updated_files.append(f)
+                    continue
 
             # Build R2 key and upload
             file_id = f.get("id", local_file.stem)

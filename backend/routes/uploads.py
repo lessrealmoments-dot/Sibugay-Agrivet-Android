@@ -650,7 +650,7 @@ async def mark_record_reviewed(record_type: str, record_id: str, data: dict, use
     from routes.verify import _resolve_pin
     verifier = await _resolve_pin(pin)
     if not verifier:
-        raise HTTPException(status_code=401, detail="Invalid PIN or TOTP")
+        raise HTTPException(status_code=403, detail="Invalid PIN or TOTP")
 
     review_notes = data.get("notes", "")
     await collection.update_one({"id": record_id}, {"$set": {

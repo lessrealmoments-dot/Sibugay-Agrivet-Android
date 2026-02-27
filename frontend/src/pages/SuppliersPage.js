@@ -115,11 +115,13 @@ export default function SuppliersPage() {
     }
     setSaving(true);
     try {
+      const payload = { ...supplierForm };
+      if (currentBranch) payload.branch_id = currentBranch.id;
       if (editMode && supplierForm.id) {
-        await api.put(`/suppliers/${supplierForm.id}`, supplierForm);
+        await api.put(`/suppliers/${supplierForm.id}`, payload);
         toast.success('Supplier updated');
       } else {
-        await api.post('/suppliers', supplierForm);
+        await api.post('/suppliers', payload);
         toast.success('Supplier created');
       }
       setSupplierDialog(false);

@@ -197,9 +197,9 @@ export default function UnifiedSalesPage() {
     };
   }, [handleBarcodeScan]);
 
-  // ── Linked Scanner — Desktop WebSocket ────────────────────────────────────
+  // ── Linked Scanner — REST polling (reliable) ───────────────────────────────
   const API_URL = process.env.REACT_APP_BACKEND_URL;
-  const WS_URL = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+  const scanPollIndexRef = useRef(0);
 
   const createScannerSession = async () => {
     if (!currentBranch?.id || currentBranch.id === 'all') {
@@ -211,39 +211,7 @@ export default function UnifiedSalesPage() {
       const res = await api.post('/scanner/create-session', { branch_id: currentBranch.id });
       const { session_id, branch_id } = res.data;
       setScannerSession({ session_id, branch_id });
-
-      // Connect desktop WebSocket
-      const ws = new WebSocket(`${WS_URL}/api/scanner/ws/desktop/${session_id}`);
-      scannerWsRef.current = ws;
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'phone_connected') {
-            setScannerConnected(true);
-            toast.success('Phone scanner connected!');
-          } else if (msg.type === 'phone_disconnected') {
-            setScannerConnected(false);
-            toast.info('Phone scanner disconnected');
-          } else if (msg.type === 'scan_result' && msg.found && msg.product) {
-            try {
-              if (addToCartRef.current) addToCartRef.current(msg.product);
-            } catch (cartErr) {
-              console.error('addToCart error:', cartErr, msg.product);
-            }
-            toast.success(`Scanned: ${msg.product.name}`);
-          } else if (msg.type === 'scan_result' && !msg.found) {
-            toast.error(`No product for barcode: ${msg.barcode}`);
-          }
-        } catch (err) {
-          console.error('Scanner WS message error:', err);
-        }
-      };
-
-      ws.onclose = () => {
-        setScannerConnected(false);
-      };
-
+      scanPollIndexRef.current = 0;
       setScannerQrOpen(true);
     } catch (e) {
       toast.error('Failed to create scanner session');
@@ -255,35 +223,43 @@ export default function UnifiedSalesPage() {
     if (scannerSession) {
       try { await api.post(`/scanner/close-session/${scannerSession.session_id}`); } catch {}
     }
-    if (scannerWsRef.current) {
-      scannerWsRef.current.close();
-      scannerWsRef.current = null;
-    }
     setScannerSession(null);
     setScannerConnected(false);
     setScannerQrOpen(false);
+    scanPollIndexRef.current = 0;
   };
 
-  // Cleanup on unmount
+  // Poll for new scans every 1.5s
   useEffect(() => {
-    return () => {
-      if (scannerWsRef.current) scannerWsRef.current.close();
-    };
-  }, []);
-
-  // Poll session status as fallback (in case WebSocket phone_connected message is missed)
-  useEffect(() => {
-    if (!scannerSession || scannerConnected) return;
+    if (!scannerSession) return;
     const interval = setInterval(async () => {
       try {
-        const res = await api.get(`/scanner/session/${scannerSession.session_id}`);
-        if (res.data.status === 'connected') {
+        const res = await api.get(`/scanner/scans/${scannerSession.session_id}`, {
+          params: { after: scanPollIndexRef.current }
+        });
+        const { scans, total, status } = res.data;
+
+        // Update connected status
+        if (status === 'connected' && !scannerConnected) {
           setScannerConnected(true);
         }
+
+        // Process new scans
+        if (scans && scans.length > 0) {
+          for (const scan of scans) {
+            if (scan.found && scan.product) {
+              if (addToCartRef.current) addToCartRef.current(scan.product);
+              toast.success(`Scanned: ${scan.product.name}`);
+            } else if (!scan.found) {
+              toast.error(`No product for barcode: ${scan.barcode}`);
+            }
+          }
+          scanPollIndexRef.current = total;
+        }
       } catch {}
-    }, 2000);
+    }, 1500);
     return () => clearInterval(interval);
-  }, [scannerSession, scannerConnected]);
+  }, [scannerSession, scannerConnected]); // eslint-disable-line
 
 
 

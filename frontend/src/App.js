@@ -156,6 +156,8 @@ function AppRoutes() {
       <Route path="/incident-tickets" element={<ProtectedRoute><IncidentTicketsPage /></ProtectedRoute>} />
       <Route path="/backups" element={<ProtectedRoute><BackupManagementPage /></ProtectedRoute>} />
       <Route path="/barcode-print" element={<ProtectedRoute><BarcodePrintPage /></ProtectedRoute>} />
+      <Route path="/barcode-manage" element={<ProtectedRoute><BarcodeManagePage /></ProtectedRoute>} />
+      <Route path="/scanner/:sessionId" element={<MobileScannerPage />} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />
       {/* Public view-receipts page — no auth, token-based */}

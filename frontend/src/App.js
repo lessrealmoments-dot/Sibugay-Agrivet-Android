@@ -49,6 +49,8 @@ import ViewReceiptsPage from './pages/ViewReceiptsPage';
 import BackupManagementPage from './pages/BackupManagementPage';
 import IncidentTicketsPage from './pages/IncidentTicketsPage';
 import BarcodePrintPage from './pages/BarcodePrintPage';
+import BarcodeManagePage from './pages/BarcodeManagePage';
+import MobileScannerPage from './pages/MobileScannerPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)

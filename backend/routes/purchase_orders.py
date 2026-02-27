@@ -57,15 +57,15 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
             f"PO received from {po['vendor']}"
         )
 
-        # Calculate moving average — BRANCH-SPECIFIC (only purchases at this branch)
-        branch_purchase_query = {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}
+        # Calculate moving average — BRANCH-SPECIFIC (POs + transfers at this branch)
+        branch_acq_query = {"product_id": pid, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
         if branch_id:
-            branch_purchase_query["branch_id"] = branch_id
-        all_purchases = await db.movements.find(
-            branch_purchase_query, {"_id": 0}
+            branch_acq_query["branch_id"] = branch_id
+        all_acquisitions = await db.movements.find(
+            branch_acq_query, {"_id": 0}
         ).to_list(10000)
-        total_pqty = sum(m["quantity_change"] for m in all_purchases)
-        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
+        total_pqty = sum(m["quantity_change"] for m in all_acquisitions)
+        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acquisitions)
         moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
 
         # Fetch old capital — use branch-specific cost if available, else global

@@ -128,7 +128,6 @@ export default function UnifiedSalesPage() {
   const [scannerConnected, setScannerConnected] = useState(false);
   const [scannerQrOpen, setScannerQrOpen] = useState(false);
   const [scannerCreating, setScannerCreating] = useState(false);
-  const scannerWsRef = useRef(null);
   const addToCartRef = useRef(null); // ref to always call latest addToCart
   
   const searchRef = useRef(null);

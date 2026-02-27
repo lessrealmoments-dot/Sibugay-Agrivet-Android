@@ -39,6 +39,7 @@ from routes import (
 )
 from routes.backups import router as backups_router
 from routes.internal_invoices import router as internal_invoices_router
+from routes.incident_tickets import router as incident_tickets_router
 
 # =============================================================================
 # APP SETUP
@@ -128,6 +129,9 @@ api_router.include_router(superadmin_router)
 
 # Internal Invoices (branch-to-branch billing)
 api_router.include_router(internal_invoices_router)
+
+# Incident Tickets (transfer variance investigation)
+api_router.include_router(incident_tickets_router)
 
 # Admin Portal Auth (separate login)
 api_router.include_router(admin_auth_router)

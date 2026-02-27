@@ -553,7 +553,7 @@ export default function ProductsPage() {
                 </TableRow>
               ))}
               {!products.length && (
-                <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">No products found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">No products found</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

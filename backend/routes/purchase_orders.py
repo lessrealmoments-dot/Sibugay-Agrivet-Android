@@ -57,17 +57,27 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
             f"PO received from {po['vendor']}"
         )
 
-        # Calculate moving average (includes this purchase since movement is already logged)
+        # Calculate moving average — BRANCH-SPECIFIC (only purchases at this branch)
+        branch_purchase_query = {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}
+        if branch_id:
+            branch_purchase_query["branch_id"] = branch_id
         all_purchases = await db.movements.find(
-            {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}, {"_id": 0}
+            branch_purchase_query, {"_id": 0}
         ).to_list(10000)
         total_pqty = sum(m["quantity_change"] for m in all_purchases)
         total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
         moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
 
-        # Fetch old capital to compare and log the change
+        # Fetch old capital — use branch-specific cost if available, else global
         product = await db.products.find_one({"id": pid}, {"_id": 0})
-        old_capital = float(product.get("cost_price", 0)) if product else 0
+        global_capital = float(product.get("cost_price", 0)) if product else 0
+        old_capital = global_capital
+        if branch_id:
+            bp_doc = await db.branch_prices.find_one(
+                {"product_id": pid, "branch_id": branch_id}, {"_id": 0}
+            )
+            if bp_doc and bp_doc.get("cost_price") is not None:
+                old_capital = float(bp_doc["cost_price"])
 
         # Determine new capital based on choice
         # Smart rule: if no explicit choice given, auto-decide:
@@ -82,12 +92,26 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
             choice = "last_purchase"
         new_capital = moving_avg if choice == "moving_average" else price
 
+        # Update global product cost (fallback for branches without overrides)
         product_update = {
             "last_vendor": po["vendor"],
             "cost_price": new_capital,
             "moving_average_cost": moving_avg,
         }
         await db.products.update_one({"id": pid}, {"$set": product_update})
+
+        # Update branch-specific cost in branch_prices
+        if branch_id:
+            await db.branch_prices.update_one(
+                {"product_id": pid, "branch_id": branch_id},
+                {"$set": {
+                    "cost_price": new_capital,
+                    "moving_average_cost": moving_avg,
+                    "source": "purchase_order",
+                    "updated_at": now_iso(),
+                }},
+                upsert=True
+            )
 
         # Log capital change
         await db.capital_changes.insert_one({

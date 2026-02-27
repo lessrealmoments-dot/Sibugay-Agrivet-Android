@@ -150,6 +150,8 @@ function AppRoutes() {
       <Route path="/reports" element={<ProtectedRoute><FeatureGate featureKey="advanced_reports"><ReportsPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/returns" element={<ProtectedRoute><ReturnRefundWizard /></ProtectedRoute>} />
       <Route path="/audit" element={<ProtectedRoute><FeatureGate featureKey="audit_center"><AuditCenterPage /></FeatureGate></ProtectedRoute>} />
+      <Route path="/incident-tickets" element={<ProtectedRoute><IncidentTicketsPage /></ProtectedRoute>} />
+      <Route path="/backups" element={<ProtectedRoute><BackupManagementPage /></ProtectedRoute>} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />
       {/* Public view-receipts page — no auth, token-based */}

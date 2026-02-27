@@ -332,6 +332,9 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - **Prominent Sync Now button**: Full-width amber button replaces old "Push now" link for better visibility.
 
 ### P1 — Upcoming
+- Incident Tickets page in sidebar (for admins to manage open incidents) — DONE
+- Backup Management UI (super admin + company owner views) — DONE
+- R2 migration script for existing uploads — DONE
 - Employee Cash Advance Summary Report
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data

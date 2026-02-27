@@ -966,6 +966,16 @@ export default function UnifiedSalesPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Linked Scanner indicator */}
+          {scannerSession && (
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${
+              scannerConnected ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+            }`} onClick={() => setScannerQrOpen(true)} data-testid="scanner-status">
+              <Smartphone size={12} />
+              {scannerConnected ? 'Scanner Active' : 'Waiting...'}
+            </div>
+          )}
+
           {/* Offline indicator */}
           <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
             isOnline ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
@@ -974,6 +984,12 @@ export default function UnifiedSalesPage() {
             {isOnline ? 'Online' : 'Offline'}
             {pendingCount > 0 && <Badge variant="secondary" className="ml-1 text-[10px] h-4">{pendingCount}</Badge>}
           </div>
+
+          {!scannerSession && (
+            <Button variant="outline" size="sm" onClick={createScannerSession} disabled={scannerCreating} data-testid="link-scanner-btn">
+              <Smartphone size={14} className="mr-1" /> {scannerCreating ? 'Creating...' : 'Link Scanner'}
+            </Button>
+          )}
           
           <Button variant="outline" size="sm" onClick={() => loadData(true)} disabled={!isOnline}>
             <RefreshCw size={14} className="mr-1" /> Sync

@@ -226,12 +226,18 @@ export default function UnifiedSalesPage() {
             setScannerConnected(false);
             toast.info('Phone scanner disconnected');
           } else if (msg.type === 'scan_result' && msg.found && msg.product) {
-            if (addToCartRef.current) addToCartRef.current(msg.product);
+            try {
+              if (addToCartRef.current) addToCartRef.current(msg.product);
+            } catch (cartErr) {
+              console.error('addToCart error:', cartErr, msg.product);
+            }
             toast.success(`Scanned: ${msg.product.name}`);
           } else if (msg.type === 'scan_result' && !msg.found) {
             toast.error(`No product for barcode: ${msg.barcode}`);
           }
-        } catch {}
+        } catch (err) {
+          console.error('Scanner WS message error:', err);
+        }
       };
 
       ws.onclose = () => {

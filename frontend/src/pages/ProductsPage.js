@@ -422,6 +422,12 @@ export default function ProductsPage() {
           <Button variant="outline" size="sm" onClick={() => navigate('/import')} data-testid="go-to-import-btn">
             <Upload size={15} className="mr-1.5" /> Import
           </Button>
+          <Button variant="outline" size="sm" onClick={handleBulkGenerateBarcodes} disabled={barcodeGenerating} data-testid="bulk-barcode-btn">
+            <ScanBarcode size={15} className="mr-1.5 text-blue-500" /> {barcodeGenerating ? 'Generating...' : 'Generate Barcodes'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/barcode-print')} data-testid="print-barcodes-nav-btn">
+            <ScanBarcode size={15} className="mr-1.5 text-emerald-600" /> Print Barcodes
+          </Button>
           <Button variant="outline" size="sm" onClick={openQrModal} data-testid="quick-repack-btn">
             <Zap size={15} className="mr-1.5 text-amber-500" /> Quick Repack
           </Button>

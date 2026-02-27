@@ -895,15 +895,15 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
             if bp_doc and bp_doc.get("cost_price") is not None:
                 current_capital = float(bp_doc["cost_price"])
 
-        # Historical moving average — BRANCH-SPECIFIC
-        purchase_query = {"product_id": pid, "type": "purchase", "quantity_change": {"$gt": 0}}
+        # Historical moving average — BRANCH-SPECIFIC (POs + transfers)
+        acq_query = {"product_id": pid, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
         if po_branch_id:
-            purchase_query["branch_id"] = po_branch_id
-        all_purchases = await db.movements.find(
-            purchase_query, {"_id": 0}
+            acq_query["branch_id"] = po_branch_id
+        all_acquisitions = await db.movements.find(
+            acq_query, {"_id": 0}
         ).to_list(10000)
-        total_pqty = sum(m["quantity_change"] for m in all_purchases)
-        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
+        total_pqty = sum(m["quantity_change"] for m in all_acquisitions)
+        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acquisitions)
         current_moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else current_capital
 
         # Projected moving average AFTER this purchase

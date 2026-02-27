@@ -832,15 +832,27 @@ async def get_product_orders(product_id: str, branch_id: Optional[str] = None, l
 
 @router.post("/{product_id}/vendors")
 async def add_product_vendor(product_id: str, data: dict, user=Depends(get_current_user)):
-    """Add a vendor for a product, optionally scoped to a branch."""
+    """Add a vendor for a product, optionally scoped to a branch. Can link to a supplier via supplier_id."""
     check_perm(user, "products", "edit")
-    
+
+    supplier_id = data.get("supplier_id", "")
+    vendor_name = data.get("vendor_name", "")
+    vendor_contact = data.get("vendor_contact", "")
+
+    # If supplier_id is provided, look up name/contact from the supplier record
+    if supplier_id:
+        supplier = await db.suppliers.find_one({"id": supplier_id}, {"_id": 0})
+        if supplier:
+            vendor_name = supplier.get("name", vendor_name)
+            vendor_contact = supplier.get("phone", vendor_contact)
+
     vendor = {
         "id": new_id(),
         "product_id": product_id,
         "branch_id": data.get("branch_id", ""),
-        "vendor_name": data.get("vendor_name", ""),
-        "vendor_contact": data.get("vendor_contact", ""),
+        "supplier_id": supplier_id,
+        "vendor_name": vendor_name,
+        "vendor_contact": vendor_contact,
         "last_price": float(data.get("last_price", 0)),
         "is_preferred": data.get("is_preferred", False),
         "created_at": now_iso()

@@ -150,42 +150,21 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
         # Used as reference info in the POS price editor
         lookup_id = p.get("parent_id") if p.get("is_repack") and p.get("parent_id") else p["id"]
 
-        # Last purchase price — branch-specific when branch_id provided
-        last_po_query = {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}}
+        # Last acquisition price — branch-specific, includes POs + transfers
+        acq_query = {"product_id": lookup_id, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
         if branch_id:
-            last_po_query["branch_id"] = branch_id
-        last_po = await db.purchase_orders.find_one(
-            last_po_query,
-            {"items": 1}, sort=[("created_at", -1)]
-        )
-        last_purchase_cost = 0.0
-        if last_po:
-            for item in last_po.get("items", []):
-                if item.get("product_id") == lookup_id:
-                    raw = item.get("unit_price") or item.get("cost") or item.get("unit_cost")
-                    if raw:
-                        last_purchase_cost = float(raw)
-                        # For repacks: divide by units_per_parent
-                        if p.get("is_repack") and p.get("units_per_parent", 1) > 1:
-                            last_purchase_cost = round(last_purchase_cost / p["units_per_parent"], 4)
-                    break
+            acq_query["branch_id"] = branch_id
+        last_acq = await db.movements.find_one(acq_query, {"_id": 0}, sort=[("created_at", -1)])
+        last_purchase_cost = float(last_acq.get("price_at_time", 0)) if last_acq else 0.0
+        if last_purchase_cost > 0 and p.get("is_repack") and p.get("units_per_parent", 1) > 1:
+            last_purchase_cost = round(last_purchase_cost / p["units_per_parent"], 4)
 
-        # Moving average cost — branch-specific when branch_id provided
-        po_match = {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}}
-        if branch_id:
-            po_match["branch_id"] = branch_id
-        avg_r = await db.purchase_orders.aggregate([
-            {"$match": po_match},
-            {"$unwind": "$items"},
-            {"$match": {"items.product_id": lookup_id}},
-            {"$group": {"_id": None,
-                "total": {"$sum": {"$multiply": ["$items.quantity",
-                    {"$ifNull": ["$items.unit_price", {"$ifNull": ["$items.cost", 0]}]}]}},
-                "qty": {"$sum": "$items.quantity"}
-            }}
-        ]).to_list(1)
-        if avg_r and avg_r[0]["qty"] > 0:
-            moving_average_cost = round(avg_r[0]["total"] / avg_r[0]["qty"], 4)
+        # Moving average cost — branch-specific, includes POs + transfers
+        all_acqs = await db.movements.find(acq_query, {"_id": 0}).to_list(10000)
+        total_acq_qty = sum(m["quantity_change"] for m in all_acqs)
+        total_acq_cost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acqs)
+        if total_acq_qty > 0:
+            moving_average_cost = round(total_acq_cost / total_acq_qty, 4)
             if p.get("is_repack") and p.get("units_per_parent", 1) > 1:
                 moving_average_cost = round(moving_average_cost / p["units_per_parent"], 4)
         else:

@@ -43,6 +43,7 @@ const NAV_SECTIONS = [
       { path: '/pay-supplier',    label: 'Pay Supplier',    icon: Building2, perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
       { path: '/suppliers',       label: 'Suppliers',       icon: Truck,     perm: 'suppliers.view',       featureFlag: 'supplier_management' },
       { path: '/barcode-print',   label: 'Print Barcodes',  icon: ScanBarcode, perm: 'products.view' },
+      { path: '/barcode-manage',  label: 'Barcode Manager', icon: ScanBarcode, perm: 'products.edit' },
     ],
   },
   {

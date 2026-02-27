@@ -545,7 +545,10 @@ export default function BranchTransferPage() {
       const preview = await api.get(`/branch-transfers/${viewOrder.id}/capital-preview`);
       if (preview.data.has_warnings) {
         const defaultChoices = {};
-        preview.data.items.forEach(i => { defaultChoices[i.product_id] = 'transfer_capital'; });
+        // Same smart rule as POs: price drop → default to moving_average
+        preview.data.items.forEach(i => {
+          defaultChoices[i.product_id] = i.needs_warning ? 'moving_average' : 'transfer_capital';
+        });
         setTransferCapitalChoices(defaultChoices);
         setTransferCapitalPreview(preview.data);
         setTransferCapitalPendingItems(items);

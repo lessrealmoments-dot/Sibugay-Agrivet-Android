@@ -354,6 +354,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - Ticket lifecycle: Open → Investigating → Resolved → Closed, with timeline tracking every action.
   - All variance acceptances logged to `audit_log` for audit trail.
   - Incident ticket badges shown on transfer list and detail views.
+- [x] **R2 Object Storage Integration (Feb 27, 2026)**:
+  - All file uploads (QR receipts, transfer proofs, expense receipts) now go to **Cloudflare R2** (`agribooks-files` bucket).
+  - Multi-tenant storage layout: `{org_id}/{record_type}/{record_id}/{file_id}.ext`
+  - Files served via **pre-signed URLs** (1-hour expiry, no public bucket access).
+  - VPS stores zero user files — only code and database.
+  - Backward compatible: legacy local files still served via old endpoint.
+  - Direct upload, QR upload, and reassign all use R2.
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers

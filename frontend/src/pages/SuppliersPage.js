@@ -14,6 +14,7 @@ import { Search, Truck, FileText, DollarSign, ArrowRight, CheckCircle, AlertCirc
 import { toast } from 'sonner';
 
 export default function SuppliersPage() {
+  const { currentBranch } = useAuth();
   const [vendors, setVendors] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);

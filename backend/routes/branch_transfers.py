@@ -407,8 +407,8 @@ async def get_transfer_capital_preview(transfer_id: str, user=Depends(get_curren
             product = await db.products.find_one({"id": pid}, {"_id": 0})
             current_dest_capital = float(product.get("cost_price", 0)) if product else 0
 
-        # Moving average from PO history
-        _, moving_avg = await _get_po_refs(pid)
+        # Moving average from acquisition history (POs + transfers) at destination branch
+        _, moving_avg = await _get_po_refs(pid, to_branch_id)
         if moving_avg == 0:
             moving_avg = current_dest_capital
 

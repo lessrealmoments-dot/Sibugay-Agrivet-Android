@@ -2151,6 +2151,53 @@ export default function UnifiedSalesPage() {
         </div>
       )}
 
+      {/* Scanner Link QR Dialog */}
+      <Dialog open={scannerQrOpen} onOpenChange={setScannerQrOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone size={18} /> Link Phone Scanner
+            </DialogTitle>
+            <DialogDescription>
+              Scan this QR code with your phone camera to connect as a barcode scanner
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            {scannerSession && (
+              <>
+                <div className="bg-white p-3 rounded-xl border-2 border-slate-200">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`${window.location.origin}/scanner/${scannerSession.session_id}`)}`}
+                    alt="Scanner QR"
+                    width={200} height={200}
+                  />
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${
+                  scannerConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                }`}>
+                  {scannerConnected ? (
+                    <><CheckCircle2 size={14} /> Phone Connected</>
+                  ) : (
+                    <><Wifi size={14} className="animate-pulse" /> Waiting for phone...</>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 text-center">
+                  Branch-locked scanner session. Scanned products will appear in your cart automatically.
+                </p>
+              </>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => setScannerQrOpen(false)}>
+              {scannerConnected ? 'Minimize' : 'Close'}
+            </Button>
+            <Button variant="destructive" className="flex-1" onClick={closeScannerSession} data-testid="disconnect-scanner-btn">
+              Disconnect
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

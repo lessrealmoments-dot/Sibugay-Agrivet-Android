@@ -533,9 +533,12 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
         parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
     
     # Get cost info — compute moving average and last purchase from PO history
-    # PO items store the cost in the `unit_price` field
+    # BRANCH-SPECIFIC: filter by branch_id when provided
+    po_match = {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}
+    if branch_id:
+        po_match["branch_id"] = branch_id
     moving_avg_r = await db.purchase_orders.aggregate([
-        {"$match": {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}},
+        {"$match": po_match},
         {"$unwind": "$items"},
         {"$match": {"items.product_id": product_id}},
         {"$group": {
@@ -552,8 +555,11 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
     else:
         moving_average = float(product.get("cost_price", 0))
 
+    last_po_query = {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}
+    if branch_id:
+        last_po_query["branch_id"] = branch_id
     last_po = await db.purchase_orders.find_one(
-        {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}},
+        last_po_query,
         {"items": 1},
         sort=[("created_at", -1)]
     )

@@ -122,6 +122,13 @@ export default function UnifiedSalesPage() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
   const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Linked Scanner
+  const [scannerSession, setScannerSession] = useState(null); // { session_id, branch_id }
+  const [scannerConnected, setScannerConnected] = useState(false);
+  const [scannerQrOpen, setScannerQrOpen] = useState(false);
+  const [scannerCreating, setScannerCreating] = useState(false);
+  const scannerWsRef = useRef(null);
   
   const searchRef = useRef(null);
   const qtyRefs = useRef([]);

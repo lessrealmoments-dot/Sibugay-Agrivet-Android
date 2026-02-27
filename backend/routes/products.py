@@ -528,46 +528,18 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
     if product.get("parent_id"):
         parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
     
-    # Get cost info — compute moving average and last purchase from PO history
+    # Get cost info — moving average and last acquisition from movements (POs + transfers)
     # BRANCH-SPECIFIC: filter by branch_id when provided
-    po_match = {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}
+    acq_query = {"product_id": product_id, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
     if branch_id:
-        po_match["branch_id"] = branch_id
-    moving_avg_r = await db.purchase_orders.aggregate([
-        {"$match": po_match},
-        {"$unwind": "$items"},
-        {"$match": {"items.product_id": product_id}},
-        {"$group": {
-            "_id": None,
-            "total_cost": {"$sum": {"$multiply": [
-                "$items.quantity",
-                {"$ifNull": ["$items.unit_price", {"$ifNull": ["$items.cost", 0]}]}
-            ]}},
-            "total_qty": {"$sum": "$items.quantity"}
-        }}
-    ]).to_list(1)
-    if moving_avg_r and moving_avg_r[0]["total_qty"] > 0:
-        moving_average = round(moving_avg_r[0]["total_cost"] / moving_avg_r[0]["total_qty"], 2)
-    else:
-        moving_average = float(product.get("cost_price", 0))
+        acq_query["branch_id"] = branch_id
+    all_acqs = await db.movements.find(acq_query, {"_id": 0}).to_list(10000)
+    total_acq_qty = sum(m["quantity_change"] for m in all_acqs)
+    total_acq_cost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acqs)
+    moving_average = round(total_acq_cost / total_acq_qty, 2) if total_acq_qty > 0 else float(product.get("cost_price", 0))
 
-    last_po_query = {"items.product_id": product_id, "status": {"$in": ["received", "partial"]}}
-    if branch_id:
-        last_po_query["branch_id"] = branch_id
-    last_po = await db.purchase_orders.find_one(
-        last_po_query,
-        {"items": 1},
-        sort=[("created_at", -1)]
-    )
-    last_purchase = 0.0
-    if last_po:
-        for item in last_po.get("items", []):
-            if item.get("product_id") == product_id:
-                # Support both field names used across different PO creation paths
-                last_purchase = float(
-                    item.get("unit_price") or item.get("cost") or item.get("unit_cost") or 0
-                )
-                break
+    last_acq = await db.movements.find_one(acq_query, {"_id": 0}, sort=[("created_at", -1)])
+    last_purchase = float(last_acq.get("price_at_time", 0)) if last_acq else 0.0
 
     capital_method = product.get("capital_method", "last_purchase")
     # Branch-specific cost override (set when transfer is received)

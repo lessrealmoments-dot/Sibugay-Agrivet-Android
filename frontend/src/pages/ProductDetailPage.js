@@ -13,9 +13,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   ArrowLeft, Package, Tags, DollarSign, Warehouse, Info, Users, History, ShoppingCart,
-  Plus, Pencil, Trash2, Link2, AlertTriangle, TrendingDown, TrendingUp, Save, Activity
+  Plus, Pencil, Trash2, Link2, AlertTriangle, TrendingDown, TrendingUp, Save, Activity, ScanBarcode, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { BarcodeDisplay } from '../components/BarcodeDisplay';
 
 export default function ProductDetailPage() {
   const { id } = useParams();

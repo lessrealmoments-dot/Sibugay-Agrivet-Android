@@ -455,6 +455,8 @@ export default function UnifiedSalesPage() {
       }]);
     }
   };
+  // Keep ref in sync so WebSocket handler always calls latest addToCart
+  addToCartRef.current = addToCart;
 
   const updateQty = (productId, delta) => {
     setCart(cart.map(c => {

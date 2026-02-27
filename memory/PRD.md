@@ -339,9 +339,12 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 ### Recent Bug Fixes (Feb 27, 2026)
 - [x] **Branch-Specific Product Detail**: Capital History, Movement History, Order History, and Vendors now filter by the user's current branch instead of showing all-branches data.
 - [x] **Branch-Specific Pricing**: Editing retail prices on a specific branch now saves to `branch_prices` (per-branch override) instead of modifying the global product, preventing cross-branch price contamination.
-- [x] **Branch-Specific Vendors**: Vendors can now be scoped to specific branches. Product detail page filters vendors by the current branch.
+- [x] **Branch-Specific Vendors & Suppliers**: Vendors and Suppliers are now branch-scoped. Product vendors link to suppliers via `supplier_id` (single source of truth for contact info). Supplier picker replaces freeform vendor name input.
 - [x] **Order History Refactored**: The order history endpoint now returns properly formatted items from both Purchase Orders and Sales (previously only returned raw PO documents).
 - [x] **Capital Change Tracking**: Capital changes from POs and branch transfers now include `branch_id` for proper branch-level audit trails.
+- [x] **Branch-Specific Moving Average**: Moving average and last purchase calculations are now branch-scoped — only POs/movements from the current branch are used, preventing cross-branch cost contamination.
+- [x] **Smart Capital Rule**: Default is `last_purchase`. When PO price drops below current capital → warns user and defaults to `moving_average`. Price equal or higher → auto-uses `last_purchase`. User can still override in the dialog.
+- [x] **PO Receive → Branch Prices**: When receiving a PO, the new capital is now also stored in `branch_prices.cost_price` for the receiving branch (not just the global product).
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers

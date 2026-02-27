@@ -65,6 +65,10 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
         total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
         moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
 
+        # Fetch old capital to compare and log the change
+        product = await db.products.find_one({"id": pid}, {"_id": 0})
+        old_capital = float(product.get("cost_price", 0)) if product else 0
+
         # Determine new capital based on choice
         # Smart rule: if no explicit choice given, auto-decide:
         #   new_price >= current_capital → use last_purchase (price same or higher, safe)
@@ -77,10 +81,6 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
         else:
             choice = "last_purchase"
         new_capital = moving_avg if choice == "moving_average" else price
-
-        # Fetch old capital to log the change
-        product = await db.products.find_one({"id": pid}, {"_id": 0})
-        old_capital = float(product.get("cost_price", 0)) if product else 0
 
         product_update = {
             "last_vendor": po["vendor"],

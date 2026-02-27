@@ -5,6 +5,7 @@ Updates upload_sessions in MongoDB to use r2_key instead of stored_path.
 
 Usage (on VPS):
   cd /var/www/agribooks/backend
+  source venv/bin/activate
   python3 scripts/migrate_uploads_to_r2.py
 
 Safe to run multiple times — skips files already migrated (have r2_key).
@@ -16,6 +17,17 @@ from pathlib import Path
 
 # Add parent to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Load .env file manually (script runs outside FastAPI)
+env_path = Path(__file__).resolve().parent.parent / ".env"
+if env_path.exists():
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, _, value = line.partition("=")
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key.strip(), value)
+    print(f"Loaded .env from {env_path}")
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.r2_storage import upload_file, file_exists, build_key

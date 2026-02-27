@@ -438,12 +438,13 @@ export default function UnifiedSalesPage() {
 
   // Quick mode: Add to cart
   const addToCart = (product) => {
-    const existing = cart.find(c => c.product_id === product.id);
     const price = getPriceForCustomer(product);
-    if (existing) {
-      setCart(cart.map(c => c.product_id === product.id ? { ...c, quantity: c.quantity + 1, total: (c.quantity + 1) * c.price } : c));
-    } else {
-      setCart([...cart, {
+    setCart(prev => {
+      const existing = prev.find(c => c.product_id === product.id);
+      if (existing) {
+        return prev.map(c => c.product_id === product.id ? { ...c, quantity: c.quantity + 1, total: (c.quantity + 1) * c.price } : c);
+      }
+      return [...prev, {
         product_id: product.id, product_name: product.name, sku: product.sku,
         price, quantity: 1, total: price, unit: product.unit, is_repack: product.is_repack,
         cost_price: product.cost_price || 0,
@@ -452,8 +453,8 @@ export default function UnifiedSalesPage() {
         effective_capital: product.effective_capital || product.cost_price || 0,
         capital_method: product.capital_method || 'manual',
         original_price: price,
-      }]);
-    }
+      }];
+    });
   };
   // Keep ref in sync so WebSocket handler always calls latest addToCart
   addToCartRef.current = addToCart;

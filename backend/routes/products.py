@@ -523,7 +523,7 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
     ]).to_list(1)
     reserved = reserved_r[0]["t"] if reserved_r else 0
     
-    # Get vendors — filtered by branch when provided
+    # Get vendors — filtered by branch when provided, enriched with supplier details
     vendor_query = {"product_id": product_id}
     if branch_id:
         vendor_query["$or"] = [
@@ -531,7 +531,18 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
             {"branch_id": ""},
             {"branch_id": {"$exists": False}},
         ]
-    vendors = await db.product_vendors.find(vendor_query, {"_id": 0}).to_list(50)
+    raw_vendors = await db.product_vendors.find(vendor_query, {"_id": 0}).to_list(50)
+    # Enrich with supplier details if supplier_id is present
+    vendors = []
+    for v in raw_vendors:
+        if v.get("supplier_id"):
+            supplier = await db.suppliers.find_one({"id": v["supplier_id"]}, {"_id": 0})
+            if supplier:
+                v["vendor_name"] = supplier.get("name", v.get("vendor_name", ""))
+                v["vendor_contact"] = supplier.get("phone", v.get("vendor_contact", ""))
+                v["supplier_email"] = supplier.get("email", "")
+                v["supplier_address"] = supplier.get("address", "")
+        vendors.append(v)
     
     # Get parent product if this is a repack
     parent = None

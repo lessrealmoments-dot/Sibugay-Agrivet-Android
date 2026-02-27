@@ -150,9 +150,12 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
         # Used as reference info in the POS price editor
         lookup_id = p.get("parent_id") if p.get("is_repack") and p.get("parent_id") else p["id"]
 
-        # Last purchase price
+        # Last purchase price — branch-specific when branch_id provided
+        last_po_query = {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}}
+        if branch_id:
+            last_po_query["branch_id"] = branch_id
         last_po = await db.purchase_orders.find_one(
-            {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}},
+            last_po_query,
             {"items": 1}, sort=[("created_at", -1)]
         )
         last_purchase_cost = 0.0
@@ -167,9 +170,12 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
                             last_purchase_cost = round(last_purchase_cost / p["units_per_parent"], 4)
                     break
 
-        # Moving average cost
+        # Moving average cost — branch-specific when branch_id provided
+        po_match = {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}}
+        if branch_id:
+            po_match["branch_id"] = branch_id
         avg_r = await db.purchase_orders.aggregate([
-            {"$match": {"items.product_id": lookup_id, "status": {"$in": ["received", "partial"]}}},
+            {"$match": po_match},
             {"$unwind": "$items"},
             {"$match": {"items.product_id": lookup_id}},
             {"$group": {"_id": None,

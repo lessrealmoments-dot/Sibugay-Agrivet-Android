@@ -345,6 +345,15 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - [x] **Branch-Specific Moving Average**: Moving average and last purchase calculations are now branch-scoped — only POs/movements from the current branch are used, preventing cross-branch cost contamination.
 - [x] **Smart Capital Rule**: Default is `last_purchase`. When PO price drops below current capital → warns user and defaults to `moving_average`. Price equal or higher → auto-uses `last_purchase`. User can still override in the dialog.
 - [x] **PO Receive → Branch Prices**: When receiving a PO, the new capital is now also stored in `branch_prices.cost_price` for the receiving branch (not just the global product).
+- [x] **Transfer Capital in Moving Average**: Branch transfers (`transfer_in` movements) now factor into the moving average calculation alongside PO purchases. All 6 MA calculation locations updated.
+- [x] **Smart Capital Rule for Transfers**: Same as POs — transfer_capital ≥ current → auto-accept, transfer_capital < current → warn + default to moving_average.
+- [x] **Enhanced Dispute System (Feb 27, 2026)**:
+  - Sender now sees full **Sent vs Received comparison table** (quantities, variance, capital/retail loss) when reviewing a pending variance.
+  - **3 action options**: Accept Variance (acknowledge loss), Accept + Investigate (create incident ticket), Dispute & Re-count.
+  - New **Incident Tickets** system (`incident_tickets` collection + full CRUD API) for tracking/investigating transfer losses.
+  - Ticket lifecycle: Open → Investigating → Resolved → Closed, with timeline tracking every action.
+  - All variance acceptances logged to `audit_log` for audit trail.
+  - Incident ticket badges shown on transfer list and detail views.
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers

@@ -514,6 +514,13 @@ export default function ProductsPage() {
                   <TableCell>{p.unit}</TableCell>
                   <TableCell className="text-right font-mono">{formatPHP(p.cost_price)}</TableCell>
                   <TableCell>
+                    {p.barcode ? (
+                      <code className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-600">{p.barcode}</code>
+                    ) : (
+                      <span className="text-[10px] text-slate-300">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {p.is_repack ? (
                       <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">Repack</Badge>
                     ) : (

@@ -311,6 +311,48 @@ export default function ProductDetailPage() {
         </CardContent></Card>
       </div>
 
+      {/* Barcode Section */}
+      <Card className="border-slate-200">
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <ScanBarcode size={20} className="text-slate-400 shrink-0" />
+            <div>
+              <p className="text-xs text-slate-500 uppercase font-medium mb-1">Product Barcode</p>
+              {product.barcode ? (
+                <div className="flex items-center gap-4">
+                  <BarcodeDisplay value={product.barcode} width={1.5} height={40} fontSize={12} />
+                  <code className="text-sm font-mono bg-slate-100 px-2 py-1 rounded">{product.barcode}</code>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">No barcode assigned</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {!product.barcode && (
+              <Button
+                variant="outline" size="sm"
+                onClick={handleGenerateBarcode}
+                disabled={barcodeGenerating}
+                data-testid="generate-barcode-btn"
+              >
+                <ScanBarcode size={14} className="mr-1.5" />
+                {barcodeGenerating ? 'Generating...' : 'Generate Barcode'}
+              </Button>
+            )}
+            {product.barcode && (
+              <Button
+                variant="outline" size="sm"
+                onClick={() => navigate('/barcode-print')}
+                data-testid="print-barcode-btn"
+              >
+                <Printer size={14} className="mr-1.5" /> Print Label
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Accordion Sections */}
       <Accordion type="multiple" defaultValue={["sales", "inventory"]} className="space-y-3">
         {/* Sales Information */}

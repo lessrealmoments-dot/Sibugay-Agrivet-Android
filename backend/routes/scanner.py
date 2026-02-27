@@ -55,6 +55,18 @@ async def get_session(session_id: str):
     return {"session_id": session["id"], "branch_id": session["branch_id"], "status": session["status"]}
 
 
+@router.post("/connect/{session_id}")
+async def connect_session(session_id: str):
+    """Phone confirms it has connected to the session (sets status to 'connected')."""
+    result = await db.scanner_sessions.update_one(
+        {"id": session_id, "status": {"$ne": "closed"}},
+        {"$set": {"status": "connected", "updated_at": now_iso()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Session not found or closed")
+    return {"connected": True}
+
+
 @router.post("/close-session/{session_id}")
 async def close_session(session_id: str, user=Depends(get_current_user)):
     """Desktop closes the scanner session."""

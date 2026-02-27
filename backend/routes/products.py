@@ -561,7 +561,7 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
                 )
                 break
 
-    capital_method = product.get("capital_method", "moving_average")
+    capital_method = product.get("capital_method", "last_purchase")
     # Branch-specific cost override (set when transfer is received)
     branch_prices_doc = None
     branch_cost_price = None

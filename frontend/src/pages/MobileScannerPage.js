@@ -13,19 +13,14 @@ export default function MobileScannerPage() {
   const [scanCount, setScanCount] = useState(0);
   const [branchId, setBranchId] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const wsRef = useRef(null);
   const scannerRef = useRef(null);
-  const videoRef = useRef(null);
 
   const API_URL = process.env.REACT_APP_BACKEND_URL;
-  const WS_URL = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
-  // Connect WebSocket
+  // Validate session on load
   useEffect(() => {
     if (!sessionId) return;
-
-    const connect = async () => {
-      // First validate session
+    (async () => {
       try {
         const res = await fetch(`${API_URL}/api/scanner/session/${sessionId}`);
         if (!res.ok) {
@@ -35,72 +30,46 @@ export default function MobileScannerPage() {
         }
         const data = await res.json();
         setBranchId(data.branch_id);
+        setStatus('connected');
       } catch {
         setStatus('error');
         setErrorMsg('Cannot reach server');
-        return;
       }
+    })();
+  }, [sessionId, API_URL]);
 
-      // Connect WebSocket
-      const ws = new WebSocket(`${WS_URL}/api/scanner/ws/phone/${sessionId}`);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setStatus('connected');
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'connected') {
-            setStatus('connected');
-            setBranchId(msg.branch_id || '');
-          } else if (msg.type === 'scan_result') {
-            setLastScan({
-              found: msg.found,
-              barcode: msg.barcode,
-              product: msg.product || null,
-              time: new Date().toLocaleTimeString(),
-            });
-          } else if (msg.type === 'desktop_disconnected') {
-            setStatus('error');
-            setErrorMsg('Desktop disconnected');
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        setStatus('closed');
-      };
-
-      ws.onerror = () => {
-        setStatus('error');
-        setErrorMsg('Connection failed');
-      };
-    };
-
-    connect();
-    return () => {
-      if (wsRef.current) wsRef.current.close();
-    };
-  }, [sessionId, API_URL, WS_URL]);
-
-  // Send barcode to server (with debounce)
+  // Send barcode via REST (reliable, no WebSocket needed)
   const lastScanRef = useRef({ barcode: '', time: 0 });
-  const sendBarcode = useCallback((barcode) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+  const sendBarcode = useCallback(async (barcode) => {
     const now = Date.now();
     const last = lastScanRef.current;
-    // Same barcode → 5s cooldown before accepting again
+    // Same barcode → 5s cooldown
     if (barcode === last.barcode && now - last.time < 5000) return;
-    // Different barcode → 300ms cooldown (prevent accidental double-read)
+    // Different barcode → 300ms cooldown
     if (barcode !== last.barcode && now - last.time < 300) return;
     lastScanRef.current = { barcode, time: now };
-    wsRef.current.send(JSON.stringify({ type: 'barcode_scan', barcode }));
-    setScanCount(c => c + 1);
+
     // Vibrate for feedback
     if (navigator.vibrate) navigator.vibrate(100);
-  }, []);
+    setScanCount(c => c + 1);
+
+    try {
+      const res = await fetch(`${API_URL}/api/scanner/scan/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode }),
+      });
+      const result = await res.json();
+      setLastScan({
+        found: result.found,
+        barcode: result.barcode,
+        product: result.product || null,
+        time: new Date().toLocaleTimeString(),
+      });
+    } catch {
+      setLastScan({ found: false, barcode, time: new Date().toLocaleTimeString() });
+    }
+  }, [sessionId, API_URL]);
 
   // Start camera barcode scanner
   const startScanning = useCallback(async () => {
@@ -115,7 +84,7 @@ export default function MobileScannerPage() {
         (decodedText) => {
           sendBarcode(decodedText);
         },
-        () => {} // ignore errors during scan
+        () => {}
       );
       setScanning(true);
     } catch (err) {
@@ -135,7 +104,6 @@ export default function MobileScannerPage() {
     setScanning(false);
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => { stopScanning(); };
   }, [stopScanning]);
@@ -184,19 +152,15 @@ export default function MobileScannerPage() {
         </Badge>
       </div>
 
-      {/* Scan count & stats */}
+      {/* Scan count */}
       <div className="px-4 py-3 bg-slate-800 flex items-center justify-between text-sm">
         <span className="text-slate-400">Scans this session: <strong className="text-white">{scanCount}</strong></span>
-        {branchId && <Badge variant="outline" className="text-slate-400 border-slate-600 text-xs">Branch locked</Badge>}
+        <Badge variant="outline" className="text-slate-400 border-slate-600 text-xs">Branch locked</Badge>
       </div>
 
       {/* Camera area */}
       <div className="relative">
-        <div
-          id="scanner-region"
-          className="w-full"
-          style={{ minHeight: scanning ? 300 : 0 }}
-        />
+        <div id="scanner-region" className="w-full" style={{ minHeight: scanning ? 300 : 0 }} />
         {!scanning && (
           <div className="flex items-center justify-center py-16 bg-slate-800/50">
             <Button

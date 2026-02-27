@@ -45,6 +45,20 @@ export default function ProductDetailPage() {
 
   const isAdmin = user?.role === 'admin';
 
+  const handleGenerateBarcode = async () => {
+    setBarcodeGenerating(true);
+    try {
+      const res = await api.post(`/products/${id}/generate-barcode`);
+      if (res.data.already_existed) {
+        toast.info(`Product already has barcode: ${res.data.barcode}`);
+      } else {
+        toast.success(`Barcode generated: ${res.data.barcode}`);
+      }
+      fetchDetail();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to generate barcode'); }
+    setBarcodeGenerating(false);
+  };
+
   const fetchDetail = useCallback(async () => {
     try {
       const params = currentBranch ? { branch_id: currentBranch.id } : {};

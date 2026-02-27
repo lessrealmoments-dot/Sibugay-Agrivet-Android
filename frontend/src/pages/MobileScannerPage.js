@@ -91,10 +91,10 @@ export default function MobileScannerPage() {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     const now = Date.now();
     const last = lastScanRef.current;
-    // Same barcode within 3s → ignore (prevents rapid-fire)
-    if (barcode === last.barcode && now - last.time < 3000) return;
-    // Any barcode within 500ms → ignore (general cooldown)
-    if (now - last.time < 500) return;
+    // Same barcode → 5s cooldown before accepting again
+    if (barcode === last.barcode && now - last.time < 5000) return;
+    // Different barcode → 300ms cooldown (prevent accidental double-read)
+    if (barcode !== last.barcode && now - last.time < 300) return;
     lastScanRef.current = { barcode, time: now };
     wsRef.current.send(JSON.stringify({ type: 'barcode_scan', barcode }));
     setScanCount(c => c + 1);

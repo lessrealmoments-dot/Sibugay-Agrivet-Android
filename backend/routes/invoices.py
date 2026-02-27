@@ -809,7 +809,7 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
             break
 
     if not authorized_manager:
-        raise HTTPException(status_code=401, detail="Invalid manager PIN")
+        raise HTTPException(status_code=403, detail="Invalid manager PIN")
 
     # 2. Get invoice
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
@@ -976,7 +976,7 @@ async def void_invoice_payment(inv_id: str, payment_id: str, data: dict, user=De
             authorized_manager = mgr
             break
     if not authorized_manager:
-        raise HTTPException(status_code=401, detail="Invalid manager PIN")
+        raise HTTPException(status_code=403, detail="Invalid manager PIN")
 
     inv = await db.invoices.find_one({"id": inv_id}, {"_id": 0})
     if not inv:

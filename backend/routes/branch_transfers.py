@@ -474,31 +474,41 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
                 detail="Receipt upload required. Please upload at least 1 receipt/DR photo before confirming receipt."
             )
 
-    # ── Link pending upload sessions ──────────────────────────────────────
+    # ── Link pending upload sessions (supports R2 + legacy local) ────────
     if upload_session_ids:
         from pathlib import Path
-        upload_dir = Path("/app/uploads")
         for sid in upload_session_ids:
             session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
             if not session:
                 continue
             old_record_id = session.get("record_id", "")
-            new_dir = upload_dir / "branch_transfer" / transfer_id
-            new_dir.mkdir(parents=True, exist_ok=True)
+            org_id = session.get("org_id", "default")
             updated_files = []
             for f in session.get("files", []):
-                old_path = Path(f.get("stored_path", ""))
-                if old_path.exists():
-                    new_path = new_dir / old_path.name
-                    old_path.rename(new_path)
-                    f["stored_path"] = str(new_path)
+                r2_key = f.get("r2_key", "")
+                if r2_key and old_record_id != transfer_id:
+                    # R2 file — copy to new key, delete old
+                    try:
+                        from utils.r2_storage import _get_client, _bucket, build_key
+                        client = _get_client()
+                        ext = Path(r2_key).suffix
+                        new_key = build_key(org_id, "branch_transfer", transfer_id, f"{f['id']}{ext}")
+                        client.copy_object(Bucket=_bucket, CopySource={"Bucket": _bucket, "Key": r2_key}, Key=new_key)
+                        client.delete_object(Bucket=_bucket, Key=r2_key)
+                        f["r2_key"] = new_key
+                    except Exception:
+                        pass
+                elif f.get("stored_path") and old_record_id != transfer_id:
+                    # Legacy local file
+                    upload_dir = Path("/app/uploads")
+                    old_path = Path(f["stored_path"])
+                    if old_path.exists():
+                        new_dir = upload_dir / "branch_transfer" / transfer_id
+                        new_dir.mkdir(parents=True, exist_ok=True)
+                        new_path = new_dir / old_path.name
+                        old_path.rename(new_path)
+                        f["stored_path"] = str(new_path)
                 updated_files.append(f)
-            old_dir = upload_dir / "branch_transfer" / old_record_id
-            if old_dir.exists() and not any(old_dir.iterdir()):
-                try:
-                    old_dir.rmdir()
-                except Exception:
-                    pass
             await db.upload_sessions.update_one(
                 {"id": sid},
                 {"$set": {

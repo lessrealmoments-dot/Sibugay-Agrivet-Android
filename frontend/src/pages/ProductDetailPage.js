@@ -999,17 +999,32 @@ export default function ProductDetailPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Vendor Dialog */}
+      {/* Vendor Dialog — Supplier Picker */}
       <Dialog open={vendorDialog} onOpenChange={setVendorDialog}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Add Vendor</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Link Supplier to Product</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
-            <div><Label>Vendor Name</Label><Input data-testid="vendor-name" value={vendorForm.vendor_name} onChange={e => setVendorForm({ ...vendorForm, vendor_name: e.target.value })} /></div>
-            <div><Label>Contact</Label><Input value={vendorForm.vendor_contact} onChange={e => setVendorForm({ ...vendorForm, vendor_contact: e.target.value })} /></div>
-            <div><Label>Last Price</Label><Input type="number" value={vendorForm.last_price} onChange={e => setVendorForm({ ...vendorForm, last_price: parseFloat(e.target.value) || 0 })} /></div>
+            <div>
+              <Label>Supplier {currentBranch && <span className="text-[10px] text-violet-600">({currentBranch.name})</span>}</Label>
+              {branchSuppliers.length > 0 ? (
+                <Select value={vendorForm.supplier_id} onValueChange={v => setVendorForm({ ...vendorForm, supplier_id: v })}>
+                  <SelectTrigger data-testid="vendor-supplier-select"><SelectValue placeholder="Select supplier..." /></SelectTrigger>
+                  <SelectContent>
+                    {branchSuppliers.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name} {s.phone ? `· ${s.phone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-slate-400 mt-1">No suppliers found for this branch. Add suppliers first in the Suppliers page.</p>
+              )}
+            </div>
+            <div><Label>Last Price</Label><Input type="number" data-testid="vendor-last-price" value={vendorForm.last_price} onChange={e => setVendorForm({ ...vendorForm, last_price: parseFloat(e.target.value) || 0 })} /></div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setVendorDialog(false)}>Cancel</Button>
-              <Button data-testid="save-vendor" onClick={handleAddVendor} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save</Button>
+              <Button data-testid="save-vendor" onClick={handleAddVendor} disabled={!vendorForm.supplier_id} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Link Supplier</Button>
             </div>
           </div>
         </DialogContent>

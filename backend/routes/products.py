@@ -1,10 +1,11 @@
 """
-Product management routes: CRUD, repacks, pricing, search.
+Product management routes: CRUD, repacks, pricing, search, barcodes.
 """
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
+from typing import Optional, List
 from config import db
 from utils import get_current_user, check_perm, has_perm, now_iso, new_id, get_product_price
+import random
 
 router = APIRouter(prefix="/products", tags=["Products"])
 

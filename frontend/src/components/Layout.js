@@ -10,7 +10,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive
+  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 import NotificationBell from './NotificationBell';
@@ -42,6 +42,7 @@ const NAV_SECTIONS = [
       { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck,     perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
       { path: '/pay-supplier',    label: 'Pay Supplier',    icon: Building2, perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
       { path: '/suppliers',       label: 'Suppliers',       icon: Truck,     perm: 'suppliers.view',       featureFlag: 'supplier_management' },
+      { path: '/barcode-print',   label: 'Print Barcodes',  icon: ScanBarcode, perm: 'products.view' },
     ],
   },
   {

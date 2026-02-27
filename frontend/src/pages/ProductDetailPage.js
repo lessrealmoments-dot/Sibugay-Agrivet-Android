@@ -150,7 +150,19 @@ export default function ProductDetailPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };
 
+  const fetchBranchSuppliers = async () => {
+    try {
+      const params = currentBranch ? { branch_id: currentBranch.id } : {};
+      const res = await api.get('/suppliers', { params });
+      setBranchSuppliers(res.data || []);
+    } catch { setBranchSuppliers([]); }
+  };
+
   const handleAddVendor = async () => {
+    if (!vendorForm.supplier_id) {
+      toast.error('Please select a supplier');
+      return;
+    }
     try {
       const payload = { ...vendorForm };
       if (currentBranch) payload.branch_id = currentBranch.id;

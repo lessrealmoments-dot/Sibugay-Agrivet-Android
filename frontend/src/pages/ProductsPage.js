@@ -494,6 +494,7 @@ export default function ProductsPage() {
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Category</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Unit</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Cost</TableHead>
+                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Barcode</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Type</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-32">Actions</TableHead>
               </TableRow>

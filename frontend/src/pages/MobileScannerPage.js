@@ -85,9 +85,17 @@ export default function MobileScannerPage() {
     };
   }, [sessionId, API_URL, WS_URL]);
 
-  // Send barcode to server
+  // Send barcode to server (with debounce)
+  const lastScanRef = useRef({ barcode: '', time: 0 });
   const sendBarcode = useCallback((barcode) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    const now = Date.now();
+    const last = lastScanRef.current;
+    // Same barcode within 3s → ignore (prevents rapid-fire)
+    if (barcode === last.barcode && now - last.time < 3000) return;
+    // Any barcode within 500ms → ignore (general cooldown)
+    if (now - last.time < 500) return;
+    lastScanRef.current = { barcode, time: now };
     wsRef.current.send(JSON.stringify({ type: 'barcode_scan', barcode }));
     setScanCount(c => c + 1);
     // Vibrate for feedback

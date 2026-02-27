@@ -416,3 +416,25 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
     - `POST /api/products/barcode-check` — duplicate validation
   - **Frontend files**: `BarcodeDisplay.js` (component), `BarcodePrintPage.js` (page)
   - **Dependencies**: `jsbarcode@3.12.3` (frontend)
+
+- [x] **Barcode Management Page (Feb 27, 2026)**:
+  - New page at `/barcode-manage` with two tabs: "No Barcode" and "With Barcode"
+  - **No Barcode tab**: Lists parent products without barcodes, individual "Generate" buttons, and bulk "Generate All" button
+  - **With Barcode tab**: Lists all products with barcodes, shows barcode preview SVG, code, and category
+  - Search/filter across both tabs by name, SKU, or barcode
+  - Summary badges: "X No Barcode" and "Y With Barcode" counts in header
+
+- [x] **Print Barcodes — Load from Inventory (Feb 27, 2026)**:
+  - "Load from Inventory" button on Print Barcodes page
+  - Loads parent products with barcodes that have stock in the current branch
+  - Auto-sets label quantity to match inventory count (50 units → 50 labels)
+  - New API: `GET /api/products/barcode-inventory/{branch_id}`
+
+- [x] **Linked Phone Scanner — WebSocket (Feb 27, 2026)**:
+  - **Desktop**: "Link Scanner" button on Sales page creates a session → shows QR code
+  - **Phone**: Scans QR → opens `/scanner/{sessionId}` → connects via WebSocket → camera scans barcodes
+  - **Real-time**: Scanned products appear on desktop POS cart automatically
+  - **Branch-locked**: Scanner session is tied to the current branch for correct pricing/stock
+  - Backend: `scanner.py` with REST + WebSocket endpoints
+  - Frontend: `MobileScannerPage.js` (mobile), scanner integration in `UnifiedSalesPage.js` (desktop)
+  - Dependencies: `html5-qrcode@2.3.8` (camera barcode scanning)

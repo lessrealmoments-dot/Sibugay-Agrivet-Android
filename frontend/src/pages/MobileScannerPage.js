@@ -111,7 +111,7 @@ export default function MobileScannerPage() {
 
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 5, qrbox: { width: 250, height: 100 }, aspectRatio: 1.777 },
+        { fps: 2, qrbox: { width: 250, height: 100 }, aspectRatio: 1.777 },
         (decodedText) => {
           sendBarcode(decodedText);
         },

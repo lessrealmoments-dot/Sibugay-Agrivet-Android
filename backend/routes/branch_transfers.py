@@ -638,8 +638,11 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
                           from_name, to_name, transfer_id, user, notes="", capital_choices=None):
     """Apply the inventory movement for a confirmed receipt.
     capital_choices: dict of {product_id: "transfer_capital"|"moving_average"}
-      - "transfer_capital" (default): use the transfer's capital at destination
-      - "moving_average": use the moving average from PO history
+      - "transfer_capital": use the transfer's capital at destination
+      - "moving_average": use the moving average from acquisition history
+    Smart rule (when no explicit choice given):
+      - transfer_capital >= current_dest_capital → use transfer_capital
+      - transfer_capital < current_dest_capital  → use moving_average (cushion the drop)
     """
     if capital_choices is None:
         capital_choices = {}
@@ -649,8 +652,22 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         transfer_capital = float(item.get("transfer_capital") or item.get("branch_capital") or 0)
         branch_retail = float(item.get("branch_retail") or 0)
 
+        # Get current capital at destination for smart rule comparison
+        bp_current = await db.branch_prices.find_one(
+            {"product_id": product_id, "branch_id": to_branch_id}, {"_id": 0}
+        )
+        current_dest_capital = float(bp_current["cost_price"]) if bp_current and bp_current.get("cost_price") is not None else 0
+
         # Determine final capital at destination based on choice
-        choice = capital_choices.get(product_id, "transfer_capital")
+        # Smart rule: same logic as PO receive
+        explicit_choice = capital_choices.get(product_id)
+        if explicit_choice:
+            choice = explicit_choice
+        elif transfer_capital < current_dest_capital and current_dest_capital > 0 and transfer_capital > 0:
+            choice = "moving_average"
+        else:
+            choice = "transfer_capital"
+
         if choice == "moving_average":
             _, moving_avg = await _get_po_refs(product_id, to_branch_id)
             dest_capital = moving_avg if moving_avg > 0 else transfer_capital

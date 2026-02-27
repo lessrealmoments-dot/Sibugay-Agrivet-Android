@@ -42,6 +42,13 @@ async def migrate():
     sessions = await db.upload_sessions.find({}, {"_id": 0}).to_list(100000)
     print(f"Found {len(sessions)} upload sessions to check")
 
+    # Find default org_id for sessions without one
+    default_org = await db.organizations.find_one({"is_default": True}, {"_id": 0, "id": 1})
+    default_org_id = default_org["id"] if default_org else "default"
+    print(f"Default org_id: {default_org_id}")
+    print(f"R2 bucket: {os.environ.get('R2_FILES_BUCKET', 'NOT SET')}")
+    print(f"R2 endpoint: {os.environ.get('R2_ENDPOINT_URL', 'NOT SET')[:40]}...")
+
     migrated = 0
     skipped = 0
     errors = 0
@@ -49,7 +56,7 @@ async def migrate():
 
     for session in sessions:
         session_id = session.get("id", "")
-        org_id = session.get("org_id") or session.get("organization_id") or "default"
+        org_id = session.get("org_id") or session.get("organization_id") or default_org_id
         record_type = session.get("record_type", "unknown")
         record_id = session.get("record_id", "unknown")
         files = session.get("files", [])

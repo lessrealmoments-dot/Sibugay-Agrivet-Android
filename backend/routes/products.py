@@ -32,6 +32,7 @@ async def list_products(
         query["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
             {"sku": {"$regex": search, "$options": "i"}},
+            {"barcode": {"$regex": search, "$options": "i"}},
         ]
     if category:
         query["category"] = category

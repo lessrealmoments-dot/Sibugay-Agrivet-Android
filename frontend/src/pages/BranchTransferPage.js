@@ -1691,11 +1691,30 @@ export default function BranchTransferPage() {
           )}
 
           <ScrollArea className="flex-1">
-            {/* Reconciliation view for received orders */}
-            {viewOrder?.status === 'received' ? (
+            {/* Reconciliation view for received AND received_pending orders */}
+            {(viewOrder?.status === 'received' || viewOrder?.status === 'received_pending') ? (
               <div className="space-y-3">
+                {viewOrder?.status === 'received_pending' && (
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-300 text-sm text-amber-800">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <AlertTriangle size={14} /> Pending Your Review
+                    </p>
+                    <p className="text-xs mt-1">
+                      {branches.find(b => b.id === viewOrder?.to_branch_id)?.name || 'Destination'} submitted received quantities with a variance.
+                      Review the comparison below and Accept or Dispute.
+                    </p>
+                    {viewOrder.receive_notes && (
+                      <p className="text-xs mt-1 text-amber-600">Receiver's note: "{viewOrder.receive_notes}"</p>
+                    )}
+                  </div>
+                )}
                 <div className="text-xs text-slate-500 bg-slate-50 rounded px-3 py-2 flex justify-between">
-                  <span>Received by: <b>{viewOrder.received_by_name}</b> · {viewOrder.received_at?.slice(0,10)}</span>
+                  <span>
+                    {viewOrder?.status === 'received_pending'
+                      ? <>Counted by: <b>{viewOrder.pending_receipt_by_name}</b> · {viewOrder.pending_receipt_at?.slice(0,16).replace('T',' ')}</>
+                      : <>Received by: <b>{viewOrder.received_by_name}</b> · {viewOrder.received_at?.slice(0,10)}</>
+                    }
+                  </span>
                   {viewOrder.has_shortage && (
                     <span className="text-red-600 font-medium flex items-center gap-1">
                       <AlertTriangle size={12}/> {viewOrder.shortages?.length} product(s) short

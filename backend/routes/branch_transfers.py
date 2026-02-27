@@ -652,7 +652,7 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
         # Determine final capital at destination based on choice
         choice = capital_choices.get(product_id, "transfer_capital")
         if choice == "moving_average":
-            _, moving_avg = await _get_po_refs(product_id)
+            _, moving_avg = await _get_po_refs(product_id, to_branch_id)
             dest_capital = moving_avg if moving_avg > 0 else transfer_capital
         else:
             dest_capital = transfer_capital

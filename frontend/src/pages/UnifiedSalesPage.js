@@ -196,6 +196,76 @@ export default function UnifiedSalesPage() {
     };
   }, [handleBarcodeScan]);
 
+  // ── Linked Scanner — Desktop WebSocket ────────────────────────────────────
+  const API_URL = process.env.REACT_APP_BACKEND_URL;
+  const WS_URL = API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+
+  const createScannerSession = async () => {
+    if (!currentBranch?.id || currentBranch.id === 'all') {
+      toast.error('Select a specific branch to link a scanner');
+      return;
+    }
+    setScannerCreating(true);
+    try {
+      const res = await api.post('/scanner/create-session', { branch_id: currentBranch.id });
+      const { session_id, branch_id } = res.data;
+      setScannerSession({ session_id, branch_id });
+
+      // Connect desktop WebSocket
+      const ws = new WebSocket(`${WS_URL}/api/scanner/ws/desktop/${session_id}`);
+      scannerWsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'phone_connected') {
+            setScannerConnected(true);
+            toast.success('Phone scanner connected!');
+          } else if (msg.type === 'phone_disconnected') {
+            setScannerConnected(false);
+            toast.info('Phone scanner disconnected');
+          } else if (msg.type === 'scan_result' && msg.found && msg.product) {
+            addToCart(msg.product);
+            toast.success(`Scanned: ${msg.product.name}`);
+          } else if (msg.type === 'scan_result' && !msg.found) {
+            toast.error(`No product for barcode: ${msg.barcode}`);
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        setScannerConnected(false);
+      };
+
+      setScannerQrOpen(true);
+    } catch (e) {
+      toast.error('Failed to create scanner session');
+    }
+    setScannerCreating(false);
+  };
+
+  const closeScannerSession = async () => {
+    if (scannerSession) {
+      try { await api.post(`/scanner/close-session/${scannerSession.session_id}`); } catch {}
+    }
+    if (scannerWsRef.current) {
+      scannerWsRef.current.close();
+      scannerWsRef.current = null;
+    }
+    setScannerSession(null);
+    setScannerConnected(false);
+    setScannerQrOpen(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (scannerWsRef.current) scannerWsRef.current.close();
+    };
+  }, []);
+
+
+
   // Online/Offline detection
   useEffect(() => {
     const goOnline = async () => {

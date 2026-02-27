@@ -21,11 +21,11 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
     """
     Update inventory + product costs from a PO's items.
     capital_choices: dict of {product_id: "last_purchase"|"moving_average"}
-      - "last_purchase" (default): use the new PO unit price as capital
+      - "last_purchase": use the new PO unit price as capital
       - "moving_average": use the projected weighted moving average after this purchase
-    Smart pricing rule (applied automatically when no explicit choice given):
-      - new_price >= current_capital → always use new price (auto-update, no choice needed)
-      - new_price < current_capital  → frontend should have warned user; default is still last_purchase
+    Smart pricing rule (applied when no explicit choice given for a product):
+      - new_price >= current_capital → use last_purchase (safe to adopt new price)
+      - new_price < current_capital  → use moving_average (cushions the capital drop)
     """
     if capital_choices is None:
         capital_choices = {}

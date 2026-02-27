@@ -211,6 +211,21 @@ export default function ProductsPage() {
     fetchProducts();
   };
 
+  const handleBulkGenerateBarcodes = async () => {
+    setBarcodeGenerating(true);
+    try {
+      const res = await api.post('/products/generate-barcodes-bulk');
+      const count = res.data.generated || 0;
+      if (count > 0) {
+        toast.success(`Generated barcodes for ${count} product(s)`);
+        fetchProducts();
+      } else {
+        toast.info('All parent products already have barcodes');
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to generate barcodes'); }
+    setBarcodeGenerating(false);
+  };
+
   const fetchProducts = useCallback(async () => {
     try {
       const params = { skip: page * LIMIT, limit: LIMIT, sort_by: sortBy };

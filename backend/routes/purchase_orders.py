@@ -66,7 +66,16 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
         moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
 
         # Determine new capital based on choice
-        choice = capital_choices.get(pid, "last_purchase")
+        # Smart rule: if no explicit choice given, auto-decide:
+        #   new_price >= current_capital → use last_purchase (price same or higher, safe)
+        #   new_price < current_capital  → use moving_average (price dropped, cushion the blow)
+        explicit_choice = capital_choices.get(pid)
+        if explicit_choice:
+            choice = explicit_choice
+        elif price < old_capital and old_capital > 0 and price > 0:
+            choice = "moving_average"
+        else:
+            choice = "last_purchase"
         new_capital = moving_avg if choice == "moving_average" else price
 
         # Fetch old capital to log the change

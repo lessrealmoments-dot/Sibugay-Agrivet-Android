@@ -845,7 +845,7 @@ export default function ProductDetailPage() {
             </div>
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">
-            <Button size="sm" onClick={() => { setVendorForm({ vendor_name: '', vendor_contact: '', last_price: 0, is_preferred: false }); setVendorDialog(true); }}
+            <Button size="sm" onClick={() => { setVendorForm({ supplier_id: '', last_price: 0, is_preferred: false }); fetchBranchSuppliers(); setVendorDialog(true); }}
               className="mb-3 bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid="add-vendor-btn">
               <Plus size={14} className="mr-1" /> Add Vendor
             </Button>

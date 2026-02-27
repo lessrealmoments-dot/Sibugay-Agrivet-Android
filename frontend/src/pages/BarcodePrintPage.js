@@ -201,6 +201,15 @@ export default function BarcodePrintPage() {
             <Package size={15} className="mr-1.5" /> Add All Products
           </Button>
           <Button
+            variant="outline"
+            onClick={loadFromInventory}
+            disabled={loadingInventory}
+            data-testid="load-inventory-btn"
+          >
+            <Warehouse size={15} className="mr-1.5 text-blue-500" />
+            {loadingInventory ? 'Loading...' : 'Load from Inventory'}
+          </Button>
+          <Button
             onClick={handlePrint}
             disabled={!printList.length}
             className="bg-[#1A4D2E] hover:bg-[#14532d] text-white"

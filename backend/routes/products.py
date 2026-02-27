@@ -366,7 +366,7 @@ async def barcode_inventory_for_print(branch_id: str, user=Depends(get_current_u
     # Get parent products with barcodes that have inventory
     products = await db.products.find(
         {"id": {"$in": list(inv_map.keys())}, "active": True, "is_repack": {"$ne": True},
-         "barcode": {"$exists": True, "$ne": "", "$ne": None}},
+         "barcode": {"$exists": True, "$nin": ["", None]}},
         {"_id": 0, "id": 1, "name": 1, "sku": 1, "barcode": 1, "category": 1}
     ).to_list(10000)
 

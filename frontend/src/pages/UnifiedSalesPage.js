@@ -126,6 +126,69 @@ export default function UnifiedSalesPage() {
   const searchRef = useRef(null);
   const qtyRefs = useRef([]);
 
+  // ── Barcode Scanner Listener ─────────────────────────────────────────────
+  // USB barcode scanners type characters rapidly and end with Enter.
+  // We detect this pattern and look up the product by barcode.
+  const scanBufferRef = useRef('');
+  const scanTimerRef = useRef(null);
+
+  const handleBarcodeScan = useCallback(async (barcode) => {
+    if (!barcode || barcode.length < 3) return;
+    // First check locally cached products
+    const localMatch = allProducts.find(p => p.barcode === barcode);
+    if (localMatch) {
+      addToCart(localMatch);
+      toast.success(`Scanned: ${localMatch.name}`);
+      return;
+    }
+    // If not found locally, try API lookup
+    try {
+      const branchId = currentBranch?.id && currentBranch.id !== 'all' ? currentBranch.id : undefined;
+      const res = await api.get(`/products/barcode-lookup/${encodeURIComponent(barcode)}`, {
+        params: branchId ? { branch_id: branchId } : {}
+      });
+      if (res.data) {
+        addToCart(res.data);
+        toast.success(`Scanned: ${res.data.name}`);
+      }
+    } catch {
+      toast.error(`No product found for barcode: ${barcode}`);
+    }
+  }, [allProducts, currentBranch]); // eslint-disable-line
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Ignore if user is typing in an input/textarea (except the main search)
+      const tag = e.target.tagName;
+      const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      // Allow scan capture even when focused on search input
+      const isSearchInput = e.target.getAttribute('data-testid') === 'product-search-input';
+
+      if (e.key === 'Enter' && scanBufferRef.current.length >= 3) {
+        e.preventDefault();
+        const barcode = scanBufferRef.current.trim();
+        scanBufferRef.current = '';
+        clearTimeout(scanTimerRef.current);
+        handleBarcodeScan(barcode);
+        return;
+      }
+
+      // Only capture printable characters, not in other inputs
+      if (e.key.length === 1 && (!isInput || isSearchInput)) {
+        scanBufferRef.current += e.key;
+        clearTimeout(scanTimerRef.current);
+        // Scanner sends all chars within ~50ms, clear buffer if idle for 100ms
+        scanTimerRef.current = setTimeout(() => { scanBufferRef.current = ''; }, 100);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+      clearTimeout(scanTimerRef.current);
+    };
+  }, [handleBarcodeScan]);
+
   // Online/Offline detection
   useEffect(() => {
     const goOnline = async () => {

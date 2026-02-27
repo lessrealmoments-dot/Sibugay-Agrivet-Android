@@ -117,7 +117,7 @@ async def lookup_product_for_transfer(
     for p in products:
         global_cost = float(p.get("cost_price", 0))
         branch_capital = float(await get_branch_cost(p, from_branch_id)) if from_branch_id else global_cost
-        last_purchase, moving_avg = await _get_po_refs(p["id"])
+        last_purchase, moving_avg = await _get_po_refs(p["id"], from_branch_id)
         memory = await _get_price_memory(p["id"], to_branch_id) if to_branch_id else {}
         results.append({
             "id": p["id"],

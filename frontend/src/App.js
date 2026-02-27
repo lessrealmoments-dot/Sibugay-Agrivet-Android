@@ -46,6 +46,8 @@ import AuditCenterPage from './pages/AuditCenterPage';
 import TeamPage from './pages/TeamPage';
 import UploadPage from './pages/UploadPage';
 import ViewReceiptsPage from './pages/ViewReceiptsPage';
+import BackupManagementPage from './pages/BackupManagementPage';
+import IncidentTicketsPage from './pages/IncidentTicketsPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)

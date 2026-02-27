@@ -226,7 +226,7 @@ export default function UnifiedSalesPage() {
             setScannerConnected(false);
             toast.info('Phone scanner disconnected');
           } else if (msg.type === 'scan_result' && msg.found && msg.product) {
-            addToCart(msg.product);
+            if (addToCartRef.current) addToCartRef.current(msg.product);
             toast.success(`Scanned: ${msg.product.name}`);
           } else if (msg.type === 'scan_result' && !msg.found) {
             toast.error(`No product for barcode: ${msg.barcode}`);

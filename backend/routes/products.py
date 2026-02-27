@@ -385,16 +385,22 @@ async def pricing_scan(
         lookup_id = p.get("parent_id") if is_repack and p.get("parent_id") else p["id"]
         units_per = max(p.get("units_per_parent", 1), 1) if is_repack else 1
 
+        purchase_query = {"product_id": lookup_id, "type": "purchase", "quantity_change": {"$gt": 0}}
+        if branch_id:
+            purchase_query["branch_id"] = branch_id
         all_purchases = await db.movements.find(
-            {"product_id": lookup_id, "type": "purchase", "quantity_change": {"$gt": 0}},
+            purchase_query,
             {"_id": 0, "quantity_change": 1, "price_at_time": 1, "created_at": 1}
         ).to_list(1000)
         total_qty = sum(m["quantity_change"] for m in all_purchases)
         total_cost_val = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_purchases)
         moving_avg = round(total_cost_val / total_qty / units_per, 2) if total_qty > 0 else effective_cost
 
+        last_purchase_query = {"product_id": lookup_id, "type": "purchase", "quantity_change": {"$gt": 0}}
+        if branch_id:
+            last_purchase_query["branch_id"] = branch_id
         last_purchase_entry = await db.movements.find_one(
-            {"product_id": lookup_id, "type": "purchase", "quantity_change": {"$gt": 0}},
+            last_purchase_query,
             {"_id": 0, "price_at_time": 1},
             sort=[("created_at", -1)]
         )

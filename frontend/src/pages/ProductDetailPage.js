@@ -36,6 +36,7 @@ export default function ProductDetailPage() {
   const [branchSuppliers, setBranchSuppliers] = useState([]);
   const [repackForm, setRepackForm] = useState({ name: '', unit: 'Pack', units_per_parent: 1, cost_price: 0, add_on_cost: 0, prices: {} });
   const [vendorForm, setVendorForm] = useState({ supplier_id: '', last_price: 0, is_preferred: false });
+  const [barcodeGenerating, setBarcodeGenerating] = useState(false);
 
   // Branch pricing state
   const [branchOverrides, setBranchOverrides] = useState({}); // { branch_id: override_doc }

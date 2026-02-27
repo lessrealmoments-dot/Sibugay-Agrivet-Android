@@ -64,9 +64,10 @@ const NAV_SECTIONS = [
   {
     label: 'Reports & Audit',
     items: [
-      { path: '/reports',    label: 'Reports',      icon: BarChart3,  perm: 'reports.view',  featureFlag: 'advanced_reports' },
-      { path: '/audit',      label: 'Audit Center', icon: ShieldCheck, perm: 'reports.view', featureFlag: 'audit_center' },
-      { path: '/accounting', label: 'Accounting',   icon: Calculator, perm: 'accounting.view' },
+      { path: '/reports',          label: 'Reports',          icon: BarChart3,    perm: 'reports.view',  featureFlag: 'advanced_reports' },
+      { path: '/audit',            label: 'Audit Center',     icon: ShieldCheck,  perm: 'reports.view',  featureFlag: 'audit_center' },
+      { path: '/incident-tickets', label: 'Incident Tickets', icon: AlertTriangle, perm: 'reports.view' },
+      { path: '/accounting',       label: 'Accounting',       icon: Calculator,   perm: 'accounting.view' },
     ],
   },
   {
@@ -76,6 +77,7 @@ const NAV_SECTIONS = [
       { path: '/price-schemes',   label: 'Price Schemes', icon: Tags,     perm: 'price_schemes.view' },
       { path: '/team',            label: 'Team',         icon: UserCog,   perm: 'settings.manage_users' },
       { path: '/import',          label: 'Import Center', icon: Upload,   perm: 'products.create' },
+      { path: '/backups',         label: 'Backups',      icon: HardDrive, perm: 'settings.edit' },
       { path: '/settings',        label: 'Settings',     icon: Settings },
     ],
   },

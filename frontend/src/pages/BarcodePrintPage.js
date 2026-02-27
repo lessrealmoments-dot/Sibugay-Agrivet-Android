@@ -26,6 +26,7 @@ export default function BarcodePrintPage() {
   const [labelSize, setLabelSize] = useState('40x30');
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const [source, setSource] = useState('inventory'); // 'inventory' | 'custom'
   const printRef = useRef(null);
   const searchTimer = useRef(null);
@@ -42,6 +43,29 @@ export default function BarcodePrintPage() {
   }, []);
 
   useEffect(() => { loadProducts(); }, [loadProducts]);
+
+  // Load from inventory — auto-match label qty to stock count
+  const loadFromInventory = async () => {
+    if (!currentBranch?.id || currentBranch.id === 'all') {
+      toast.error('Select a specific branch first');
+      return;
+    }
+    setLoadingInventory(true);
+    try {
+      const res = await api.get(`/products/barcode-inventory/${currentBranch.id}`);
+      const inv = res.data.products || [];
+      if (!inv.length) {
+        toast.info('No products with barcodes found in this branch inventory');
+        setLoadingInventory(false);
+        return;
+      }
+      const newList = inv.map(p => ({ product: p, qty: Math.max(1, Math.round(p.stock || 1)) }));
+      setPrintList(newList);
+      const totalLabels = newList.reduce((s, i) => s + i.qty, 0);
+      toast.success(`Loaded ${inv.length} products (${totalLabels} labels) from inventory`);
+    } catch { toast.error('Failed to load inventory'); }
+    setLoadingInventory(false);
+  };
 
   // Search products
   useEffect(() => {

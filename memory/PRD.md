@@ -361,6 +361,14 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
   - VPS stores zero user files — only code and database.
   - Backward compatible: legacy local files still served via old endpoint.
   - Direct upload, QR upload, and reassign all use R2.
+- [x] **Comprehensive Backup Management (Feb 27, 2026)**:
+  - **Full Site Backup**: mongodump → R2 `agribooks-backups` (daily at 1AM, manual trigger).
+  - **Per-Org Backup**: Exports all 43 org collections as compressed JSON → R2 `org/{org_id}/{timestamp}.json.gz`. Runs every 6 hours (1AM, 7AM, 1PM, 7PM) = 4 restore points/day.
+  - **Restore with Safety Net**: Auto-creates pre-restore backup before any restore. Validates manifest. Atomic delete→insert per collection.
+  - **Data Integrity**: Checksum (doc counts per collection), org_id validation, no cross-org contamination.
+  - **Super Admin Dashboard**: All orgs summary with last backup date, size, doc count.
+  - **Schedule Config**: Configurable via API (site hours + org hours).
+  - **Backward Compatible**: Legacy `/api/backups/trigger` and `/api/backups/` still work.
 
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers

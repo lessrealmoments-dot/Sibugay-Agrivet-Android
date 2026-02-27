@@ -1766,7 +1766,7 @@ export default function BranchTransferPage() {
                     })}
                     {/* Totals row */}
                     {(() => {
-                      const items = viewOrder?.items || [];
+                      const items = viewOrder?.pending_items || viewOrder?.items || [];
                       const totalCapLoss = items.reduce((s,i) => {
                         const v = (i.qty_ordered ?? i.qty) - (i.qty_received ?? i.qty);
                         return s + (v > 0 ? v * i.transfer_capital : 0);

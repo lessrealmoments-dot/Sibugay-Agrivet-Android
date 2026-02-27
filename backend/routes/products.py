@@ -351,6 +351,36 @@ async def barcode_check(data: dict, user=Depends(get_current_user)):
 
 
 
+@router.get("/barcode-inventory/{branch_id}")
+async def barcode_inventory_for_print(branch_id: str, user=Depends(get_current_user)):
+    """Get parent products with barcodes that have inventory in the given branch, with stock counts."""
+    # Get all inventory for this branch
+    inv_list = await db.inventory.find(
+        {"branch_id": branch_id, "quantity": {"$gt": 0}}, {"_id": 0}
+    ).to_list(10000)
+    inv_map = {i["product_id"]: float(i["quantity"]) for i in inv_list}
+
+    if not inv_map:
+        return {"products": []}
+
+    # Get parent products with barcodes that have inventory
+    products = await db.products.find(
+        {"id": {"$in": list(inv_map.keys())}, "active": True, "is_repack": {"$ne": True},
+         "barcode": {"$exists": True, "$ne": "", "$ne": None}},
+        {"_id": 0, "id": 1, "name": 1, "sku": 1, "barcode": 1, "category": 1}
+    ).to_list(10000)
+
+    result = []
+    for p in products:
+        if p.get("barcode"):
+            p["stock"] = inv_map.get(p["id"], 0)
+            result.append(p)
+
+    return {"products": result}
+
+
+
+
 @router.get("/categories")
 async def list_categories(user=Depends(get_current_user)):
     """Get all product categories."""

@@ -40,6 +40,7 @@ from routes import (
 from routes.backups import router as backups_router
 from routes.internal_invoices import router as internal_invoices_router
 from routes.incident_tickets import router as incident_tickets_router
+from routes.scanner import router as scanner_router, ws_desktop, ws_phone
 
 # =============================================================================
 # APP SETUP

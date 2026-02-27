@@ -1602,6 +1602,9 @@ export default function BranchTransferPage() {
               {viewOrder?.has_shortage && (
                 <Badge className="ml-2 text-[10px] bg-red-100 text-red-700">Shortage</Badge>
               )}
+              {viewOrder?.incident_ticket_number && (
+                <Badge className="ml-2 text-[10px] bg-amber-100 text-amber-700">{viewOrder.incident_ticket_number}</Badge>
+              )}
             </DialogTitle>
             <Button size="sm" variant="outline" className="h-7 text-xs mt-1"
               onClick={() => { setBtUploadOrderId(viewOrder?.id); setBtUploadQROpen(true); }}>

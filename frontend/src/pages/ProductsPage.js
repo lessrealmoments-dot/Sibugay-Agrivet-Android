@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Package, Plus, Pencil, Trash2, Search, Link2, ChevronRight, Eye, Upload, Zap, X, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Lock } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, Link2, ChevronRight, Eye, Upload, Zap, X, CheckCircle, XCircle, AlertTriangle, History, RefreshCw, Lock, ScanBarcode } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { formatPHP } from '../lib/utils';

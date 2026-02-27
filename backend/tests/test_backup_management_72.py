@@ -61,24 +61,23 @@ def auth_headers(super_admin_token):
 @pytest.fixture(scope="module")
 def test_org_id(session, auth_headers):
     """Get an existing org ID for testing, or create one."""
-    # First try to get existing orgs
-    resp = session.get(f"{BASE_URL}/api/organizations", headers=auth_headers)
+    # Super admin endpoint for organizations
+    resp = session.get(f"{BASE_URL}/api/superadmin/organizations", headers=auth_headers)
     if resp.status_code == 200:
         orgs = resp.json()
         if isinstance(orgs, list) and len(orgs) > 0:
+            # Use default org or first available
+            for org in orgs:
+                if org.get("is_default"):
+                    return org["id"]
             return orgs[0]["id"]
-        if isinstance(orgs, dict) and "organizations" in orgs:
-            if len(orgs["organizations"]) > 0:
-                return orgs["organizations"][0]["id"]
     
-    # Create test org
-    resp = session.post(f"{BASE_URL}/api/organizations", headers=auth_headers, json={
-        "name": "TEST_Backup_Org_72",
-        "owner_email": "test72@example.com",
-        "plan": "pro"
-    })
-    if resp.status_code in (200, 201):
-        return resp.json().get("id") or resp.json().get("organization", {}).get("id")
+    # Fallback to backup org-summary endpoint to find orgs
+    resp = session.get(f"{BASE_URL}/api/backups/org-summary", headers=auth_headers)
+    if resp.status_code == 200:
+        data = resp.json()
+        if data.get("organizations") and len(data["organizations"]) > 0:
+            return data["organizations"][0]["org_id"]
     
     pytest.skip("Could not get or create test organization")
 

@@ -853,7 +853,10 @@ async def accept_receipt(transfer_id: str, data: dict, user=Depends(get_current_
     """
     Source branch accepts the destination's claimed quantities.
     Triggers the actual inventory movement and finalises the transfer.
-    Only the source branch (or admin) can accept.
+    
+    Options via `action`:
+      - "accept" (default): Accept variance, log it, move inventory.
+      - "accept_with_incident": Accept AND create an incident ticket for investigation.
     """
     if user.get("role") not in ["admin", "manager"]:
         raise HTTPException(status_code=403, detail="Manager or admin required")
@@ -878,22 +881,134 @@ async def accept_receipt(transfer_id: str, data: dict, user=Depends(get_current_
     items = order.get("pending_items", order["items"])
     shortages = order.get("shortages", [])
     excesses = order.get("excesses", [])
+    accept_note = data.get("note", "").strip()
+    action = data.get("action", "accept")
 
+    # Apply inventory movement
     result = await _apply_receipt(
         order, items, shortages, excesses, from_branch_id, to_branch_id,
         from_name, to_name, transfer_id, user,
         notes=order.get("receive_notes", "")
     )
 
-    # Record who accepted and when
+    # Record acceptance
+    total_capital_loss = sum(s.get("capital_variance", 0) for s in shortages)
+    total_retail_loss = sum(s.get("retail_variance", 0) for s in shortages)
+
+    update_fields = {
+        "accepted_by": user["id"],
+        "accepted_by_name": user.get("full_name", user["username"]),
+        "accepted_at": now_iso(),
+        "accept_note": accept_note,
+        "accept_action": action,
+        "total_capital_loss": total_capital_loss,
+        "total_retail_loss": total_retail_loss,
+    }
+
+    # Log variance as audit record
+    if shortages or excesses:
+        await db.audit_log.insert_one({
+            "id": new_id(),
+            "type": "transfer_variance_accepted",
+            "entity_type": "branch_transfer",
+            "entity_id": transfer_id,
+            "description": (
+                f"Transfer {order['order_number']} variance accepted by {user.get('full_name', user['username'])}. "
+                f"Shortages: {len(shortages)}, Excesses: {len(excesses)}. "
+                f"Capital loss: {total_capital_loss:.2f}. Note: {accept_note or 'N/A'}"
+            ),
+            "metadata": {
+                "order_number": order["order_number"],
+                "from_branch": from_name,
+                "to_branch": to_name,
+                "shortages": shortages,
+                "excesses": excesses,
+                "total_capital_loss": total_capital_loss,
+                "total_retail_loss": total_retail_loss,
+                "action": action,
+            },
+            "branch_id": from_branch_id,
+            "user_id": user["id"],
+            "user_name": user.get("full_name", user["username"]),
+            "created_at": now_iso(),
+        })
+
+    # Create incident ticket if requested
+    incident_ticket_id = None
+    if action == "accept_with_incident" and (shortages or excesses):
+        ticket_count = await db.incident_tickets.count_documents({})
+        ticket_number = f"INC-{ticket_count + 1:05d}"
+        incident_ticket_id = new_id()
+
+        variance_items = []
+        for s in shortages:
+            variance_items.append({**s, "type": "shortage"})
+        for e in excesses:
+            variance_items.append({**e, "type": "excess"})
+
+        ticket = {
+            "id": incident_ticket_id,
+            "ticket_number": ticket_number,
+            "transfer_id": transfer_id,
+            "order_number": order["order_number"],
+            "from_branch_id": from_branch_id,
+            "from_branch_name": from_name,
+            "to_branch_id": to_branch_id,
+            "to_branch_name": to_name,
+            "items": variance_items,
+            "total_capital_loss": total_capital_loss,
+            "total_retail_loss": total_retail_loss,
+            "status": "open",
+            "priority": "high" if total_capital_loss > 1000 else "medium",
+            "created_by_id": user["id"],
+            "created_by_name": user.get("full_name", user["username"]),
+            "assigned_to_id": "",
+            "assigned_to_name": "",
+            "resolution_note": "",
+            "recovery_amount": 0,
+            "timeline": [
+                {
+                    "action": "created",
+                    "by_id": user["id"],
+                    "by_name": user.get("full_name", user["username"]),
+                    "detail": f"Incident created from transfer {order['order_number']} variance. {accept_note}" if accept_note else f"Incident created from transfer {order['order_number']} variance.",
+                    "at": now_iso(),
+                }
+            ],
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+        await db.incident_tickets.insert_one(ticket)
+        del ticket["_id"]
+
+        update_fields["incident_ticket_id"] = incident_ticket_id
+        update_fields["incident_ticket_number"] = ticket_number
+
+        # Notify admins about the new incident
+        admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+        admin_ids = [a["id"] for a in admins]
+        await db.notifications.insert_one({
+            "id": new_id(),
+            "type": "incident_created",
+            "title": f"Incident Ticket {ticket_number} — Transfer Variance",
+            "message": (
+                f"Transfer {order['order_number']} ({from_name} → {to_name}) has an unresolved variance. "
+                f"Capital loss: ₱{total_capital_loss:,.2f}. Investigation required."
+            ),
+            "branch_id": from_branch_id,
+            "branch_name": from_name,
+            "metadata": {
+                "ticket_id": incident_ticket_id,
+                "ticket_number": ticket_number,
+                "transfer_id": transfer_id,
+            },
+            "target_user_ids": admin_ids,
+            "read_by": [],
+            "created_at": now_iso(),
+        })
+
     await db.branch_transfer_orders.update_one(
-        {"id": transfer_id},
-        {"$set": {
-            "accepted_by": user["id"],
-            "accepted_by_name": user.get("full_name", user["username"]),
-            "accepted_at": now_iso(),
-            "accept_note": data.get("note", ""),
-        }}
+        {"id": transfer_id}, {"$set": update_fields}
     )
 
     # Notify destination that the receipt was accepted
@@ -902,20 +1017,28 @@ async def accept_receipt(transfer_id: str, data: dict, user=Depends(get_current_
     ).to_list(50)
     admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
     notify_ids = list({u["id"] for u in dest_users + admins})
+    msg = f"{from_name} accepted the receipt for {order['order_number']}. Inventory has been updated."
+    if incident_ticket_id:
+        msg += f" An incident ticket ({update_fields['incident_ticket_number']}) has been created for investigation."
     await db.notifications.insert_one({
         "id": new_id(),
         "type": "transfer_accepted",
         "title": "Transfer Receipt Accepted",
-        "message": f"{from_name} accepted the receipt for {order['order_number']}. Inventory has been updated.",
+        "message": msg,
         "branch_id": to_branch_id,
         "branch_name": to_name,
-        "metadata": {"transfer_id": transfer_id, "order_number": order["order_number"]},
+        "metadata": {"transfer_id": transfer_id, "order_number": order["order_number"],
+                      "incident_ticket_id": incident_ticket_id},
         "target_user_ids": notify_ids,
         "read_by": [],
         "created_at": now_iso(),
     })
 
-    return result
+    resp = {**result}
+    if incident_ticket_id:
+        resp["incident_ticket_id"] = incident_ticket_id
+        resp["incident_ticket_number"] = update_fields["incident_ticket_number"]
+    return resp
 
 
 @router.post("/{transfer_id}/dispute-receipt")

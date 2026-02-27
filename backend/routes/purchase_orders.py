@@ -1222,7 +1222,7 @@ async def mark_po_reviewed(po_id: str, data: dict, user=Depends(get_current_user
     from routes.verify import _resolve_pin
     verifier = await _resolve_pin(pin)
     if not verifier:
-        raise HTTPException(status_code=401, detail="Invalid PIN or TOTP")
+        raise HTTPException(status_code=403, detail="Invalid PIN or TOTP")
 
     review_notes = data.get("notes", "")
     await db.purchase_orders.update_one({"id": po_id}, {"$set": {

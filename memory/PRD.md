@@ -383,3 +383,36 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - Smarter Price Suggestions: Auto-suggest retail price based on capital + margin
 - Quick-action user details on Team page (expandable detail card)
 - Selective Offline Sync (choose which data categories to sync)
+- Demo Login System (pre-populated read-only demo account)
+- Employee Cash Advance Summary Report
+- User Roles & Presets (reusable role templates)
+
+### Completed — Feb 27, 2026 (Barcode System)
+- [x] **Comprehensive Barcode System (Feb 27, 2026)**:
+  - **Auto-generation**: Code128 barcodes with `AG` prefix + 8-digit unique number (e.g., `AG43497580`).
+  - **Parent-level barcodes**: Barcodes assigned at parent product level, shared across branches. Repacks do NOT get barcodes.
+  - **Bulk generation**: "Generate All Barcodes" button on Products page assigns barcodes to all parent products without one.
+  - **Single generation**: "Generate Barcode" button on Product Detail page.
+  - **Duplicate checking**: API validates uniqueness; up to 100 retries for collision avoidance.
+  - **Barcode column**: Products table shows barcode codes inline.
+  - **Visual barcode display**: SVG barcode rendered on Product Detail page using JsBarcode (Code128).
+  - **Barcode lookup API**: `GET /api/products/barcode-lookup/{barcode}` with branch-specific pricing.
+  - **Product search by barcode**: List and search-detail endpoints now search the barcode field.
+  - **Print Barcodes page** (`/barcode-print`):
+    - Label sizes: 40x30mm (default), 50x30mm option.
+    - Add individual products or "Add All Products" for bulk print.
+    - Quantity controls per product (how many labels to print).
+    - Opens printable popup with CSS @page layout for thermal/standard printers.
+    - Labels include product name + scannable barcode.
+  - **Scan-to-add in Sales** (`/sales-new`):
+    - USB barcode scanner detection via rapid keystroke + Enter pattern (100ms threshold).
+    - Scan product → adds new line item. Scan same product again → increments quantity.
+    - Falls back to API lookup if product not in local cache.
+  - **Sidebar navigation**: "Print Barcodes" link under Inventory & Purchasing section.
+  - **Backend endpoints**:
+    - `POST /api/products/{id}/generate-barcode` — single product
+    - `POST /api/products/generate-barcodes-bulk` — all products without barcode
+    - `GET /api/products/barcode-lookup/{barcode}` — lookup with stock/pricing
+    - `POST /api/products/barcode-check` — duplicate validation
+  - **Frontend files**: `BarcodeDisplay.js` (component), `BarcodePrintPage.js` (page)
+  - **Dependencies**: `jsbarcode@3.12.3` (frontend)

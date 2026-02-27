@@ -1,30 +1,21 @@
 """
 Receipt Upload routes: QR-based photo upload linked to any record.
 Supports: purchase_order, expense, payment, return, branch_transfer, inventory_correction.
-Files stored in /app/uploads/ (swap to R2 later by changing storage layer).
-Upload links expire in 1 hour. Up to 10 photos per record.
+Files stored in Cloudflare R2 (multi-tenant, pre-signed URLs).
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import secrets
-import os
-import mimetypes
-from config import db
+from config import db, get_org_context
 from utils import get_current_user, now_iso, new_id
+from utils.r2_storage import upload_file, get_presigned_url, delete_file, build_key
 
 router = APIRouter(prefix="/uploads", tags=["Uploads"])
 
-UPLOAD_DIR = Path("/app/uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 MAX_FILES = 10
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  Record type display labels
-# ─────────────────────────────────────────────────────────────────────────────
 RECORD_TYPE_LABELS = {
     "purchase_order": "Purchase Order",
     "expense": "Expense",
@@ -94,16 +85,18 @@ async def _get_record_summary(record_type: str, record_id: str) -> dict:
     return summary
 
 
+def _get_org_id() -> str:
+    """Get current org_id from context, fallback to 'default'."""
+    return get_org_context() or "default"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Generate upload link
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/generate-link")
 async def generate_upload_link(data: dict, user=Depends(get_current_user)):
-    """
-    Generate a 1-hour upload link and QR for a record.
-    Returns: token, upload_url, qr_data.
-    """
+    """Generate a 1-hour upload link and QR for a record."""
     record_type = data.get("record_type", "")
     record_id = data.get("record_id", "")
     if not record_type or not record_id:
@@ -111,7 +104,6 @@ async def generate_upload_link(data: dict, user=Depends(get_current_user)):
 
     token = secrets.token_urlsafe(24)
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-
     summary = await _get_record_summary(record_type, record_id)
 
     doc = {
@@ -121,6 +113,7 @@ async def generate_upload_link(data: dict, user=Depends(get_current_user)):
         "record_type": record_type,
         "record_id": record_id,
         "record_summary": summary,
+        "org_id": _get_org_id(),
         "files": [],
         "file_count": 0,
         "created_by": user["id"],
@@ -129,12 +122,7 @@ async def generate_upload_link(data: dict, user=Depends(get_current_user)):
     }
     await db.upload_sessions.insert_one(doc)
     del doc["_id"]
-
-    return {
-        "token": token,
-        "expires_at": expires_at,
-        "record_summary": summary,
-    }
+    return {"token": token, "expires_at": expires_at, "record_summary": summary}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -166,15 +154,15 @@ async def get_upload_preview(token: str):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Public: upload files via token (no auth, token only)
+#  Public: upload files via token (no auth, token only) → R2
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/upload/{token}")
-async def upload_files(
+async def upload_files_via_token(
     token: str,
     files: List[UploadFile] = File(...),
 ):
-    """Public endpoint — accepts photo uploads from mobile. No login required."""
+    """Public endpoint — accepts photo uploads from mobile. Stores in R2."""
     session = await db.upload_sessions.find_one({"token": token}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Upload link not found")
@@ -190,13 +178,11 @@ async def upload_files(
 
     current_count = session.get("file_count", 0)
     if current_count + len(files) > MAX_FILES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Maximum {MAX_FILES} files allowed. Already has {current_count}."
-        )
+        raise HTTPException(status_code=400, detail=f"Maximum {MAX_FILES} files allowed. Already has {current_count}.")
 
-    record_dir = UPLOAD_DIR / session["record_type"] / session["record_id"]
-    record_dir.mkdir(parents=True, exist_ok=True)
+    org_id = session.get("org_id", "default")
+    record_type = session["record_type"]
+    record_id = session["record_id"]
 
     saved = []
     for file in files:
@@ -204,29 +190,24 @@ async def upload_files(
         ext = Path(file.filename).suffix if file.filename else ".jpg"
         safe_ext = ext.lower() if ext.lower() in (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".pdf") else ".jpg"
         filename = f"{file_id}{safe_ext}"
-        filepath = record_dir / filename
+        content_type = file.content_type or "image/jpeg"
 
         content = await file.read()
-        with open(filepath, "wb") as f:
-            f.write(content)
+        r2_result = await upload_file(org_id, record_type, record_id, filename, content, content_type)
 
         saved.append({
             "id": file_id,
             "filename": file.filename or filename,
-            "stored_path": str(filepath),
-            "content_type": file.content_type or "image/jpeg",
+            "r2_key": r2_result["key"],
+            "content_type": content_type,
             "size": len(content),
             "uploaded_at": now_iso(),
         })
 
     await db.upload_sessions.update_one(
         {"token": token},
-        {
-            "$push": {"files": {"$each": saved}},
-            "$inc": {"file_count": len(saved)},
-        }
+        {"$push": {"files": {"$each": saved}}, "$inc": {"file_count": len(saved)}}
     )
-
     return {"uploaded": len(saved), "total_files": current_count + len(saved)}
 
 
@@ -236,29 +217,69 @@ async def upload_files(
 
 @router.get("/record/{record_type}/{record_id}")
 async def get_record_uploads(
-    record_type: str,
-    record_id: str,
-    user=Depends(get_current_user),
+    record_type: str, record_id: str, user=Depends(get_current_user),
 ):
-    """Get all upload sessions for a record, most recent first."""
+    """Get all upload sessions for a record with pre-signed URLs for each file."""
     sessions = await db.upload_sessions.find(
         {"record_type": record_type, "record_id": record_id},
-        {"_id": 0, "token": 0}  # exclude token from response
+        {"_id": 0, "token": 0}
     ).sort("created_at", -1).to_list(20)
+
+    # Generate pre-signed URLs for all files
+    for session in sessions:
+        for f in session.get("files", []):
+            r2_key = f.get("r2_key") or f.get("stored_path", "")
+            if r2_key and not r2_key.startswith("/"):
+                f["url"] = await get_presigned_url(r2_key, expires_in=3600)
+            elif f.get("stored_path"):
+                # Legacy local file — serve via old endpoint
+                f["url"] = f"/api/uploads/file/{record_type}/{record_id}/{f['id']}"
+
     total_files = sum(s.get("file_count", 0) for s in sessions)
     return {"sessions": sessions, "total_files": total_files}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Serve a file (auth required)
+#  Serve a file (supports both R2 and legacy local files)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/file/{record_type}/{record_id}/{file_id}")
+async def serve_file(record_type: str, record_id: str, file_id: str):
+    """Serve a file — redirects to pre-signed R2 URL, or serves local file for legacy."""
+    session = await db.upload_sessions.find_one(
+        {"record_type": record_type, "record_id": record_id, "files.id": file_id},
+        {"_id": 0, "files": 1, "org_id": 1}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    file_meta = next((f for f in session.get("files", []) if f["id"] == file_id), None)
+    if not file_meta:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # R2 file — redirect to pre-signed URL
+    r2_key = file_meta.get("r2_key")
+    if r2_key:
+        from fastapi.responses import RedirectResponse
+        url = await get_presigned_url(r2_key, expires_in=3600)
+        return RedirectResponse(url=url)
+
+    # Legacy local file
+    from fastapi.responses import FileResponse
+    filepath = Path(file_meta.get("stored_path", ""))
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="File data not found on server")
+    media_type = file_meta.get("content_type", "image/jpeg")
+    return FileResponse(path=str(filepath), media_type=media_type, filename=file_meta.get("filename", "file"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  View tokens (QR "View on Phone")
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/generate-view-token")
 async def generate_view_token(data: dict, user=Depends(get_current_user)):
-    """
-    Generate a 1-hour read-only view token for a record's uploaded photos.
-    Used to create a 'View on Phone' QR code.
-    """
+    """Generate a 1-hour read-only view token for a record's uploaded photos."""
     record_type = data.get("record_type", "")
     record_id = data.get("record_id", "")
     if not record_type or not record_id:
@@ -286,10 +307,7 @@ async def generate_view_token(data: dict, user=Depends(get_current_user)):
 
 @router.get("/view-session/{token}")
 async def get_view_session(token: str):
-    """
-    Public endpoint — returns record summary + all uploaded files for the view QR.
-    No auth required (token is the security).
-    """
+    """Public endpoint — returns record summary + all uploaded files for the view QR."""
     view_doc = await db.view_tokens.find_one({"token": token, "token_type": "view"}, {"_id": 0})
     if not view_doc:
         raise HTTPException(status_code=404, detail="View link not found or expired")
@@ -306,14 +324,23 @@ async def get_view_session(token: str):
     record_type = view_doc["record_type"]
     record_id = view_doc["record_id"]
 
-    # Get all files for this record
     sessions = await db.upload_sessions.find(
         {"record_type": record_type, "record_id": record_id},
         {"_id": 0, "token": 0}
     ).sort("created_at", -1).to_list(20)
+
+    # Generate pre-signed URLs
+    for session in sessions:
+        for f in session.get("files", []):
+            r2_key = f.get("r2_key") or f.get("stored_path", "")
+            if r2_key and not r2_key.startswith("/"):
+                f["url"] = await get_presigned_url(r2_key, expires_in=3600)
+            elif f.get("stored_path"):
+                f["url"] = f"/api/uploads/file/{record_type}/{record_id}/{f['id']}"
+
     total_files = sum(s.get("file_count", 0) for s in sessions)
 
-    # Get verification status
+    # Verification status
     collection_map = {
         "purchase_order": "purchase_orders",
         "expense": "expenses",
@@ -348,7 +375,7 @@ async def get_view_session(token: str):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Direct upload (authenticated, inline — for PO creation, expense, transfers)
+#  Direct upload (authenticated, inline) → R2
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/direct")
@@ -358,16 +385,13 @@ async def direct_upload(
     session_id: Optional[str] = Form(None),
     user=Depends(get_current_user),
 ):
-    """
-    Authenticated direct upload — stores files and returns a session_id.
-    Use session_id to link files to a record later via /uploads/reassign.
-    If session_id is provided, appends to existing session.
-    """
+    """Authenticated direct upload — stores files in R2 and returns a session_id."""
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
 
+    org_id = _get_org_id()
+
     if session_id:
-        # Append to existing session
         session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0})
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -375,7 +399,6 @@ async def direct_upload(
         if current_count + len(files) > MAX_FILES:
             raise HTTPException(status_code=400, detail=f"Max {MAX_FILES} files. Already has {current_count}.")
     else:
-        # Create new session with a pending record_id
         session_id = new_id()
         pending_record_id = f"pending_{new_id()}"
         session = {
@@ -384,6 +407,7 @@ async def direct_upload(
             "record_type": record_type,
             "record_id": pending_record_id,
             "record_summary": {},
+            "org_id": org_id,
             "files": [],
             "file_count": 0,
             "is_pending": True,
@@ -396,8 +420,6 @@ async def direct_upload(
         current_count = 0
 
     record_id = session.get("record_id", session_id)
-    record_dir = UPLOAD_DIR / record_type / record_id
-    record_dir.mkdir(parents=True, exist_ok=True)
 
     saved = []
     file_ids = []
@@ -406,17 +428,16 @@ async def direct_upload(
         ext = Path(file.filename).suffix if file.filename else ".jpg"
         safe_ext = ext.lower() if ext.lower() in (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".pdf") else ".jpg"
         filename = f"{file_id}{safe_ext}"
-        filepath = record_dir / filename
+        content_type = file.content_type or "image/jpeg"
 
         content = await file.read()
-        with open(filepath, "wb") as f:
-            f.write(content)
+        r2_result = await upload_file(org_id, record_type, record_id, filename, content, content_type)
 
         saved.append({
             "id": file_id,
             "filename": file.filename or filename,
-            "stored_path": str(filepath),
-            "content_type": file.content_type or "image/jpeg",
+            "r2_key": r2_result["key"],
+            "content_type": content_type,
             "size": len(content),
             "uploaded_at": now_iso(),
         })
@@ -426,7 +447,6 @@ async def direct_upload(
         {"id": session_id},
         {"$push": {"files": {"$each": saved}}, "$inc": {"file_count": len(saved)}}
     )
-
     return {
         "session_id": session_id,
         "uploaded": len(saved),
@@ -446,12 +466,16 @@ async def delete_direct_file(session_id: str, file_id: str, user=Depends(get_cur
     if not file_meta:
         raise HTTPException(status_code=404, detail="File not found in session")
 
-    # Delete physical file
-    filepath = Path(file_meta.get("stored_path", ""))
-    if filepath.exists():
-        filepath.unlink()
+    # Delete from R2
+    r2_key = file_meta.get("r2_key")
+    if r2_key:
+        await delete_file(r2_key)
+    else:
+        # Legacy local file
+        filepath = Path(file_meta.get("stored_path", ""))
+        if filepath.exists():
+            filepath.unlink()
 
-    # Update session
     await db.upload_sessions.update_one(
         {"id": session_id},
         {"$pull": {"files": {"id": file_id}}, "$inc": {"file_count": -1}}
@@ -461,12 +485,7 @@ async def delete_direct_file(session_id: str, file_id: str, user=Depends(get_cur
 
 @router.post("/generate-pending-link")
 async def generate_pending_link(data: dict, user=Depends(get_current_user)):
-    """
-    Generate a QR-scannable upload link for records that don't exist yet
-    (e.g. during PO creation, before the PO is saved).
-    If session_id is provided, creates a token for an existing pending session.
-    Otherwise creates a fresh pending session with a token.
-    """
+    """Generate a QR-scannable upload link for records that don't exist yet."""
     record_type = data.get("record_type", "purchase_order")
     session_id = data.get("session_id", "")
     custom_summary = data.get("record_summary", {})
@@ -475,7 +494,6 @@ async def generate_pending_link(data: dict, user=Depends(get_current_user)):
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
 
     if session_id:
-        # Add token to existing pending session
         session = await db.upload_sessions.find_one({"id": session_id}, {"_id": 0})
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -489,7 +507,6 @@ async def generate_pending_link(data: dict, user=Depends(get_current_user)):
         )
         record_id = session.get("record_id", "")
     else:
-        # Create new pending session with token
         session_id = new_id()
         record_id = f"pending_{new_id()}"
         session = {
@@ -503,6 +520,7 @@ async def generate_pending_link(data: dict, user=Depends(get_current_user)):
                 "title": f"New {RECORD_TYPE_LABELS.get(record_type, record_type)}",
                 "description": "Receipt will be linked when record is saved",
             },
+            "org_id": _get_org_id(),
             "files": [],
             "file_count": 0,
             "is_pending": True,
@@ -536,10 +554,7 @@ async def get_session_status(session_id: str, user=Depends(get_current_user)):
 
 @router.post("/reassign")
 async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
-    """
-    Link a pending upload session to an actual record.
-    Moves files to the correct directory and updates the session.
-    """
+    """Link a pending upload session to an actual record. Moves R2 files to correct path."""
     session_id = data.get("session_id", "")
     new_record_type = data.get("record_type", "")
     new_record_id = data.get("record_id", "")
@@ -552,29 +567,42 @@ async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
 
     old_record_id = session.get("record_id", "")
     record_type = new_record_type or session.get("record_type", "purchase_order")
+    org_id = session.get("org_id", _get_org_id())
 
-    # Move files if record_id changed
     if old_record_id != new_record_id:
-        old_dir = UPLOAD_DIR / record_type / old_record_id
-        new_dir = UPLOAD_DIR / record_type / new_record_id
-        new_dir.mkdir(parents=True, exist_ok=True)
-
+        # Move R2 files to new path
+        from utils.r2_storage import _get_client, _bucket
+        client = _get_client()
         updated_files = []
         for f in session.get("files", []):
-            old_path = Path(f.get("stored_path", ""))
-            if old_path.exists():
-                new_path = new_dir / old_path.name
-                old_path.rename(new_path)
-                f["stored_path"] = str(new_path)
+            old_key = f.get("r2_key", "")
+            if old_key:
+                # Copy to new key, delete old
+                ext = Path(old_key).suffix
+                new_filename = f"{f['id']}{ext}"
+                new_key = build_key(org_id, record_type, new_record_id, new_filename)
+                try:
+                    client.copy_object(
+                        Bucket=_bucket,
+                        CopySource={"Bucket": _bucket, "Key": old_key},
+                        Key=new_key,
+                    )
+                    client.delete_object(Bucket=_bucket, Key=old_key)
+                    f["r2_key"] = new_key
+                except Exception:
+                    pass  # Keep old key if move fails
+            elif f.get("stored_path"):
+                # Legacy local file — move on disk
+                old_path = Path(f["stored_path"])
+                if old_path.exists():
+                    new_dir = Path("/app/uploads") / record_type / new_record_id
+                    new_dir.mkdir(parents=True, exist_ok=True)
+                    new_path = new_dir / old_path.name
+                    old_path.rename(new_path)
+                    f["stored_path"] = str(new_path)
             updated_files.append(f)
 
-        # Clean up old directory if empty
-        if old_dir.exists() and not any(old_dir.iterdir()):
-            old_dir.rmdir()
-
-        # Get record summary for the new record
         summary = await _get_record_summary(record_type, new_record_id)
-
         await db.upload_sessions.update_one(
             {"id": session_id},
             {"$set": {
@@ -595,37 +623,8 @@ async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
     return {"message": "Upload session linked to record", "record_id": new_record_id}
 
 
-@router.get("/file/{record_type}/{record_id}/{file_id}")
-async def serve_file(
-    record_type: str,
-    record_id: str,
-    file_id: str,
-):
-    """
-    Serve an uploaded file. No auth required — UUID file IDs are unguessable
-    (128-bit random, same security model as S3/R2 pre-signed URLs).
-    """
-    session = await db.upload_sessions.find_one(
-        {"record_type": record_type, "record_id": record_id, "files.id": file_id},
-        {"_id": 0, "files": 1}
-    )
-    if not session:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    file_meta = next((f for f in session.get("files", []) if f["id"] == file_id), None)
-    if not file_meta:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    filepath = Path(file_meta.get("stored_path", ""))
-    if not filepath.exists():
-        raise HTTPException(status_code=404, detail="File data not found on server")
-
-    media_type = file_meta.get("content_type", "image/jpeg")
-    return FileResponse(path=str(filepath), media_type=media_type, filename=file_meta.get("filename", "file"))
-
-
 # ─────────────────────────────────────────────────────────────────────────────
-#  Generic mark-reviewed endpoint (for branch_transfer, expense)
+#  Mark-reviewed endpoint
 # ─────────────────────────────────────────────────────────────────────────────
 REVIEWABLE_COLLECTIONS = {
     "branch_transfer": "branch_transfer_orders",
@@ -634,7 +633,7 @@ REVIEWABLE_COLLECTIONS = {
 
 @router.post("/mark-reviewed/{record_type}/{record_id}")
 async def mark_record_reviewed(record_type: str, record_id: str, data: dict, user=Depends(get_current_user)):
-    """Mark a record's receipts as reviewed. Requires admin PIN, manager PIN, or TOTP."""
+    """Mark a record's receipts as reviewed."""
     collection_name = REVIEWABLE_COLLECTIONS.get(record_type)
     if not collection_name:
         raise HTTPException(status_code=400, detail=f"Unsupported record type: {record_type}")
@@ -648,7 +647,6 @@ async def mark_record_reviewed(record_type: str, record_id: str, data: dict, use
     if not pin:
         raise HTTPException(status_code=400, detail="Admin PIN or TOTP required")
 
-    # Use unified PIN resolver
     from routes.verify import _resolve_pin
     verifier = await _resolve_pin(pin)
     if not verifier:

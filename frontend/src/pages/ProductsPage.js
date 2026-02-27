@@ -51,6 +51,7 @@ export default function ProductsPage() {
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [corrUploadQROpen, setCorrUploadQROpen] = useState(false);
   const [corrUploadId, setCorrUploadId] = useState(null);
+  const [barcodeGenerating, setBarcodeGenerating] = useState(false);
 
   // ── Batch Quick Repack ──────────────────────────────────────────────────────
   const [qrOpen, setQrOpen] = useState(false);

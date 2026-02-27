@@ -312,7 +312,7 @@ async def void_return(return_id: str, data: dict, user=Depends(get_current_user)
             authorized_manager = mgr
             break
     if not authorized_manager:
-        raise HTTPException(status_code=401, detail="Invalid manager PIN")
+        raise HTTPException(status_code=403, detail="Invalid manager PIN")
 
     branch_id = ret.get("branch_id", "")
 

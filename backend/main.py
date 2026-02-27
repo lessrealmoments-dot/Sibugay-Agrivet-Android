@@ -141,6 +141,17 @@ api_router.include_router(scanner_router)
 api_router.include_router(admin_auth_router)
 
 # =============================================================================
+# WEBSOCKET ROUTES (must be on app directly with /api prefix)
+# =============================================================================
+@app.websocket("/api/scanner/ws/desktop/{session_id}")
+async def websocket_desktop(websocket: WebSocket, session_id: str):
+    await ws_desktop(websocket, session_id)
+
+@app.websocket("/api/scanner/ws/phone/{session_id}")
+async def websocket_phone(websocket: WebSocket, session_id: str):
+    await ws_phone(websocket, session_id)
+
+# =============================================================================
 # STARTUP & SHUTDOWN
 # =============================================================================
 @app.on_event("startup")

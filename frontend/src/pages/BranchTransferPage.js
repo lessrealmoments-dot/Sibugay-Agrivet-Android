@@ -1496,6 +1496,7 @@ export default function BranchTransferPage() {
                           <TableCell>
                             <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>{o.status}</Badge>
                             {o.has_shortage && <Badge className="ml-1 text-[10px] bg-red-100 text-red-700">Short</Badge>}
+                            {o.incident_ticket_number && <Badge className="ml-1 text-[10px] bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
                           </TableCell>
                           <TableCell className="text-xs text-slate-400">{o.created_at?.slice(0, 10)}</TableCell>
                           <TableCell>

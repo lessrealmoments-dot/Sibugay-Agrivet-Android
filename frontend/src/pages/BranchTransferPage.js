@@ -593,11 +593,15 @@ export default function BranchTransferPage() {
     await _doReceive(transferCapitalPendingItems, transferCapitalChoices);
   };
 
-  const handleAcceptReceipt = async (orderId, note = '') => {
+  const handleAcceptReceipt = async (orderId, note = '', action = 'accept') => {
     setActionSaving(true);
     try {
-      await api.post(`/branch-transfers/${orderId}/accept-receipt`, { note });
-      toast.success('Receipt accepted — inventory updated.');
+      const res = await api.post(`/branch-transfers/${orderId}/accept-receipt`, { note, action });
+      if (action === 'accept_with_incident') {
+        toast.success(`Receipt accepted. Incident ticket ${res.data.incident_ticket_number} created for investigation.`);
+      } else {
+        toast.success('Receipt accepted — inventory updated.');
+      }
       setAcceptDialog(null);
       loadOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to accept'); }

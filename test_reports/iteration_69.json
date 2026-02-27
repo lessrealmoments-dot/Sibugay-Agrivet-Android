@@ -1,0 +1,85 @@
+{
+  "summary": "Iteration 69: Branch-specific filtering bug fixes VERIFIED. All 16 backend tests passed. Endpoints correctly accept branch_id parameter for movements, orders, capital-history, vendors. Frontend correctly passes currentBranch.id to all history fetch calls and saves prices to branch_prices when on a branch.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "bug_fix_verification": {
+    "BUG_1_CENTRALIZED_HISTORY": {
+      "description": "Capital History, Movement History, and Order History were centralized (showed all branches) instead of branch-specific",
+      "fix_verified": "PASS",
+      "implementation": [
+        "GET /api/products/{id}/movements?branch_id=xxx now filters by branch_id (line 738-746)",
+        "GET /api/products/{id}/orders?branch_id=xxx filters both POs and sales by branch_id (line 751-801)",
+        "GET /api/products/{id}/capital-history?branch_id=xxx filters with backward compat (line 649-662)",
+        "Frontend passes currentBranch.id to fetchMovements (line 75), fetchOrders (line 84), fetchCapitalHistory (line 93)"
+      ]
+    },
+    "BUG_2_RETAIL_PRICE_ALL_BRANCHES": {
+      "description": "Changing retail price on one branch affected all other branches",
+      "fix_verified": "PASS",
+      "implementation": [
+        "handleSave (line 105-141) now saves to /branch-prices/{id} when currentBranch is set",
+        "Only non-price fields (name, category, etc.) are saved to global product",
+        "Branch-specific prices stored in branch_prices collection"
+      ]
+    },
+    "BUG_3_VENDORS_NOT_BRANCH_SPECIFIC": {
+      "description": "Vendors were not branch-specific",
+      "fix_verified": "PASS",
+      "implementation": [
+        "POST /api/products/{id}/vendors accepts branch_id field (line 803-821)",
+        "GET /api/products/{id}/detail filters vendors by branch_id (line 515-522)",
+        "handleAddVendor (line 152-160) passes currentBranch.id as branch_id"
+      ]
+    },
+    "BUG_4_CAPITAL_CHANGES_BRANCH_ID": {
+      "description": "Capital changes needed to include branch_id for tracking",
+      "fix_verified": "PASS",
+      "implementation": [
+        "purchase_orders.py line 84-97: capital_changes.insert_one includes branch_id",
+        "branch_transfers.py line 728-744: capital_changes.insert_one includes to_branch_id"
+      ]
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_branch_filtering_69.py",
+    "/app/test_reports/pytest/pytest_branch_filtering_69.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "All endpoints correctly implemented with Optional[str] branch_id parameter",
+    "Backward compatibility maintained in capital-history: $or query includes records without branch_id",
+    "Vendor filtering uses $or to include branch-specific AND global vendors (empty/missing branch_id)",
+    "Frontend correctly passes currentBranch.id to all relevant API calls"
+  ],
+
+  "updated_files": [],
+
+  "success_rate": {
+    "backend": "100% (16/16 tests passed)",
+    "frontend": "N/A (backend-only testing as requested)"
+  },
+
+  "test_credentials": {
+    "admin": "sibugayagrivetsupply@gmail.com / 521325"
+  },
+
+  "seed_data_creation": "Created TEST_Product during test execution",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 69 verified all 4 bug fixes for Product Detail page branch-specific filtering: (1) Movement/Order/Capital history endpoints now accept branch_id query param, (2) Frontend handleSave saves prices to branch_prices when on a branch, (3) Vendors are now branch-specific with filtering in product detail, (4) Capital changes from POs and transfers include branch_id. All tests passed. Database has existing data from production deployment."
+}

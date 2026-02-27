@@ -411,9 +411,9 @@ export default function PurchaseOrderPage() {
         // 2. Price drops detected — show smart capital dialog
         const defaultChoices = {};
         data.items.forEach(item => {
-          // Auto-apply new price for items with NO warning (new >= current)
-          // For warnings, default to last_purchase but let user choose
-          defaultChoices[item.product_id] = 'last_purchase';
+          // Price drop → default to moving_average (cushions the capital drop)
+          // Price same or higher → default to last_purchase (safe to use new price)
+          defaultChoices[item.product_id] = item.needs_warning ? 'moving_average' : 'last_purchase';
         });
         setCapitalChoices(defaultChoices);
         setCapitalPreview(data);

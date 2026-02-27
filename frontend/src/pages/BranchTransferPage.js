@@ -2066,55 +2066,120 @@ export default function BranchTransferPage() {
           </div>
         </DialogContent>
       </Dialog>
-      {/* ── Accept Receipt Dialog ── */}
+      {/* ── Accept Receipt Dialog — Enhanced with comparison table ── */}
       <Dialog open={!!acceptDialog} onOpenChange={() => setAcceptDialog(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Manrope' }}>Accept Receipt — {acceptDialog?.order_number}</DialogTitle>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              Review Variance — {acceptDialog?.order_number}
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
-              <p className="font-semibold mb-1">Accepting will:</p>
-              <ul className="list-disc list-inside text-xs space-y-0.5">
-                <li>Deduct received quantities from your branch inventory</li>
-                <li>Add received quantities to destination branch</li>
-                <li>Record the variance in the audit trail</li>
-              </ul>
-            </div>
-            {/* Show variance summary */}
-            {acceptDialog?.shortages?.length > 0 && (
-              <div className="text-xs p-2 rounded bg-amber-50 border border-amber-200">
-                <p className="font-semibold text-amber-800 mb-1">Shortages (destination received less):</p>
-                {acceptDialog.shortages.map((s, i) => (
-                  <p key={i} className="text-amber-700">{s.product_name}: ordered {s.qty_ordered}, received {s.qty_received} (short {Math.abs(s.variance)})</p>
-                ))}
+          {acceptDialog && (
+            <div className="space-y-4">
+              {/* Comparison Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-600">Product</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-600">Sent</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-600">Received</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-600">Variance</th>
+                      <th className="text-right px-3 py-2 font-semibold text-slate-600">Capital/unit</th>
+                      <th className="text-right px-3 py-2 font-semibold text-red-600">Capital Loss</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {[...(acceptDialog.shortages || []), ...(acceptDialog.excesses || [])].map((v, i) => {
+                      const isShort = v.variance > 0;
+                      return (
+                        <tr key={i} className={isShort ? 'bg-red-50/50' : 'bg-blue-50/50'}>
+                          <td className="px-3 py-2">
+                            <span className="font-medium text-slate-800">{v.product_name}</span>
+                            <span className="text-[10px] text-slate-400 ml-1">{v.sku}</span>
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono">{v.qty_ordered} {v.unit}</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold">{v.qty_received} {v.unit}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-bold ${isShort ? 'text-red-600' : 'text-blue-600'}`}>
+                            {isShort ? `-${v.variance}` : `+${Math.abs(v.variance)}`}
+                          </td>
+                          <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(v.transfer_capital)}</td>
+                          <td className={`px-3 py-2 text-right font-mono font-bold ${isShort ? 'text-red-600' : 'text-slate-300'}`}>
+                            {isShort ? `-${formatPHP(v.capital_variance)}` : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Totals */}
+                    <tr className="bg-slate-100 font-bold border-t-2">
+                      <td className="px-3 py-2" colSpan={5}>Total Capital Loss</td>
+                      <td className="px-3 py-2 text-right font-mono text-red-700">
+                        -{formatPHP((acceptDialog.shortages || []).reduce((s, v) => s + (v.capital_variance || 0), 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
-            )}
-            {acceptDialog?.excesses?.length > 0 && (
-              <div className="text-xs p-2 rounded bg-blue-50 border border-blue-200">
-                <p className="font-semibold text-blue-800 mb-1">Excesses (destination received more):</p>
-                {acceptDialog.excesses.map((e, i) => (
-                  <p key={i} className="text-blue-700">{e.product_name}: ordered {e.qty_ordered}, received {e.qty_received} (excess {Math.abs(e.variance)})</p>
-                ))}
+
+              {/* Receiver info */}
+              {acceptDialog.pending_receipt_by_name && (
+                <div className="text-xs text-slate-500 bg-slate-50 rounded px-3 py-2">
+                  Counted by: <b>{acceptDialog.pending_receipt_by_name}</b> · {acceptDialog.pending_receipt_at?.slice(0,16).replace('T',' ')}
+                  {acceptDialog.receive_notes && <span className="ml-2 text-slate-400">Note: "{acceptDialog.receive_notes}"</span>}
+                </div>
+              )}
+
+              {/* Note input */}
+              <div>
+                <label className="text-xs text-slate-500 font-medium block mb-1">Note <span className="text-slate-400">(required for investigation)</span></label>
+                <textarea
+                  placeholder="e.g. Verified with packing list, driver confirmed shortage..."
+                  rows={2}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
+                  id="accept-note-input" data-testid="accept-note"
+                />
               </div>
-            )}
-            <div>
-              <label className="text-xs text-slate-500 font-medium block mb-1">Accept note (optional)</label>
-              <input type="text" placeholder="e.g. Verified with packing list, shortfall noted..."
-                className="w-full text-sm border border-slate-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300"
-                id="accept-note-input" data-testid="accept-note" />
+
+              {/* 3 Action Buttons */}
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex gap-2">
+                  <Button onClick={() => {
+                    const note = document.getElementById('accept-note-input')?.value || '';
+                    handleAcceptReceipt(acceptDialog.id, note, 'accept');
+                  }} disabled={actionSaving} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="confirm-accept-btn">
+                    {actionSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
+                    Accept Variance
+                  </Button>
+                  <Button onClick={() => {
+                    const note = document.getElementById('accept-note-input')?.value || '';
+                    if (!note.trim()) { toast.error('Note is required when creating an incident ticket'); return; }
+                    handleAcceptReceipt(acceptDialog.id, note, 'accept_with_incident');
+                  }} disabled={actionSaving} variant="outline" className="flex-1 border-amber-300 text-amber-700 hover:bg-amber-50" data-testid="accept-investigate-btn">
+                    {actionSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <AlertTriangle size={14} className="mr-1.5" />}
+                    Accept + Investigate
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => {
+                    setAcceptDialog(null);
+                    setDisputeDialog(acceptDialog);
+                    setDisputeNote('');
+                  }} className="flex-1 border-red-200 text-red-600 hover:bg-red-50" data-testid="switch-to-dispute-btn">
+                    <XCircle size={14} className="mr-1.5" />
+                    Dispute & Re-count
+                  </Button>
+                  <Button variant="ghost" onClick={() => setAcceptDialog(null)} className="text-slate-400">
+                    Cancel
+                  </Button>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  <b>Accept Variance</b> — Acknowledge the difference, update inventory, log in audit.
+                  <br /><b>Accept + Investigate</b> — Same as accept, but also creates an incident ticket to trace the loss (driver, damage, etc).
+                  <br /><b>Dispute & Re-count</b> — Reject the numbers, ask receiver to re-count.
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex gap-2 justify-end pt-2 border-t mt-2">
-            <Button variant="outline" onClick={() => setAcceptDialog(null)}>Cancel</Button>
-            <Button onClick={() => {
-              const note = document.getElementById('accept-note-input')?.value || '';
-              handleAcceptReceipt(acceptDialog.id, note);
-            }} disabled={actionSaving} className="bg-emerald-600 text-white" data-testid="confirm-accept-btn">
-              {actionSaving ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <CheckCircle2 size={14} className="mr-1.5" />}
-              Accept & Update Inventory
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 

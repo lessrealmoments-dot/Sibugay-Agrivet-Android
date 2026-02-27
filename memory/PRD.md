@@ -336,6 +336,13 @@ Added `organization_id` field to all 20+ collections via TenantDB migration.
 - User Role Presets (save named permission sets)
 - Demo organization with realistic seed data
 
+### Recent Bug Fixes (Feb 27, 2026)
+- [x] **Branch-Specific Product Detail**: Capital History, Movement History, Order History, and Vendors now filter by the user's current branch instead of showing all-branches data.
+- [x] **Branch-Specific Pricing**: Editing retail prices on a specific branch now saves to `branch_prices` (per-branch override) instead of modifying the global product, preventing cross-branch price contamination.
+- [x] **Branch-Specific Vendors**: Vendors can now be scoped to specific branches. Product detail page filters vendors by the current branch.
+- [x] **Order History Refactored**: The order history endpoint now returns properly formatted items from both Purchase Orders and Sales (previously only returned raw PO documents).
+- [x] **Capital Change Tracking**: Capital changes from POs and branch transfers now include `branch_id` for proper branch-level audit trails.
+
 ### P2 — Backlog
 - "Pack & Ship" workflow for Branch Transfers
 - Resilient Offline Sync improvements

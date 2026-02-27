@@ -162,7 +162,10 @@ export default function SuppliersPage() {
     <div className="space-y-5 animate-fadeIn" data-testid="suppliers-page">
       <div>
         <h1 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }}>Suppliers</h1>
-        <p className="text-sm text-slate-500">View supplier list, purchase history, and payment status</p>
+        <p className="text-sm text-slate-500">
+          View supplier list, purchase history, and payment status
+          {currentBranch && <span className="ml-2 px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 text-[10px] font-medium">{currentBranch.name}</span>}
+        </p>
       </div>
 
       <div className="grid lg:grid-cols-4 gap-5">

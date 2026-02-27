@@ -134,6 +134,9 @@ api_router.include_router(internal_invoices_router)
 # Incident Tickets (transfer variance investigation)
 api_router.include_router(incident_tickets_router)
 
+# Scanner Sessions (linked phone barcode scanner)
+api_router.include_router(scanner_router)
+
 # Admin Portal Auth (separate login)
 api_router.include_router(admin_auth_router)
 

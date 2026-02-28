@@ -44,6 +44,12 @@ export default function CloseWizardPage() {
   const [lastCloseDate, setLastCloseDate] = useState(null);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
 
+  // Batch closing mode
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchDates, setBatchDates] = useState([]);
+  const [batchReason, setBatchReason] = useState('');
+  const [batchPreview, setBatchPreview] = useState(null);
+
   // Wizard data
   const [dailyLog, setDailyLog] = useState(null);
   const [preview, setPreview] = useState(null);

@@ -56,19 +56,8 @@ cd frontend && yarn build
 - Backend: FastAPI (Python), MongoDB
 - Auth: JWT (with org_id + is_super_admin), TOTP (pyotp), Manager PINs
 - Multi-tenancy: ContextVar-based TenantDB wrapper (transparent org isolation)
-- File uploads: Local disk (/app/uploads), QR-based upload + view system
+- File uploads: Cloudflare R2 (agribooks-files bucket)
 - Offline: IndexedDB (idb pattern), syncManager
-
-## Subscription Plans (Pricing)
-| Plan | PHP/mo | USD/mo | Branches | Users |
-|------|--------|--------|----------|-------|
-| Basic | ₱1,500 | $30 | 1 | 5 |
-| Standard | ₱4,000 | $80 | 2 | 15 |
-| Pro | ₱7,500 | $150 | 5 | Unlimited |
-| Extra Branch | ₱1,500 | $30 | +1 per addon | - |
-| Trial | Free | Free | 5 (Pro features) | Unlimited |
-
-Annual billing: 2 months free (pay 10 months, get 12).
 
 ## Architecture
 ```
@@ -77,364 +66,88 @@ Annual billing: 2 months free (pay 10 months, get 12).
 │   ├── config.py           # TenantDB wrapper + ContextVar org isolation
 │   ├── routes/
 │   │   ├── auth.py         # Email/username login, org subscription in /me
-│   │   ├── organizations.py # Registration, plans, /my org info
-│   │   ├── superadmin.py   # Platform admin (orgs, stats, subscription mgmt)
-│   │   └── ... (all existing routes - unchanged, tenant isolation is transparent)
-│   └── main.py             # Startup migration + super admin creation
+│   │   ├── daily_operations.py # Close Wizard, Z-Report, batch close
+│   │   ├── sales.py        # Unified sales endpoint
+│   │   ├── accounting.py   # Expenses, fund wallets, receivables
+│   │   └── ... (all existing routes)
+│   └── utils/helpers.py    # log_sale_items, fund wallet helpers
 └── frontend/
     └── src/
-        ├── App.js          # New routes: /, /register, /upgrade, /superadmin
-        ├── pages/
-        │   ├── LandingPage.js    # NEW: Public marketing page
-        │   ├── RegisterPage.js   # NEW: Company self-registration
-        │   ├── LoginPage.js      # UPDATED: Email/username login
-        │   ├── UpgradePage.js    # NEW: Subscription upgrade with QR payment
-        │   ├── SuperAdminPage.js # NEW: Platform admin panel
-        │   └── ... (all existing pages unchanged)
-        ├── components/
-        │   └── Layout.js         # UPDATED: Trial expiry banner, upgrade link
-        └── contexts/
-            └── AuthContext.js    # UPDATED: Email login, subscription state
+        └── pages/
+            └── CloseWizardPage.js # 8-step closing wizard + batch mode
 ```
 
 ## Key API Endpoints
 
-### SaaS (NEW)
-- `POST /api/organizations/register` — Self-registration (public)
-- `GET /api/organizations/plans` — Plan definitions (public)
-- `GET /api/organizations/my` — Current org info + subscription
-- `GET /api/superadmin/organizations` — All orgs (super admin only)
-- `PUT /api/superadmin/organizations/{id}/subscription` — Update plan
-- `GET /api/superadmin/stats` — Platform stats
+### Daily Close / Closing Wizard
+- `GET /api/daily-log?branch_id=X&date=Y` — Sales log with by_payment_method summary
+- `GET /api/daily-close-preview?branch_id=X&date=Y` — Cash reconciliation preview
+- `GET /api/daily-close/unclosed-days?branch_id=X` — Detect unclosed days
+- `GET /api/daily-close-preview/batch?branch_id=X&dates=d1,d2,d3` — Batch preview
+- `POST /api/daily-close` — Close single day
+- `POST /api/daily-close/batch` — Close multiple days as one record
+- `GET /api/daily-close/{date}` — Get close status
 
-### Auth (UPDATED)
-- `POST /api/auth/login` — Now accepts `email` or `username`, returns subscription info
-- `GET /api/auth/me` — Now includes subscription info
+## Closing Wizard Steps
+1. **Sales Log** — ALL sales (cash, GCash, Maya, split, credit) in sequential order with payment badges
+2. **Customer Credits** — Per-invoice item breakdown with partial payment status (Total/Paid/Balance)
+3. **AR Payments** — Payments received on existing credit
+4. **Expenses** — Grouped by category (Farm, Cash-out, Employee Advance, regular) with subtotals
+5. **Actual Count** — Cash breakdown (Opening Float, Cash Sales, Partial, AR, Total Cash In, Expenses, Expected) + E-Wallet display
+6. **Fund Allocation** — Vault + Opening Float distribution
+7. **Close & Sign Off** — Z-Report with Cash Drawer Reconciliation, Per-Day Breakdown (batch), Credit/Expense/Digital summaries, Manager PIN
+8. **Open Tomorrow** — Success + next day
 
-## DB Schema (Key)
-### organizations (NEW collection)
-```json
-{
-  "id": "uuid",
-  "name": "Company Name",
-  "owner_email": "admin@co.com",
-  "plan": "trial|basic|standard|pro|suspended",
-  "subscription_status": "trial|active|expired|suspended",
-  "trial_ends_at": "ISO date",
-  "max_branches": 1,
-  "max_users": 5,
-  "extra_branches": 0,
-  "is_default": false,
-  "is_demo": false
-}
-```
-### All existing collections
-Added `organization_id` field to all 20+ collections via TenantDB migration.
+## Batch Close Feature
+- Available when 2+ unclosed days detected
+- "Close All as Group" button enters batch mode
+- All sales, credits, expenses combined into single closing record
+- Requires reason field + Manager PIN
+- Per-day breakdown in Z-Report (sales by payment method, expenses per day)
+- Placeholder records created for each individual date (marked as batch_member)
+- Wallet updated to reflect combined closing
 
 ## Super Admin Access
-- Portal: `/admin` (NOT linked from any public page — security by obscurity)
+- Portal: `/admin`
 - Email: janmarkeahig@gmail.com
 - Password: Aa@58798546521325
-- TOTP: Google Authenticator (setup required on first login at /admin)
-- Recovery: 8 backup codes generated on TOTP setup (emailed + shown once)
-
-## Regular Admin (Default Org)
-- Email: sibugayagrivetsupply@gmail.com
-- Password: 521325
 
 ## Prioritized Backlog
 
-### P0 — Critical SaaS (COMPLETED ✅)
-- [x] Multi-tenancy foundation (TenantDB wrapper)
-- [x] Email-only login (removed username)
-- [x] Self-registration + 14-day trial
-- [x] Landing page with dynamic pricing + feature table (live from backend)
-- [x] Super Admin panel (v3: 4-tab Overview/Organizations/Feature Flags/Payment Settings)
-  - [x] Feature Flags tab — toggle per-plan per-feature with All On/Off, Save & Publish
-  - [x] Dynamic feature matrix stored in DB, fetched by landing page
-  - [x] Pricing cards show live top features from DB
-- [x] Separate admin portal at /admin with Google Authenticator TOTP + backup codes
-- [x] Email notifications via Resend (welcome, trial warning, grace, locked, activated)
-- [x] 3-day grace period + daily subscription check scheduler - sends warnings + locks expired accounts
-- [x] Founders plan (unlimited branches, all features, never expires)
-- [x] Auto 30-day expiry for paid plans (Basic/Standard/Pro) when admin activates
-- [x] Branch limit enforcement (backend 400 + frontend disabled button + warning banner)
-- [x] Feature flag enforcement in navigation (nav items hidden based on plan's feature flags)
-- [x] /auth/me uses live feature flags from DB (not static defaults)
-- [x] FeatureGate component — upgrade prompt cards on all locked pages (9 routes gated)
-- [x] PDF Test Report v2.0 generated (AgriBooks_SaaS_Test_Report_v2.pdf, 211KB)
+### P0 — Completed
+(See CHANGELOG.md for full history)
 
-### P0 — Bug Fixes & Authorization Improvements (COMPLETED ✅)
-- [x] Invalid PIN/TOTP returns 400 instead of 401 — fixed in verify.py, accounting.py (was causing logout/redirect to login on wrong PIN)
-- [x] Inventory Correction: admin path fixed — pendingCorrection state not set before submitCorrection (now passes data directly)
-- [x] Capital Injection (capital_add) now accepts Owner PIN or TOTP — any employee can execute with admin authorization (no longer admin-role-only)
-- [x] Safe → Bank now visible to all users (was hidden, TOTP still required)
-- [x] Inventory /set endpoint repack guard added (was missing)
-- [x] Inventory value verified: repacks correctly excluded from all value calculations
-- [x] /login not accessible in setup mode fixed (added to setup-mode routes, default redirect to /login)
-- [x] setup_completed false positive fixed (setup.py checks super admin/org existence)
-- [x] "Error Saving Products" when changing type fixed (missing has_perm import in products.py)
-- [x] Branch not created on registration fixed (auto-creates first branch + fund wallets, branch_name field added to register form)
+### P0 — Current / In Progress
+- [x] Closing Wizard Phase 1-4: Fixed Sales Log, Credits, Expenses, Actual Count, Z-Report
+- [x] Closing Wizard Phase 5: Batch/Group closing with combined Z-Report
 
-### P0 — Smart Capital Pricing (COMPLETED ✅)
-- [x] Default capital_method changed to "last_purchase" for new products
-- [x] GET /purchase-orders/{po_id}/capital-preview endpoint — returns per-item: current_capital, new_price, projected_moving_avg, needs_warning, price_drop_pct
-- [x] POST /purchase-orders/{po_id}/receive accepts capital_choices per product
-- [x] SmartCapitalDialog in PurchaseOrderPage — shows per-item table with price drop indicators, New Price vs Moving Avg toggle buttons, bulk actions, Confirm Receive
-- [x] GET /branch-transfers/{id}/capital-preview — compares transfer_capital vs destination branch capital
-- [x] SmartCapitalDialog in BranchTransferPage — same pattern, intercepts receive flow
-- [x] capital_changes MongoDB collection (tenant-isolated) — logged on PO receive, transfer receive, manual edit
-- [x] GET /products/{id}/capital-history endpoint
-- [x] Capital History accordion section in ProductDetailPage — timeline with source badges (PO/Transfer/Manual), price delta arrows, method labels, by whom
-- [x] Inventory Correction bug fixed — admin path silently returned due to pendingCorrection not being set (now passes data directly)
-- [x] Owner PIN + TOTP 3-mode verification dialog — TotpVerifyDialog now has 3 tabs: Owner PIN (in-person), TOTP/Authenticator (remote), Password (fallback)
-- [x] verify-admin-action endpoint now supports mode='pin' — checks system_settings.admin_pin (the existing "Admin Verification PIN" in Audit Setup tab)
-- [x] Settings labels updated: Security tab clarifies TOTP is for remote approvals; Audit Setup tab renamed "Owner PIN — For In-Person Approvals"
-
-### Bug Fixes — Feb 2026
-- [x] Fixed Quick Sales inventory race condition: Used `effectiveBranchId` (from localStorage/user data, immediately available) instead of `currentBranch?.id` (async, requires branches API). Added backend fallback to aggregate all-branch inventory when no branch_id sent.
-- [x] Fixed Dashboard data inconsistencies:
-  - Added `today_digital_sales` tracking (digital/split payments were invisible on both dashboards)
-  - Fixed Net Cash Flow formula: now = cash sales + digital sales + AR collected − expenses (was missing digital)
-  - Made branch-summary and stats formulas consistent (both now use same cash-flow logic)
-  - Updated frontend KPIs: "Walk-in Sales" → "Total Sales" (shows all revenue), "Cash Sales" shows cash-only with digital sub-text
-  - Owner branch cards now show 6 metrics: Total Sales, Cash Sales, New Credit, Digital Sales, Cashier+Safe, AR Outstanding
-- [x] Fixed Employee Advance: Backend now enforces monthly_ca_limit and requires manager_approved_by when exceeded (was frontend-only check)
-- [x] Fixed Customer Cashout Reversal: Now correctly returns funds to cashier (+amount) instead of double-deducting (-amount)
-- [x] Full System Audit: 24/24 backend tests passing — covers registration, setup, products, POs, sales, all expense types, CA limits, reversals, fund wallets, uploads/QR, dashboard, returns, POS sync, and multi-tenant isolation
-- [x] Gap Audit: 26/26 additional tests — covers branch transfers, digital/split sales, invoice void, repack products (sell & derived stock), inventory correction, count sheets, daily close, interest/penalty generation, invoice edit with audit trail, AR/sales/expense reports, cashier role restrictions, branch pricing overrides, actual file upload (multipart), supplier CRUD, notifications, payment void, daily log/report, product movement history, customer statement
-- [x] PO Receipt Workflow:
-  - Mandatory receipt upload before PO can be received (backend enforced)
-  - Receipt count shown on PO list with badge (No receipts / X photos)
-  - Review status shown: "Pending review" / "Reviewed by [name]"
-  - "Mark as Reviewed" button with admin PIN/TOTP verification
-  - Auto-notification sent to owner/admin when PO is received with receipts
-  - Upload page (phone) has "Take Photo" and "Choose from Gallery" options
-- [x] Inline Receipt Upload During Creation (Feb 2026):
-  - New `POST /api/uploads/direct` endpoint for authenticated inline file uploads
-  - New `DELETE /api/uploads/direct/{session_id}/{file_id}` endpoint to remove files
-  - New `POST /api/uploads/reassign` endpoint to link pending upload sessions to actual records
-  - `ReceiptUploadInline` reusable React component (compact + full modes, drag & drop, multi-file)
-  - PO Creation: Receipt upload REQUIRED before Cash/Terms submission (integrated into form)
-  - Branch Transfer Receive: Receipt upload REQUIRED before confirming receipt (integrated into dialog)
-  - Expense Creation: Receipt upload OPTIONAL (compact mode in expense form)
-  - Backward compatible: old POs/records can still upload via edit/view QR flow
-  - QR Code Phone Upload: "Use Phone" button generates QR code, phone scans to open upload page with record details, camera/gallery options, auto-polls for uploads
-- [x] Bug Fix: QR Dialog Close Button (Feb 2026):
-  - ViewQRDialog and UploadQRDialog now use createPortal to render to document.body
-  - Added stopPropagation, higher z-index (99999), pointer-events: auto to prevent Shadcn Dialog overlay interference
-- [x] Bug Fix: TOTP Unauthorized on Phone Verify (Feb 2026):
-  - New public endpoint POST /api/verify/public/{doc_type}/{doc_id} — doesn't require auth
-  - ViewReceiptsPage now calls public endpoint for phone-based verification
-  - Security maintained via PIN/TOTP validation itself
-- [x] Unified PIN Verification System (Feb 2026):
-  - Root cause: 3+ independent PIN check implementations across codebase (verify.py, purchase_orders.py, uploads.py) each checking different PIN types
-  - Fix: `_resolve_pin()` in verify.py now checks ALL 4 PIN types: system admin PIN (bcrypt), manager_pin/owner_pin (plain text), TOTP, auditor PIN
-  - `mark_po_reviewed()` and `mark_record_reviewed()` now import and use `_resolve_pin` instead of custom logic
-  - Both phone (public) and desktop (authenticated) verify endpoints now also update `receipt_review_status` field when record has uploaded receipts
-  - Result: Manager PIN works on phone AND desktop. Phone verification updates desktop PO status.
-- [x] Unified PIN Management UI (Feb 2026):
-  - Settings tab renamed from "Audit Setup" to "PIN Management"
-  - Overview card explaining 3 PIN types: Admin PIN, Manager PIN, TOTP
-  - Admin PIN section: system-wide PIN, only admin can set/change
-  - My PIN section: managers/admins change their own PIN (requires current PIN)
-  - Staff Manager PINs table: admin sets/resets any user's PIN with audit trail
-  - Auditor Access section: toggle auditor role + set auditor PIN
-  - Backend: PUT /auth/change-my-pin — validates current PIN before allowing change
-- [x] Bug Fix: Wrong PIN Logout (Feb 2026):
-  - Root cause: PUT /auth/change-my-pin returned HTTP 401 on wrong PIN, which triggered the global axios interceptor to log the user out
-  - Fix: Changed to HTTP 400 so it shows an error toast without destroying the session
-- [x] Unified Team & Settings Consolidation (Feb 2026):
-  - **Problem**: Settings, Accounts, and Permissions pages were redundant — all managed users/roles/PINs
-  - **Solution**: Merged into two clean pages:
-    - **Team page** (`/team`): Members tab (user CRUD, PIN mgmt, disable/delete, expandable row details) + Permissions tab (granular per-user permissions, presets)
-    - **Settings page** (`/settings`): My Account tab (profile, password, PIN — all roles) + Security tab (Admin PIN, TOTP, Auditor Access — admin only)
-  - Sidebar: Removed "Accounts" and "Permissions" nav items, replaced with "Team"
-  - Backend: Added `DELETE /api/users/{id}/permanent` (hard delete), `PUT /api/users/{id}/reactivate`, `GET /api/users?include_inactive=true`
-  - "Show disabled" toggle on Team page to reveal deactivated users
-  - Expandable user rows with quick-action buttons (Edit, Set PIN, Reset PW)
-- [x] Bug Fix: Sales History Miscategorization (Feb 2026):
-  - **Problem**: Sales paid via GCash/digital/split were showing as "Credit Sales" in the Sales History board. Cash sales showed zero for digital payments.
-  - **Root cause**: Backend `invoices/history/by-date` categorized everything not "cash" as credit. Frontend only had Cash/Credit binary classification.
-  - **Fix**: Backend now returns separate `digital` total for `payment_type in ("digital", "split")`. Frontend board now shows 5 stat cards: Cash Sales, Digital Sales, Credit Sales, Grand Total, Transactions. Row badges show actual platform (e.g., "GCash") with blue badge instead of binary Cash/Credit.
-  - **Split payment fix**: Split invoices now properly allocate `cash_amount` → Cash Sales and `digital_amount` → Digital Sales (previously entire grand_total went to Digital). Row badges for split show "Split · GCash" (indigo) to distinguish from pure digital (blue). Fix applied to `/api/invoices/history/by-date`, `/api/dashboard` (owner stats), and `/api/dashboard` (branch cards).
-- [x] Bug Fix: Safe Wallet Movement History Empty (Feb 2026):
-  - **Problem**: Paying a PO from the safe deducted the balance correctly, but the movement history was empty.
-  - **Root cause**: Systemic — safe wallet operations modified `safe_lots` but never created `wallet_movements` entries. The `update_cashier_wallet()` helper always logged movements, but no equivalent existed for the safe.
-  - **Fix**: Created `record_safe_movement(branch_id, amount, reference)` helper in `utils/helpers.py`. Applied at all 7 code paths: PO payment from safe, PO adjust-payment (deduction + refund), cashier→safe, safe→cashier, safe→bank, capital injection to safe.
-- [x] Repack Products in Price-Below-Capital Scan (Feb 2026):
-  - **Problem**: The PriceScanManager background scan (every 5 min) excluded repack products, so repacks priced below their derived cost were never flagged.
-  - **Fix**: Backend `pricing-scan` endpoint now loads repacks, derives their cost from `parent_cost / units_per_parent`, and includes them in the scan. Moving average and last purchase also derived from parent history. Frontend shows purple "REPACK" badge with parent info and "(derived)" cost indicator.
-- [x] Interactive Dashboard Redesign with Draggable Widgets (Feb 2026):
-  - **Drag-and-drop layout**: All dashboard widgets are draggable using `react-grid-layout`. Per-user layout persistence via localStorage. "Reset Layout" button restores optimized default.
-  - **Sales Trends Widget**: Interactive period selector (This Month, Last Month, Quarter, Year) with area chart showing daily revenue. Summary cards for Revenue, Cash, Digital, Credit breakdown.
-  - **Branch Comparison Widget**: Bar chart comparing branch revenue with leaderboard ranking. Period-synced with Sales Trends.
-  - **Accounts Payable Widget**: Total outstanding, overdue (red), due this week (amber), upcoming. Shows individual overdue/due-soon POs with vendor and amount. Available on both owner and branch dashboards.
-  - **Backend**: New endpoints `GET /api/dashboard/sales-analytics` (daily aggregation with split payment handling, branch breakdown) and `GET /api/dashboard/accounts-payable` (AP summary with overdue/due-soon/upcoming).
-  - Existing KPI cards, cash position, AR overview, pending reviews, branch cards all preserved and improved.
-- [x] Pending Receipt Reviews Dashboard Widget (Feb 2026):
-  - New `GET /api/dashboard/pending-reviews` endpoint — returns unreviewed records (POs, branch transfers, expenses) with upload sessions, grouped by branch
-  - New `POST /api/uploads/mark-reviewed/{record_type}/{record_id}` — generic review endpoint for branch_transfers and expenses (POs had existing one)
-  - `PendingReviewsWidget` React component — branch-grouped view for owner/admin, single-branch view for branch users
-  - Owner Dashboard: "Pending Receipt Reviews" card with expandable branch sections, inline review dialog with PIN/TOTP, receipt photo preview
-  - Branch Dashboard: "Receipts Awaiting Review" card showing only that branch's pending items (branch users see "Pending" badge, admins get "Review" button)
-  - Review dialog: shows record details, receipt photo thumbnails, review notes field, PIN/TOTP verification, "View Full Record" link
-- [x] Branch-to-Branch Stock Request Workflow Fix (Feb 2026):
-  - **Problem**: When a branch creates a stock request (branch_request PO), the supply branch gets a notification but has no clear way to find or process the request.
-  - **Fix**: Added notification navigation in NotificationBell.js — clicking transfer-related notifications (branch_stock_request, transfer_incoming, transfer_variance_review, transfer_accepted, transfer_disputed) navigates directly to the Branch Transfers page with the correct tab/subtab selected.
-  - Added proper icons for all transfer notification types (Package, ArrowLeftRight, AlertTriangle, ClipboardCheck, XCircle) with color-coded backgrounds.
-  - Added URL deep-linking via `useSearchParams` in BranchTransferPage.js — supports `?tab=history&subtab=requests` to open directly to Stock Requests tab.
-  - Added "View →" indicator on navigable notifications so users know they can click to navigate.
-  - Full workflow: Notification → Click → Branch Transfers → Stock Requests tab → Generate Transfer → Pre-filled New Transfer form.
-- [x] Enhanced Stock Request → Transfer Workflow (Phase 1, Feb 2026):
-  - **Requested vs Available vs Send columns**: When generating a transfer from a stock request, shows Requested Qty (what branch wants), Available Stock (from source inventory), and Send Qty (auto-defaults to min of both). Amber "low" indicator when available < requested, "partial" indicator on send qty.
-  - **Role-based pricing**: Admin can set both Transfer Capital and Branch Retail. Managers can only set Transfer Capital — Branch Retail is disabled with "Admin sets retail" hint.
-  - **Request status tracking**: Stock request PO updates to "fulfilled" or "partially_fulfilled" when the generated transfer is received. Status badges shown on Stock Requests tab.
-  - **Transfer-to-request linking**: Transfers store `request_po_id` and `request_po_number`. History list shows "from PO-xxx" reference. Detail dialog shows blue request reference badge.
-  - **Status Timeline**: Transfer detail dialog shows a visual timeline: Requested → Transfer Created → Sent → Received → Settled. Each step shows date and completion status.
-  - **Form pre-fill fix**: Added `skipResetRef` to prevent useEffect from clearing pre-filled form data when branch selectors trigger reset effects.
-- [x] Internal Invoicing System (Phase 2, Feb 2026):
-  - **Auto-created invoices**: When a branch transfer is created, an internal invoice (INV-YYYYMMDD-XXXX) is auto-generated in the `internal_invoices` collection. Linked to the transfer via `invoice_id`/`invoice_number`.
-  - **Invoice status syncs with transfer**: prepared → sent → received. Timestamps (sent_at, received_at) set on each transition.
-  - **Printable invoice**: Enhanced print function generates a professional internal invoice with: From/To branches, product table with "Actual Rcvd" column (blank for manual corrections), corrections/discrepancy notes box, payment terms (Net 15, due date), signature lines (Prepared By, Driver, Received By).
-  - **API endpoints**: `GET /internal-invoices` (list with branch enrichment), `GET /internal-invoices/summary` (payable/receivable totals with overdue/due-soon), `GET /internal-invoices/{id}`, `GET /internal-invoices/by-transfer/{transfer_id}`.
-  - **Frontend**: Transfer detail dialog shows invoice badge (INV-xxx, Terms: Net 15) with "Print Invoice" button. History list shows invoice reference.
-  - **Physical workflow**: Invoice printed (2 copies) → driver carries copy → Branch 1 counts actual vs invoice → writes corrections on paper → uploads photo (QR phone or PC) → confirms receipt in system.
-- [x] Auto-Settlement via Branch Bank (Phase 3, Feb 2026):
-  - **Pay Now endpoint**: `POST /internal-invoices/{id}/pay` — admin-only, deducts from receiving branch's bank wallet, credits supplier branch's bank wallet. Validates balance, creates wallet_movements for both branches.
-  - **Internal Invoices page**: New `/internal-invoices` page with summary cards (Total Payable, Overdue, Due This Week, Total Receivable), invoice list with All/Unpaid/Paid tabs, and "Pay Now" button with confirmation dialog showing bank-to-bank transfer details.
-  - **Auto-pay scheduler**: Daily at 8AM, checks for overdue invoices. If bank has sufficient balance, auto-deducts and notifies admin. If insufficient, sends overdue notification.
-  - **Due-soon notifications**: 3 days before due date, sends notification to admin.
-  - **Sidebar navigation**: "Internal Invoices" added under Branches section.
-  - **Notification types**: Added icons for internal_invoice_paid, auto_paid, due, overdue.
-- [x] Internal Profitability Dashboard Widget (Feb 2026):
-  - **Dashboard widget**: Added to Owner Dashboard showing per-branch internal revenue (supplied goods), cost (received goods), and profit/loss.
-  - **Bar chart**: Green bars for profit centers, red for cost centers using recharts.
-  - **Period selector**: This Month, Last Month, Quarter, Year with live data refresh.
-  - **Branch ranking**: Shows top branches by internal profit with revenue - cost = profit breakdown.
-  - **Backend**: `GET /internal-invoices/profitability` endpoint with period filter, per-branch aggregation, sorted by profit.
-  - **Navigation**: "View all invoices" link to Internal Invoices page.
-- [x] Bulletproof Offline Sales — Phase A (Feb 2026):
-  - **Local inventory deduction**: After any offline sale, stock is immediately deducted from the local IndexedDB cache (both inventory and product `available` fields). Cashier sees accurate stock even when offline.
-  - **Envelope ID for idempotency**: Every sale now includes a UUID `envelope_id`. The sync endpoint (`POST /sales/sync`) checks for duplicate `envelope_id` to prevent double-processing if a sale syncs twice.
-  - **Org-scoped IndexedDB**: Database name changed from `agripos_offline` to `agripos_offline_{org_id}`. Set on login/fetchUser via `setOfflineOrg()`. Prevents cross-tenant data leaks in multi-tenant SaaS.
-  - **beforeunload warning**: POS page registers a `beforeunload` event that checks for pending sales. If unsynced sales exist, browser prompts "You have unsynced sales" before closing.
-  - **Delta sync**: Backend `GET /sync/pos-data?last_sync={timestamp}` now filters products by `updated_at`/`created_at >= last_sync`. Returns `is_delta: true` flag. Frontend merges delta products via `putProduct()` instead of full cache replace.
-- [x] Smart Data Caching — Phase B (Feb 2026):
-  - **Background refresh every 5 min**: `startAutoSync` now sets up a `cacheRefreshInterval` (5-minute delta sync) in addition to the 30s pending-sales check. Lightweight — only fetches changed records via delta sync.
-  - **Org change detection**: When a different company logs in, `setOfflineOrg()` detects the change and calls `clearOrgCache()` to delete the old org's IndexedDB. Pending sales are preserved — old DB only deleted if no pending sales remain.
-  - **Proper cleanup**: `stopAutoSync` clears all intervals and removes the `online` event listener reference.
-  - **Branch-aware refresh**: `startAutoSync` accepts a branch ID getter function so background refresh targets the correct branch.
-  - **UI indicator**: OfflineIndicator shows "Auto-refreshes every 5 min" when cache is ready.
-- [x] Enhanced Sync Progress & Status — Phase C (Feb 2026):
-  - **Logout warning**: When user logs out with pending offline sales, shows confirmation dialog: "You have unsynced offline sales! They will sync next time you log in." Cancel prevents logout.
-  - **Enhanced pending sales indicator**: Shows bold count, sync progress bar ("Syncing sale 3/5..."), "waiting for internet" badge when offline, and "Sales are safely stored" reassurance message.
-  - **Prominent Sync Now button**: Full-width amber button replaces old "Push now" link for better visibility.
+### P0 — Upcoming
+- [ ] Sales History per day or per closing period
+- [ ] Mobile Scanner "Add to Cart" verification (recurring issue)
 
 ### P1 — Upcoming
-- Incident Tickets page in sidebar (for admins to manage open incidents) — DONE
-- Backup Management UI (super admin + company owner views) — DONE
-- R2 migration script for existing uploads — DONE
-- Employee Cash Advance Summary Report
-- User Role Presets (save named permission sets)
-- Demo organization with realistic seed data
-
-### Recent Bug Fixes (Feb 27, 2026)
-- [x] **Branch-Specific Product Detail**: Capital History, Movement History, Order History, and Vendors now filter by the user's current branch instead of showing all-branches data.
-- [x] **Branch-Specific Pricing**: Editing retail prices on a specific branch now saves to `branch_prices` (per-branch override) instead of modifying the global product, preventing cross-branch price contamination.
-- [x] **Branch-Specific Vendors & Suppliers**: Vendors and Suppliers are now branch-scoped. Product vendors link to suppliers via `supplier_id` (single source of truth for contact info). Supplier picker replaces freeform vendor name input.
-- [x] **Order History Refactored**: The order history endpoint now returns properly formatted items from both Purchase Orders and Sales (previously only returned raw PO documents).
-- [x] **Capital Change Tracking**: Capital changes from POs and branch transfers now include `branch_id` for proper branch-level audit trails.
-- [x] **Branch-Specific Moving Average**: Moving average and last purchase calculations are now branch-scoped — only POs/movements from the current branch are used, preventing cross-branch cost contamination.
-- [x] **Smart Capital Rule**: Default is `last_purchase`. When PO price drops below current capital → warns user and defaults to `moving_average`. Price equal or higher → auto-uses `last_purchase`. User can still override in the dialog.
-- [x] **PO Receive → Branch Prices**: When receiving a PO, the new capital is now also stored in `branch_prices.cost_price` for the receiving branch (not just the global product).
-- [x] **Transfer Capital in Moving Average**: Branch transfers (`transfer_in` movements) now factor into the moving average calculation alongside PO purchases. All 6 MA calculation locations updated.
-- [x] **Smart Capital Rule for Transfers**: Same as POs — transfer_capital ≥ current → auto-accept, transfer_capital < current → warn + default to moving_average.
-- [x] **Enhanced Dispute System (Feb 27, 2026)**:
-  - Sender now sees full **Sent vs Received comparison table** (quantities, variance, capital/retail loss) when reviewing a pending variance.
-  - **3 action options**: Accept Variance (acknowledge loss), Accept + Investigate (create incident ticket), Dispute & Re-count.
-  - New **Incident Tickets** system (`incident_tickets` collection + full CRUD API) for tracking/investigating transfer losses.
-  - Ticket lifecycle: Open → Investigating → Resolved → Closed, with timeline tracking every action.
-  - All variance acceptances logged to `audit_log` for audit trail.
-  - Incident ticket badges shown on transfer list and detail views.
-- [x] **R2 Object Storage Integration (Feb 27, 2026)**:
-  - All file uploads (QR receipts, transfer proofs, expense receipts) now go to **Cloudflare R2** (`agribooks-files` bucket).
-  - Multi-tenant storage layout: `{org_id}/{record_type}/{record_id}/{file_id}.ext`
-  - Files served via **pre-signed URLs** (1-hour expiry, no public bucket access).
-  - VPS stores zero user files — only code and database.
-  - Backward compatible: legacy local files still served via old endpoint.
-  - Direct upload, QR upload, and reassign all use R2.
-- [x] **Comprehensive Backup Management (Feb 27, 2026)**:
-  - **Full Site Backup**: mongodump → R2 `agribooks-backups` (daily at 1AM, manual trigger).
-  - **Per-Org Backup**: Exports all 43 org collections as compressed JSON → R2 `org/{org_id}/{timestamp}.json.gz`. Runs every 6 hours (1AM, 7AM, 1PM, 7PM) = 4 restore points/day.
-  - **Restore with Safety Net**: Auto-creates pre-restore backup before any restore. Validates manifest. Atomic delete→insert per collection.
-  - **Data Integrity**: Checksum (doc counts per collection), org_id validation, no cross-org contamination.
-  - **Super Admin Dashboard**: All orgs summary with last backup date, size, doc count.
-  - **Schedule Config**: Configurable via API (site hours + org hours).
-  - **Backward Compatible**: Legacy `/api/backups/trigger` and `/api/backups/` still work.
+- [ ] Weight-embedded EAN-13 barcode recognition in POS
+- [ ] Convert app to PWA (installable, offline-first)
+- [ ] Demo Login System
+- [ ] Automated Payment Gateway (Stripe/PayPal)
 
 ### P2 — Backlog
-- "Pack & Ship" workflow for Branch Transfers
-- Resilient Offline Sync improvements
-- Annual billing automation
-- Stripe/PayMongo integration for automated billing
-- Refactor SuperAdminPage.jsx (1000+ lines → smaller components)
-- AdminLoginPage.jsx: replace window.location.href with React state update
-- Smarter Price Suggestions: Auto-suggest retail price based on capital + margin
-- Quick-action user details on Team page (expandable detail card)
-- Selective Offline Sync (choose which data categories to sync)
-- Demo Login System (pre-populated read-only demo account)
-- Employee Cash Advance Summary Report
-- User Roles & Presets (reusable role templates)
+- [ ] Refactor SuperAdminPage.jsx (1000+ lines)
+- [ ] Refactor AdminLoginPage.jsx (SPA navigation)
+- [ ] Weigh & send mode for phone scanner
+- [ ] Quick-action user details on Team page
+- [ ] Kiosk Mode for POS
+- [ ] Advanced Reporting on barcode scan history
+- [ ] Employee Cash Advance Summary Report
+- [ ] User Roles & Presets
+- [ ] "Pack & Ship" Workflow
+- [ ] Smarter Price Suggestions
 
-### Completed — Feb 27, 2026 (Barcode System)
-- [x] **Comprehensive Barcode System (Feb 27, 2026)**:
-  - **Auto-generation**: Code128 barcodes with `AG` prefix + 8-digit unique number (e.g., `AG43497580`).
-  - **Parent-level barcodes**: Barcodes assigned at parent product level, shared across branches. Repacks do NOT get barcodes.
-  - **Bulk generation**: "Generate All Barcodes" button on Products page assigns barcodes to all parent products without one.
-  - **Single generation**: "Generate Barcode" button on Product Detail page.
-  - **Duplicate checking**: API validates uniqueness; up to 100 retries for collision avoidance.
-  - **Barcode column**: Products table shows barcode codes inline.
-  - **Visual barcode display**: SVG barcode rendered on Product Detail page using JsBarcode (Code128).
-  - **Barcode lookup API**: `GET /api/products/barcode-lookup/{barcode}` with branch-specific pricing.
-  - **Product search by barcode**: List and search-detail endpoints now search the barcode field.
-  - **Print Barcodes page** (`/barcode-print`):
-    - Label sizes: 40x30mm (default), 50x30mm option.
-    - Add individual products or "Add All Products" for bulk print.
-    - Quantity controls per product (how many labels to print).
-    - Opens printable popup with CSS @page layout for thermal/standard printers.
-    - Labels include product name + scannable barcode.
-  - **Scan-to-add in Sales** (`/sales-new`):
-    - USB barcode scanner detection via rapid keystroke + Enter pattern (100ms threshold).
-    - Scan product → adds new line item. Scan same product again → increments quantity.
-    - Falls back to API lookup if product not in local cache.
-  - **Sidebar navigation**: "Print Barcodes" link under Inventory & Purchasing section.
-  - **Backend endpoints**:
-    - `POST /api/products/{id}/generate-barcode` — single product
-    - `POST /api/products/generate-barcodes-bulk` — all products without barcode
-    - `GET /api/products/barcode-lookup/{barcode}` — lookup with stock/pricing
-    - `POST /api/products/barcode-check` — duplicate validation
-  - **Frontend files**: `BarcodeDisplay.js` (component), `BarcodePrintPage.js` (page)
-  - **Dependencies**: `jsbarcode@3.12.3` (frontend)
-
-- [x] **Barcode Management Page (Feb 27, 2026)**:
-  - New page at `/barcode-manage` with two tabs: "No Barcode" and "With Barcode"
-  - **No Barcode tab**: Lists parent products without barcodes, individual "Generate" buttons, and bulk "Generate All" button
-  - **With Barcode tab**: Lists all products with barcodes, shows barcode preview SVG, code, and category
-  - Search/filter across both tabs by name, SKU, or barcode
-  - Summary badges: "X No Barcode" and "Y With Barcode" counts in header
-
-- [x] **Print Barcodes — Load from Inventory (Feb 27, 2026)**:
-  - "Load from Inventory" button on Print Barcodes page
-  - Loads parent products with barcodes that have stock in the current branch
-  - Auto-sets label quantity to match inventory count (50 units → 50 labels)
-  - New API: `GET /api/products/barcode-inventory/{branch_id}`
-
-- [x] **Linked Phone Scanner — WebSocket (Feb 27, 2026)**:
-  - **Desktop**: "Link Scanner" button on Sales page creates a session → shows QR code
-  - **Phone**: Scans QR → opens `/scanner/{sessionId}` → connects via WebSocket → camera scans barcodes
-  - **Real-time**: Scanned products appear on desktop POS cart automatically
-  - **Branch-locked**: Scanner session is tied to the current branch for correct pricing/stock
-  - Backend: `scanner.py` with REST + WebSocket endpoints
-  - Frontend: `MobileScannerPage.js` (mobile), scanner integration in `UnifiedSalesPage.js` (desktop)
-  - Dependencies: `html5-qrcode@2.3.8` (camera barcode scanning)
+## 3rd Party Integrations
+- Cloudflare R2: File storage
+- Resend: Transactional emails
+- Google Authenticator: 2FA
+- fpdf2: PDF reports
+- python-barcode: Backend barcode generation
+- jsbarcode: Frontend barcode rendering
+- html5-qrcode: Camera barcode scanning

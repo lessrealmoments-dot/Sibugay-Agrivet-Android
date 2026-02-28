@@ -295,7 +295,7 @@ export default function CloseWizardPage() {
       setSaleDialog(false);
       setSaleForm({ search: '', product: null, qty: 1, price: '', paymentType: 'cash', customerName: '' });
       setSaleMatches([]);
-      loadWizardData();
+      loadWizardData(date);
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to add sale'); }
   };
 

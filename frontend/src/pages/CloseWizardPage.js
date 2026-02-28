@@ -501,6 +501,7 @@ export default function CloseWizardPage() {
           <p className="text-sm text-slate-500 mt-0.5">
             {currentBranch?.name} — {date}
             {isClosed && <Badge className="ml-2 bg-emerald-100 text-emerald-700 text-[10px]">CLOSED</Badge>}
+            {lastCloseDate && <span className="ml-2 text-xs text-slate-400">Last close: {lastCloseDate}</span>}
           </p>
         </div>
         {/* 1-Click Reports */}
@@ -513,6 +514,55 @@ export default function CloseWizardPage() {
           </Button>
         </div>
       </div>
+
+      {/* Multi-Day Selector — shown when there are multiple unclosed days */}
+      {unclosedDays.length > 1 && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={14} className="text-amber-600" />
+              <span className="text-sm font-semibold text-amber-800">
+                {unclosedDays.length} unclosed day{unclosedDays.length > 1 ? 's' : ''} detected
+              </span>
+              <span className="text-xs text-amber-600">
+                {lastCloseDate ? `Since ${lastCloseDate}` : 'No previous closing found'}
+              </span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {unclosedDays.map((day, idx) => {
+                const isSelected = date === day.date;
+                const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                return (
+                  <button
+                    key={day.date}
+                    onClick={() => selectDay(idx)}
+                    data-testid={`day-select-${day.date}`}
+                    className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs shrink-0 transition-all ${
+                      isSelected
+                        ? 'bg-[#1A4D2E] text-white border-[#1A4D2E] shadow-sm'
+                        : day.has_activity
+                        ? 'bg-white border-amber-300 hover:border-[#1A4D2E]/50 hover:bg-slate-50'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 opacity-60'
+                    }`}
+                  >
+                    <span className="font-semibold">{dayLabel}</span>
+                    {day.has_activity ? (
+                      <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-emerald-200' : 'text-slate-400'}`}>
+                        {day.sales_count} sales &middot; {formatPHP(day.cash_sales_total)}
+                      </span>
+                    ) : (
+                      <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>No activity</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-amber-600 mt-1.5">
+              Close days in order. Each day's opening float chains from the previous closing.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stepper */}
       <div className="flex items-center gap-0 overflow-x-auto pb-1">

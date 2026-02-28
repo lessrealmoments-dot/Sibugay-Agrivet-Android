@@ -39,6 +39,11 @@ export default function CloseWizardPage() {
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState('');
 
+  // Multi-day closing
+  const [unclosedDays, setUnclosedDays] = useState([]);
+  const [lastCloseDate, setLastCloseDate] = useState(null);
+  const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+
   // Wizard data
   const [dailyLog, setDailyLog] = useState(null);
   const [preview, setPreview] = useState(null);

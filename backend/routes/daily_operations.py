@@ -10,6 +10,112 @@ from utils import get_current_user, check_perm, now_iso, new_id, get_branch_filt
 router = APIRouter(tags=["Daily Operations"])
 
 
+
+@router.get("/daily-close/unclosed-days")
+async def get_unclosed_days(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+):
+    """
+    Find all unclosed business days since the last closing until today.
+    Returns dates with basic summaries so the user can close them one-by-one.
+    """
+    check_perm(user, "reports", "view")
+    if not branch_id:
+        branch_id = user.get("branch_id")
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="branch_id required")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Find last closed day for this branch
+    last_close = await db.daily_closings.find_one(
+        {"branch_id": branch_id, "status": "closed"},
+        {"_id": 0, "date": 1, "cash_to_drawer": 1, "closed_at": 1},
+        sort=[("date", -1)],
+    )
+
+    if last_close:
+        start_date = (datetime.strptime(last_close["date"], "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        last_close_date = last_close["date"]
+        last_drawer = float(last_close.get("cash_to_drawer", 0))
+    else:
+        # No closings ever — find the earliest transaction or default to 7 days ago
+        earliest_sale = await db.sales_log.find_one(
+            {"branch_id": branch_id}, {"_id": 0, "date": 1}, sort=[("date", 1)]
+        )
+        earliest_expense = await db.expenses.find_one(
+            {"branch_id": branch_id}, {"_id": 0, "date": 1}, sort=[("date", 1)]
+        )
+        dates = []
+        if earliest_sale and earliest_sale.get("date"):
+            dates.append(earliest_sale["date"])
+        if earliest_expense and earliest_expense.get("date"):
+            dates.append(earliest_expense["date"])
+        if dates:
+            start_date = min(dates)
+        else:
+            start_date = today
+        last_close_date = None
+        last_drawer = 0
+
+    # Build list of unclosed days from start_date to today
+    unclosed = []
+    current = datetime.strptime(start_date, "%Y-%m-%d")
+    end = datetime.strptime(today, "%Y-%m-%d")
+
+    while current <= end:
+        d = current.strftime("%Y-%m-%d")
+
+        # Check if any activity exists for this day
+        sales_count = await db.sales_log.count_documents({"branch_id": branch_id, "date": d})
+        expense_count = await db.expenses.count_documents({"branch_id": branch_id, "date": d})
+        invoice_count = await db.invoices.count_documents({
+            "branch_id": branch_id, "order_date": d, "status": {"$ne": "voided"}
+        })
+
+        has_activity = sales_count > 0 or expense_count > 0 or invoice_count > 0
+
+        # Quick totals
+        cash_total = 0
+        if sales_count > 0:
+            agg = await db.sales_log.aggregate([
+                {"$match": {"branch_id": branch_id, "date": d,
+                            "payment_method": {"$regex": "^cash$", "$options": "i"}}},
+                {"$group": {"_id": None, "total": {"$sum": "$line_total"}}}
+            ]).to_list(1)
+            cash_total = round(agg[0]["total"], 2) if agg else 0
+
+        expense_total = 0
+        if expense_count > 0:
+            agg = await db.expenses.aggregate([
+                {"$match": {"branch_id": branch_id, "date": d}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]).to_list(1)
+            expense_total = round(agg[0]["total"], 2) if agg else 0
+
+        unclosed.append({
+            "date": d,
+            "has_activity": has_activity,
+            "sales_count": sales_count,
+            "expense_count": expense_count,
+            "invoice_count": invoice_count,
+            "cash_sales_total": cash_total,
+            "expense_total": expense_total,
+        })
+
+        current += timedelta(days=1)
+
+    return {
+        "last_close_date": last_close_date,
+        "last_drawer_float": last_drawer,
+        "unclosed_days": unclosed,
+        "total_unclosed": len(unclosed),
+        "today": today,
+    }
+
+
+
 @router.get("/daily-close-preview")
 async def get_daily_close_preview(
     user=Depends(get_current_user),

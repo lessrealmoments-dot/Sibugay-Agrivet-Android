@@ -420,7 +420,7 @@ export default function CloseWizardPage() {
       toast.success('Payment recorded');
       setPmtDialog({ open: false, invoice: null });
       setPmtAmount('');
-      loadWizardData();
+      loadWizardData(date);
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setPmtSaving(false);
   };

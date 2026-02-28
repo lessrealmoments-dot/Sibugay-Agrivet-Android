@@ -175,7 +175,19 @@ export default function CloseWizardPage() {
     api.get('/price-schemes').then(r => setSaleSchemes(r.data || [])).catch(() => {});
   }, [currentBranch, today]);
 
-  useEffect(() => { loadWizardData(); }, [loadWizardData]);
+  useEffect(() => {
+    (async () => {
+      const days = await loadUnclosedDays();
+      if (days && days.length > 0) {
+        // Load the first unclosed day
+        setSelectedDayIndex(0);
+        await loadWizardData(days[0].date);
+      } else {
+        // All closed — just load today
+        await loadWizardData(today);
+      }
+    })();
+  }, [loadUnclosedDays, loadWizardData, today]);
 
   const markComplete = (s) => setCompleted(prev => new Set([...prev, s]));
   const canProceedToClose = completed.has(5) && completed.has(6) && actualCash !== '';

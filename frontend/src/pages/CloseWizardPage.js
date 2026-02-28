@@ -723,8 +723,11 @@ export default function CloseWizardPage() {
               <div>
                 <CardTitle className="text-base font-bold" style={{ fontFamily: 'Manrope' }}>
                   Step {step}: {STEPS[step-1].title}
+                  {batchMode && <Badge className="ml-2 bg-amber-100 text-amber-700 border-amber-300 text-[10px]">BATCH</Badge>}
                 </CardTitle>
-                <p className="text-xs text-slate-500">{STEPS[step-1].desc}</p>
+                <p className="text-xs text-slate-500">
+                  {batchMode ? `${batchDates[0]} to ${batchDates[batchDates.length-1]} (${batchDates.length} days combined)` : STEPS[step-1].desc}
+                </p>
               </div>
             </div>
             {!completed.has(step) && step < 7 && (

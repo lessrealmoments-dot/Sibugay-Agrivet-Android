@@ -1110,9 +1110,15 @@ export default function CloseWizardPage() {
                   )}
                   <div className="flex gap-3 justify-center mt-4">
                     <Button variant="outline" onClick={() => window.print()}>Print Z-Report</Button>
-                    <Button onClick={() => navigate('/sales-new')} className="bg-[#1A4D2E] text-white">
-                      <Sun size={15} className="mr-1.5" /> Open Tomorrow's Sales
-                    </Button>
+                    {unclosedDays.length > 1 ? (
+                      <Button onClick={advanceToNextDay} className="bg-[#1A4D2E] text-white" data-testid="close-next-day-btn">
+                        <Sun size={15} className="mr-1.5" /> Close Next Day
+                      </Button>
+                    ) : (
+                      <Button onClick={() => navigate('/sales-new')} className="bg-[#1A4D2E] text-white">
+                        <Sun size={15} className="mr-1.5" /> Open Tomorrow's Sales
+                      </Button>
+                    )}
                   </div>
                 </>
               ) : (

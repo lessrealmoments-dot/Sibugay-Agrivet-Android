@@ -265,7 +265,70 @@ export default function CloseWizardPage() {
   const selectDay = async (index) => {
     if (index < 0 || index >= unclosedDays.length) return;
     setSelectedDayIndex(index);
+    setBatchMode(false);
     await loadWizardData(unclosedDays[index].date);
+  };
+
+  // Enter batch mode — aggregate all unclosed days
+  const enterBatchMode = async () => {
+    if (unclosedDays.length < 2) return;
+    const allDates = unclosedDays.map(d => d.date);
+    setBatchDates(allDates);
+    setBatchMode(true);
+    setLoading(true);
+    try {
+      const dateStr = allDates.join(',');
+      const [bpRes, logRes] = await Promise.all([
+        api.get('/daily-close-preview/batch', { params: { branch_id: currentBranch.id, dates: dateStr } }),
+        api.get('/daily-log', { params: { date: allDates[allDates.length - 1], branch_id: currentBranch.id } }),
+      ]);
+      setBatchPreview(bpRes.data);
+      setPreview(bpRes.data); // Use batch preview as preview data for the wizard steps
+      setDailyLog(logRes.data); // Show last day's log (user can switch)
+      setDate(`${allDates[0]} to ${allDates[allDates.length - 1]}`);
+      setIsClosed(false);
+      setClosingRecord(null);
+      setStep(1);
+      setCompleted(new Set());
+      setActualCash('');
+      setCashToSafe('');
+      setCashToDrawer('');
+      setManagerPin('');
+      setPinVerified(false);
+      setManagerName('');
+    } catch (e) { toast.error('Failed to load batch preview'); setBatchMode(false); }
+    setLoading(false);
+  };
+
+  // Handle batch close
+  const handleBatchClose = async () => {
+    if (!pinVerified) { toast.error('Manager PIN required'); return; }
+    if (!actualCash) { toast.error('Enter actual cash count'); return; }
+    if (!batchReason.trim()) { toast.error('Please provide a reason for batch closing'); return; }
+    const safe = parseFloat(cashToSafe) || 0;
+    const drawer = parseFloat(cashToDrawer) || 0;
+    const actual = parseFloat(actualCash);
+    if (safe + drawer > actual) { toast.error('Vault + Opening Float cannot exceed actual count'); return; }
+    setClosing(true);
+    try {
+      const res = await api.post('/daily-close/batch', {
+        branch_id: currentBranch.id,
+        dates: batchDates,
+        reason: batchReason,
+        admin_pin: managerPin,
+        actual_cash: actual,
+        cash_to_safe: safe,
+        cash_to_drawer: drawer,
+        variance_notes: '',
+      });
+      setClosingRecord(res.data);
+      setIsClosed(true);
+      markComplete(7);
+      setStep(8);
+      toast.success(`Batch close complete: ${batchDates[0]} to ${batchDates[batchDates.length - 1]}`);
+      await loadUnclosedDays();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Batch close failed'); }
+    setClosing(false);
   };
 
   // ── Quick add sale ──────────────────────────────────────────────────────────

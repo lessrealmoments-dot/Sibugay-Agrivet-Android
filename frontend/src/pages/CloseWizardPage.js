@@ -1091,45 +1091,88 @@ export default function CloseWizardPage() {
                 </div>
               )}
 
-              {/* Z-Report Summary */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                {[
-                  { label: 'Opening Float', value: preview?.starting_float, color: 'slate' },
-                  { label: 'Walk-in Sales', value: preview?.total_cash_sales, color: 'emerald' },
-                  { label: 'AR Received', value: preview?.total_ar_received, color: 'blue' },
-                  { label: 'Expenses', value: preview?.total_expenses, color: 'red' },
-                  { label: 'Expected Cash', value: expectedCash, color: 'indigo' },
-                  { label: 'Actual Count', value: parseFloat(actualCash)||0, color: 'indigo' },
-                  { label: 'To Safe', value: parseFloat(cashToSafe)||0, color: 'slate' },
-                  { label: 'Float Tomorrow', value: parseFloat(cashToDrawer)||0, color: 'emerald' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className={`p-3 rounded-lg bg-${color}-50 border border-${color}-200`}>
-                    <p className={`text-xs text-${color}-500 uppercase font-medium mb-0.5`}>{label}</p>
-                    <p className={`text-lg font-bold font-mono text-${color}-700`}>{formatPHP(value)}</p>
-                  </div>
-                ))}
+              {/* Z-Report: Cash Reconciliation */}
+              <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <div className="px-4 py-2 bg-slate-100 text-xs font-bold uppercase tracking-wider text-slate-600">Cash Drawer Reconciliation</div>
+                <div className="p-4 space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-slate-500">Opening Float</span><span className="font-mono">{formatPHP(preview?.starting_float || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-emerald-600">+ Cash Sales</span><span className="font-mono font-semibold text-emerald-700">{formatPHP(preview?.total_cash_sales || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-blue-600">+ Partial Cash Received</span><span className="font-mono text-blue-700">{formatPHP(preview?.total_partial_cash || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-indigo-600">+ AR Payments Received</span><span className="font-mono text-indigo-700">{formatPHP(preview?.total_ar_received || 0)}</span></div>
+                  <Separator />
+                  <div className="flex justify-between font-semibold"><span className="text-green-700">= Total Cash In</span><span className="font-mono text-green-700">{formatPHP(preview?.total_cash_in || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-red-600">- Expenses</span><span className="font-mono font-semibold text-red-600">{formatPHP(preview?.total_expenses || 0)}</span></div>
+                  <Separator />
+                  <div className="flex justify-between font-bold text-base"><span>Expected in Drawer</span><span className="font-mono">{formatPHP(expectedCash)}</span></div>
+                  <div className="flex justify-between font-bold text-base"><span>Actual Count</span><span className="font-mono">{formatPHP(parseFloat(actualCash) || 0)}</span></div>
+                  {overShort !== null && (
+                    <div className={`flex justify-between font-bold ${overShort >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                      <span>Over / Short</span>
+                      <span className="font-mono">{overShort > 0 ? '+' : ''}{formatPHP(overShort)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Z-Report: Fund Allocation */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-sm">
+                  <p className="text-xs text-slate-500 uppercase font-medium mb-0.5">To Vault</p>
+                  <p className="text-lg font-bold font-mono">{formatPHP(parseFloat(cashToSafe) || 0)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
+                  <p className="text-xs text-emerald-600 uppercase font-medium mb-0.5">Float Tomorrow</p>
+                  <p className="text-lg font-bold font-mono text-emerald-700">{formatPHP(parseFloat(cashToDrawer) || 0)}</p>
+                </div>
+              </div>
+
+              {/* Z-Report: Credit Sales Summary */}
+              {((dailyLog?.summary?.total_credit || 0) > 0 || (report?.total_ar_credits_today || 0) > 0) && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-semibold text-amber-800">Credit Extended Today</p>
+                    <span className="font-bold font-mono text-amber-700">{formatPHP(r2((dailyLog?.summary?.total_credit || 0) + (report?.total_ar_credits_today || 0)))}</span>
+                  </div>
+                  <p className="text-[11px] text-amber-600">
+                    {dailyLog?.summary?.credit_invoice_count || 0} credit invoice(s)
+                    {(report?.ar_credits_today || []).length > 0 && ` + ${report.ar_credits_today.length} cashout/farm`}
+                  </p>
+                </div>
+              )}
+
+              {/* Z-Report: Expense Summary */}
+              {(preview?.total_expenses || 0) > 0 && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-semibold text-red-800">Expenses</p>
+                    <span className="font-bold font-mono text-red-700">{formatPHP(preview?.total_expenses || 0)}</span>
+                  </div>
+                  {(() => {
+                    const groups = {};
+                    (preview?.expenses || []).forEach(e => {
+                      const cat = e.category || 'Misc';
+                      groups[cat] = (groups[cat] || 0) + parseFloat(e.amount || 0);
+                    });
+                    return Object.entries(groups).map(([cat, total]) => (
+                      <div key={cat} className="flex justify-between text-xs py-0.5 text-red-600">
+                        <span>{cat}</span><span className="font-mono font-semibold">{formatPHP(total)}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
 
               {/* Digital Payment Summary */}
               {(preview?.total_digital_today || 0) > 0 && (
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
-                      <span>📱</span> Digital Payments Received Today
-                    </p>
-                    <span className="font-bold font-mono text-blue-700">{formatPHP(preview?.total_digital_today || 0)}</span>
+                <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-semibold text-violet-800">E-Wallet Payments</p>
+                    <span className="font-bold font-mono text-violet-700">{formatPHP(preview?.total_digital_today || 0)}</span>
                   </div>
-                  <p className="text-[11px] text-blue-600 mb-2">Tracked separately — not part of cashier reconciliation</p>
+                  <p className="text-[11px] text-violet-600 mb-1">Tracked separately — not part of cash drawer</p>
                   {Object.entries(preview?.digital_by_platform || {}).map(([platform, amt]) => (
-                    <div key={platform} className="flex justify-between text-xs py-1 border-t border-blue-200 first:border-0">
-                      <span className="text-blue-700">{platform}</span>
-                      <span className="font-mono font-semibold text-blue-800">{formatPHP(amt)}</span>
-                    </div>
-                  ))}
-                  {(preview?.digital_sales_today || []).slice(0, 5).map((d, i) => (
-                    <div key={i} className="flex items-center justify-between text-[10px] text-blue-500 mt-1">
-                      <span>{d.invoice_number} · {d.platform} · Ref: {d.ref_number || '—'}</span>
-                      <span className="font-mono">{formatPHP(d.amount)}</span>
+                    <div key={platform} className="flex justify-between text-xs py-0.5 text-violet-600">
+                      <span>{platform}</span><span className="font-mono font-semibold">{formatPHP(amt)}</span>
                     </div>
                   ))}
                 </div>

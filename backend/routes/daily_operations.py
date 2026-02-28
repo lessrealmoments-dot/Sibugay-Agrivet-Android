@@ -540,6 +540,154 @@ async def get_daily_close(date: str, user=Depends(get_current_user), branch_id: 
     return closing or {"status": "open", "date": date}
 
 
+
+@router.get("/daily-close-preview/batch")
+async def batch_close_preview(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    dates: Optional[str] = None,
+):
+    """Preview aggregated data across multiple dates for batch closing.
+    dates is a comma-separated list of dates: 2026-01-01,2026-01-02,2026-01-03"""
+    check_perm(user, "reports", "view")
+    if not branch_id or not dates:
+        raise HTTPException(status_code=400, detail="branch_id and dates required")
+
+    date_list = sorted([d.strip() for d in dates.split(",") if d.strip()])
+    first_date = date_list[0]
+    last_date = date_list[-1]
+    from datetime import timedelta
+    month_prefix = first_date[:7]
+    date_filter = {"$in": date_list}
+
+    # Starting float
+    day_before = (datetime.strptime(first_date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_close = await db.daily_closings.find_one({"date": day_before, "branch_id": branch_id}, {"_id": 0})
+    wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
+    starting_float = float(prev_close.get("cash_to_drawer", 0)) if prev_close else float(wallet["balance"] if wallet else 0)
+
+    safe = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0})
+    safe_balance = 0.0
+    if safe:
+        lots = await db.safe_lots.find({"wallet_id": safe["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
+        safe_balance = sum(l["remaining_amount"] for l in lots)
+
+    # Cash sales
+    cash_sales_agg = await db.sales_log.aggregate([
+        {"$match": {"branch_id": branch_id, "date": date_filter,
+                    "payment_method": {"$regex": "^cash$", "$options": "i"}}},
+        {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}}}
+    ]).to_list(100)
+    sales_by_category = {r["_id"] or "General": round(r["total"], 2) for r in cash_sales_agg}
+    total_cash_sales = round(sum(sales_by_category.values()), 2)
+
+    # Partial payments
+    partial_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date_filter, "payment_type": "partial", "status": {"$ne": "voided"}},
+        {"_id": 0, "amount_paid": 1}
+    ).to_list(500)
+    partial_total = round(sum(float(inv.get("amount_paid", 0)) for inv in partial_invoices), 2)
+
+    # AR collections
+    ar_pipeline = [
+        {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}, "order_date": {"$nin": date_list}}},
+        {"$unwind": "$payments"},
+        {"$match": {"payments.date": date_filter}},
+        {"$group": {"_id": None, "total": {"$sum": "$payments.amount"}}}
+    ]
+    ar_result = await db.invoices.aggregate(ar_pipeline).to_list(1)
+    total_ar_received = round(ar_result[0]["total"] if ar_result else 0, 2)
+
+    # Expenses
+    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter}, {"_id": 0}).to_list(500)
+    expenses = []
+    for e in expenses_raw:
+        exp = dict(e)
+        if e.get("category") == "Employee Advance" and e.get("employee_id"):
+            month_res = await db.expenses.aggregate([
+                {"$match": {"branch_id": branch_id, "category": "Employee Advance",
+                            "employee_id": e["employee_id"],
+                            "date": {"$gte": f"{month_prefix}-01", "$lte": f"{month_prefix}-31"}}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]).to_list(1)
+            exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+        expenses.append(exp)
+    total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
+
+    total_cash_in = total_cash_sales + partial_total + total_ar_received
+    expected_counter = round(starting_float + total_cash_in - total_expenses, 2)
+
+    # Digital payments
+    digital_invs = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date_filter,
+         "fund_source": {"$in": ["digital", "split"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "digital_amount": 1, "digital_platform": 1, "fund_source": 1, "amount_paid": 1,
+         "invoice_number": 1, "customer_name": 1, "digital_ref_number": 1}
+    ).to_list(500)
+    digital_by_platform = {}
+    total_digital = 0.0
+    digital_sales_list = []
+    for inv in digital_invs:
+        amt = float(inv.get("digital_amount", 0) if inv.get("fund_source") == "split" and inv.get("digital_amount") else inv.get("amount_paid", 0))
+        platform = inv.get("digital_platform", "Digital") or "Digital"
+        digital_by_platform[platform] = round(digital_by_platform.get(platform, 0) + amt, 2)
+        total_digital = round(total_digital + amt, 2)
+        digital_sales_list.append({
+            "invoice_number": inv.get("invoice_number"), "customer_name": inv.get("customer_name"),
+            "platform": platform, "ref_number": inv.get("digital_ref_number", ""), "amount": amt
+        })
+
+    # Credit sales
+    credit_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date_filter,
+         "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "balance": 1, "payment_type": 1, "sale_type": 1}
+    ).to_list(500)
+    total_credit_today = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices), 2)
+
+    # Per-day breakdown
+    per_day_sales = await db.sales_log.aggregate([
+        {"$match": {"branch_id": branch_id, "date": date_filter}},
+        {"$group": {"_id": {"date": "$date", "payment_method": "$payment_method"},
+                    "total": {"$sum": "$line_total"}, "count": {"$sum": 1}}}
+    ]).to_list(500)
+    daily_breakdown = {}
+    for r in per_day_sales:
+        d = r["_id"]["date"]
+        pm = r["_id"]["payment_method"]
+        if d not in daily_breakdown:
+            daily_breakdown[d] = {"sales_by_method": {}, "sales_total": 0, "expenses_total": 0}
+        daily_breakdown[d]["sales_by_method"][pm] = round(r["total"], 2)
+        daily_breakdown[d]["sales_total"] = round(daily_breakdown[d]["sales_total"] + r["total"], 2)
+    for d in date_list:
+        if d not in daily_breakdown:
+            daily_breakdown[d] = {"sales_by_method": {}, "sales_total": 0, "expenses_total": 0}
+        daily_breakdown[d]["expenses_total"] = round(
+            sum(float(e.get("amount", 0)) for e in expenses if e.get("date") == d), 2)
+
+    return {
+        "dates": date_list,
+        "date_from": first_date,
+        "date_to": last_date,
+        "starting_float": starting_float,
+        "safe_balance": round(safe_balance, 2),
+        "sales_by_category": sales_by_category,
+        "total_cash_sales": total_cash_sales,
+        "total_partial_cash": partial_total,
+        "total_ar_received": total_ar_received,
+        "expenses": expenses,
+        "total_expenses": total_expenses,
+        "total_cash_in": round(total_cash_in, 2),
+        "expected_counter": expected_counter,
+        "total_digital_today": total_digital,
+        "digital_by_platform": digital_by_platform,
+        "digital_sales_today": digital_sales_list,
+        "total_credit_today": total_credit_today,
+        "credit_invoices": credit_invoices,
+        "daily_breakdown": daily_breakdown,
+    }
+
+
 @router.post("/daily-close")
 async def close_day(data: dict, user=Depends(get_current_user)):
     """Close accounts for a day. Requires admin PIN verification."""

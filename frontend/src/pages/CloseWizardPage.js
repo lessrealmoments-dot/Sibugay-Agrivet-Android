@@ -125,11 +125,23 @@ export default function CloseWizardPage() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const loadWizardData = useCallback(async () => {
+  // Load unclosed days on mount
+  const loadUnclosedDays = useCallback(async () => {
+    if (!currentBranch) return;
+    try {
+      const res = await api.get('/daily-close/unclosed-days', { params: { branch_id: currentBranch.id } });
+      const days = res.data.unclosed_days || [];
+      setUnclosedDays(days);
+      setLastCloseDate(res.data.last_close_date);
+      return days;
+    } catch { return []; }
+  }, [currentBranch]);
+
+  const loadWizardData = useCallback(async (targetDate) => {
     if (!currentBranch) { setLoading(false); return; }
     setLoading(true);
     try {
-      const d = today;
+      const d = targetDate || today;
       setDate(d);
       const [logRes, previewRes, reportRes, closeRes] = await Promise.all([
         api.get('/daily-log', { params: { date: d, branch_id: currentBranch.id } }),
@@ -145,8 +157,18 @@ export default function CloseWizardPage() {
         setClosingRecord(closeRes.data);
         setStep(8);
         setCompleted(new Set([1,2,3,4,5,6,7]));
+      } else {
+        setIsClosed(false);
+        setClosingRecord(null);
+        setStep(1);
+        setCompleted(new Set());
+        setActualCash('');
+        setCashToSafe('');
+        setCashToDrawer('');
+        setManagerPin('');
+        setPinVerified(false);
+        setManagerName('');
       }
-      // Pre-fill safe/drawer will be computed when user enters actualCash in step 5
     } catch (e) { toast.error('Failed to load wizard data'); }
     setLoading(false);
     // Load price schemes for quick sale

@@ -1295,6 +1295,46 @@ export default function CloseWizardPage() {
                 </div>
               )}
 
+              {/* Batch Mode: Per-Day Breakdown */}
+              {batchMode && batchPreview?.daily_breakdown && (
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-4 py-2 bg-slate-100 text-xs font-bold uppercase tracking-wider text-slate-600">Per-Day Breakdown</div>
+                  <div className="divide-y divide-slate-100">
+                    {Object.entries(batchPreview.daily_breakdown).sort(([a],[b]) => a.localeCompare(b)).map(([d, info]) => {
+                      const dayLabel = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      return (
+                        <div key={d} className="px-4 py-2 text-sm flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{dayLabel}</span>
+                            <span className="text-xs text-slate-400 ml-2">
+                              {Object.entries(info.sales_by_method || {}).map(([m, t]) => `${m}: ${formatPHP(t)}`).join(' · ') || 'No sales'}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono text-emerald-700">{formatPHP(info.sales_total || 0)}</span>
+                            {(info.expenses_total || 0) > 0 && <span className="font-mono text-red-500 ml-3">-{formatPHP(info.expenses_total)}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Batch Mode: Reason */}
+              {batchMode && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <Label className="text-sm font-semibold text-amber-800">Batch Close Reason *</Label>
+                  <Input
+                    data-testid="batch-reason-zreport"
+                    value={batchReason}
+                    onChange={e => setBatchReason(e.target.value)}
+                    placeholder="e.g., Store audit, holiday break..."
+                    className="mt-1 h-9 bg-white border-amber-200"
+                  />
+                </div>
+              )}
+
               <Separator />
 
               {/* Manager PIN */}
@@ -1329,15 +1369,18 @@ export default function CloseWizardPage() {
               {/* Close Day Button */}
               <Button
                 data-testid="close-day-btn"
-                onClick={handleCloseDay}
-                disabled={!pinVerified || !canProceedToClose || closing || isClosed}
+                onClick={batchMode ? handleBatchClose : handleCloseDay}
+                disabled={!pinVerified || !canProceedToClose || closing || isClosed || (batchMode && !batchReason.trim())}
                 className="w-full h-12 bg-red-600 hover:bg-red-700 text-white text-base font-semibold"
               >
                 {closing ? <><RefreshCw size={16} className="animate-spin mr-2" />Closing...</>
                   : isClosed ? <><CheckCircle2 size={16} className="mr-2" /> Already Closed</>
+                  : batchMode ? <><Lock size={16} className="mr-2" /> Batch Close {batchDates.length} Days ({batchDates[0]} to {batchDates[batchDates.length-1]})</>
                   : <><Lock size={16} className="mr-2" /> Close Accounts for {date}</>}
               </Button>
-              <p className="text-xs text-slate-400 text-center">This action is permanent. The day will be locked and the Z-Report saved.</p>
+              <p className="text-xs text-slate-400 text-center">
+                {batchMode ? `This will close ${batchDates.length} days as a single entry. This action is permanent.` : 'This action is permanent. The day will be locked and the Z-Report saved.'}
+              </p>
             </div>
           )}
 

@@ -1392,10 +1392,17 @@ export default function CloseWizardPage() {
                   <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
                     <CheckCircle2 size={32} className="text-emerald-600" />
                   </div>
-                  <h2 className="text-xl font-bold" style={{ fontFamily: 'Manrope' }}>Day Closed Successfully</h2>
+                  <h2 className="text-xl font-bold" style={{ fontFamily: 'Manrope' }}>
+                    {closingRecord?.is_batch ? 'Batch Close Complete' : 'Day Closed Successfully'}
+                  </h2>
                   <p className="text-slate-500 text-sm">
-                    {date} has been closed for <strong>{currentBranch?.name}</strong>.<br />
-                    All new sales, purchase orders, and expenses will automatically be dated <strong>tomorrow</strong>.
+                    {closingRecord?.is_batch ? (
+                      <>{closingRecord.date_from} to {closingRecord.date_to} ({closingRecord.dates_covered?.length} days) closed for <strong>{currentBranch?.name}</strong>.<br />
+                      Reason: <em>{closingRecord.batch_reason}</em></>
+                    ) : (
+                      <>{date} has been closed for <strong>{currentBranch?.name}</strong>.<br />
+                      All new sales, purchase orders, and expenses will automatically be dated <strong>tomorrow</strong>.</>
+                    )}
                   </p>
                   {closingRecord && (
                     <div className="mt-2 grid grid-cols-3 gap-3 text-sm text-left">

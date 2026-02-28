@@ -369,6 +369,16 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
 
     total_cash = round(sum(float(e.get("line_total", 0)) for e in cash_entries), 2)
     total_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices), 2)
+    total_all = round(sum(float(e.get("line_total", 0)) for e in all_entries), 2)
+
+    # Payment method breakdown
+    by_payment_method = {}
+    for e in all_entries:
+        pm = (e.get("payment_method") or "cash").lower()
+        if pm not in by_payment_method:
+            by_payment_method[pm] = {"total": 0.0, "count": 0}
+        by_payment_method[pm]["total"] = round(by_payment_method[pm]["total"] + float(e.get("line_total", 0)), 2)
+        by_payment_method[pm]["count"] += 1
 
     return {
         "entries": all_entries,
@@ -379,10 +389,12 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
         "summary": {
             "total_cash": total_cash,
             "total_credit": total_credit,
+            "total_all": total_all,
             "grand_total": round(total_cash + total_credit, 2),
             "cash_count": len(cash_entries),
             "credit_invoice_count": len(credit_invoices),
             "cash_by_category": cash_by_category,
+            "by_payment_method": by_payment_method,
         },
     }
 

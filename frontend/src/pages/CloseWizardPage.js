@@ -377,7 +377,7 @@ export default function CloseWizardPage() {
       await api.post(endpoint, payload);
       toast.success('Expense added');
       resetExpDialog();
-      loadWizardData();
+      loadWizardData(date);
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setExpSaving(false);
   };

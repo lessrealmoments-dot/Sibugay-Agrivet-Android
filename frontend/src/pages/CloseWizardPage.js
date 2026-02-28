@@ -588,47 +588,95 @@ export default function CloseWizardPage() {
       {unclosedDays.length > 1 && (
         <Card className="border-amber-200 bg-amber-50/50">
           <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle size={14} className="text-amber-600" />
-              <span className="text-sm font-semibold text-amber-800">
-                {unclosedDays.length} unclosed day{unclosedDays.length > 1 ? 's' : ''} detected
-              </span>
-              <span className="text-xs text-amber-600">
-                {lastCloseDate ? `Since ${lastCloseDate}` : 'No previous closing found'}
-              </span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={14} className="text-amber-600" />
+                <span className="text-sm font-semibold text-amber-800">
+                  {unclosedDays.length} unclosed day{unclosedDays.length > 1 ? 's' : ''} detected
+                </span>
+                <span className="text-xs text-amber-600">
+                  {lastCloseDate ? `Since ${lastCloseDate}` : 'No previous closing found'}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                {batchMode ? (
+                  <Button size="sm" variant="outline" onClick={() => { setBatchMode(false); selectDay(0); }}
+                    className="text-xs border-amber-300 text-amber-700 hover:bg-amber-100" data-testid="close-one-by-one-btn">
+                    Close One by One
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={enterBatchMode}
+                    className="text-xs bg-amber-600 text-white hover:bg-amber-700" data-testid="close-as-group-btn">
+                    Close All as Group
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {unclosedDays.map((day, idx) => {
-                const isSelected = date === day.date;
-                const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                return (
-                  <button
-                    key={day.date}
-                    onClick={() => selectDay(idx)}
-                    data-testid={`day-select-${day.date}`}
-                    className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs shrink-0 transition-all ${
-                      isSelected
-                        ? 'bg-[#1A4D2E] text-white border-[#1A4D2E] shadow-sm'
-                        : day.has_activity
-                        ? 'bg-white border-amber-300 hover:border-[#1A4D2E]/50 hover:bg-slate-50'
-                        : 'bg-white border-slate-200 hover:bg-slate-50 opacity-60'
-                    }`}
-                  >
-                    <span className="font-semibold">{dayLabel}</span>
-                    {day.has_activity ? (
-                      <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-emerald-200' : 'text-slate-400'}`}>
-                        {day.sales_count} sales &middot; {formatPHP(day.cash_sales_total)}
-                      </span>
-                    ) : (
-                      <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>No activity</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-[10px] text-amber-600 mt-1.5">
-              Close days in order. Each day's opening float chains from the previous closing.
-            </p>
+
+            {batchMode ? (
+              <div className="space-y-2">
+                <div className="flex gap-1.5 flex-wrap">
+                  {unclosedDays.map((day) => {
+                    const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    return (
+                      <div key={day.date} className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1A4D2E] text-white text-xs font-medium">
+                        <Check size={10} />
+                        <span>{dayLabel}</span>
+                        {day.has_activity && <span className="text-emerald-200 text-[10px]">{day.sales_count}s</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div>
+                  <Label className="text-xs text-amber-700 font-semibold">Reason for batch close *</Label>
+                  <Input
+                    data-testid="batch-reason-input"
+                    value={batchReason}
+                    onChange={e => setBatchReason(e.target.value)}
+                    placeholder="e.g., Store audit week, holiday break, power outage..."
+                    className="mt-1 h-8 text-sm bg-white border-amber-200"
+                  />
+                </div>
+                <p className="text-[10px] text-amber-600">
+                  All sales, credits, expenses from {unclosedDays[0]?.date} to {unclosedDays[unclosedDays.length-1]?.date} will be combined into a single closing.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                  {unclosedDays.map((day, idx) => {
+                    const isSelected = date === day.date;
+                    const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    return (
+                      <button
+                        key={day.date}
+                        onClick={() => selectDay(idx)}
+                        data-testid={`day-select-${day.date}`}
+                        className={`flex flex-col items-center px-3 py-2 rounded-lg border text-xs shrink-0 transition-all ${
+                          isSelected
+                            ? 'bg-[#1A4D2E] text-white border-[#1A4D2E] shadow-sm'
+                            : day.has_activity
+                            ? 'bg-white border-amber-300 hover:border-[#1A4D2E]/50 hover:bg-slate-50'
+                            : 'bg-white border-slate-200 hover:bg-slate-50 opacity-60'
+                        }`}
+                      >
+                        <span className="font-semibold">{dayLabel}</span>
+                        {day.has_activity ? (
+                          <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-emerald-200' : 'text-slate-400'}`}>
+                            {day.sales_count} sales &middot; {formatPHP(day.cash_sales_total)}
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>No activity</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-amber-600 mt-1.5">
+                  Close days in order. Each day's opening float chains from the previous closing.
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       )}

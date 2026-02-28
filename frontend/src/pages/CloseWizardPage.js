@@ -871,7 +871,7 @@ export default function CloseWizardPage() {
           {step === 4 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-slate-500">All expenses recorded today. Employee advances show monthly totals.</p>
+                <p className="text-sm text-slate-500">All expenses grouped by category. Includes farm, cashouts, advances & regular.</p>
                 <Button size="sm" variant="outline" onClick={() => {
                   setExpDialog(true);
                   // Load employees for advance type
@@ -881,35 +881,63 @@ export default function CloseWizardPage() {
                 </Button>
               </div>
               <ScrollArea className="h-[260px] rounded-lg border border-slate-200">
-                <div className="divide-y divide-slate-100">
-                  {(preview?.expenses || []).map((e, i) => (
-                    <div key={i} className="px-4 py-2.5 flex items-center justify-between text-sm">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{e.description || e.notes || e.category}</p>
-                        <p className="text-xs text-slate-400">{e.category}</p>
-                        {e.monthly_ca_total && (
-                          <div className="mt-1 inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-[10px] text-amber-700">
-                            <AlertTriangle size={9} /> Monthly advance total: {formatPHP(e.monthly_ca_total)}
+                {(() => {
+                  const expenses = preview?.expenses || [];
+                  if (expenses.length === 0) {
+                    return <p className="text-center py-8 text-slate-400 text-sm">No expenses today</p>;
+                  }
+                  const groups = {};
+                  expenses.forEach(e => {
+                    const cat = e.category || 'Miscellaneous';
+                    if (!groups[cat]) groups[cat] = [];
+                    groups[cat].push(e);
+                  });
+                  return (
+                    <div className="divide-y divide-slate-200">
+                      {Object.entries(groups).map(([cat, items]) => {
+                        const groupTotal = items.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+                        const catColor = cat.toLowerCase().includes('farm') ? 'bg-green-50 text-green-800'
+                          : cat.toLowerCase().includes('cash') ? 'bg-blue-50 text-blue-800'
+                          : cat.toLowerCase().includes('employee') || cat.toLowerCase().includes('advance') ? 'bg-amber-50 text-amber-800'
+                          : 'bg-slate-50 text-slate-700';
+                        return (
+                          <div key={cat}>
+                            <div className={`px-4 py-2 flex items-center justify-between ${catColor}`}>
+                              <span className="text-xs font-semibold uppercase tracking-wider">{cat}</span>
+                              <span className="text-xs font-bold font-mono">{formatPHP(groupTotal)}</span>
+                            </div>
+                            {items.map((e, i) => (
+                              <div key={i} className="px-4 py-2.5 flex items-center justify-between text-sm bg-white border-b border-slate-50">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{e.description || e.notes || e.category}</p>
+                                  {e.customer_name && <p className="text-xs text-slate-400">Customer: {e.customer_name}</p>}
+                                  {e.employee_name && <p className="text-xs text-slate-400">Employee: {e.employee_name}</p>}
+                                  {e.payment_method && e.payment_method !== 'Cash' && <p className="text-[10px] text-slate-400">via {e.payment_method}</p>}
+                                  {e.monthly_ca_total != null && (
+                                    <div className="mt-1 inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-[10px] text-amber-700">
+                                      <AlertTriangle size={9} /> Monthly advance total: {formatPHP(e.monthly_ca_total)}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  <p className="font-mono font-semibold text-red-600">{formatPHP(e.amount)}</p>
+                                  {e.id && (
+                                    <button
+                                      onClick={() => { setWizUploadExpenseId(e.id); setWizUploadQROpen(true); }}
+                                      className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
+                                      title="Upload receipt for this expense">
+                                      <Upload size={11} className="text-blue-600" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 ml-4">
-                        <p className="font-mono font-semibold text-red-600">{formatPHP(e.amount)}</p>
-                        {e.id && (
-                          <button
-                            onClick={() => { setWizUploadExpenseId(e.id); setWizUploadQROpen(true); }}
-                            className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
-                            title="Upload receipt for this expense">
-                            <Upload size={11} className="text-blue-600" />
-                          </button>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                  {!(preview?.expenses?.length) && (
-                    <p className="text-center py-8 text-slate-400 text-sm">No expenses today</p>
-                  )}
-                </div>
+                  );
+                })()}
               </ScrollArea>
               <Separator />
               <div className="flex justify-between text-sm font-semibold px-1">

@@ -236,9 +236,30 @@ export default function CloseWizardPage() {
       setIsClosed(true);
       markComplete(7);
       setStep(8);
-      toast.success('Day closed successfully!');
+      toast.success(`Day ${date} closed successfully!`);
+      // Refresh unclosed days list
+      await loadUnclosedDays();
     } catch (e) { toast.error(e.response?.data?.detail || 'Close failed'); }
     setClosing(false);
+  };
+
+  // Advance to next unclosed day after closing
+  const advanceToNextDay = async () => {
+    const days = await loadUnclosedDays();
+    if (days && days.length > 0) {
+      setSelectedDayIndex(0);
+      await loadWizardData(days[0].date);
+    } else {
+      toast.success('All days are now closed!');
+      navigate('/sales-new');
+    }
+  };
+
+  // Switch to a specific unclosed day
+  const selectDay = async (index) => {
+    if (index < 0 || index >= unclosedDays.length) return;
+    setSelectedDayIndex(index);
+    await loadWizardData(unclosedDays[index].date);
   };
 
   // ── Quick add sale ──────────────────────────────────────────────────────────

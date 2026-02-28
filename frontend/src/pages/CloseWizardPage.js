@@ -949,25 +949,61 @@ export default function CloseWizardPage() {
 
           {/* ── STEP 5: Actual Count ── */}
           {step === 5 && (
-            <div className="space-y-4 max-w-md mx-auto">
+            <div className="space-y-4 max-w-lg mx-auto">
+              {/* Cash Drawer Breakdown */}
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Cash Drawer Breakdown</p>
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                   <p className="text-xs text-slate-500 uppercase font-medium mb-1">Opening Float</p>
-                  <p className="text-2xl font-bold font-mono">{formatPHP(preview?.starting_float || 0)}</p>
+                  <p className="text-xl font-bold font-mono">{formatPHP(preview?.starting_float || 0)}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-                  <p className="text-xs text-blue-500 uppercase font-medium mb-1">Total Cash In</p>
-                  <p className="text-2xl font-bold font-mono text-blue-700">{formatPHP(preview?.total_cash_in || 0)}</p>
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                  <p className="text-xs text-emerald-600 uppercase font-medium mb-1">Cash Sales</p>
+                  <p className="text-xl font-bold font-mono text-emerald-700">{formatPHP(preview?.total_cash_sales || 0)}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-xs text-red-500 uppercase font-medium mb-1">Total Expenses</p>
-                  <p className="text-2xl font-bold font-mono text-red-600">{formatPHP(preview?.total_expenses || 0)}</p>
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                  <p className="text-xs text-blue-500 uppercase font-medium mb-1">Partial Cash Received</p>
+                  <p className="text-xl font-bold font-mono text-blue-700">{formatPHP(preview?.total_partial_cash || 0)}</p>
                 </div>
-                <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200">
-                  <p className="text-xs text-emerald-600 uppercase font-medium mb-1">Expected in Drawer</p>
-                  <p className="text-2xl font-bold font-mono text-emerald-700">{formatPHP(expectedCash)}</p>
+                <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+                  <p className="text-xs text-indigo-500 uppercase font-medium mb-1">AR Payments</p>
+                  <p className="text-xl font-bold font-mono text-indigo-700">{formatPHP(preview?.total_ar_received || 0)}</p>
                 </div>
               </div>
+
+              {/* E-Wallet / Digital Payments */}
+              {(preview?.total_digital_today || 0) > 0 && (
+                <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-violet-600 uppercase font-medium">E-Wallet Payments</p>
+                    <p className="text-lg font-bold font-mono text-violet-700">{formatPHP(preview?.total_digital_today || 0)}</p>
+                  </div>
+                  {Object.entries(preview?.digital_by_platform || {}).map(([platform, amt]) => (
+                    <div key={platform} className="flex justify-between text-xs mt-1 text-violet-500">
+                      <span>{platform}</span>
+                      <span className="font-mono font-semibold">{formatPHP(amt)}</span>
+                    </div>
+                  ))}
+                  <p className="text-[10px] text-violet-400 mt-1">Tracked separately — not part of cash drawer</p>
+                </div>
+              )}
+
+              {/* Summary Row */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                  <p className="text-xs text-green-600 uppercase font-medium mb-1">Total Cash In</p>
+                  <p className="text-lg font-bold font-mono text-green-700">{formatPHP(preview?.total_cash_in || 0)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-xs text-red-500 uppercase font-medium mb-1">Total Expenses</p>
+                  <p className="text-lg font-bold font-mono text-red-600">{formatPHP(preview?.total_expenses || 0)}</p>
+                </div>
+                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-300">
+                  <p className="text-xs text-emerald-600 uppercase font-medium mb-1">Expected in Drawer</p>
+                  <p className="text-lg font-bold font-mono text-emerald-700">{formatPHP(expectedCash)}</p>
+                </div>
+              </div>
+
               <Separator />
               <div>
                 <Label className="text-sm font-semibold">Actual Fund Count</Label>

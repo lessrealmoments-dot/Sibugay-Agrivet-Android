@@ -689,49 +689,70 @@ export default function CloseWizardPage() {
           {step === 2 && (
             <div className="space-y-3">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-sm text-slate-500">Credit invoices, cashouts, and farm services recorded today.</p>
+                <p className="text-sm text-slate-500">Credit invoices with per-order breakdown and payment status.</p>
                 <Button size="sm" variant="outline" onClick={() => window.open('/sales-new', '_blank')}>
                   <ExternalLink size={13} className="mr-1" /> Add Credit Sale
                 </Button>
               </div>
-              <div className="space-y-2">
-                {/* Regular credit sales */}
-                {(dailyLog?.credit_invoices || []).filter(inv => !inv.sale_type || inv.sale_type === 'credit').length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Credit Sales</p>
-                    {(dailyLog?.credit_invoices || []).map((inv, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-100 mb-1.5 text-sm">
+              <ScrollArea className="h-[320px]">
+                <div className="space-y-2">
+                  {(dailyLog?.credit_invoices || []).map((inv, idx) => (
+                    <div key={idx} className="rounded-lg border border-amber-200 overflow-hidden" data-testid={`credit-invoice-${idx}`}>
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50">
                         <div>
-                          <p className="font-semibold">{inv.customer_name}</p>
-                          <p className="text-xs text-slate-400">{inv.invoice_number} · {inv.payment_type}</p>
+                          <p className="font-semibold text-sm">{inv.customer_name}</p>
+                          <p className="text-xs text-slate-400">
+                            {inv.invoice_number} · {inv.payment_type}
+                            {inv.sale_type && !['credit','walk_in'].includes(inv.sale_type) && ` · ${inv.sale_type.replace(/_/g, ' ')}`}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p className="font-mono font-bold text-amber-700">{formatPHP(inv.grand_total)}</p>
-                          {inv.amount_paid > 0 && <p className="text-xs text-slate-400">Paid: {formatPHP(inv.amount_paid)}</p>}
+                          <div className="text-[10px] space-x-2">
+                            {(inv.amount_paid || 0) > 0 && <span className="text-emerald-600">Paid: {formatPHP(inv.amount_paid)}</span>}
+                            {(inv.balance || 0) > 0 && <span className="text-red-500 font-semibold">Balance: {formatPHP(inv.balance)}</span>}
+                            {(inv.balance || 0) === 0 && <span className="text-emerald-600 font-semibold">FULLY PAID</span>}
+                          </div>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {/* Cashouts & Farm (AR credits from expenses) */}
-                {(report?.ar_credits_today || []).length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Cash Advances & Farm Services</p>
-                    {(report.ar_credits_today).map((inv, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-100 mb-1.5 text-sm">
-                        <div>
-                          <p className="font-semibold">{inv.customer_name}</p>
-                          <p className="text-xs text-slate-400">{inv.invoice_number} · {inv.sale_type === 'cash_advance' ? 'Cash-out' : 'Farm Service'}</p>
+                      {inv.items && inv.items.length > 0 && (
+                        <div className="px-4 py-1 bg-white divide-y divide-slate-100">
+                          {inv.items.map((item, ii) => (
+                            <div key={ii} className="flex items-center justify-between py-1.5 text-xs">
+                              <div>
+                                <span className="text-slate-700">{item.product_name || item.description}</span>
+                                <span className="text-slate-400 ml-1">x{item.quantity} {item.unit || ''}</span>
+                              </div>
+                              <span className="font-mono text-slate-600">
+                                {formatPHP(item.line_total || (item.quantity * (item.unit_price || item.rate || item.price || 0)))}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <p className="font-mono font-bold text-blue-700">{formatPHP(inv.grand_total)}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!(dailyLog?.credit_invoices?.length) && !(report?.ar_credits_today?.length) && (
-                  <p className="text-center py-8 text-slate-400 text-sm">No credit activity today</p>
-                )}
-              </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {(report?.ar_credits_today || []).length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 mt-3">Cash Advances & Farm Services</p>
+                      {(report.ar_credits_today).map((inv, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-100 mb-1.5 text-sm">
+                          <div>
+                            <p className="font-semibold">{inv.customer_name}</p>
+                            <p className="text-xs text-slate-400">{inv.invoice_number} · {inv.sale_type === 'cash_advance' ? 'Cash-out' : 'Farm Service'}</p>
+                          </div>
+                          <p className="font-mono font-bold text-blue-700">{formatPHP(inv.grand_total)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!(dailyLog?.credit_invoices?.length) && !(report?.ar_credits_today?.length) && (
+                    <p className="text-center py-8 text-slate-400 text-sm">No credit activity today</p>
+                  )}
+                </div>
+              </ScrollArea>
               <Separator />
               <div className="flex justify-between text-sm font-semibold px-1">
                 <span>Total Credit Extended Today</span>

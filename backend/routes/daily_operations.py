@@ -864,6 +864,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "safe_balance": round(safe_balance, 2),
         "sales_by_category": sales_by_category,
         "total_cash_sales": total_cash_sales,
+        "total_split_cash": total_split_cash,
         "total_partial_cash": partial_total,
         "credit_collections": credit_collections,
         "total_ar_received": total_ar_received,

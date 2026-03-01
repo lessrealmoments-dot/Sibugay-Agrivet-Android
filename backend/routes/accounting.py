@@ -984,6 +984,7 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
                 detail=f"Monthly CA limit exceeded. Limit: ₱{monthly_limit:.2f}, This month: ₱{this_month_total:.2f}, This advance: ₱{amount:.2f}. Manager approval required."
             )
     
+    fund_source = data.get("fund_source", "cashier")
     expense = {
         "id": new_id(),
         "branch_id": branch_id,
@@ -992,6 +993,7 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
         "notes": data.get("notes", ""),
         "amount": amount,
         "payment_method": "Cash",
+        "fund_source": fund_source,
         "date": data.get("date", now_iso()[:10]),
         "employee_id": employee_id,
         "employee_name": employee.get("name", ""),
@@ -1000,7 +1002,23 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
         "created_at": now_iso(),
     }
     
-    await update_cashier_wallet(branch_id, -amount, f"Employee advance to {employee.get('name', '')}")
+    ref_text = f"Employee advance to {employee.get('name', '')}"
+    if fund_source == "safe":
+        safe_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if safe_wallet:
+            lots = await db.safe_lots.find(
+                {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+            ).sort("remaining_amount", -1).to_list(500)
+            remaining = amount
+            for lot in lots:
+                if remaining <= 0: break
+                take = min(lot["remaining_amount"], remaining)
+                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                remaining -= take
+    else:
+        await update_cashier_wallet(branch_id, -amount, ref_text)
     await db.employees.update_one({"id": employee_id}, {"$inc": {"advance_balance": amount}})
     await db.expenses.insert_one(expense)
     del expense["_id"]

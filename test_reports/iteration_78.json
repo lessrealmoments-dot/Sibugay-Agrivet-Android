@@ -1,0 +1,121 @@
+{
+  "summary": "Iteration 78: Split Payment Recording Fix - Backend (10/10 tests PASS). Verified that split payments are correctly tracked: cash portion added to Cash Sales (total_cash_in), digital portion to Digital Sales (total_digital_today). Backend APIs return correct values for 2026-02-26 IPIL branch: total_cash_sales=3600, total_split_cash=3366, total_cash_in=6966, total_digital_today=5814, grand_total=15980. Frontend code review confirms Step 5 and Step 7 conditionally display 'Split Cash Portion' when total_split_cash > 0.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "feature_verification": {
+    "SPLIT_CASH_IN_DAILY_CLOSE_PREVIEW": {
+      "endpoint": "GET /api/daily-close-preview",
+      "verified": "PASS",
+      "tests": [
+        "Returns total_split_cash field (3366 for test date)",
+        "total_cash_in = cash_sales + partial_cash + ar_received + split_cash (6966)",
+        "total_digital_today correctly reflects only digital portions (5814)",
+        "digital_sales_today list shows fund_source='split' for split payments"
+      ]
+    },
+    "SPLIT_CASH_IN_SALES_HISTORY": {
+      "endpoint": "GET /api/invoices/history/by-date",
+      "verified": "PASS",
+      "tests": [
+        "totals.cash includes split cash portions (6966)",
+        "totals.digital includes only digital portions (5814)",
+        "totals.credit correct (3200)",
+        "totals.grand_total correct (15980)"
+      ]
+    },
+    "SPLIT_CASH_IN_BATCH_PREVIEW": {
+      "endpoint": "GET /api/daily-close-preview/batch",
+      "verified": "PASS",
+      "tests": [
+        "Returns total_split_cash field for batch dates",
+        "total_cash_in includes split_cash in calculation"
+      ]
+    },
+    "FRONTEND_STEP5_DISPLAY": {
+      "component": "CloseWizardPage.js Step 5",
+      "verified": "PASS (code review)",
+      "details": [
+        "Line 1084-1088: Conditionally shows 'Split Cash Portion' box when total_split_cash > 0",
+        "Uses teal color scheme (bg-teal-50, text-teal-700) to distinguish from other cash categories"
+      ]
+    },
+    "FRONTEND_STEP7_ZREPORT": {
+      "component": "CloseWizardPage.js Step 7",
+      "verified": "PASS (code review)",
+      "details": [
+        "Line 1226-1227: Shows '+ Split Cash Portion' line in Cash Drawer Reconciliation",
+        "Only displays when total_split_cash > 0"
+      ]
+    }
+  },
+
+  "expected_vs_actual_values": {
+    "date": "2026-02-26",
+    "branch": "IPIL BRANCH",
+    "total_cash_sales": {"expected": 3600, "actual": 3600, "match": true},
+    "total_split_cash": {"expected": 3366, "actual": 3366, "match": true},
+    "total_cash_in": {"expected": 6966, "actual": 6966, "match": true},
+    "total_digital_today": {"expected": 5814, "actual": 5814, "match": true},
+    "total_credit_today": {"expected": 3200, "actual": 3200, "match": true},
+    "grand_total": {"expected": 15980, "actual": 15980, "match": true}
+  },
+
+  "backend_test_summary": {
+    "tests_run": 10,
+    "tests_passed": 10,
+    "tests_failed": 0,
+    "test_categories": [
+      "Daily Close Preview (4 tests): total_split_cash field, value, total_cash_in calculation, digital excludes split cash",
+      "Sales History By Date (2 tests): totals section structure, cash includes split portions",
+      "Batch Close Preview (2 tests): returns split_cash field, total_cash_in includes split",
+      "Close Endpoint (1 test): endpoint accessible and validates",
+      "Code Review Verification (1 test): preview query returns split invoice data"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_split_payments_78.py",
+    "/app/test_reports/pytest/pytest_split_payments_78.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Backend daily_operations.py correctly queries split invoices separately (line 286-291) to get cash_amount",
+    "total_cash_in formula correct: cash_sales + partial_cash + ar_received + split_cash (line 293)",
+    "invoices.py history/by-date correctly splits totals - adds cash_amount to cash_total, digital_amount to digital_total (lines 759-764)",
+    "Frontend CloseWizardPage.js conditionally renders Split Cash Portion only when value > 0 (lines 1084, 1226)"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_split_payments_78.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (code review verified)"
+  },
+
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "branch_with_data": "IPIL BRANCH (d4a041e7-4918-490e-afb8-54ae90cec7fb)",
+    "test_date": "2026-02-26 (has split payments with cash_amount and digital_amount)"
+  },
+
+  "seed_data_creation": "None - used existing IPIL BRANCH data with split payment invoices",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 78 verified the split payment recording fix. Key findings: 1) Backend correctly returns total_split_cash (3366) in daily-close-preview and batch preview, 2) total_cash_in correctly includes split_cash in calculation (3600+3366=6966), 3) total_digital_today (5814) only counts digital portions of split payments, 4) Sales history totals correctly split: cash=6966, digital=5814, credit=3200, grand=15980. Frontend code verified to conditionally display 'Split Cash Portion' box in Step 5 and Z-Report (Step 7) when total_split_cash > 0. NOTE: Did NOT close any days - only tested preview/history endpoints per requirements."
+}

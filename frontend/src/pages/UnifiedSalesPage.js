@@ -876,8 +876,8 @@ export default function UnifiedSalesPage() {
         clearCart();
         setCheckoutDialog(false);
         setPendingCreditSale(null);
-        // For digital payments: auto-show receipt upload QR
-        if (actualPaymentType === 'digital' && res.data.id) {
+        // For digital/split payments: auto-show receipt upload QR
+        if ((actualPaymentType === 'digital' || actualPaymentType === 'split') && res.data.id) {
           try {
             const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
               record_type: 'invoice', record_id: res.data.id,

@@ -51,6 +51,24 @@ app = FastAPI(
     version="3.0"
 )
 
+# ── Global exception handler: catch ALL unhandled errors with real messages ──
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
+import traceback as _tb
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Catch any unhandled exception and return a meaningful error message
+    instead of generic 'Internal Server Error'."""
+    if isinstance(exc, HTTPException):
+        raise exc  # Let FastAPI handle HTTP exceptions normally
+    error_detail = f"{type(exc).__name__}: {str(exc)}"
+    logger.error(f"Unhandled error on {request.method} {request.url.path}: {error_detail}\n{_tb.format_exc()}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": error_detail}
+    )
+
 # Main API router
 api_router = APIRouter(prefix="/api")
 

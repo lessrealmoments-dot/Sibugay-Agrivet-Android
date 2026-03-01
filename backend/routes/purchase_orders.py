@@ -25,119 +25,125 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
     """
     Update inventory + product costs from a PO's items.
     capital_choices: dict of {product_id: "last_purchase"|"moving_average"}
-      - "last_purchase": use the new PO unit price as capital
-      - "moving_average": use the projected weighted moving average after this purchase
-    Smart pricing rule (applied when no explicit choice given for a product):
-      - new_price >= current_capital → use last_purchase (safe to adopt new price)
-      - new_price < current_capital  → use moving_average (cushions the capital drop)
     """
     if capital_choices is None:
         capital_choices = {}
     branch_id = po.get("branch_id", "")
-    for item in po.get("items", []):
+    po_number = po.get("po_number", "unknown")
+
+    for idx, item in enumerate(po.get("items", [])):
         pid = item.get("product_id")
         if not pid:
             continue
         qty = float(item.get("quantity", 0))
         price = float(item.get("unit_price", 0))
+        product_name = item.get("product_name", pid)
 
-        # Update inventory
-        existing = await db.inventory.find_one({"product_id": pid, "branch_id": branch_id})
-        if existing:
-            await db.inventory.update_one(
-                {"product_id": pid, "branch_id": branch_id},
-                {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}}
+        try:
+            # Step 1: Update inventory
+            existing = await db.inventory.find_one({"product_id": pid, "branch_id": branch_id})
+            if existing:
+                await db.inventory.update_one(
+                    {"product_id": pid, "branch_id": branch_id},
+                    {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}}
+                )
+            else:
+                await db.inventory.insert_one({
+                    "id": new_id(), "product_id": pid, "branch_id": branch_id,
+                    "quantity": qty, "updated_at": now_iso()
+                })
+
+            # Step 2: Log movement
+            await log_movement(
+                pid, branch_id, "purchase", qty, po["id"], po_number,
+                price, user["id"], user.get("full_name", user["username"]),
+                f"PO received from {po['vendor']}"
             )
-        else:
-            await db.inventory.insert_one({
-                "id": new_id(), "product_id": pid, "branch_id": branch_id,
-                "quantity": qty, "updated_at": now_iso()
+
+            # Step 3: Calculate moving average — BRANCH-SPECIFIC
+            branch_acq_query = {"product_id": pid, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
+            if branch_id:
+                branch_acq_query["branch_id"] = branch_id
+            all_acquisitions = await db.movements.find(
+                branch_acq_query, {"_id": 0}
+            ).to_list(10000)
+            total_pqty = sum(float(m.get("quantity_change", 0)) for m in all_acquisitions)
+            total_pcost = sum(float(m.get("quantity_change", 0)) * float(m.get("price_at_time", 0)) for m in all_acquisitions)
+            moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
+
+            # Step 4: Fetch old capital
+            product = await db.products.find_one({"id": pid}, {"_id": 0})
+            global_capital = float(product.get("cost_price", 0) or 0) if product else 0
+            old_capital = global_capital
+            if branch_id:
+                bp_doc = await db.branch_prices.find_one(
+                    {"product_id": pid, "branch_id": branch_id}, {"_id": 0}
+                )
+                if bp_doc and bp_doc.get("cost_price") is not None:
+                    old_capital = float(bp_doc["cost_price"])
+
+            # Step 5: Determine new capital
+            explicit_choice = capital_choices.get(pid)
+            if explicit_choice:
+                choice = explicit_choice
+            elif price < old_capital and old_capital > 0 and price > 0:
+                choice = "moving_average"
+            else:
+                choice = "last_purchase"
+            new_capital = moving_avg if choice == "moving_average" else price
+
+            # Step 6: Update global product cost
+            product_update = {
+                "last_vendor": po["vendor"],
+                "cost_price": new_capital,
+                "moving_average_cost": moving_avg,
+            }
+            await db.products.update_one({"id": pid}, {"$set": product_update})
+
+            # Step 7: Update branch-specific cost
+            if branch_id:
+                await db.branch_prices.update_one(
+                    {"product_id": pid, "branch_id": branch_id},
+                    {"$set": {
+                        "cost_price": new_capital,
+                        "moving_average_cost": moving_avg,
+                        "source": "purchase_order",
+                        "updated_at": now_iso(),
+                    }},
+                    upsert=True
+                )
+
+            # Step 8: Log capital change
+            await db.capital_changes.insert_one({
+                "id": new_id(),
+                "product_id": pid,
+                "branch_id": branch_id,
+                "old_capital": old_capital,
+                "new_capital": new_capital,
+                "method": choice,
+                "source_type": "purchase_order",
+                "source_ref": po_number,
+                "vendor": po.get("vendor", ""),
+                "changed_by_id": user["id"],
+                "changed_by_name": user.get("full_name", user.get("username", "")),
+                "changed_at": now_iso(),
             })
 
-        # Log movement
-        await log_movement(
-            pid, branch_id, "purchase", qty, po["id"], po["po_number"],
-            price, user["id"], user.get("full_name", user["username"]),
-            f"PO received from {po['vendor']}"
-        )
-
-        # Calculate moving average — BRANCH-SPECIFIC (POs + transfers at this branch)
-        branch_acq_query = {"product_id": pid, "type": {"$in": ["purchase", "transfer_in"]}, "quantity_change": {"$gt": 0}}
-        if branch_id:
-            branch_acq_query["branch_id"] = branch_id
-        all_acquisitions = await db.movements.find(
-            branch_acq_query, {"_id": 0}
-        ).to_list(10000)
-        total_pqty = sum(m["quantity_change"] for m in all_acquisitions)
-        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acquisitions)
-        moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
-
-        # Fetch old capital — use branch-specific cost if available, else global
-        product = await db.products.find_one({"id": pid}, {"_id": 0})
-        global_capital = float(product.get("cost_price", 0)) if product else 0
-        old_capital = global_capital
-        if branch_id:
-            bp_doc = await db.branch_prices.find_one(
-                {"product_id": pid, "branch_id": branch_id}, {"_id": 0}
-            )
-            if bp_doc and bp_doc.get("cost_price") is not None:
-                old_capital = float(bp_doc["cost_price"])
-
-        # Determine new capital based on choice
-        # Smart rule: if no explicit choice given, auto-decide:
-        #   new_price >= current_capital → use last_purchase (price same or higher, safe)
-        #   new_price < current_capital  → use moving_average (price dropped, cushion the blow)
-        explicit_choice = capital_choices.get(pid)
-        if explicit_choice:
-            choice = explicit_choice
-        elif price < old_capital and old_capital > 0 and price > 0:
-            choice = "moving_average"
-        else:
-            choice = "last_purchase"
-        new_capital = moving_avg if choice == "moving_average" else price
-
-        # Update global product cost (fallback for branches without overrides)
-        product_update = {
-            "last_vendor": po["vendor"],
-            "cost_price": new_capital,
-            "moving_average_cost": moving_avg,
-        }
-        await db.products.update_one({"id": pid}, {"$set": product_update})
-
-        # Update branch-specific cost in branch_prices
-        if branch_id:
-            await db.branch_prices.update_one(
-                {"product_id": pid, "branch_id": branch_id},
-                {"$set": {
-                    "cost_price": new_capital,
-                    "moving_average_cost": moving_avg,
-                    "source": "purchase_order",
-                    "updated_at": now_iso(),
-                }},
-                upsert=True
+            # Step 9: Update vendor last_price
+            await db.product_vendors.update_many(
+                {"product_id": pid, "vendor_name": po["vendor"]},
+                {"$set": {"last_price": price, "last_order_date": now_iso()[:10]}}
             )
 
-        # Log capital change
-        await db.capital_changes.insert_one({
-            "id": new_id(),
-            "product_id": pid,
-            "branch_id": branch_id,
-            "old_capital": old_capital,
-            "new_capital": new_capital,
-            "method": choice,
-            "source_type": "purchase_order",
-            "source_ref": po["po_number"],
-            "vendor": po.get("vendor", ""),
-            "changed_by_id": user["id"],
-            "changed_by_name": user.get("full_name", user.get("username", "")),
-            "changed_at": now_iso(),
-        })
-
-        # Update vendor last_price
-        await db.product_vendors.update_many(
-            {"product_id": pid, "vendor_name": po["vendor"]},
-            {"$set": {"last_price": price, "last_order_date": now_iso()[:10]}}
-        )
+        except Exception as e:
+            logger.error(
+                f"PO {po_number} — inventory update FAILED for item #{idx+1} "
+                f"'{product_name}' (pid={pid}): {str(e)}\n{traceback.format_exc()}"
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed on item '{product_name}': {str(e)}"
+            )
 
 
 # ── Fund balance helper ────────────────────────────────────────────────────────

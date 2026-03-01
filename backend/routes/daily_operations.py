@@ -583,7 +583,7 @@ async def batch_close_preview(
 
     # Cash sales
     cash_sales_agg = await db.sales_log.aggregate([
-        {"$match": {"branch_id": branch_id, "date": date_filter,
+        {"$match": {"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True},
                     "payment_method": {"$regex": "^cash$", "$options": "i"}}},
         {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}}}
     ]).to_list(100)
@@ -986,7 +986,7 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
 
     # Cash sales
     cash_sales_agg = await db.sales_log.aggregate([
-        {"$match": {"branch_id": branch_id, "date": date_filter,
+        {"$match": {"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True},
                     "payment_method": {"$regex": "^cash$", "$options": "i"}}},
         {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}}}
     ]).to_list(100)

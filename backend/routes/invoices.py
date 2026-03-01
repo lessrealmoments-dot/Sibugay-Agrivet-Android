@@ -950,6 +950,7 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
     )
 
     # 7. Log void in invoice_edits for audit trail
+    amount_paid = float(inv.get("amount_paid", 0))
     await db.invoice_edits.insert_one({
         "id": new_id(),
         "invoice_id": inv_id,
@@ -960,14 +961,21 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
         "edited_at": now_iso(),
         "reason": f"VOID: {reason}",
         "authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
-        "changes": ["status: active → voided"],
+        "changes": [
+            "status: active → voided",
+            f"cash reversed: ₱{total_cash_reversed:,.2f}",
+            f"digital reversed: ₱{total_digital_reversed:,.2f}",
+            f"payments reversed: {len(reversed_payments)}",
+        ],
         "original_state": {
             "status": inv.get("status"),
             "grand_total": inv.get("grand_total"),
             "amount_paid": amount_paid,
             "balance": balance_owed,
             "items": inv.get("items", []),
+            "payments": payments,
         },
+        "reversed_payments": reversed_payments,
         "inventory_adjustments": [
             {"product_id": i.get("product_id"), "quantity_returned": i.get("quantity")}
             for i in inv.get("items", [])

@@ -836,7 +836,17 @@ async def receive_purchase_order(po_id: str, data: dict = None, user=Depends(get
         )
 
     capital_choices = data.get("capital_choices", {})
-    await _apply_po_inventory(po, user, capital_choices)
+    try:
+        await _apply_po_inventory(po, user, capital_choices)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update inventory: {str(e)}. PO remains in current state."
+        )
 
     await db.purchase_orders.update_one(
         {"id": po_id},

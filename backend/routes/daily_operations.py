@@ -348,7 +348,7 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
     if not date:
         date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    query = {"date": date}
+    query = {"date": date, "voided": {"$ne": True}}
     if branch_id:
         query["branch_id"] = branch_id
 

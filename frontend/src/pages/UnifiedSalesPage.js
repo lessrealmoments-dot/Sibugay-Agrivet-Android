@@ -1660,6 +1660,9 @@ export default function UnifiedSalesPage() {
                   <Input value={digitalSender} onChange={e => setDigitalSender(e.target.value)}
                     placeholder="Name / number" className="mt-1 h-9" />
                 </div>
+                <div className="flex items-center gap-2 text-[10px] text-blue-600 bg-blue-100 rounded-lg px-2.5 py-1.5">
+                  <span>After sale: QR code will appear to upload the {digitalPlatform} payment screenshot</span>
+                </div>
               </div>
             )}
             {paymentType === 'partial' && (

@@ -988,13 +988,11 @@ export default function UnifiedSalesPage() {
             const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
               record_type: 'invoice', record_id: res.data.id,
             });
-            setDigitalReceiptQR({ invoice_id: res.data.id, invoice_number: invoiceNum, ...qrRes.data });
-            setShowDigitalQR(true);
+            showReceiptDialog({ invoice_id: res.data.id, invoice_number: invoiceNum, ...qrRes.data });
           } catch (uploadErr) {
             console.error('Receipt upload link generation failed:', uploadErr);
             // Still show the dialog — they must upload from Sales History
-            setDigitalReceiptQR({ invoice_id: res.data.id, invoice_number: invoiceNum, fallback: true });
-            setShowDigitalQR(true);
+            showReceiptDialog({ invoice_id: res.data.id, invoice_number: invoiceNum, fallback: true });
           }
         }
         setDigitalRefNumber('');

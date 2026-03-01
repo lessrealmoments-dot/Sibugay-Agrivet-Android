@@ -227,6 +227,8 @@ async def get_daily_close_preview(
             "principal_paid": round(principal_paid, 2),
             "amount_paid": round(amount, 2),
             "remaining_balance": round(current_bal, 2),
+            "fund_source": pmt.get("fund_source", "cashier"),
+            "method": pmt.get("method", "Cash"),
         })
     total_ar_received = round(sum(p["amount_paid"] for p in ar_payments), 2)
 

@@ -337,15 +337,19 @@ async def get_daily_close_preview(
         ],
         "digital_by_platform": {k: round(v, 2) for k, v in digital_by_platform.items()},
         "total_digital_today": total_digital_today,
-        # AR collections
+        # AR collections — split by fund source
         "ar_payments": ar_payments,
         "total_ar_received": total_ar_received,
+        "total_cash_ar": total_cash_ar,
+        "total_digital_ar": total_digital_ar,
         # Credit today (info)
         "credit_sales_today": credit_sales_today,
         "total_credit_today": total_credit_today,
-        # Expenses
+        # Expenses — split by fund source
         "expenses": expenses,
         "total_expenses": total_expenses,
+        "total_cashier_expenses": total_cashier_expenses,
+        "total_safe_expenses": total_safe_expenses,
         # Summary
         "total_cash_in": round(total_cash_in, 2),
         "expected_counter": expected_counter,

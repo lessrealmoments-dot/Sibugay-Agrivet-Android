@@ -858,12 +858,29 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
                 f"Void: {inv['invoice_number']} — {reason}",
             )
 
-    # 4. Reverse cashflow (amount_paid goes back out of cashier fund)
+    # 4. Reverse cashflow — properly handle split, digital, and cash
     amount_paid = float(inv.get("amount_paid", 0))
     fund_source = inv.get("fund_source", "cashier")
     if amount_paid > 0:
-        if fund_source == "digital":
-            # Reverse from digital wallet
+        if fund_source == "split":
+            # Split payment: reverse cash from cashier, digital from digital wallet
+            cash_amount = float(inv.get("cash_amount", 0))
+            digital_amount = float(inv.get("digital_amount", 0))
+            if cash_amount > 0:
+                await update_cashier_wallet(
+                    branch_id, -cash_amount,
+                    reference=f"VOID {inv['invoice_number']} (cash portion)",
+                    allow_negative=True
+                )
+            if digital_amount > 0:
+                await update_digital_wallet(
+                    branch_id, -digital_amount,
+                    reference=f"VOID {inv['invoice_number']} (digital portion)",
+                    platform=inv.get("digital_platform", ""),
+                    ref_number=inv.get("digital_ref_number", ""),
+                )
+        elif fund_source == "digital":
+            # Pure digital: reverse from digital wallet
             await update_digital_wallet(
                 branch_id, -amount_paid,
                 reference=f"VOID {inv['invoice_number']}",
@@ -871,15 +888,18 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
                 ref_number=inv.get("digital_ref_number", ""),
             )
         else:
-            wallet = await db.fund_wallets.find_one(
-                {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+            # Cash: use helper to log transaction history
+            await update_cashier_wallet(
+                branch_id, -amount_paid,
+                reference=f"VOID {inv['invoice_number']}",
+                allow_negative=True
             )
-            if wallet:
-                new_balance = round(float(wallet.get("balance", 0)) - amount_paid, 2)
-                await db.fund_wallets.update_one(
-                    {"id": wallet["id"]},
-                    {"$set": {"balance": max(0, new_balance), "updated_at": now_iso()}}
-                )
+
+    # 4b. Mark sales_log entries as voided
+    await db.sales_log.update_many(
+        {"branch_id": branch_id, "invoice_number": inv["invoice_number"]},
+        {"$set": {"voided": True, "voided_at": now_iso()}}
+    )
 
     # 5. Reverse customer AR balance (credit sales)
     balance_owed = float(inv.get("balance", 0))

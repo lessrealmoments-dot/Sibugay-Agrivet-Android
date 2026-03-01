@@ -63,7 +63,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, HTTPException):
         raise exc  # Let FastAPI handle HTTP exceptions normally
     error_detail = f"{type(exc).__name__}: {str(exc)}"
-    logger.error(f"Unhandled error on {request.method} {request.url.path}: {error_detail}\n{_tb.format_exc()}")
+    tb_str = _tb.format_exc()
+    # Print to stderr so it shows in supervisor logs
+    print(f"[ERROR] {request.method} {request.url.path}: {error_detail}\n{tb_str}", flush=True)
+    logger.error(f"Unhandled error on {request.method} {request.url.path}: {error_detail}\n{tb_str}")
     return JSONResponse(
         status_code=500,
         content={"detail": error_detail}

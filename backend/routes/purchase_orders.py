@@ -67,13 +67,13 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
             all_acquisitions = await db.movements.find(
                 branch_acq_query, {"_id": 0}
             ).to_list(10000)
-            total_pqty = sum(float(m.get("quantity_change", 0)) for m in all_acquisitions)
-            total_pcost = sum(float(m.get("quantity_change", 0)) * float(m.get("price_at_time", 0)) for m in all_acquisitions)
+            total_pqty = sum(float(m.get("quantity_change") or 0) for m in all_acquisitions)
+            total_pcost = sum(float(m.get("quantity_change") or 0) * float(m.get("price_at_time") or 0) for m in all_acquisitions)
             moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else price
 
             # Step 4: Fetch old capital
             product = await db.products.find_one({"id": pid}, {"_id": 0})
-            global_capital = float(product.get("cost_price", 0) or 0) if product else 0
+            global_capital = float(product.get("cost_price") or 0) if product else 0
             old_capital = global_capital
             if branch_id:
                 bp_doc = await db.branch_prices.find_one(

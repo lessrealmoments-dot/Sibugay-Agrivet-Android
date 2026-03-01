@@ -67,50 +67,38 @@ cd frontend && yarn build
 │   ├── routes/
 │   │   ├── auth.py         # Email/username login, org subscription in /me
 │   │   ├── daily_operations.py # Close Wizard, Z-Report, batch close
-│   │   ├── sales.py        # Unified sales endpoint
+│   │   ├── sales.py        # Unified sales endpoint + receipt_status tracking
 │   │   ├── accounting.py   # Expenses, fund wallets, receivables
+│   │   ├── uploads.py      # File uploads, reassign, receipt_status update
 │   │   └── ... (all existing routes)
 │   └── utils/helpers.py    # log_sale_items, fund wallet helpers
 └── frontend/
     └── src/
         └── pages/
-            └── CloseWizardPage.js # 8-step closing wizard + batch mode
+            └── UnifiedSalesPage.js # POS with mandatory receipt upload
+            └── CloseWizardPage.js  # 8-step closing wizard + batch mode
 ```
 
 ## Key API Endpoints
+
+### Sales & Receipt Upload
+- `POST /api/unified-sale` — Create sale (sets `receipt_status: "pending"` for digital/split)
+- `GET /api/pending-receipt-uploads` — Get invoices needing receipt upload
+- `POST /api/uploads/direct` — Direct file upload
+- `POST /api/uploads/reassign` — Link upload to invoice (updates `receipt_status: "uploaded"`)
 
 ### Daily Close / Closing Wizard
 - `GET /api/daily-log?branch_id=X&date=Y` — Sales log with by_payment_method summary
 - `GET /api/daily-close-preview?branch_id=X&date=Y` — Cash reconciliation preview
 - `GET /api/daily-close/unclosed-days?branch_id=X` — Detect unclosed days
-- `GET /api/daily-close-preview/batch?branch_id=X&dates=d1,d2,d3` — Batch preview
 - `POST /api/daily-close` — Close single day
 - `POST /api/daily-close/batch` — Close multiple days as one record
-- `GET /api/daily-close/{date}` — Get close status
-
-## Closing Wizard Steps
-1. **Sales Log** — ALL sales (cash, GCash, Maya, split, credit) in sequential order with payment badges
-2. **Customer Credits** — Per-invoice item breakdown with partial payment status (Total/Paid/Balance)
-3. **AR Payments** — Payments received on existing credit
-4. **Expenses** — Grouped by category (Farm, Cash-out, Employee Advance, regular) with subtotals
-5. **Actual Count** — Cash breakdown (Opening Float, Cash Sales, Partial, AR, Total Cash In, Expenses, Expected) + E-Wallet display
-6. **Fund Allocation** — Vault + Opening Float distribution
-7. **Close & Sign Off** — Z-Report with Cash Drawer Reconciliation, Per-Day Breakdown (batch), Credit/Expense/Digital summaries, Manager PIN
-8. **Open Tomorrow** — Success + next day
-
-## Batch Close Feature
-- Available when 2+ unclosed days detected
-- "Close All as Group" button enters batch mode
-- All sales, credits, expenses combined into single closing record
-- Requires reason field + Manager PIN
-- Per-day breakdown in Z-Report (sales by payment method, expenses per day)
-- Placeholder records created for each individual date (marked as batch_member)
-- Wallet updated to reflect combined closing
 
 ## Super Admin Access
 - Portal: `/admin`
 - Email: janmarkeahig@gmail.com
 - Password: Aa@58798546521325
+- Manager PIN: 521325
 
 ## Prioritized Backlog
 
@@ -118,33 +106,13 @@ cd frontend && yarn build
 (See CHANGELOG.md for full history)
 
 ### P0 — Current / In Progress
-- [x] Closing Wizard Phase 1-4: Fixed Sales Log, Credits, Expenses, Actual Count, Z-Report
-- [x] Closing Wizard Phase 5: Batch/Group closing with combined Z-Report
-- [x] Quantity decimal support (0.5 for half bags) in Quick Sales
-- [x] Split payment receipt upload QR (same as digital payments)
-- [x] E-payment verification section in Sales History (platform, ref#, photos, verify button)
-- [x] Split payment recording fix: cash portion → Cash Sales, digital portion → Digital Sales
-- [x] Void/reopen fix: split voids reverse both cashier AND digital wallets with transaction history
-- [x] Voided sales excluded from all aggregations (daily-log, preview, unclosed-days, batch)
-- [x] **BUG FIX (Mar 2026):** close_day endpoint now excludes voided sales from cash totals (was only in preview)
-- [x] **BUG FIX (Mar 2026):** close_day and all preview endpoints exclude voided expenses
-- [x] **BUG FIX (Mar 2026):** Sales History search no longer destroys date filter ($and instead of $or override)
-- [x] **BUG FIX (Mar 2026):** AR payments (receivable + customer receive-payment) now route to digital wallet when paid via GCash/Maya/etc
-- [x] **BUG FIX (Mar 2026):** /invoices endpoint now derives and stores payment_type field (cash/digital/split/partial/credit)
-- [x] **BUG FIX (Mar 2026):** Void now reverses ALL prior payments (including AR) from correct wallets, not just initial payment
-- [x] **BUG FIX (Mar 2026):** Void→Reopen now correctly sets selectedCustomer (was only setting search text, losing customer_id)
-- [x] **BUG FIX (Mar 2026):** Split payment receipt upload error no longer silently swallowed
-- [x] **BUG FIX (Mar 2026):** PO creation crash (OSError: Device or resource busy) — empty stored_path in upload sessions caused Path("") to resolve to "." and attempt to rename the current directory
-- [x] **BUG FIX (Mar 2026):** Null-safe float conversions in PO capital/moving-average calculations
-- [x] **BUG FIX (Mar 2026):** Global exception handler added — all unhandled errors now return actual error messages instead of generic "Internal Server Error"
-- [x] **FIX (Mar 2026):** Partial payment properly splits — cash portion to Cash Sales, balance to Credit/AR in all reports
-- [x] **FIX (Mar 2026):** Manager PIN now ALWAYS required for credit/partial sales (no admin auto-approve bypass)
-- [x] **FIX (Mar 2026):** E-payment receipt upload now MANDATORY — no skip button, must upload photo before proceeding. Direct camera/file upload added in dialog.
-- [x] **FIX (Mar 2026):** PO creation reordered — funds + inventory run before upload linking to prevent ghost POs
+- [x] Mandatory e-payment receipt upload (digital/split sales) — tested, all passing
 
 ### P0 — Upcoming
+- [ ] Fix broken PO data (admin tool to reprocess failed POs)
+- [ ] Quick-action menu on Sales History page (Re-send Receipt, Print Invoice)
 - [ ] Closing History page (view past Z-Reports with search by date/branch)
-- [ ] Sales History per day or per closing period
+- [ ] Deployment instructions for VPS launch
 
 ### P1 — Upcoming
 - [ ] Weight-embedded EAN-13 barcode recognition in POS

@@ -1,0 +1,124 @@
+{
+  "summary": "Iteration 77: Sales/POS Bug Fixes - Backend (11/11 tests PASS) and Frontend verified. Fixed 3 bugs: 1) Quantity decimal input now supports 0.5 (frontend setCartQty handles intermediate states), 2) Split payments now trigger QR code for receipt upload (same as digital), 3) E-Payment Details section in Sales History works correctly with upload endpoint fix. Found and fixed critical frontend API route mismatch (/uploads/invoice/{id} → /uploads/record/invoice/{id}) and added 'invoice' to REVIEWABLE_COLLECTIONS in backend.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "bug_fixes_verified": {
+    "BUG_FIX_1_QUANTITY_DECIMAL": {
+      "description": "Typing '0.' or '0.5' in quantity field should NOT delete the product",
+      "verified": "PASS (code review)",
+      "details": [
+        "setCartQty function (line 482-491) correctly handles intermediate decimal input",
+        "Intermediate states ('0.', '1.', '.5', '') stored as _qtyStr without removing product",
+        "onBlur only removes product when final parsed value is 0",
+        "Frontend fix was already in place"
+      ]
+    },
+    "BUG_FIX_2_SPLIT_PAYMENT_QR": {
+      "description": "Split payment should show receipt upload QR after sale (same as digital)",
+      "verified": "PASS (code review)",
+      "details": [
+        "processSale function line 897: (actualPaymentType === 'digital' || actualPaymentType === 'split')",
+        "Both payment types now trigger QR generation for receipt upload",
+        "Split payment form shows hint at line 1685-1687: 'After sale: QR code will appear'",
+        "Frontend implementation was already correct"
+      ]
+    },
+    "BUG_FIX_3_EPAYMENT_VERIFICATION": {
+      "description": "E-payment details and verification in Sales History",
+      "verified": "PASS",
+      "details": [
+        "GET /api/invoices/history/by-date returns all required fields: fund_source, digital_platform, digital_ref_number, receipt_review_status",
+        "Fixed frontend API route: /uploads/invoice/{id} → /uploads/record/invoice/{id}",
+        "Added 'invoice' to REVIEWABLE_COLLECTIONS in backend uploads.py",
+        "E-Payment Details section shows platform, ref#, sender, cash/digital amounts for split",
+        "'Upload Now' link visible when no receipt uploaded",
+        "'Verify E-Payment' button now works for invoices"
+      ]
+    }
+  },
+
+  "files_fixed": {
+    "/app/frontend/src/pages/UnifiedSalesPage.js": {
+      "line": 56,
+      "change": "api.get(`/uploads/invoice/${inv.id}`) → api.get(`/uploads/record/invoice/${inv.id}`)",
+      "reason": "Frontend was calling wrong API route for fetching invoice receipts"
+    },
+    "/app/backend/routes/uploads.py": {
+      "line": "629-632",
+      "change": "Added 'invoice': 'invoices' to REVIEWABLE_COLLECTIONS",
+      "reason": "mark-reviewed endpoint now supports invoices for e-payment verification"
+    }
+  },
+
+  "backend_test_summary": {
+    "tests_run": 11,
+    "tests_passed": 11,
+    "tests_failed": 0,
+    "test_categories": [
+      "History API Fields (4 tests): fund_source, digital_platform, receipt_review_status, split amounts",
+      "Uploads Endpoint (3 tests): record/invoice route, wrong route 404, sessions response",
+      "Mark-Reviewed Endpoint (2 tests): invoice type support, valid PIN verification",
+      "Code Review Verification (2 tests): setCartQty decimal handling, split payment QR trigger"
+    ]
+  },
+
+  "frontend_test_summary": {
+    "ui_elements_verified": [
+      "Sales History tab shows invoices with fund_source badges (Cash, Split, Credit)",
+      "Digital/Split invoices show 'needs verify' or 'verified' status",
+      "Invoice detail modal shows E-PAYMENT DETAILS section for digital/split",
+      "Platform, Ref#, Cash/Digital amounts displayed correctly",
+      "'Upload Now' link visible when no receipt uploaded",
+      "'Pending Verification' badge shown when not verified"
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_sales_bug_fixes_77.py",
+    "/app/test_reports/pytest/pytest_sales_bug_fixes_77.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "Frontend API route mismatch was critical - selectInvoiceWithReceipts was calling wrong endpoint",
+    "REVIEWABLE_COLLECTIONS in uploads.py needed 'invoice' entry for verification to work",
+    "Quantity decimal handling (setCartQty) implementation is correct - uses _qtyStr for intermediate states",
+    "Split payment QR trigger already implemented correctly in processSale function"
+  ],
+
+  "updated_files": [
+    "/app/frontend/src/pages/UnifiedSalesPage.js (line 56: fixed API route)",
+    "/app/backend/routes/uploads.py (line 631: added invoice to REVIEWABLE_COLLECTIONS)",
+    "/app/backend/tests/test_sales_bug_fixes_77.py (new test file)"
+  ],
+
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all E-Payment Details features verified)"
+  },
+
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "branch_with_data": "IPIL BRANCH (d4a041e7-4918-490e-afb8-54ae90cec7fb)",
+    "test_date": "2026-02-26 (has digital/split invoices)",
+    "manager_pin": "521325"
+  },
+
+  "seed_data_creation": "None - used existing IPIL BRANCH data with digital/split invoices",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 77 verified all 3 Sales/POS bug fixes. Bug Fix 1 (decimal quantity): setCartQty uses _qtyStr for intermediate decimal states like '0.' - product only removed on blur if final value is 0. Bug Fix 2 (split QR): processSale line 897 checks (actualPaymentType === 'digital' || actualPaymentType === 'split') to trigger QR. Bug Fix 3 (e-payment verification): Fixed critical API route mismatch in selectInvoiceWithReceipts (/uploads/invoice/{id} → /uploads/record/invoice/{id}) and added 'invoice' to REVIEWABLE_COLLECTIONS so mark-reviewed endpoint works for invoices. All backend APIs tested: history returns fund_source/digital_platform/receipt_review_status, uploads endpoint works, mark-reviewed now supports invoices."
+}

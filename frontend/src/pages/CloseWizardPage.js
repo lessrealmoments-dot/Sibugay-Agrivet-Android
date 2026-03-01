@@ -1233,10 +1233,16 @@ export default function CloseWizardPage() {
                     <div className="flex justify-between"><span className="text-teal-600">+ Split Cash Portion</span><span className="font-mono font-semibold text-teal-700">{formatPHP(preview?.total_split_cash || 0)}</span></div>
                   )}
                   <div className="flex justify-between"><span className="text-blue-600">+ Partial Cash Received</span><span className="font-mono text-blue-700">{formatPHP(preview?.total_partial_cash || 0)}</span></div>
-                  <div className="flex justify-between"><span className="text-indigo-600">+ AR Payments Received</span><span className="font-mono text-indigo-700">{formatPHP(preview?.total_ar_received || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-indigo-600">+ AR Cash Payments</span><span className="font-mono text-indigo-700">{formatPHP(preview?.total_cash_ar ?? preview?.total_ar_received ?? 0)}</span></div>
+                  {(preview?.total_digital_ar || 0) > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-indigo-400 pl-3">AR Digital (e-wallet, not in drawer)</span><span className="font-mono text-indigo-400">{formatPHP(preview?.total_digital_ar || 0)}</span></div>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-semibold"><span className="text-green-700">= Total Cash In</span><span className="font-mono text-green-700">{formatPHP(preview?.total_cash_in || 0)}</span></div>
-                  <div className="flex justify-between"><span className="text-red-600">- Expenses</span><span className="font-mono font-semibold text-red-600">{formatPHP(preview?.total_expenses || 0)}</span></div>
+                  <div className="flex justify-between"><span className="text-red-600">- Cashier Expenses</span><span className="font-mono font-semibold text-red-600">{formatPHP(preview?.total_cashier_expenses ?? preview?.total_expenses ?? 0)}</span></div>
+                  {(preview?.total_safe_expenses || 0) > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-red-400 pl-3">Safe expenses (not from drawer)</span><span className="font-mono text-red-400">{formatPHP(preview?.total_safe_expenses || 0)}</span></div>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-bold text-base"><span>Expected in Drawer</span><span className="font-mono">{formatPHP(expectedCash)}</span></div>
                   <div className="flex justify-between font-bold text-base"><span>Actual Count</span><span className="font-mono">{formatPHP(parseFloat(actualCash) || 0)}</span></div>

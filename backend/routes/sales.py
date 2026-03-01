@@ -344,3 +344,18 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     )
     
     return invoice
+
+
+
+@router.get("/pending-receipt-uploads")
+async def get_pending_receipt_uploads(user=Depends(get_current_user)):
+    """Return invoices with receipt_status='pending' for the current user's branch."""
+    branch_id = user.get("branch_id")
+    query = {"receipt_status": "pending", "voided": {"$ne": True}}
+    if branch_id:
+        query["branch_id"] = branch_id
+    invoices = await db.invoices.find(
+        query,
+        {"_id": 0, "id": 1, "invoice_number": 1, "grand_total": 1, "fund_source": 1, "digital_platform": 1}
+    ).sort("created_at", -1).to_list(10)
+    return invoices

@@ -53,17 +53,15 @@ export default function UnifiedSalesPage() {
     // Load receipts for digital/split invoices
     if (inv && (inv.fund_source === 'digital' || inv.fund_source === 'split')) {
       try {
-        const res = await api.get('/uploads/sessions', { params: { record_type: 'invoice', record_id: inv.id } });
-        const sessions = res.data || [];
+        const res = await api.get(`/uploads/invoice/${inv.id}`);
+        const sessions = res.data?.sessions || [];
         const receipts = [];
         for (const s of sessions) {
           for (const f of (s.files || [])) {
             if (f.url) receipts.push({ url: f.url, name: f.original_name || f.name });
           }
         }
-        if (receipts.length > 0) {
-          setSelectedInvoice(prev => prev?.id === inv.id ? { ...prev, _receipts: receipts } : prev);
-        }
+        setSelectedInvoice(prev => prev?.id === inv.id ? { ...prev, _receipts: receipts } : prev);
       } catch {}
     }
   };

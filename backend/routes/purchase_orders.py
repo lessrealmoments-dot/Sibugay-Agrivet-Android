@@ -927,7 +927,7 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
             continue
 
         # Use branch-specific cost if available, else global
-        global_capital = float(product.get("cost_price", 0))
+        global_capital = float(product.get("cost_price") or 0)
         current_capital = global_capital
         if po_branch_id:
             bp_doc = await db.branch_prices.find_one(
@@ -943,8 +943,8 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
         all_acquisitions = await db.movements.find(
             acq_query, {"_id": 0}
         ).to_list(10000)
-        total_pqty = sum(m["quantity_change"] for m in all_acquisitions)
-        total_pcost = sum(m["quantity_change"] * m.get("price_at_time", 0) for m in all_acquisitions)
+        total_pqty = sum(float(m.get("quantity_change") or 0) for m in all_acquisitions)
+        total_pcost = sum(float(m.get("quantity_change") or 0) * float(m.get("price_at_time") or 0) for m in all_acquisitions)
         current_moving_avg = round(total_pcost / total_pqty, 2) if total_pqty > 0 else current_capital
 
         # Projected moving average AFTER this purchase

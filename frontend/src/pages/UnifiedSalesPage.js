@@ -2403,7 +2403,7 @@ export default function UnifiedSalesPage() {
                   toast.error('You must upload the e-payment receipt before proceeding');
                   return;
                 }
-                setShowDigitalQR(false); setDigitalReceiptQR(null);
+                closeReceiptDialog();
               }}
               disabled={!digitalReceiptQR._uploaded}
               className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${

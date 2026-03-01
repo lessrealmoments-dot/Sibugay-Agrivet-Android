@@ -230,7 +230,7 @@ async def get_daily_close_preview(
         })
     total_ar_received = round(sum(p["amount_paid"] for p in ar_payments), 2)
 
-    # ── Expenses today (all = cash outflows) ─────────────────────────────────
+    # ── Expenses today — split by fund source for accurate reconciliation ────
     expenses_raw = await db.expenses.find(
         {"branch_id": branch_id, "date": date, "voided": {"$ne": True}}, {"_id": 0}
     ).to_list(500)
@@ -254,6 +254,12 @@ async def get_daily_close_preview(
         expenses.append(exp)
 
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
+    # Only cashier-sourced expenses affect the drawer; safe-paid expenses don't
+    total_cashier_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source", "cashier") != "safe"
+    ), 2)
+    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
 
     # ── Digital payments today (GCash, Maya, etc.) ───────────────────────────
     digital_invoices = await db.invoices.find(

@@ -77,6 +77,28 @@ export default function UnifiedSalesPage() {
   const [digitalReceiptQR, setDigitalReceiptQR] = useState(null); // { invoice_id, token }
   const [showDigitalQR, setShowDigitalQR] = useState(false);
 
+  // ── Persistent receipt upload tracking ──────────────────────────────────
+  const PENDING_RECEIPT_KEY = 'agribooks_pending_receipt';
+
+  // Save pending receipt to localStorage whenever dialog opens
+  const showReceiptDialog = (data) => {
+    setDigitalReceiptQR(data);
+    setShowDigitalQR(true);
+    try {
+      localStorage.setItem(PENDING_RECEIPT_KEY, JSON.stringify({
+        invoice_id: data.invoice_id,
+        invoice_number: data.invoice_number,
+      }));
+    } catch {}
+  };
+
+  // Clear pending receipt from localStorage when upload completes
+  const closeReceiptDialog = () => {
+    setShowDigitalQR(false);
+    setDigitalReceiptQR(null);
+    try { localStorage.removeItem(PENDING_RECEIPT_KEY); } catch {}
+  };
+
   // ── Split payment (cash + digital) ────────────────────────────────────────
   const [splitCash, setSplitCash] = useState('');
   const [splitDigital, setSplitDigital] = useState('');

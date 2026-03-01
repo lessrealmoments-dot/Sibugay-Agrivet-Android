@@ -2291,7 +2291,7 @@ export default function UnifiedSalesPage() {
                       const sid = uploadRes.data?.session_id || digitalReceiptQR._sessionId;
                       // Link session to invoice
                       if (sid && digitalReceiptQR.invoice_id) {
-                        await api.post('/uploads/link-session', {
+                        await api.post('/uploads/reassign', {
                           session_id: sid,
                           record_type: 'invoice',
                           record_id: digitalReceiptQR.invoice_id,

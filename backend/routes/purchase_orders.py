@@ -525,7 +525,18 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     # ── Receive inventory for cash + terms ────────────────────────────────
     if po_type in ("cash", "terms"):
         capital_choices = data.get("capital_choices", {})
-        await _apply_po_inventory(po, user, capital_choices)
+        try:
+            await _apply_po_inventory(po, user, capital_choices)
+        except HTTPException:
+            raise
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=500,
+                detail=f"PO created but inventory update failed: {str(e)}. "
+                       f"PO {po['po_number']} saved as '{status}'. Please contact admin."
+            )
 
     return po
 

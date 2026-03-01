@@ -2239,45 +2239,114 @@ export default function UnifiedSalesPage() {
       {showDigitalQR && digitalReceiptQR && (
         <div
           className="fixed inset-0 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 99999 }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 99999 }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '340px' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '380px' }}>
             <div className="text-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
-                <span className="text-2xl">📱</span>
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-2">
+                <Camera size={22} className="text-red-600" />
               </div>
-              <p className="font-bold text-slate-800">{digitalReceiptQR.invoice_number} — {digitalPlatform}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Scan to upload the {digitalPlatform} receipt screenshot</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Ref: {digitalRefNumber}</p>
+              <p className="font-bold text-slate-800 text-lg">Receipt Upload Required</p>
+              <p className="font-semibold text-blue-700 mt-1">{digitalReceiptQR.invoice_number}</p>
+              <p className="text-xs text-slate-500 mt-1">Upload a screenshot or photo of the e-payment transfer</p>
             </div>
+
+            {/* Direct upload from device */}
+            <div className="mb-3">
+              <label
+                data-testid="receipt-upload-input-label"
+                className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
+                  digitalReceiptQR._uploaded
+                    ? 'border-green-400 bg-green-50 text-green-700'
+                    : 'border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700'
+                }`}
+              >
+                {digitalReceiptQR._uploading ? (
+                  <><RefreshCw size={16} className="animate-spin" /> Uploading...</>
+                ) : digitalReceiptQR._uploaded ? (
+                  <><Check size={16} /> Receipt uploaded</>
+                ) : (
+                  <><Camera size={16} /> Take Photo or Choose File</>
+                )}
+                <input
+                  data-testid="receipt-upload-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setDigitalReceiptQR(prev => ({ ...prev, _uploading: true }));
+                    try {
+                      const formData = new FormData();
+                      formData.append('files', file);
+                      formData.append('record_type', 'invoice');
+                      if (digitalReceiptQR._sessionId) {
+                        formData.append('session_id', digitalReceiptQR._sessionId);
+                      }
+                      const uploadRes = await api.post('/uploads/direct', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                      });
+                      const sid = uploadRes.data?.session_id || digitalReceiptQR._sessionId;
+                      // Link session to invoice
+                      if (sid && digitalReceiptQR.invoice_id) {
+                        await api.post('/uploads/link-session', {
+                          session_id: sid,
+                          record_type: 'invoice',
+                          record_id: digitalReceiptQR.invoice_id,
+                        }).catch(() => {});
+                      }
+                      setDigitalReceiptQR(prev => ({ ...prev, _uploading: false, _uploaded: true, _sessionId: sid, _fileCount: (prev._fileCount || 0) + 1 }));
+                      toast.success('Receipt uploaded!');
+                    } catch (err) {
+                      setDigitalReceiptQR(prev => ({ ...prev, _uploading: false }));
+                      toast.error('Upload failed — try again');
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {digitalReceiptQR._fileCount > 0 && (
+                <p className="text-xs text-green-600 text-center mt-1">{digitalReceiptQR._fileCount} file(s) uploaded</p>
+              )}
+            </div>
+
+            {/* QR option */}
             {digitalReceiptQR.token && (
-              <div className="flex justify-center mb-4">
-                <div style={{ border: '3px solid #1e40af', borderRadius: '12px', padding: '8px', background: '#fff' }}>
-                  {/* Import QRCodeSVG dynamically - it's already available */}
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`${window.location.origin}/upload/${digitalReceiptQR.token}`)}`}
-                    alt="QR Code"
-                    width={150} height={150}
-                    style={{ display: 'block' }}
-                  />
+              <details className="mb-3">
+                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 text-center">Or scan QR with phone</summary>
+                <div className="flex justify-center mt-2">
+                  <div style={{ border: '2px solid #93c5fd', borderRadius: '10px', padding: '6px', background: '#fff' }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`${window.location.origin}/upload/${digitalReceiptQR.token}`)}`}
+                      alt="QR Code"
+                      width={120} height={120}
+                      style={{ display: 'block' }}
+                    />
+                  </div>
                 </div>
-              </div>
+              </details>
             )}
-            <p className="text-xs text-center text-slate-400 mb-4">Cashier scans with phone → takes screenshot → submits</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setShowDigitalQR(false); setDigitalReceiptQR(null); }}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                Skip for now
-              </button>
-              <button
-                onClick={() => { setShowDigitalQR(false); setDigitalReceiptQR(null); toast.success('Receipt QR closed — upload later via invoice detail'); }}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
-              >
-                Done
-              </button>
-            </div>
+
+            <button
+              data-testid="receipt-done-btn"
+              onClick={() => {
+                if (!digitalReceiptQR._uploaded) {
+                  toast.error('You must upload the e-payment receipt before proceeding');
+                  return;
+                }
+                setShowDigitalQR(false); setDigitalReceiptQR(null);
+              }}
+              disabled={!digitalReceiptQR._uploaded}
+              className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
+                digitalReceiptQR._uploaded
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              {digitalReceiptQR._uploaded ? 'Done — Proceed' : 'Upload receipt to continue'}
+            </button>
           </div>
         </div>
       )}

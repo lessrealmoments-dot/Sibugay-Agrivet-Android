@@ -124,6 +124,8 @@ cd frontend && yarn build
 - [x] Split payment receipt upload QR (same as digital payments)
 - [x] E-payment verification section in Sales History (platform, ref#, photos, verify button)
 - [x] Split payment recording fix: cash portion → Cash Sales, digital portion → Digital Sales
+- [x] Void/reopen fix: split voids reverse both cashier AND digital wallets with transaction history
+- [x] Voided sales excluded from all aggregations (daily-log, preview, unclosed-days, batch)
 
 ### P0 — Upcoming
 - [ ] Closing History page (view past Z-Reports with search by date/branch)

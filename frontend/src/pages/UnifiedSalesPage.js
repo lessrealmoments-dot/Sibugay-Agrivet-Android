@@ -463,12 +463,14 @@ export default function UnifiedSalesPage() {
   };
 
   const setCartQty = (productId, qty) => {
-    const newQty = Math.max(0, parseFloat(qty) || 0);
-    if (newQty === 0) {
-      setCart(cart.filter(c => c.product_id !== productId));
-    } else {
-      setCart(cart.map(c => c.product_id !== productId ? c : { ...c, quantity: newQty, total: newQty * c.price }));
+    const str = String(qty);
+    // Allow intermediate decimal input: "0.", "1.", ".5", ""
+    if (str === '' || str.endsWith('.') || str === '.') {
+      setCart(cart.map(c => c.product_id !== productId ? c : { ...c, _qtyStr: str }));
+      return;
     }
+    const newQty = Math.max(0, parseFloat(str) || 0);
+    setCart(cart.map(c => c.product_id !== productId ? c : { ...c, quantity: newQty, total: newQty * c.price, _qtyStr: undefined }));
   };
 
   const updateCartPrice = (productId, newPrice) => {

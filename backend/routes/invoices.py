@@ -119,6 +119,20 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     is_split = data.get("payment_type") == "split"
     digital = is_split or is_digital_payment(payment_method)
 
+    # Derive payment_type consistently (matches unified-sale behavior)
+    payment_type = data.get("payment_type")
+    if not payment_type:
+        if is_split:
+            payment_type = "split"
+        elif digital:
+            payment_type = "digital"
+        elif balance <= 0:
+            payment_type = "cash"
+        elif amount_paid > 0:
+            payment_type = "partial"
+        else:
+            payment_type = "credit"
+
     # Split payment: part cash + part digital
     cash_amount = float(data.get("cash_amount", 0)) if is_split else (amount_paid if not is_digital_payment(payment_method) else 0)
     digital_amount = float(data.get("digital_amount", 0)) if is_split else (amount_paid if is_digital_payment(payment_method) else 0)

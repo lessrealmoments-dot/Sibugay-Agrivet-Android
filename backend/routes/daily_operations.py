@@ -69,7 +69,7 @@ async def get_unclosed_days(
 
         # Check if any activity exists for this day
         sales_count = await db.sales_log.count_documents({"branch_id": branch_id, "date": d, "voided": {"$ne": True}})
-        expense_count = await db.expenses.count_documents({"branch_id": branch_id, "date": d})
+        expense_count = await db.expenses.count_documents({"branch_id": branch_id, "date": d, "voided": {"$ne": True}})
         invoice_count = await db.invoices.count_documents({
             "branch_id": branch_id, "order_date": d, "status": {"$ne": "voided"}
         })
@@ -89,7 +89,7 @@ async def get_unclosed_days(
         expense_total = 0
         if expense_count > 0:
             agg = await db.expenses.aggregate([
-                {"$match": {"branch_id": branch_id, "date": d}},
+                {"$match": {"branch_id": branch_id, "date": d, "voided": {"$ne": True}}},
                 {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
             ]).to_list(1)
             expense_total = round(agg[0]["total"], 2) if agg else 0

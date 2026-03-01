@@ -789,9 +789,12 @@ async def adjust_po_payment(po_id: str, data: dict, user=Depends(get_current_use
         # Overpaid — refund |delta| back to fund
         if fund_source == "safe" and balances["safe_id"]:
             await db.safe_lots.insert_one({
-                "id": new_id(), "wallet_id": balances["safe_id"],
-                "amount": abs(delta), "remaining_amount": abs(delta),
-                "source": "po_adjustment_refund", "notes": ref_text,
+                "id": new_id(), "branch_id": branch_id,
+                "wallet_id": balances["safe_id"],
+                "date_received": now_iso()[:10],
+                "original_amount": abs(delta), "remaining_amount": abs(delta),
+                "source_reference": ref_text,
+                "created_by": user["id"],
                 "created_at": now_iso(),
             })
             await record_safe_movement(branch_id, abs(delta), ref_text)

@@ -376,6 +376,16 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
         inv_query["branch_id"] = branch_id
     credit_invoices = await db.invoices.find(inv_query, {"_id": 0}).sort("created_at", 1).to_list(500)
 
+    # For partial invoices: split amount_paid (cash) and balance (credit)
+    total_partial_cash = round(sum(
+        float(inv.get("amount_paid", 0))
+        for inv in credit_invoices if inv.get("payment_type") == "partial"
+    ), 2)
+    total_credit_balance = round(sum(
+        float(inv.get("balance", 0))
+        for inv in credit_invoices
+    ), 2)
+
     total_cash = round(sum(float(e.get("line_total", 0)) for e in cash_entries), 2)
     total_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices), 2)
     total_all = round(sum(float(e.get("line_total", 0)) for e in all_entries), 2)
@@ -397,7 +407,10 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
         "count": len(all_entries),
         "summary": {
             "total_cash": total_cash,
+            "total_partial_cash": total_partial_cash,
+            "total_cash_all": round(total_cash + total_partial_cash, 2),
             "total_credit": total_credit,
+            "total_credit_balance": total_credit_balance,
             "total_all": total_all,
             "grand_total": round(total_cash + total_credit, 2),
             "cash_count": len(cash_entries),

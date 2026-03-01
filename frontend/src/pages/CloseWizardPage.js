@@ -1124,8 +1124,11 @@ export default function CloseWizardPage() {
                   <p className="text-lg font-bold font-mono text-green-700">{formatPHP(preview?.total_cash_in || 0)}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-xs text-red-500 uppercase font-medium mb-1">Total Expenses</p>
-                  <p className="text-lg font-bold font-mono text-red-600">{formatPHP(preview?.total_expenses || 0)}</p>
+                  <p className="text-xs text-red-500 uppercase font-medium mb-1">Cashier Expenses</p>
+                  <p className="text-lg font-bold font-mono text-red-600">{formatPHP(preview?.total_cashier_expenses ?? preview?.total_expenses ?? 0)}</p>
+                  {(preview?.total_safe_expenses || 0) > 0 && (
+                    <p className="text-[10px] text-red-400 mt-0.5">+ {formatPHP(preview.total_safe_expenses)} from safe</p>
+                  )}
                 </div>
                 <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-300">
                   <p className="text-xs text-emerald-600 uppercase font-medium mb-1">Expected in Drawer</p>

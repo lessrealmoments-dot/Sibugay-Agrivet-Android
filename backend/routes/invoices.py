@@ -1052,9 +1052,17 @@ async def void_invoice_payment(inv_id: str, payment_id: str, data: dict, user=De
     reason = data.get("reason", "Payment reversed by manager")
     ref_text = f"Payment voided: {inv.get('invoice_number', '')} — {reason}"
 
-    # Reverse the fund movement (take money back from cashier/safe)
+    # Reverse the fund movement (take money back from the wallet it was deposited to)
     if amount > 0:
-        if fund_source == "safe":
+        pmt_method = payment.get("method", "Cash")
+        if fund_source == "digital" or is_digital_payment(pmt_method):
+            await update_digital_wallet(
+                branch_id, -amount,
+                reference=ref_text,
+                platform=payment.get("digital_platform", pmt_method),
+                ref_number=payment.get("digital_ref_number", ""),
+            )
+        elif fund_source == "safe":
             safe_wallet = await db.fund_wallets.find_one(
                 {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
             )

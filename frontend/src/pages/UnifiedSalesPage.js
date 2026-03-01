@@ -372,6 +372,54 @@ export default function UnifiedSalesPage() {
     getPendingSaleCount().then(setPendingCount);
   }, [effectiveBranchId]); // eslint-disable-line
 
+  // ── Recover pending receipt upload on mount ────────────────────────────
+  useEffect(() => {
+    const checkPendingReceipt = async () => {
+      try {
+        const stored = localStorage.getItem(PENDING_RECEIPT_KEY);
+        if (!stored) return;
+        const { invoice_id, invoice_number } = JSON.parse(stored);
+        if (!invoice_id) return;
+        // Verify with backend that receipt is still pending
+        const res = await api.get('/pending-receipt-uploads');
+        const pending = (res.data || []).find(inv => inv.id === invoice_id);
+        if (pending) {
+          // Re-show the dialog — receipt was never uploaded
+          setDigitalReceiptQR({ invoice_id, invoice_number: invoice_number || pending.invoice_number });
+          setShowDigitalQR(true);
+        } else {
+          // Receipt was already uploaded or invoice doesn't exist anymore
+          localStorage.removeItem(PENDING_RECEIPT_KEY);
+        }
+      } catch {
+        // If API fails, still show based on localStorage (safer to require upload)
+        try {
+          const stored = localStorage.getItem(PENDING_RECEIPT_KEY);
+          if (stored) {
+            const { invoice_id, invoice_number } = JSON.parse(stored);
+            if (invoice_id) {
+              setDigitalReceiptQR({ invoice_id, invoice_number });
+              setShowDigitalQR(true);
+            }
+          }
+        } catch {}
+      }
+    };
+    checkPendingReceipt();
+  }, []); // eslint-disable-line
+
+  // ── Prevent page close/refresh while receipt upload is pending ──────────
+  useEffect(() => {
+    if (!showDigitalQR) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = 'You must upload the e-payment receipt before leaving. Your sale is recorded but the receipt is required.';
+      return e.returnValue;
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [showDigitalQR]);
+
   // Load history when tab becomes active or date/search changes
   const loadHistory = useCallback(async () => {
     if (!isOnline) return;

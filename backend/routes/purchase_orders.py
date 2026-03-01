@@ -475,17 +475,23 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         if data.get("check_number"):
             ref_text += f" | Check #{data['check_number']}"
 
-        if fund_source == "safe" and balances["safe_id"]:
-            remaining = grand_total
-            for lot in await db.safe_lots.find(
-                {"wallet_id": balances["safe_id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
-            ).sort("remaining_amount", -1).to_list(500):
-                if remaining <= 0: break
-                take = min(lot["remaining_amount"], remaining)
-                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
-                remaining -= take
-        else:
-            await update_cashier_wallet(branch_id, -grand_total, ref_text)
+        try:
+            if fund_source == "safe" and balances["safe_id"]:
+                remaining = grand_total
+                for lot in await db.safe_lots.find(
+                    {"wallet_id": balances["safe_id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+                ).sort("remaining_amount", -1).to_list(500):
+                    if remaining <= 0: break
+                    take = min(lot["remaining_amount"], remaining)
+                    await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                    remaining -= take
+            else:
+                await update_cashier_wallet(branch_id, -grand_total, ref_text)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"PO {po['po_number']} — fund deduction failed: {str(e)}\n{traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"Fund deduction failed: {str(e)}")
 
         payment_record = {
             "id": new_id(), "amount": grand_total,

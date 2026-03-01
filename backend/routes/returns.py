@@ -333,26 +333,30 @@ async def void_return(return_id: str, data: dict, user=Depends(get_current_user)
                 f"Return voided: {ret['rma_number']} — {reason}",
             )
 
-    # Reverse refund: re-deduct the refund amount from fund
+    # Reverse refund: ADD money BACK to the original fund source
+    # (The original return took money OUT to refund the customer; voiding means that
+    #  refund is reversed, so money comes back into the fund.)
     refund_amount = float(ret.get("refund_amount", 0))
     fund_source = ret.get("fund_source", "cashier")
     if refund_amount > 0:
-        ref_text = f"Return void refund reversal — {ret['rma_number']}"
+        ref_text = f"Return void — refund reversed — {ret['rma_number']}"
         if fund_source == "safe":
             safe_wallet = await db.fund_wallets.find_one(
                 {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
             )
             if safe_wallet:
-                remaining = refund_amount
-                for lot in await db.safe_lots.find(
-                    {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
-                ).sort("remaining_amount", -1).to_list(500):
-                    if remaining <= 0: break
-                    take = min(lot["remaining_amount"], remaining)
-                    await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
-                    remaining -= take
+                await db.safe_lots.insert_one({
+                    "id": new_id(), "branch_id": branch_id,
+                    "wallet_id": safe_wallet["id"],
+                    "date_received": now_iso()[:10],
+                    "original_amount": refund_amount,
+                    "remaining_amount": refund_amount,
+                    "source_reference": ref_text,
+                    "created_by": user["id"],
+                    "created_at": now_iso(),
+                })
         else:
-            await update_cashier_wallet(branch_id, -refund_amount, ref_text)
+            await update_cashier_wallet(branch_id, refund_amount, ref_text)
 
         # Void the expense record for the refund
         await db.expenses.update_many(
@@ -371,6 +375,6 @@ async def void_return(return_id: str, data: dict, user=Depends(get_current_user)
         }}
     )
     return {
-        "message": f"Return {ret['rma_number']} voided. Inventory reversed for shelf items. Refund re-deducted from {fund_source}.",
+        "message": f"Return {ret['rma_number']} voided. Inventory reversed for shelf items. ₱{refund_amount:,.2f} returned to {fund_source}.",
         "authorized_by": authorized_manager.get("full_name", authorized_manager["username"]),
     }

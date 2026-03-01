@@ -1281,12 +1281,18 @@ export default function UnifiedSalesPage() {
                             <div className="flex items-center border border-slate-200 rounded overflow-hidden flex-shrink-0">
                               <button className="px-1.5 py-1 text-slate-400 hover:bg-slate-100 h-7" onClick={() => updateQty(item.product_id, -1)}><Minus size={11} /></button>
                               <input
-                                type="number"
-                                className="w-10 text-center text-sm h-7 border-0 focus:outline-none"
-                                value={item.quantity}
+                                type="text"
+                                inputMode="decimal"
+                                className="w-12 text-center text-sm h-7 border-0 focus:outline-none"
+                                value={item._qtyStr ?? item.quantity}
                                 onChange={e => setCartQty(item.product_id, e.target.value)}
+                                onBlur={e => {
+                                  const v = parseFloat(e.target.value) || 0;
+                                  if (v === 0) removeFromCart(item.product_id);
+                                  else setCartQty(item.product_id, v);
+                                }}
                                 onFocus={e => e.target.select()}
-                                min="1"
+                                data-testid={`cart-qty-${item.product_id}`}
                               />
                               <button className="px-1.5 py-1 text-slate-400 hover:bg-slate-100 h-7" onClick={() => updateQty(item.product_id, 1)}><Plus size={11} /></button>
                             </div>

@@ -608,7 +608,7 @@ async def batch_close_preview(
     total_ar_received = round(ar_result[0]["total"] if ar_result else 0, 2)
 
     # Expenses
-    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter}, {"_id": 0}).to_list(500)
+    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
     for e in expenses_raw:
         exp = dict(e)
@@ -1043,7 +1043,7 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
     total_ar_received = round(sum(c["total_paid"] for c in credit_collections), 2)
 
     # Expenses across all dates
-    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter}, {"_id": 0}).to_list(500)
+    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
     for e in expenses_raw:
         exp = dict(e)

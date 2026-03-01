@@ -19,36 +19,21 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 TEST_BRANCH_ID = "d4a041e7-4918-490e-afb8-54ae90cec7fb"  # IPIL Branch
 TEST_DATE = "2026-02-26"  # Date with split payments
 
-# Expected values from problem statement
-EXPECTED_CASH_SALES = 3600
-EXPECTED_SPLIT_CASH = 3366
-EXPECTED_TOTAL_CASH_IN = 6966  # cash_sales + split_cash
-EXPECTED_DIGITAL = 5814
-EXPECTED_CREDIT = 3200
-EXPECTED_GRAND_TOTAL = 15980
+
+@pytest.fixture(scope="module")
+def auth_headers():
+    """Get auth headers for API calls"""
+    response = requests.post(f"{BASE_URL}/api/auth/login", json={
+        "email": "janmarkeahig@gmail.com",
+        "password": "Aa@58798546521325"
+    })
+    if response.status_code == 200:
+        token = response.json().get("access_token")
+        return {"Authorization": f"Bearer {token}"}
+    pytest.skip("Authentication failed")
 
 
-class TestAuth:
-    """Helper to get auth token"""
-    
-    @pytest.fixture(scope="class")
-    def auth_token(self):
-        """Get auth token for API calls"""
-        response = requests.post(f"{BASE_URL}/api/auth/login", json={
-            "email": "janmarkeahig@gmail.com",
-            "password": "Aa@58798546521325"
-        })
-        if response.status_code == 200:
-            return response.json().get("access_token")
-        pytest.skip("Authentication failed")
-        
-    @pytest.fixture(scope="class")
-    def auth_headers(self, auth_token):
-        """Headers with auth token"""
-        return {"Authorization": f"Bearer {auth_token}"}
-
-
-class TestDailyClosePreview(TestAuth):
+class TestDailyClosePreview:
     """Tests for GET /api/daily-close-preview - split payment cash portion in Cash Sales"""
     
     def test_preview_returns_total_split_cash_field(self, auth_headers):
@@ -65,7 +50,7 @@ class TestDailyClosePreview(TestAuth):
         print(f"✓ Preview returns total_split_cash: {data.get('total_split_cash')}")
     
     def test_preview_split_cash_value_matches_expected(self, auth_headers):
-        """Split cash portion should equal expected value (3366)"""
+        """Split cash portion should be present (value may vary)"""
         response = requests.get(
             f"{BASE_URL}/api/daily-close-preview",
             params={"branch_id": TEST_BRANCH_ID, "date": TEST_DATE},
@@ -74,8 +59,7 @@ class TestDailyClosePreview(TestAuth):
         data = response.json()
         
         total_split_cash = data.get("total_split_cash", 0)
-        # Allow some tolerance since data may change
-        print(f"✓ Split cash: {total_split_cash} (expected around {EXPECTED_SPLIT_CASH})")
+        print(f"✓ Split cash: {total_split_cash}")
         assert total_split_cash >= 0, "total_split_cash should not be negative"
     
     def test_preview_total_cash_in_includes_split_cash(self, auth_headers):
@@ -133,7 +117,7 @@ class TestDailyClosePreview(TestAuth):
         print(f"✓ total_digital_today correctly sums digital portions only")
 
 
-class TestSalesHistoryByDate(TestAuth):
+class TestSalesHistoryByDate:
     """Tests for GET /api/invoices/history/by-date - totals split correctly"""
     
     def test_history_returns_totals_section(self, auth_headers):
@@ -177,7 +161,6 @@ class TestSalesHistoryByDate(TestAuth):
         print(f"Grand Total: {grand_total}")
         
         # Cash should include split cash portions (cash_amount from split invoices)
-        # Verify the logic is correct
         invoices = data.get("invoices", [])
         split_invoices = [inv for inv in invoices if inv.get("payment_type") == "split"]
         
@@ -188,18 +171,17 @@ class TestSalesHistoryByDate(TestAuth):
         print(f"Split cash portions from invoices: {split_cash_from_invoices}")
         print(f"Split digital portions from invoices: {split_digital_from_invoices}")
         
-        # Cash total should be higher than 0 if there are split invoices with cash portions
+        # If there are split invoices with cash portions, verify they are included
         if split_cash_from_invoices > 0:
             assert cash_total > 0, "Cash total should include split cash portions"
             print(f"✓ Cash total ({cash_total}) includes split cash portions")
 
 
-class TestBatchClosePreview(TestAuth):
+class TestBatchClosePreview:
     """Tests for GET /api/daily-close-preview/batch - includes split_cash"""
     
     def test_batch_preview_returns_split_cash_field(self, auth_headers):
         """Batch preview should include total_split_cash field"""
-        # Use two dates including our test date
         dates = f"2026-02-20,{TEST_DATE}"
         response = requests.get(
             f"{BASE_URL}/api/daily-close-preview/batch",
@@ -207,9 +189,7 @@ class TestBatchClosePreview(TestAuth):
             headers=auth_headers
         )
         
-        # May get 400 if branch_id is missing, but check status
         if response.status_code == 400:
-            # Check if it's a validation error about unclosed days
             print(f"Got 400: {response.json()}")
             pytest.skip("Could not test batch preview - validation error")
             return
@@ -255,27 +235,26 @@ class TestBatchClosePreview(TestAuth):
         print(f"✓ Batch total_cash_in correctly includes split_cash")
 
 
-class TestCloseEndpointHasSplitCash(TestAuth):
-    """Test that POST /api/daily-close would include split_cash (do NOT actually close)"""
+class TestCloseEndpointValidation:
+    """Test that POST /api/daily-close validates correctly (do NOT actually close)"""
     
-    def test_close_endpoint_exists(self, auth_headers):
-        """Verify close endpoint is accessible (don't actually close)"""
-        # Just verify the endpoint returns proper error when missing required fields
+    def test_close_endpoint_requires_pin(self, auth_headers):
+        """Verify close endpoint requires admin PIN"""
         response = requests.post(
             f"{BASE_URL}/api/daily-close",
-            json={"date": "invalid", "branch_id": TEST_BRANCH_ID},
+            json={"date": TEST_DATE, "branch_id": TEST_BRANCH_ID},
             headers=auth_headers
         )
         # Should get 403 (no admin_pin) or 400 (validation), not 404 or 500
         assert response.status_code in [400, 403, 422], \
             f"Close endpoint should validate, got {response.status_code}"
-        print(f"✓ Close endpoint accessible and validates input")
+        print(f"✓ Close endpoint validates and requires admin PIN")
 
 
-class TestCodeReviewVerification(TestAuth):
+class TestCodeReviewVerification:
     """Code review verification of split cash logic in backend"""
     
-    def test_preview_split_query_present(self, auth_headers):
+    def test_preview_split_query_returns_data(self, auth_headers):
         """Verify the split cash query returns non-empty for split invoices"""
         response = requests.get(
             f"{BASE_URL}/api/daily-close-preview",
@@ -291,7 +270,6 @@ class TestCodeReviewVerification(TestAuth):
         print(f"Total digital/split invoices: {len(digital_sales)}")
         print(f"Split invoices: {len(split_sales)}")
         
-        # If there are split sales, verify they have amounts
         for s in split_sales[:3]:
             print(f"  Split invoice {s.get('invoice_number')}: amount={s.get('amount')}, platform={s.get('platform')}")
         

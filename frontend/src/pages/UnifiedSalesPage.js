@@ -908,19 +908,8 @@ export default function UnifiedSalesPage() {
         clearCart();
         setCheckoutDialog(false);
         setPendingCreditSale(null);
-        // For digital/split payments: auto-show receipt upload QR
-        if ((actualPaymentType === 'digital' || actualPaymentType === 'split') && res.data.id) {
-          try {
-            const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
-              record_type: 'invoice', record_id: res.data.id,
-            });
-            setDigitalReceiptQR({ invoice_id: res.data.id, invoice_number: invoiceNum, ...qrRes.data });
-            setShowDigitalQR(true);
-          } catch (uploadErr) {
-            console.error('Receipt upload link generation failed:', uploadErr);
-            toast.info('Sale completed! Please upload e-payment receipt from Sales History.');
-          }
-        }
+        // E-payment receipt upload prompt disabled for now
+        // if ((actualPaymentType === 'digital' || actualPaymentType === 'split') && res.data.id) { ... }
         setDigitalRefNumber('');
         setDigitalSender('');
       } catch (e) {

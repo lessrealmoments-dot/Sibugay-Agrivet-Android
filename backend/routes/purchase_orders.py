@@ -919,8 +919,8 @@ async def get_capital_preview(po_id: str, user=Depends(get_current_user)):
         pid = item.get("product_id")
         if not pid:
             continue
-        new_price = float(item.get("unit_price", 0))
-        qty = float(item.get("quantity", 0))
+        new_price = float(item.get("unit_price") or 0)
+        qty = float(item.get("quantity") or 0)
 
         product = await db.products.find_one({"id": pid}, {"_id": 0})
         if not product:

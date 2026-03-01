@@ -126,6 +126,14 @@ cd frontend && yarn build
 - [x] Split payment recording fix: cash portion → Cash Sales, digital portion → Digital Sales
 - [x] Void/reopen fix: split voids reverse both cashier AND digital wallets with transaction history
 - [x] Voided sales excluded from all aggregations (daily-log, preview, unclosed-days, batch)
+- [x] **BUG FIX (Mar 2026):** close_day endpoint now excludes voided sales from cash totals (was only in preview)
+- [x] **BUG FIX (Mar 2026):** close_day and all preview endpoints exclude voided expenses
+- [x] **BUG FIX (Mar 2026):** Sales History search no longer destroys date filter ($and instead of $or override)
+- [x] **BUG FIX (Mar 2026):** AR payments (receivable + customer receive-payment) now route to digital wallet when paid via GCash/Maya/etc
+- [x] **BUG FIX (Mar 2026):** /invoices endpoint now derives and stores payment_type field (cash/digital/split/partial/credit)
+- [x] **BUG FIX (Mar 2026):** Void now reverses ALL prior payments (including AR) from correct wallets, not just initial payment
+- [x] **BUG FIX (Mar 2026):** Void→Reopen now correctly sets selectedCustomer (was only setting search text, losing customer_id)
+- [x] **BUG FIX (Mar 2026):** Split payment receipt upload error no longer silently swallowed
 
 ### P0 — Upcoming
 - [ ] Closing History page (view past Z-Reports with search by date/branch)

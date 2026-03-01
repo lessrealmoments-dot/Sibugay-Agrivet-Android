@@ -380,19 +380,27 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
             new_dir.mkdir(parents=True, exist_ok=True)
             updated_files = []
             for f in session.get("files", []):
-                old_path = Path(f.get("stored_path", ""))
-                if old_path.exists():
-                    new_path = new_dir / old_path.name
-                    old_path.rename(new_path)
-                    f["stored_path"] = str(new_path)
+                stored = f.get("stored_path", "")
+                if not stored or stored == ".":
+                    updated_files.append(f)
+                    continue
+                old_path = Path(stored)
+                if old_path.is_file():
+                    try:
+                        new_path = new_dir / old_path.name
+                        old_path.rename(new_path)
+                        f["stored_path"] = str(new_path)
+                    except OSError:
+                        pass  # File might be on R2/remote — skip local move
                 updated_files.append(f)
             # Clean old dir
-            old_dir = upload_dir / "purchase_order" / old_record_id
-            if old_dir.exists() and not any(old_dir.iterdir()):
-                try:
-                    old_dir.rmdir()
-                except Exception:
-                    pass
+            if old_record_id:
+                old_dir = upload_dir / "purchase_order" / old_record_id
+                if old_dir.is_dir() and not any(old_dir.iterdir()):
+                    try:
+                        old_dir.rmdir()
+                    except Exception:
+                        pass
             await db.upload_sessions.update_one(
                 {"id": sid},
                 {"$set": {

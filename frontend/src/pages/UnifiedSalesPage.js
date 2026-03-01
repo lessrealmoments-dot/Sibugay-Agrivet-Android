@@ -1097,7 +1097,12 @@ export default function UnifiedSalesPage() {
                       <div className="text-right shrink-0">
                         <p className={`font-bold font-mono ${isVoided ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{formatPHP(inv.grand_total)}</p>
                         {hasBalance && <p className="text-[10px] text-amber-600">bal {formatPHP(inv.balance)}</p>}
-                        {!hasBalance && !isVoided && <p className="text-[10px] text-emerald-600">paid</p>}
+                        {!hasBalance && !isVoided && isDigital && (
+                          <p className={`text-[10px] ${inv.receipt_review_status === 'reviewed' ? 'text-emerald-600' : 'text-blue-500'}`}>
+                            {inv.receipt_review_status === 'reviewed' ? 'verified' : 'needs verify'}
+                          </p>
+                        )}
+                        {!hasBalance && !isVoided && !isDigital && <p className="text-[10px] text-emerald-600">paid</p>}
                       </div>
                     </div>
                   </button>

@@ -48,6 +48,25 @@ export default function UnifiedSalesPage() {
   const [historyTotals, setHistoryTotals] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null); // detail modal
+  const selectInvoiceWithReceipts = async (inv) => {
+    setSelectedInvoice(inv);
+    // Load receipts for digital/split invoices
+    if (inv && (inv.fund_source === 'digital' || inv.fund_source === 'split')) {
+      try {
+        const res = await api.get('/uploads/sessions', { params: { record_type: 'invoice', record_id: inv.id } });
+        const sessions = res.data || [];
+        const receipts = [];
+        for (const s of sessions) {
+          for (const f of (s.files || [])) {
+            if (f.url) receipts.push({ url: f.url, name: f.original_name || f.name });
+          }
+        }
+        if (receipts.length > 0) {
+          setSelectedInvoice(prev => prev?.id === inv.id ? { ...prev, _receipts: receipts } : prev);
+        }
+      } catch {}
+    }
+  };
   const [voidDialog, setVoidDialog] = useState(false);
   const [voidReason, setVoidReason] = useState('');
   const [voidPin, setVoidPin] = useState('');

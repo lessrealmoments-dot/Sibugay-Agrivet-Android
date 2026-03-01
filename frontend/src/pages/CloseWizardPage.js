@@ -1081,6 +1081,12 @@ export default function CloseWizardPage() {
                   <p className="text-xs text-emerald-600 uppercase font-medium mb-1">Cash Sales</p>
                   <p className="text-xl font-bold font-mono text-emerald-700">{formatPHP(preview?.total_cash_sales || 0)}</p>
                 </div>
+                {(preview?.total_split_cash || 0) > 0 && (
+                  <div className="p-3 rounded-lg bg-teal-50 border border-teal-200">
+                    <p className="text-xs text-teal-600 uppercase font-medium mb-1">Split Cash Portion</p>
+                    <p className="text-xl font-bold font-mono text-teal-700">{formatPHP(preview?.total_split_cash || 0)}</p>
+                  </div>
+                )}
                 <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
                   <p className="text-xs text-blue-500 uppercase font-medium mb-1">Partial Cash Received</p>
                   <p className="text-xl font-bold font-mono text-blue-700">{formatPHP(preview?.total_partial_cash || 0)}</p>

@@ -354,7 +354,13 @@ export default function PurchaseOrderPage() {
       if (detail?.type === 'insufficient_funds') {
         toast.error(detail.message);
         setCashFunds({ cashier: detail.cashier_balance || 0, safe: detail.safe_balance || 0 });
-      } else { toast.error(typeof detail === 'string' ? detail : 'Error creating PO'); }
+      } else {
+        const msg = typeof detail === 'string' ? detail
+          : detail?.message ? detail.message
+          : e.response?.data ? JSON.stringify(e.response.data).slice(0, 200)
+          : e.message || 'Error creating PO — check your connection and try again';
+        toast.error(msg);
+      }
     }
     setSaving(false);
   };

@@ -751,6 +751,7 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
     
     amount = float(data["amount"])
     branch_id = data["branch_id"]
+    fund_source = data.get("fund_source", "cashier")
     
     expense = {
         "id": new_id(),
@@ -760,6 +761,7 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
         "notes": data.get("notes", ""),
         "amount": amount,
         "payment_method": data.get("payment_method", "Cash"),
+        "fund_source": fund_source,
         "reference_number": data.get("reference_number", ""),
         "date": data.get("date", now_iso()[:10]),
         "customer_id": customer_id,
@@ -770,7 +772,23 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
         "created_at": now_iso(),
     }
     
-    await update_cashier_wallet(branch_id, -amount, f"Farm Expense for {customer.get('name', '')}: {data.get('description', '')}")
+    ref_text = f"Farm Expense for {customer.get('name', '')}: {data.get('description', '')}"
+    if fund_source == "safe":
+        safe_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if safe_wallet:
+            lots = await db.safe_lots.find(
+                {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+            ).sort("remaining_amount", -1).to_list(500)
+            remaining = amount
+            for lot in lots:
+                if remaining <= 0: break
+                take = min(lot["remaining_amount"], remaining)
+                await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+                remaining -= take
+    else:
+        await update_cashier_wallet(branch_id, -amount, ref_text)
     
     # Auto-generate invoice
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})

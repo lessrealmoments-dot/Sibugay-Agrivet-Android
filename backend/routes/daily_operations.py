@@ -302,6 +302,7 @@ async def get_daily_close_preview(
         # Cash inflows
         "cash_sales_by_category": cash_sales_by_category,
         "total_cash_sales": total_cash_sales,
+        "total_split_cash": total_split_cash,
         "partial_invoices": [
             {"customer_name": inv["customer_name"],
              "invoice_number": inv["invoice_number"],

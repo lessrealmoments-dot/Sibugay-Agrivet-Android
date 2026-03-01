@@ -2302,20 +2302,25 @@ export default function UnifiedSalesPage() {
         </div>
       )}
 
-      {/* ── DIGITAL RECEIPT UPLOAD QR ─────────────────────────────────── */}
+      {/* ── DIGITAL RECEIPT UPLOAD — MANDATORY, NON-DISMISSIBLE ─────── */}
       {showDigitalQR && digitalReceiptQR && (
         <div
+          data-testid="receipt-upload-overlay"
           className="fixed inset-0 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 99999 }}
+          style={{ backgroundColor: 'rgba(0,0,0,0.92)', zIndex: 99999 }}
+          onKeyDown={(e) => { if (e.key === 'Escape') e.stopPropagation(); }}
         >
-          <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '380px' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full p-5" style={{ maxWidth: '400px' }}>
             <div className="text-center mb-4">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-2">
-                <Camera size={22} className="text-red-600" />
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+                <Camera size={26} className="text-red-600" />
               </div>
               <p className="font-bold text-slate-800 text-lg">Receipt Upload Required</p>
               <p className="font-semibold text-blue-700 mt-1">{digitalReceiptQR.invoice_number}</p>
-              <p className="text-xs text-slate-500 mt-1">Upload a screenshot or photo of the e-payment transfer</p>
+              <p className="text-xs text-slate-500 mt-2">Upload a screenshot or photo of the e-payment transfer. This step <strong>cannot be skipped</strong>.</p>
+              <div className="mt-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-[11px] text-amber-700 font-medium">You cannot close this dialog or navigate away until the receipt is uploaded.</p>
+              </div>
             </div>
 
             {/* Direct upload from device */}

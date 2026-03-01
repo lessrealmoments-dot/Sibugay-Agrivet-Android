@@ -134,6 +134,9 @@ cd frontend && yarn build
 - [x] **BUG FIX (Mar 2026):** Void now reverses ALL prior payments (including AR) from correct wallets, not just initial payment
 - [x] **BUG FIX (Mar 2026):** Void→Reopen now correctly sets selectedCustomer (was only setting search text, losing customer_id)
 - [x] **BUG FIX (Mar 2026):** Split payment receipt upload error no longer silently swallowed
+- [x] **BUG FIX (Mar 2026):** PO creation crash (OSError: Device or resource busy) — empty stored_path in upload sessions caused Path("") to resolve to "." and attempt to rename the current directory
+- [x] **BUG FIX (Mar 2026):** Null-safe float conversions in PO capital/moving-average calculations
+- [x] **BUG FIX (Mar 2026):** Global exception handler added — all unhandled errors now return actual error messages instead of generic "Internal Server Error"
 
 ### P0 — Upcoming
 - [ ] Closing History page (view past Z-Reports with search by date/branch)

@@ -2036,6 +2036,81 @@ export default function UnifiedSalesPage() {
                 )}
               </div>
 
+              {/* E-Payment Details & Receipt */}
+              {(selectedInvoice.fund_source === 'digital' || selectedInvoice.fund_source === 'split') && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-blue-800 uppercase">E-Payment Details</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      selectedInvoice.receipt_review_status === 'reviewed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {selectedInvoice.receipt_review_status === 'reviewed' ? 'Verified' : 'Pending Verification'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div><span className="text-slate-500">Platform:</span> <span className="font-semibold">{selectedInvoice.digital_platform || 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Ref #:</span> <span className="font-mono font-semibold">{selectedInvoice.digital_ref_number || 'N/A'}</span></div>
+                    {selectedInvoice.digital_sender && <div><span className="text-slate-500">Sender:</span> <span className="font-semibold">{selectedInvoice.digital_sender}</span></div>}
+                    {selectedInvoice.fund_source === 'split' && (
+                      <>
+                        <div><span className="text-slate-500">Cash:</span> <span className="font-mono text-emerald-700">{formatPHP(selectedInvoice.cash_amount || 0)}</span></div>
+                        <div><span className="text-slate-500">Digital:</span> <span className="font-mono text-blue-700">{formatPHP(selectedInvoice.digital_amount || 0)}</span></div>
+                      </>
+                    )}
+                  </div>
+                  {/* Receipt photos */}
+                  {selectedInvoice._receipts && selectedInvoice._receipts.length > 0 ? (
+                    <div>
+                      <p className="text-[10px] text-blue-600 font-semibold mb-1">Receipt Screenshot(s):</p>
+                      <div className="flex gap-2 overflow-x-auto">
+                        {selectedInvoice._receipts.map((r, i) => (
+                          <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
+                            className="shrink-0 w-16 h-16 rounded-lg border border-blue-200 overflow-hidden hover:ring-2 hover:ring-blue-400">
+                            <img src={r.url} alt="Receipt" className="w-full h-full object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-blue-500">No receipt screenshot uploaded yet</p>
+                      <button
+                        onClick={async () => {
+                          try {
+                            const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
+                              record_type: 'invoice', record_id: selectedInvoice.id,
+                            });
+                            setDigitalReceiptQR({ invoice_id: selectedInvoice.id, invoice_number: selectedInvoice.invoice_number, ...qrRes.data });
+                            setShowDigitalQR(true);
+                          } catch { toast.error('Failed to generate upload link'); }
+                        }}
+                        className="text-[10px] font-semibold text-blue-700 hover:text-blue-900 underline"
+                        data-testid="upload-receipt-btn"
+                      >Upload Now</button>
+                    </div>
+                  )}
+                  {/* Verify button for admin */}
+                  {selectedInvoice.receipt_review_status !== 'reviewed' && selectedInvoice._receipts?.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        const pin = prompt('Enter manager PIN to verify this payment:');
+                        if (!pin) return;
+                        try {
+                          await api.post(`/uploads/mark-reviewed/invoice/${selectedInvoice.id}`, { pin });
+                          toast.success('Payment verified!');
+                          setSelectedInvoice({ ...selectedInvoice, receipt_review_status: 'reviewed' });
+                          loadHistory();
+                        } catch (e) { toast.error(e.response?.data?.detail || 'Verification failed'); }
+                      }}
+                      className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                      data-testid="verify-epayment-btn"
+                    >
+                      <CheckCircle2 size={13} /> Verify E-Payment
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Action buttons */}
               {selectedInvoice.status !== 'voided' && (
                 <button

@@ -1095,24 +1095,139 @@ async def create_payable(data: dict, user=Depends(get_current_user)):
 
 @router.post("/payables/{pay_id}/payment")
 async def pay_payable(pay_id: str, data: dict, user=Depends(get_current_user)):
-    """Record payment on a payable."""
+    """
+    Record payment on a payable (accounts payable / supplier terms PO).
+    - ALWAYS deducts from the specified wallet (cashier or safe)
+    - Creates an expense record so it appears in the Z-Report
+    - Updates the linked PO's payment status and history
+    - Creates wallet_movements audit entry
+    """
     check_perm(user, "accounting", "create_expense")
     pay = await db.payables.find_one({"id": pay_id}, {"_id": 0})
     if not pay:
         raise HTTPException(status_code=404, detail="Payable not found")
-    
+    if pay.get("status") == "paid":
+        raise HTTPException(status_code=400, detail="Payable is already fully paid")
+
     amount = float(data["amount"])
-    new_paid = pay.get("paid", 0) + amount
-    new_balance = max(0, round(pay["amount"] - new_paid, 2))
-    
+    branch_id = pay.get("branch_id", data.get("branch_id", ""))
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="Branch ID required")
+    fund_source = data.get("fund_source", "cashier")
+    payment_method_detail = data.get("payment_method_detail", "Cash")
+    check_number = data.get("check_number", "")
+    note = data.get("note", "")
+
+    # Cap at remaining balance
+    remaining_balance = round(float(pay.get("amount", 0)) - float(pay.get("paid", 0)), 2)
+    amount = min(amount, remaining_balance)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Nothing left to pay")
+
+    # Deduct from wallet
+    ref_text = f"Supplier payment — {pay.get('supplier', '')} — Payable {pay_id[:8]}"
+    if check_number:
+        ref_text += f" | Check #{check_number}"
+
+    if fund_source == "safe":
+        safe_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if not safe_wallet:
+            raise HTTPException(status_code=404, detail="Safe wallet not found for this branch")
+        lots = await db.safe_lots.find(
+            {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).sort("remaining_amount", -1).to_list(500)
+        safe_balance = sum(lot["remaining_amount"] for lot in lots)
+        if safe_balance < amount:
+            raise HTTPException(status_code=400, detail=f"Safe has ₱{safe_balance:,.2f}, need ₱{amount:,.2f}")
+        remaining = amount
+        for lot in lots:
+            if remaining <= 0:
+                break
+            take = min(lot["remaining_amount"], remaining)
+            await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+            remaining -= take
+    else:
+        cashier_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+        )
+        cashier_balance = float(cashier_wallet.get("balance", 0)) if cashier_wallet else 0
+        if cashier_balance < amount:
+            raise HTTPException(status_code=400, detail=f"Cashier has ₱{cashier_balance:,.2f}, need ₱{amount:,.2f}")
+        await update_cashier_wallet(branch_id, -amount, ref_text)
+
+    # Update payable
+    new_paid = round(float(pay.get("paid", 0)) + amount, 2)
+    new_balance = max(0, round(float(pay["amount"]) - new_paid, 2))
+    new_status = "paid" if new_balance <= 0 else "partial"
     await db.payables.update_one({"id": pay_id}, {
-        "$set": {"paid": new_paid, "balance": new_balance, "status": "paid" if new_balance <= 0 else "partial"}
+        "$set": {"paid": new_paid, "balance": new_balance, "status": new_status,
+                 "last_payment_date": now_iso()[:10]}
     })
-    
-    if data.get("deduct_from_wallet"):
-        await update_cashier_wallet(pay.get("branch_id", ""), -amount, f"Payable payment: {pay.get('supplier', '')}")
-    
-    return {"message": "Payment recorded", "new_balance": new_balance}
+
+    # Update linked PO payment status
+    po_id = pay.get("po_id")
+    if po_id:
+        po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+        if po:
+            po_new_paid = round(float(po.get("amount_paid", 0)) + amount, 2)
+            po_grand = float(po.get("grand_total", po.get("subtotal", 0)))
+            po_new_balance = max(0, round(po_grand - po_new_paid, 2))
+            po_pay_status = "paid" if po_new_balance <= 0 else "partial"
+            payment_record = {
+                "id": new_id(), "amount": amount, "date": now_iso()[:10],
+                "method": payment_method_detail, "fund_source": fund_source,
+                "check_number": check_number, "reference": note,
+                "recorded_by": user.get("full_name", user["username"]),
+                "recorded_at": now_iso(),
+            }
+            await db.purchase_orders.update_one(
+                {"id": po_id},
+                {"$set": {"amount_paid": po_new_paid, "balance": po_new_balance,
+                          "payment_status": po_pay_status},
+                 "$push": {"payment_history": payment_record}}
+            )
+
+    # Create expense record so it shows in Z-Report
+    expense_id = new_id()
+    await db.expenses.insert_one({
+        "id": expense_id, "branch_id": branch_id,
+        "category": "Supplier Payment",
+        "description": f"AP payment — {pay.get('supplier', '')} — {pay.get('description', '')}",
+        "notes": f"Payable {pay_id[:8]} | PO {pay.get('po_id', 'N/A')[:8]} | {note}".strip(" |"),
+        "amount": amount,
+        "payment_method": payment_method_detail,
+        "fund_source": fund_source,
+        "reference_number": check_number or pay.get("po_id", ""),
+        "date": now_iso()[:10],
+        "po_id": po_id,
+        "payable_id": pay_id,
+        "vendor": pay.get("supplier", ""),
+        "created_by": user["id"],
+        "created_by_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    })
+
+    # Wallet movements audit
+    await db.wallet_movements.insert_one({
+        "id": new_id(),
+        "wallet_id": fund_source,
+        "branch_id": branch_id,
+        "type": "supplier_payment",
+        "amount": -amount,
+        "reference": ref_text,
+        "user_id": user["id"],
+        "user_name": user.get("full_name", user["username"]),
+        "created_at": now_iso(),
+    })
+
+    return {
+        "message": f"₱{amount:,.2f} paid to {pay.get('supplier', '')} from {fund_source}. Remaining: ₱{new_balance:,.2f}",
+        "new_balance": new_balance,
+        "status": new_status,
+        "fund_source": fund_source,
+    }
 
 
 # ==================== CUSTOMER INVOICE / PAYMENT MANAGEMENT ====================

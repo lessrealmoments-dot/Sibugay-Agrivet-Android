@@ -1033,6 +1033,7 @@ export default function CloseWizardPage() {
                                   {e.customer_name && <p className="text-xs text-slate-400">Customer: {e.customer_name}</p>}
                                   {e.employee_name && <p className="text-xs text-slate-400">Employee: {e.employee_name}</p>}
                                   {e.payment_method && e.payment_method !== 'Cash' && <p className="text-[10px] text-slate-400">via {e.payment_method}</p>}
+                                  {e.fund_source === 'safe' && <span className="inline-block text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold mt-0.5">SAFE</span>}
                                   {e.monthly_ca_total != null && (
                                     <div className="mt-1 inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-[10px] text-amber-700">
                                       <AlertTriangle size={9} /> Monthly advance total: {formatPHP(e.monthly_ca_total)}

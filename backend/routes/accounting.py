@@ -1290,6 +1290,8 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
         raise HTTPException(status_code=400, detail="Payment amount must be > 0")
 
     method = data.get("method", "Cash")
+    digital = is_digital_payment(method)
+    fund_source = "digital" if digital else "cashier"
     reference = data.get("reference", "")
     pay_date = data.get("date", now_iso()[:10])
     branch_id = data.get("branch_id", "")
@@ -1308,7 +1310,7 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
         new_status = "paid" if new_balance <= 0 else "partial"
         payment_record = {
             "id": new_id(), "amount": apply, "date": pay_date, "method": method,
-            "reference": reference, "fund_source": "cashier",
+            "reference": reference, "fund_source": fund_source,
             "applied_to_interest": 0, "applied_to_principal": apply,
             "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
         }
@@ -1327,10 +1329,18 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
 
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": -total_applied}})
     if branch_id:
-        await update_cashier_wallet(branch_id, total_applied, f"Payment — {customer.get('name','')} {reference or method}")
+        ref_text = f"Payment — {customer.get('name','')} {reference or method}"
+        if digital:
+            await update_digital_wallet(
+                branch_id, total_applied, reference=ref_text,
+                platform=method, ref_number=reference,
+            )
+        else:
+            await update_cashier_wallet(branch_id, total_applied, ref_text)
 
+    deposited_to = "Digital / E-Wallet" if digital else "Cashier Drawer"
     return {"message": "Payment applied", "total_applied": total_applied, "applied_invoices": applied_invoices,
-            "deposited_to": "Cashier Drawer"}
+            "deposited_to": deposited_to}
 
 
 @router.get("/customers/{customer_id}/payment-history")

@@ -366,64 +366,6 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to save PO: {str(e)}")
     del po["_id"]
 
-    # ── Link pending upload sessions (inline receipt uploads) ─────────────
-    upload_session_ids = data.get("upload_session_ids", [])
-    if upload_session_ids:
-        from pathlib import Path
-        upload_dir = Path("/app/uploads")
-        for sid in upload_session_ids:
-            session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
-            if not session:
-                continue
-            old_record_id = session.get("record_id", "")
-            new_dir = upload_dir / "purchase_order" / po["id"]
-            new_dir.mkdir(parents=True, exist_ok=True)
-            updated_files = []
-            for f in session.get("files", []):
-                stored = f.get("stored_path", "")
-                if not stored or stored == ".":
-                    updated_files.append(f)
-                    continue
-                old_path = Path(stored)
-                if old_path.is_file():
-                    try:
-                        new_path = new_dir / old_path.name
-                        old_path.rename(new_path)
-                        f["stored_path"] = str(new_path)
-                    except OSError:
-                        pass  # File might be on R2/remote — skip local move
-                updated_files.append(f)
-            # Clean old dir
-            if old_record_id:
-                old_dir = upload_dir / "purchase_order" / old_record_id
-                if old_dir.is_dir() and not any(old_dir.iterdir()):
-                    try:
-                        old_dir.rmdir()
-                    except Exception:
-                        pass
-            await db.upload_sessions.update_one(
-                {"id": sid},
-                {"$set": {
-                    "record_type": "purchase_order",
-                    "record_id": po["id"],
-                    "is_pending": False,
-                    "reassigned_at": now_iso(),
-                    "files": updated_files,
-                }}
-            )
-        # Update PO with receipt count
-        total_receipts = 0
-        for sid in upload_session_ids:
-            session_doc = await db.upload_sessions.find_one({"id": sid}, {"_id": 0, "file_count": 1})
-            if session_doc:
-                total_receipts += session_doc.get("file_count", 0)
-        if total_receipts > 0:
-            await db.purchase_orders.update_one(
-                {"id": po["id"]},
-                {"$set": {"receipt_count": total_receipts}}
-            )
-            po["receipt_count"] = total_receipts
-
     # ── Branch request: notify supply branch ──────────────────────────────
     if po_type == "branch_request":
         supply_branch_id = data.get("supply_branch_id", "")
@@ -456,7 +398,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
             "created_at": now_iso(),
         })
 
-    # ── Cash: validate fund + deduct + expense ─────────────────────────────
+    # ── Cash: validate fund + deduct + expense (BEFORE upload linking) ────
     if po_type == "cash" and grand_total > 0:
         fund_source = data.get("fund_source", "cashier")
         balances = await _get_fund_balances(branch_id)
@@ -565,6 +507,66 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
                 detail=f"PO created but inventory update failed: {str(e)}. "
                        f"PO {po['po_number']} saved as '{status}'. Please contact admin."
             )
+
+    # ── Link upload sessions LAST (non-critical — must not block PO) ──────
+    upload_session_ids = data.get("upload_session_ids", [])
+    if upload_session_ids:
+        from pathlib import Path
+        upload_dir = Path("/app/uploads")
+        for sid in upload_session_ids:
+            try:
+                session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
+                if not session:
+                    continue
+                old_record_id = session.get("record_id", "")
+                new_dir = upload_dir / "purchase_order" / po["id"]
+                new_dir.mkdir(parents=True, exist_ok=True)
+                updated_files = []
+                for f in session.get("files", []):
+                    stored = f.get("stored_path", "")
+                    if not stored or stored == ".":
+                        updated_files.append(f)
+                        continue
+                    old_path = Path(stored)
+                    if old_path.is_file():
+                        try:
+                            new_path = new_dir / old_path.name
+                            old_path.rename(new_path)
+                            f["stored_path"] = str(new_path)
+                        except OSError:
+                            pass
+                    updated_files.append(f)
+                if old_record_id:
+                    old_dir = upload_dir / "purchase_order" / old_record_id
+                    if old_dir.is_dir() and not any(old_dir.iterdir()):
+                        try:
+                            old_dir.rmdir()
+                        except Exception:
+                            pass
+                await db.upload_sessions.update_one(
+                    {"id": sid},
+                    {"$set": {
+                        "record_type": "purchase_order",
+                        "record_id": po["id"],
+                        "is_pending": False,
+                        "reassigned_at": now_iso(),
+                        "files": updated_files,
+                    }}
+                )
+            except Exception as e:
+                logger.error(f"PO {po['po_number']} — upload session linking failed (non-critical): {str(e)}")
+        # Update PO with receipt count
+        total_receipts = 0
+        for sid in upload_session_ids:
+            session_doc = await db.upload_sessions.find_one({"id": sid}, {"_id": 0, "file_count": 1})
+            if session_doc:
+                total_receipts += session_doc.get("file_count", 0)
+        if total_receipts > 0:
+            await db.purchase_orders.update_one(
+                {"id": po["id"]},
+                {"$set": {"receipt_count": total_receipts}}
+            )
+            po["receipt_count"] = total_receipts
 
     return po
 

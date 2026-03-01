@@ -664,7 +664,7 @@ async def batch_close_preview(
 
     # Per-day breakdown
     per_day_sales = await db.sales_log.aggregate([
-        {"$match": {"branch_id": branch_id, "date": date_filter}},
+        {"$match": {"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}},
         {"$group": {"_id": {"date": "$date", "payment_method": "$payment_method"},
                     "total": {"$sum": "$line_total"}, "count": {"$sum": 1}}}
     ]).to_list(500)
@@ -995,7 +995,7 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
 
     # Per-day sales breakdown
     per_day_sales = await db.sales_log.aggregate([
-        {"$match": {"branch_id": branch_id, "date": date_filter}},
+        {"$match": {"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}},
         {"$group": {"_id": {"date": "$date", "payment_method": "$payment_method"},
                     "total": {"$sum": "$line_total"}, "count": {"$sum": 1}}}
     ]).to_list(500)

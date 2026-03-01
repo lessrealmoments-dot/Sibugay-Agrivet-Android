@@ -1288,11 +1288,18 @@ export default function CloseWizardPage() {
                     <p className="text-sm font-semibold text-red-800">Expenses</p>
                     <span className="font-bold font-mono text-red-700">{formatPHP(preview?.total_expenses || 0)}</span>
                   </div>
+                  {(preview?.total_safe_expenses || 0) > 0 && (
+                    <div className="flex justify-between text-[11px] text-red-500 mb-1">
+                      <span>From drawer: {formatPHP(preview?.total_cashier_expenses || 0)} | From safe: {formatPHP(preview?.total_safe_expenses || 0)}</span>
+                    </div>
+                  )}
                   {(() => {
                     const groups = {};
                     (preview?.expenses || []).forEach(e => {
                       const cat = e.category || 'Misc';
-                      groups[cat] = (groups[cat] || 0) + parseFloat(e.amount || 0);
+                      const fs = e.fund_source === 'safe' ? ' (safe)' : '';
+                      const key = cat + fs;
+                      groups[key] = (groups[key] || 0) + parseFloat(e.amount || 0);
                     });
                     return Object.entries(groups).map(([cat, total]) => (
                       <div key={cat} className="flex justify-between text-xs py-0.5 text-red-600">

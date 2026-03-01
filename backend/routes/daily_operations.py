@@ -232,7 +232,7 @@ async def get_daily_close_preview(
 
     # ── Expenses today (all = cash outflows) ─────────────────────────────────
     expenses_raw = await db.expenses.find(
-        {"branch_id": branch_id, "date": date}, {"_id": 0}
+        {"branch_id": branch_id, "date": date, "voided": {"$ne": True}}, {"_id": 0}
     ).to_list(500)
 
     # For Employee Advance expenses: add monthly running total

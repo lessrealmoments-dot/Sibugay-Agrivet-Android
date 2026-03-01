@@ -623,7 +623,15 @@ async def batch_close_preview(
         expenses.append(exp)
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
 
-    total_cash_in = total_cash_sales + partial_total + total_ar_received
+    # Split payments: cash portion goes to cashier
+    split_invs_batch = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date_filter,
+         "fund_source": "split", "status": {"$ne": "voided"}},
+        {"_id": 0, "cash_amount": 1}
+    ).to_list(500)
+    total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_invs_batch), 2)
+
+    total_cash_in = total_cash_sales + partial_total + total_ar_received + total_split_cash
     expected_counter = round(starting_float + total_cash_in - total_expenses, 2)
 
     # Digital payments

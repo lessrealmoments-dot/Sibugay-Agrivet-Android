@@ -1223,6 +1223,9 @@ export default function CloseWizardPage() {
                 <div className="p-4 space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-slate-500">Opening Float</span><span className="font-mono">{formatPHP(preview?.starting_float || 0)}</span></div>
                   <div className="flex justify-between"><span className="text-emerald-600">+ Cash Sales</span><span className="font-mono font-semibold text-emerald-700">{formatPHP(preview?.total_cash_sales || 0)}</span></div>
+                  {(preview?.total_split_cash || 0) > 0 && (
+                    <div className="flex justify-between"><span className="text-teal-600">+ Split Cash Portion</span><span className="font-mono font-semibold text-teal-700">{formatPHP(preview?.total_split_cash || 0)}</span></div>
+                  )}
                   <div className="flex justify-between"><span className="text-blue-600">+ Partial Cash Received</span><span className="font-mono text-blue-700">{formatPHP(preview?.total_partial_cash || 0)}</span></div>
                   <div className="flex justify-between"><span className="text-indigo-600">+ AR Payments Received</span><span className="font-mono text-indigo-700">{formatPHP(preview?.total_ar_received || 0)}</span></div>
                   <Separator />

@@ -747,7 +747,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         safe_balance = sum(l["remaining_amount"] for l in lots)
 
     cash_sales_agg = await db.sales_log.aggregate([
-        {"$match": {"branch_id": branch_id, "date": date,
+        {"$match": {"branch_id": branch_id, "date": date, "voided": {"$ne": True},
                     "payment_method": {"$regex": "^cash$", "$options": "i"}}},
         {"$group": {"_id": "$category", "total": {"$sum": "$line_total"}}}
     ]).to_list(100)
@@ -787,7 +787,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         })
     total_ar_received = round(sum(c["total_paid"] for c in credit_collections), 2)
 
-    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date}, {"_id": 0}).to_list(500)
+    expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
     for e in expenses_raw:
         exp = dict(e)

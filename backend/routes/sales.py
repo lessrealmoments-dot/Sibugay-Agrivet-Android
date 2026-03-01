@@ -335,7 +335,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     
     await log_sale_items(
         branch_id, active_date, sale_items, inv_number,
-        customer_name, data.get("payment_method", "cash" if payment_type == "cash" else "credit"),
+        customer_name, data.get("payment_method", "Cash"),
         user.get("full_name", user["username"])
     )
     

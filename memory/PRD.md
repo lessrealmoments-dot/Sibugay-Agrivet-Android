@@ -137,6 +137,10 @@ cd frontend && yarn build
 - [x] **BUG FIX (Mar 2026):** PO creation crash (OSError: Device or resource busy) — empty stored_path in upload sessions caused Path("") to resolve to "." and attempt to rename the current directory
 - [x] **BUG FIX (Mar 2026):** Null-safe float conversions in PO capital/moving-average calculations
 - [x] **BUG FIX (Mar 2026):** Global exception handler added — all unhandled errors now return actual error messages instead of generic "Internal Server Error"
+- [x] **FIX (Mar 2026):** Partial payment properly splits — cash portion to Cash Sales, balance to Credit/AR in all reports
+- [x] **FIX (Mar 2026):** Manager PIN now ALWAYS required for credit/partial sales (no admin auto-approve bypass)
+- [x] **FIX (Mar 2026):** E-payment screenshot prompt disabled (skipped for now per user request)
+- [x] **FIX (Mar 2026):** PO creation reordered — funds + inventory run before upload linking to prevent ghost POs
 
 ### P0 — Upcoming
 - [ ] Closing History page (view past Z-Reports with search by date/branch)

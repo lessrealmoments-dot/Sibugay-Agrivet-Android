@@ -139,7 +139,7 @@ cd frontend && yarn build
 - [x] **BUG FIX (Mar 2026):** Global exception handler added — all unhandled errors now return actual error messages instead of generic "Internal Server Error"
 - [x] **FIX (Mar 2026):** Partial payment properly splits — cash portion to Cash Sales, balance to Credit/AR in all reports
 - [x] **FIX (Mar 2026):** Manager PIN now ALWAYS required for credit/partial sales (no admin auto-approve bypass)
-- [x] **FIX (Mar 2026):** E-payment screenshot prompt disabled (skipped for now per user request)
+- [x] **FIX (Mar 2026):** E-payment receipt upload now MANDATORY — no skip button, must upload photo before proceeding. Direct camera/file upload added in dialog.
 - [x] **FIX (Mar 2026):** PO creation reordered — funds + inventory run before upload linking to prevent ghost POs
 
 ### P0 — Upcoming

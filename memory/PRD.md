@@ -120,10 +120,13 @@ cd frontend && yarn build
 ### P0 — Current / In Progress
 - [x] Closing Wizard Phase 1-4: Fixed Sales Log, Credits, Expenses, Actual Count, Z-Report
 - [x] Closing Wizard Phase 5: Batch/Group closing with combined Z-Report
+- [x] Quantity decimal support (0.5 for half bags) in Quick Sales
+- [x] Split payment receipt upload QR (same as digital payments)
+- [x] E-payment verification section in Sales History (platform, ref#, photos, verify button)
 
 ### P0 — Upcoming
+- [ ] Closing History page (view past Z-Reports with search by date/branch)
 - [ ] Sales History per day or per closing period
-- [ ] Mobile Scanner "Add to Cart" verification (recurring issue)
 
 ### P1 — Upcoming
 - [ ] Weight-embedded EAN-13 barcode recognition in POS

@@ -282,7 +282,15 @@ async def get_daily_close_preview(
 
     # ── Expected counter ──────────────────────────────────────────────────────
     # starting_float + all_cash_received_today - cash_expenses
-    total_cash_in = total_cash_sales + total_partial_cash + total_ar_received
+    # Include split payment cash portions (stored on invoices, not in sales_log)
+    split_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": date,
+         "fund_source": "split", "status": {"$ne": "voided"}},
+        {"_id": 0, "cash_amount": 1, "digital_amount": 1, "grand_total": 1}
+    ).to_list(500)
+    total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_invoices), 2)
+
+    total_cash_in = total_cash_sales + total_partial_cash + total_ar_received + total_split_cash
     expected_counter = round(starting_float + total_cash_in - total_expenses, 2)
 
     return {

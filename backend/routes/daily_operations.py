@@ -690,6 +690,7 @@ async def batch_close_preview(
         "safe_balance": round(safe_balance, 2),
         "sales_by_category": sales_by_category,
         "total_cash_sales": total_cash_sales,
+        "total_split_cash": total_split_cash,
         "total_partial_cash": partial_total,
         "total_ar_received": total_ar_received,
         "expenses": expenses,

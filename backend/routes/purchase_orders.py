@@ -359,7 +359,11 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         "created_at": now_iso(),
     }
 
-    await db.purchase_orders.insert_one(po)
+    try:
+        await db.purchase_orders.insert_one(po)
+    except Exception as e:
+        logger.error(f"Failed to insert PO: {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to save PO: {str(e)}")
     del po["_id"]
 
     # ── Link pending upload sessions (inline receipt uploads) ─────────────

@@ -123,6 +123,7 @@ cd frontend && yarn build
 - [x] Quantity decimal support (0.5 for half bags) in Quick Sales
 - [x] Split payment receipt upload QR (same as digital payments)
 - [x] E-payment verification section in Sales History (platform, ref#, photos, verify button)
+- [x] Split payment recording fix: cash portion → Cash Sales, digital portion → Digital Sales
 
 ### P0 — Upcoming
 - [ ] Closing History page (view past Z-Reports with search by date/branch)

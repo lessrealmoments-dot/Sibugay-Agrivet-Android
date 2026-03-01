@@ -68,7 +68,7 @@ async def get_unclosed_days(
         d = current.strftime("%Y-%m-%d")
 
         # Check if any activity exists for this day
-        sales_count = await db.sales_log.count_documents({"branch_id": branch_id, "date": d})
+        sales_count = await db.sales_log.count_documents({"branch_id": branch_id, "date": d, "voided": {"$ne": True}})
         expense_count = await db.expenses.count_documents({"branch_id": branch_id, "date": d})
         invoice_count = await db.invoices.count_documents({
             "branch_id": branch_id, "order_date": d, "status": {"$ne": "voided"}

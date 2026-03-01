@@ -773,11 +773,16 @@ async def get_invoices_by_date(
         and inv.get("payment_type") == "digital"
     )
     credit_total = sum(
-        float(inv.get("grand_total", 0))
+        float(inv.get("balance", 0))
         for inv in invoices
         if inv.get("status") != "voided"
         and inv.get("payment_type") in ("credit", "partial")
     )
+    # Partial payments: cash portion → cash total
+    for inv in invoices:
+        if inv.get("status") == "voided" or inv.get("payment_type") != "partial":
+            continue
+        cash_total += float(inv.get("amount_paid", 0))
     # Split payments: cash portion → cash, digital portion → digital
     for inv in invoices:
         if inv.get("status") == "voided" or inv.get("payment_type") != "split":

@@ -2194,8 +2194,7 @@ export default function UnifiedSalesPage() {
                             const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
                               record_type: 'invoice', record_id: selectedInvoice.id,
                             });
-                            setDigitalReceiptQR({ invoice_id: selectedInvoice.id, invoice_number: selectedInvoice.invoice_number, ...qrRes.data });
-                            setShowDigitalQR(true);
+                            showReceiptDialog({ invoice_id: selectedInvoice.id, invoice_number: selectedInvoice.invoice_number, ...qrRes.data });
                           } catch { toast.error('Failed to generate upload link'); }
                         }}
                         className="text-[10px] font-semibold text-blue-700 hover:text-blue-900 underline"

@@ -28,7 +28,7 @@ def auth_headers():
         "password": "Aa@58798546521325"
     })
     if response.status_code == 200:
-        token = response.json().get("access_token")
+        token = response.json().get("token")  # Changed from access_token to token
         return {"Authorization": f"Bearer {token}"}
     pytest.skip("Authentication failed")
 

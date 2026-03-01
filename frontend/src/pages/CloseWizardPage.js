@@ -1092,8 +1092,11 @@ export default function CloseWizardPage() {
                   <p className="text-xl font-bold font-mono text-blue-700">{formatPHP(preview?.total_partial_cash || 0)}</p>
                 </div>
                 <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
-                  <p className="text-xs text-indigo-500 uppercase font-medium mb-1">AR Payments</p>
-                  <p className="text-xl font-bold font-mono text-indigo-700">{formatPHP(preview?.total_ar_received || 0)}</p>
+                  <p className="text-xs text-indigo-500 uppercase font-medium mb-1">AR Cash Payments</p>
+                  <p className="text-xl font-bold font-mono text-indigo-700">{formatPHP(preview?.total_cash_ar || preview?.total_ar_received || 0)}</p>
+                  {(preview?.total_digital_ar || 0) > 0 && (
+                    <p className="text-[10px] text-indigo-400 mt-0.5">+ {formatPHP(preview.total_digital_ar)} digital AR (e-wallet)</p>
+                  )}
                 </div>
               </div>
 

@@ -918,7 +918,10 @@ export default function UnifiedSalesPage() {
             });
             setDigitalReceiptQR({ invoice_id: res.data.id, invoice_number: invoiceNum, ...qrRes.data });
             setShowDigitalQR(true);
-          } catch {}
+          } catch (uploadErr) {
+            console.error('Receipt upload link generation failed:', uploadErr);
+            toast.info('Sale completed! Please upload e-payment receipt from Sales History.');
+          }
         }
         setDigitalRefNumber('');
         setDigitalSender('');

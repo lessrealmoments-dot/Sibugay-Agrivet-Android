@@ -259,7 +259,11 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         "cashier_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),
     }
-    
+
+    # Mark digital/split invoices as needing receipt upload
+    if is_digital or is_split:
+        invoice["receipt_status"] = "pending"
+
     # Record initial payment + route to correct wallet(s)
     if amount_paid > 0:
         if is_split:

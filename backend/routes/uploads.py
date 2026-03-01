@@ -620,6 +620,13 @@ async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
             {"$set": {"is_pending": False, "reassigned_at": now_iso()}}
         )
 
+    # If this is an invoice upload, mark receipt as uploaded
+    if record_type == "invoice" and new_record_id:
+        await db.invoices.update_one(
+            {"id": new_record_id},
+            {"$set": {"receipt_status": "uploaded"}}
+        )
+
     return {"message": "Upload session linked to record", "record_id": new_record_id}
 
 

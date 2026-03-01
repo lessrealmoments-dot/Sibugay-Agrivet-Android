@@ -510,6 +510,7 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
                     detail=f"Monthly CA limit exceeded. Limit: ₱{monthly_limit:.2f}, This month: ₱{this_month_total:.2f}, This advance: ₱{float(data['amount']):.2f}. Manager approval required."
                 )
 
+    fund_source = data.get("fund_source", "cashier")
     expense = {
         "id": new_id(),
         "branch_id": branch_id,
@@ -518,6 +519,7 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
         "notes": data.get("notes", ""),
         "amount": float(data["amount"]),
         "payment_method": data.get("payment_method", "Cash"),
+        "fund_source": fund_source,
         "reference_number": data.get("reference_number", ""),
         "date": data.get("date", now_iso()[:10]),
         # Employee CA fields
@@ -542,7 +544,29 @@ async def create_expense(data: dict, user=Depends(get_current_user)):
         ref_text += f" (Ref: {data['reference_number']})"
     if data.get("employee_name"):
         ref_text += f" [{data['employee_name']}]"
-    await update_cashier_wallet(data["branch_id"], -float(data["amount"]), ref_text)
+
+    # Deduct from the correct fund source (cashier or safe)
+    if fund_source == "safe":
+        safe_wallet = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0}
+        )
+        if not safe_wallet:
+            raise HTTPException(status_code=404, detail="Safe wallet not found for this branch")
+        lots = await db.safe_lots.find(
+            {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
+        ).sort("remaining_amount", -1).to_list(500)
+        safe_balance = sum(lot["remaining_amount"] for lot in lots)
+        if safe_balance < float(data["amount"]):
+            raise HTTPException(status_code=400, detail=f"Safe has ₱{safe_balance:,.2f}, need ₱{float(data['amount']):,.2f}")
+        remaining = float(data["amount"])
+        for lot in lots:
+            if remaining <= 0:
+                break
+            take = min(lot["remaining_amount"], remaining)
+            await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
+            remaining -= take
+    else:
+        await update_cashier_wallet(branch_id, -float(data["amount"]), ref_text)
 
     del expense["_id"]
 

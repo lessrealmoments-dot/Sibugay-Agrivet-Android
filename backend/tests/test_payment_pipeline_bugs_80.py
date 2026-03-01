@@ -28,11 +28,12 @@ if not BASE_URL:
     except:
         BASE_URL = "https://agribooks-payments.preview.emergentagent.com"
 
-# Test credentials
-TEST_EMAIL = "limittest@testmail.com"
-TEST_PASSWORD = "TestPass123!"
-MANAGER_PIN = "1234"
-BRANCH_ID = "c435277f-9fc7-4d83-83e7-38be5b4423ac"
+# Test credentials - using superadmin from iteration_79
+TEST_EMAIL = "janmarkeahig@gmail.com"
+TEST_PASSWORD = "Aa@58798546521325"
+MANAGER_PIN = "521325"
+# Using IPIL BRANCH from iteration_79 which has actual data
+BRANCH_ID = "d4a041e7-4918-490e-afb8-54ae90cec7fb"
 
 
 @pytest.fixture(scope="module")

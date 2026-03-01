@@ -1064,6 +1064,11 @@ export default function CloseWizardPage() {
                 <span>Total Expenses</span>
                 <span className="text-red-600">{formatPHP(preview?.total_expenses || 0)}</span>
               </div>
+              {(preview?.total_safe_expenses || 0) > 0 && (
+                <div className="flex justify-between text-xs px-1 text-slate-500">
+                  <span>Drawer: {formatPHP(preview?.total_cashier_expenses || 0)} | Safe: {formatPHP(preview?.total_safe_expenses || 0)}</span>
+                </div>
+              )}
             </div>
           )}
 

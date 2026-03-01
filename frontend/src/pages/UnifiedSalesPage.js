@@ -404,10 +404,27 @@ export default function UnifiedSalesPage() {
       terms: snapshot.terms || 'COD',
       terms_days: snapshot.terms_days || 0,
     }));
-    // Pre-fill customer
+    // Pre-fill customer — properly set selectedCustomer object, not just search text
     if (snapshot.customer_id) {
-      setCustSearch(snapshot.customer_name || '');
-      // Will be resolved when customer search fires
+      const matchedCustomer = customers.find(c => c.id === snapshot.customer_id);
+      if (matchedCustomer) {
+        setSelectedCustomer(matchedCustomer);
+        setCustSearch(matchedCustomer.name);
+      } else {
+        // Customer not in local list — create a minimal customer object from snapshot
+        const snapCustomer = {
+          id: snapshot.customer_id,
+          name: snapshot.customer_name || '',
+          phone: snapshot.customer_contact || '',
+          address: '',
+          price_scheme: 'retail',
+          balance: 0,
+          credit_limit: 0,
+          interest_rate: snapshot.interest_rate || 0,
+        };
+        setSelectedCustomer(snapCustomer);
+        setCustSearch(snapshot.customer_name || '');
+      }
     }
     // Pre-fill lines from snapshot items
     const newLines = (snapshot.items || []).map(item => ({

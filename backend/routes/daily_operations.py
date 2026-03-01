@@ -816,8 +816,12 @@ async def close_day(data: dict, user=Depends(get_current_user)):
             "principal_paid": round(principal_paid, 2),
             "total_paid": round(amount, 2),
             "balance": round(float(p.get("balance", 0)), 2),
+            "fund_source": pmt.get("fund_source", "cashier"),
+            "method": pmt.get("method", "Cash"),
         })
     total_ar_received = round(sum(c["total_paid"] for c in credit_collections), 2)
+    total_cash_ar = round(sum(c["total_paid"] for c in credit_collections if c.get("fund_source", "cashier") == "cashier"), 2)
+    total_digital_ar = round(total_ar_received - total_cash_ar, 2)
 
     expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
@@ -833,6 +837,11 @@ async def close_day(data: dict, user=Depends(get_current_user)):
             exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
         expenses.append(exp)
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
+    total_cashier_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source", "cashier") != "safe"
+    ), 2)
+    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
 
     # Split payment cash portions
     split_close = await db.invoices.find(
@@ -842,8 +851,8 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     ).to_list(500)
     total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_close), 2)
 
-    total_cash_in = total_cash_sales + partial_total + total_ar_received + total_split_cash
-    expected_counter = round(starting_float + total_cash_in - total_expenses, 2)
+    total_cash_in = total_cash_sales + partial_total + total_cash_ar + total_split_cash
+    expected_counter = round(starting_float + total_cash_in - total_cashier_expenses, 2)
 
     actual_cash = float(data.get("actual_cash", 0))
     cash_to_safe = float(data.get("cash_to_safe", 0))

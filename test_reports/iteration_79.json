@@ -1,0 +1,127 @@
+{
+  "summary": "Iteration 79: Void Split Payment Fixes - Backend (12/12 tests PASS). All void split payment wallet reversal bugs verified fixed. Tested by actually voiding invoices: 1) Split payment void correctly deducts cash_amount from cashier (-510) AND digital_amount from digital wallet (-510), 2) Cash void now uses update_cashier_wallet helper which logs to wallet_movements, 3) Digital void uses update_digital_wallet helper which logs as 'digital_reversal', 4) Voided sales_log entries are excluded from all daily operations endpoints.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "bug_fixes_verified": {
+    "BUG_FIX_1_VOID_SPLIT_PAYMENT": {
+      "description": "Void didn't properly reverse split payments (only deducted from cashier, not digital wallet)",
+      "verified": "PASS",
+      "test_method": "Actual void test - voided SI-20260226-0122 (cash_amount=510, digital_amount=510)",
+      "results": {
+        "cashier_before": 0,
+        "cashier_after": -510,
+        "digital_before": 8721,
+        "digital_after": 8211,
+        "cash_portion_reversed": "YES (-510)",
+        "digital_portion_reversed": "YES (-510)"
+      }
+    },
+    "BUG_FIX_2_WALLET_TRANSACTION_HISTORY_ON_VOID": {
+      "description": "No wallet transaction history logged on void (used direct update instead of helper)",
+      "verified": "PASS",
+      "test_method": "Checked wallet_movements via GET /api/fund-wallets/{id}/movements",
+      "cashier_movements": [
+        "VOID SI-20260226-0126 (cash_out, -3600)",
+        "VOID SI-20260226-0122 (cash portion) (cash_out, -510)"
+      ],
+      "digital_movements": [
+        "VOID SI-20260226-0120 (digital_reversal, -1020)",
+        "VOID SI-20260226-0122 (digital portion) (digital_reversal, -510)"
+      ]
+    },
+    "BUG_FIX_3_VOIDED_SALES_LOG_EXCLUDED": {
+      "description": "Voided sales still counted in sales_log aggregations",
+      "verified": "PASS",
+      "endpoints_tested": [
+        "GET /api/daily-log - voided entries NOT in response",
+        "GET /api/daily-close-preview - totals exclude voided",
+        "GET /api/daily-close/unclosed-days - sales_count excludes voided",
+        "GET /api/daily-close-preview/batch - batch totals exclude voided",
+        "GET /api/daily-report - new_sales_today excludes voided"
+      ]
+    }
+  },
+
+  "actual_tests_performed": {
+    "void_split_sale_SI-20260226-0122": {
+      "cash_amount": 510,
+      "digital_amount": 510,
+      "cashier_change": "0 → -510",
+      "digital_change": "8721 → 8211",
+      "wallet_movements_logged": "YES (both cashier and digital)"
+    },
+    "void_cash_sale_SI-20260226-0126": {
+      "amount_paid": 3600,
+      "cashier_change": "-510 → -4110",
+      "wallet_movements_logged": "YES (cash_out entry)"
+    },
+    "void_digital_sale_SI-20260226-0120": {
+      "amount_paid": 1020,
+      "platform": "Maya",
+      "digital_change": "8211 → 7191",
+      "wallet_movements_logged": "YES (digital_reversal entry)"
+    }
+  },
+
+  "code_review_verification": {
+    "invoices.py_void_invoice": {
+      "split_handling": "Lines 865-881: Handles fund_source=='split' by reversing cash_amount from cashier AND digital_amount from digital wallet",
+      "cash_helper": "Lines 891-896: Uses update_cashier_wallet helper (not direct update_one)",
+      "sales_log_voided": "Lines 899-902: Marks sales_log entries as voided=True"
+    },
+    "daily_operations.py": {
+      "voided_filter": "All sales_log queries have 'voided': {'$ne': True} filter - lines 71, 83, 163, 351, 419, 586, 667, 749, 988"
+    },
+    "helpers.py": {
+      "update_cashier_wallet": "Lines 130-139: Logs to wallet_movements with type='cash_in' or 'cash_out'",
+      "update_digital_wallet": "Lines 219-231: Logs to wallet_movements with type='digital_in' or 'digital_reversal'"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_void_split_payment_fixes_79.py",
+    "/app/test_reports/pytest/pytest_void_split_fixes_79.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [
+    "void_invoice correctly handles all 3 fund_source types: split (reverses both), digital (update_digital_wallet), cashier (update_cashier_wallet)",
+    "All wallet updates now go through helpers which log to wallet_movements collection",
+    "sales_log.update_many adds voided=True, voided_at timestamp to all entries for the voided invoice",
+    "All 5 daily operations endpoints filter out voided entries using 'voided': {'$ne': True}"
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_void_split_payment_fixes_79.py (new test file)"
+  ],
+
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "actual_void_tests": "3/3 invoices voided and verified"
+  },
+
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "branch_with_data": "IPIL BRANCH (d4a041e7-4918-490e-afb8-54ae90cec7fb)",
+    "manager_pin": "521325",
+    "voided_invoices": ["SI-20260226-0122 (split)", "SI-20260226-0126 (cash)", "SI-20260226-0120 (digital)"]
+  },
+
+  "seed_data_creation": "None - used existing IPIL BRANCH invoices. Note: 3 invoices were voided during testing.",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Iteration 79 verified all void split payment fixes. KEY FINDINGS: 1) Voiding split payment (SI-20260226-0122) correctly deducted cash_amount=510 from cashier AND digital_amount=510 from digital wallet. 2) All void operations now logged to wallet_movements - cashier shows 'cash_out' entries, digital shows 'digital_reversal' entries with reference like 'VOID SI-xxx'. 3) All daily operations endpoints (daily-log, daily-close-preview, unclosed-days, batch-preview, daily-report) correctly exclude voided sales_log entries using 'voided': {'$ne': True}. NOTE: 3 invoices were voided during testing: SI-20260226-0122 (split), SI-20260226-0126 (cash), SI-20260226-0120 (digital). Cashier balance is now -4110 (negative due to void reversals without new sales)."
+}

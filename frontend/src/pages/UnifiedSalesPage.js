@@ -1080,7 +1080,7 @@ export default function UnifiedSalesPage() {
                   : isCredit ? { label: 'Credit', cls: 'bg-amber-100 text-amber-700' }
                   : { label: 'Cash', cls: 'bg-emerald-100 text-emerald-700' };
                 return (
-                  <button key={inv.id} onClick={() => setSelectedInvoice(inv)}
+                  <button key={inv.id} onClick={() => selectInvoiceWithReceipts(inv)}
                     data-testid={`history-row-${inv.id}`}
                     className={`w-full text-left rounded-xl border px-4 py-3 transition-all hover:shadow-sm ${isVoided ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-[#1A4D2E]/30'}`}>
                     <div className="flex items-center justify-between gap-3">

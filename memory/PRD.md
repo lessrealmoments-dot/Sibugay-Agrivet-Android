@@ -59,54 +59,36 @@ cd frontend && yarn build
 - File uploads: Cloudflare R2 (agribooks-files bucket)
 - Offline: IndexedDB (idb pattern), syncManager
 
-## Architecture
+## Key Formulas — CASH RECONCILIATION
+
+### Expected Counter (Z-Report)
 ```
-/app
-├── backend/
-│   ├── config.py           # TenantDB wrapper + ContextVar org isolation
-│   ├── routes/
-│   │   ├── auth.py         # Email/username login, org subscription in /me
-│   │   ├── daily_operations.py # Close Wizard, Z-Report, batch close
-│   │   ├── sales.py        # Unified sales endpoint + receipt_status tracking
-│   │   ├── accounting.py   # Expenses, fund wallets, receivables
-│   │   ├── uploads.py      # File uploads, reassign, receipt_status update
-│   │   └── ... (all existing routes)
-│   └── utils/helpers.py    # log_sale_items, fund wallet helpers
-└── frontend/
-    └── src/
-        └── pages/
-            └── UnifiedSalesPage.js # POS with mandatory receipt upload
-            └── CloseWizardPage.js  # 8-step closing wizard + batch mode
+total_cash_in = cash_sales + partial_cash + cash_AR_only + split_cash_portion
+expected_counter = starting_float + total_cash_in - cashier_expenses_only
 ```
+- `cashier_expenses_only` = expenses WHERE fund_source != "safe"
+- `cash_AR_only` = AR payments WHERE fund_source == "cashier"
+- Safe-paid expenses and digital AR payments are tracked separately
 
-## Key API Endpoints
-
-### Sales & Receipt Upload
-- `POST /api/unified-sale` — Create sale (sets `receipt_status: "pending"` for digital/split)
-- `GET /api/pending-receipt-uploads` — Get invoices needing receipt upload
-- `POST /api/uploads/direct` — Direct file upload
-- `POST /api/uploads/reassign` — Link upload to invoice (updates `receipt_status: "uploaded"`)
-
-### Daily Close / Closing Wizard
-- `GET /api/daily-log?branch_id=X&date=Y` — Sales log with by_payment_method summary
-- `GET /api/daily-close-preview?branch_id=X&date=Y` — Cash reconciliation preview
-- `GET /api/daily-close/unclosed-days?branch_id=X` — Detect unclosed days
-- `POST /api/daily-close` — Close single day
-- `POST /api/daily-close/batch` — Close multiple days as one record
-
-## Super Admin Access
-- Portal: `/admin`
-- Email: janmarkeahig@gmail.com
-- Password: Aa@58798546521325
-- Manager PIN: 521325
+### Fund Source Rules
+- Every expense stores `fund_source` ("cashier" or "safe")
+- Cashier expenses affect the drawer; safe expenses don't
+- AR payments track fund_source from payment method (cash→cashier, GCash/Maya→digital)
+- Z-Report only subtracts cashier-sourced expenses from expected counter
 
 ## Prioritized Backlog
 
 ### P0 — Completed
-(See CHANGELOG.md for full history)
-
-### P0 — Current / In Progress
-- [x] Mandatory e-payment receipt upload (digital/split sales) — tested, all passing
+- [x] Mandatory e-payment receipt upload (digital/split sales)
+- [x] Financial integrity overhaul (9+ bug fixes across payment pipeline)
+- [x] **AUDIT FIX (Mar 2026):** Return void now ADDS money back (was double-deducting)
+- [x] **AUDIT FIX (Mar 2026):** Daily close expected_counter uses cashier-only expenses
+- [x] **AUDIT FIX (Mar 2026):** Daily close separates cash AR vs digital AR
+- [x] **AUDIT FIX (Mar 2026):** Payable payment creates expense + updates linked PO
+- [x] **AUDIT FIX (Mar 2026):** All expense types store fund_source (cashier/safe)
+- [x] **AUDIT FIX (Mar 2026):** PO adjustment safe_lot has correct schema
+- [x] **AUDIT FIX (Mar 2026):** Individual payment void handles digital wallets
+- [x] **AUDIT FIX (Mar 2026):** Batch close uses same corrected formulas
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

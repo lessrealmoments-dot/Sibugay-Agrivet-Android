@@ -765,25 +765,23 @@ export default function UnifiedSalesPage() {
 
   // Handle credit sale with approval
   const handleCreditSale = async () => {
-    // Check credit limit first
-    const creditCheck = await checkCreditLimit();
-    setCreditCheckResult(creditCheck);
-
-    if (!creditCheck.allowed || paymentType !== 'cash') {
-      // Admin and managers auto-approve — no PIN needed
-      if (user?.role === 'admin' || user?.role === 'manager') {
-        await processSale(user.full_name || user.username);
-        return;
-      }
-      // Regular cashier: requires manager approval
-      setPendingCreditSale({ paymentType, partialPayment, amountTendered });
-      setCheckoutDialog(false);
-      setCreditApprovalDialog(true);
+    // Cash and digital sales — proceed directly (no credit involved)
+    if (paymentType === 'cash' || paymentType === 'digital') {
+      await processSale();
       return;
     }
 
-    // Direct cash sale - proceed
-    await processSale();
+    // Split: only cash portion involved, digital portion tracked separately — proceed
+    if (paymentType === 'split') {
+      await processSale();
+      return;
+    }
+
+    // Credit or Partial — ALWAYS requires manager PIN (even for admin/manager)
+    // because extending credit needs documented authorization
+    setPendingCreditSale({ paymentType, partialPayment, amountTendered });
+    setCheckoutDialog(false);
+    setCreditApprovalDialog(true);
   };
 
   // Verify manager PIN

@@ -629,17 +629,22 @@ async def batch_close_preview(
     ).to_list(500)
     partial_total = round(sum(float(inv.get("amount_paid", 0)) for inv in partial_invoices), 2)
 
-    # AR collections
+    # AR collections — need per-payment detail to split cash vs digital
     ar_pipeline = [
         {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}, "order_date": {"$nin": date_list}}},
         {"$unwind": "$payments"},
         {"$match": {"payments.date": date_filter}},
-        {"$group": {"_id": None, "total": {"$sum": "$payments.amount"}}}
+        {"$project": {"_id": 0, "payment": "$payments"}}
     ]
-    ar_result = await db.invoices.aggregate(ar_pipeline).to_list(1)
-    total_ar_received = round(ar_result[0]["total"] if ar_result else 0, 2)
+    ar_payments_raw = await db.invoices.aggregate(ar_pipeline).to_list(500)
+    total_ar_received = round(sum(float(p.get("payment", {}).get("amount", 0)) for p in ar_payments_raw), 2)
+    total_cash_ar = round(sum(
+        float(p.get("payment", {}).get("amount", 0)) for p in ar_payments_raw
+        if p.get("payment", {}).get("fund_source", "cashier") == "cashier"
+    ), 2)
+    total_digital_ar = round(total_ar_received - total_cash_ar, 2)
 
-    # Expenses
+    # Expenses — split by fund source
     expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
     for e in expenses_raw:
@@ -654,6 +659,11 @@ async def batch_close_preview(
             exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
         expenses.append(exp)
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
+    total_cashier_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source", "cashier") != "safe"
+    ), 2)
+    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
 
     # Split payments: cash portion goes to cashier
     split_invs_batch = await db.invoices.find(
@@ -663,8 +673,8 @@ async def batch_close_preview(
     ).to_list(500)
     total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_invs_batch), 2)
 
-    total_cash_in = total_cash_sales + partial_total + total_ar_received + total_split_cash
-    expected_counter = round(starting_float + total_cash_in - total_expenses, 2)
+    total_cash_in = total_cash_sales + partial_total + total_cash_ar + total_split_cash
+    expected_counter = round(starting_float + total_cash_in - total_cashier_expenses, 2)
 
     # Digital payments
     digital_invs = await db.invoices.find(

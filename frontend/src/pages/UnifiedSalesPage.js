@@ -879,7 +879,11 @@ export default function UnifiedSalesPage() {
       order_date: header.order_date,
       invoice_date: today,
       // Digital payment routing
-      payment_method: actualPaymentType === 'digital' ? digitalPlatform : actualPaymentType === 'split' ? 'Split' : (actualPaymentType === 'cash' ? 'Cash' : 'credit'),
+      payment_method: actualPaymentType === 'digital' ? digitalPlatform
+        : actualPaymentType === 'split' ? 'Split'
+        : actualPaymentType === 'cash' ? 'Cash'
+        : actualPaymentType === 'partial' ? 'Partial'
+        : 'Credit',
       payment_type: actualPaymentType,
       fund_source: actualPaymentType === 'digital' ? 'digital' : actualPaymentType === 'split' ? 'split' : 'cashier',
       digital_platform: (actualPaymentType === 'digital' || actualPaymentType === 'split') ? digitalPlatform : undefined,

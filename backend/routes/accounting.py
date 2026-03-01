@@ -993,8 +993,8 @@ async def list_receivables(user=Depends(get_current_user), branch_id: Optional[s
 @router.post("/receivables/{rec_id}/payment")
 async def pay_receivable(rec_id: str, data: dict, user=Depends(get_current_user)):
     """
-    Record payment on a receivable (invoice). Updates invoice, customer balance, and cashier wallet.
-    rec_id is an invoice ID — the legacy receivables collection is no longer used.
+    Record payment on a receivable (invoice). Updates invoice, customer balance, and correct wallet.
+    Routes to digital wallet when payment method is GCash/Maya/etc.
     """
     check_perm(user, "accounting", "receive_payment")
 
@@ -1010,13 +1010,17 @@ async def pay_receivable(rec_id: str, data: dict, user=Depends(get_current_user)
     new_paid = round(inv.get("amount_paid", 0) + amount, 2)
     new_status = "paid" if new_balance <= 0 else "partial"
 
+    method = data.get("method", "Cash")
+    digital = is_digital_payment(method)
+    fund_source = "digital" if digital else "cashier"
+
     payment_record = {
         "id": new_id(),
         "amount": amount,
         "date": data.get("date", now_iso()[:10]),
-        "method": data.get("method", "Cash"),
+        "method": method,
         "reference": data.get("reference", ""),
-        "fund_source": "cashier",
+        "fund_source": fund_source,
         "applied_to_interest": 0,
         "applied_to_principal": amount,
         "recorded_by": user.get("full_name", user["username"]),
@@ -1032,12 +1036,19 @@ async def pay_receivable(rec_id: str, data: dict, user=Depends(get_current_user)
     if inv.get("customer_id"):
         await db.customers.update_one({"id": inv["customer_id"]}, {"$inc": {"balance": -amount}})
 
-    # Update cashier wallet
+    # Route to correct wallet based on payment method
     branch_id = inv.get("branch_id", "")
     if branch_id:
-        await update_cashier_wallet(branch_id, amount, f"Receivable payment {inv.get('invoice_number', '')} — {inv.get('customer_name', '')}")
+        ref_text = f"Receivable payment {inv.get('invoice_number', '')} — {inv.get('customer_name', '')}"
+        if digital:
+            await update_digital_wallet(
+                branch_id, amount, reference=ref_text,
+                platform=method, ref_number=data.get("reference", ""),
+            )
+        else:
+            await update_cashier_wallet(branch_id, amount, ref_text)
 
-    return {"message": "Payment recorded", "new_balance": new_balance, "status": new_status}
+    return {"message": "Payment recorded", "new_balance": new_balance, "status": new_status, "fund_source": fund_source}
 
 
 # ==================== PAYABLES ====================

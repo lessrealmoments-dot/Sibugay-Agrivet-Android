@@ -720,7 +720,7 @@ async def get_invoices_by_date(
     if not include_voided:
         query["status"] = {"$ne": "voided"}
     # Match by order_date OR invoice_date
-    query["$or"] = [
+    date_conditions = [
         {"order_date": target_date},
         {"invoice_date": target_date},
     ]
@@ -729,10 +729,17 @@ async def get_invoices_by_date(
     query = apply_branch_filter(query, branch_filter)
 
     if search:
-        query["$or"] = [
+        # Combine date filter AND search filter using $and
+        search_conditions = [
             {"invoice_number": {"$regex": search, "$options": "i"}},
             {"customer_name": {"$regex": search, "$options": "i"}},
         ]
+        query["$and"] = [
+            {"$or": date_conditions},
+            {"$or": search_conditions},
+        ]
+    else:
+        query["$or"] = date_conditions
 
     invoices = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
 

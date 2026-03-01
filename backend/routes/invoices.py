@@ -880,42 +880,43 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
                 f"Void: {inv['invoice_number']} — {reason}",
             )
 
-    # 4. Reverse cashflow — properly handle split, digital, and cash
-    amount_paid = float(inv.get("amount_paid", 0))
-    fund_source = inv.get("fund_source", "cashier")
-    if amount_paid > 0:
-        if fund_source == "split":
-            # Split payment: reverse cash from cashier, digital from digital wallet
-            cash_amount = float(inv.get("cash_amount", 0))
-            digital_amount = float(inv.get("digital_amount", 0))
-            if cash_amount > 0:
-                await update_cashier_wallet(
-                    branch_id, -cash_amount,
-                    reference=f"VOID {inv['invoice_number']} (cash portion)",
-                    allow_negative=True
-                )
-            if digital_amount > 0:
-                await update_digital_wallet(
-                    branch_id, -digital_amount,
-                    reference=f"VOID {inv['invoice_number']} (digital portion)",
-                    platform=inv.get("digital_platform", ""),
-                    ref_number=inv.get("digital_ref_number", ""),
-                )
-        elif fund_source == "digital":
-            # Pure digital: reverse from digital wallet
+    # 4. Reverse cashflow — properly handle ALL payments (initial + subsequent AR)
+    # Walk through each payment record to reverse from the correct wallet
+    payments = inv.get("payments", [])
+    total_cash_reversed = 0.0
+    total_digital_reversed = 0.0
+    reversed_payments = []
+
+    for pmt in payments:
+        if pmt.get("voided"):
+            continue  # Skip already-voided individual payments
+        pmt_amount = float(pmt.get("amount", 0))
+        if pmt_amount <= 0:
+            continue
+        pmt_fund_source = pmt.get("fund_source", "cashier")
+        pmt_method = pmt.get("method", "Cash")
+
+        if pmt_fund_source == "digital" or is_digital_payment(pmt_method):
             await update_digital_wallet(
-                branch_id, -amount_paid,
-                reference=f"VOID {inv['invoice_number']}",
-                platform=inv.get("digital_platform", ""),
-                ref_number=inv.get("digital_ref_number", ""),
+                branch_id, -pmt_amount,
+                reference=f"VOID {inv['invoice_number']} (payment reversal)",
+                platform=pmt.get("digital_platform", pmt_method),
+                ref_number=pmt.get("digital_ref_number", ""),
             )
+            total_digital_reversed += pmt_amount
         else:
-            # Cash: use helper to log transaction history
             await update_cashier_wallet(
-                branch_id, -amount_paid,
-                reference=f"VOID {inv['invoice_number']}",
+                branch_id, -pmt_amount,
+                reference=f"VOID {inv['invoice_number']} (payment reversal)",
                 allow_negative=True
             )
+            total_cash_reversed += pmt_amount
+        reversed_payments.append({
+            "payment_id": pmt.get("id", ""),
+            "amount": pmt_amount,
+            "fund_source": pmt_fund_source,
+            "method": pmt_method,
+        })
 
     # 4b. Mark sales_log entries as voided
     await db.sales_log.update_many(
@@ -923,7 +924,9 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
         {"$set": {"voided": True, "voided_at": now_iso()}}
     )
 
-    # 5. Reverse customer AR balance (credit sales)
+    # 5. Reverse FULL customer AR balance (original balance + any remaining)
+    # The customer's balance was incremented by the original credit amount,
+    # then decremented by each AR payment. We need to reverse the remaining balance.
     balance_owed = float(inv.get("balance", 0))
     if balance_owed > 0 and inv.get("customer_id"):
         await db.customers.update_one(

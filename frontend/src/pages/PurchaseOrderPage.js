@@ -391,7 +391,14 @@ export default function PurchaseOrderPage() {
       }));
       toast.success(`PO ${res.data.po_number} created — inventory updated, payable created (due ${termsForm.due_date || 'on receipt'})`);
       setTermsDialog(false); resetForm(); fetchOrders(); setTab('list');
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating PO'); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail
+        : detail?.message ? detail.message
+        : e.response?.data ? JSON.stringify(e.response.data).slice(0, 200)
+        : e.message || 'Error creating PO — check your connection and try again';
+      toast.error(msg);
+    }
     setSaving(false);
   };
 

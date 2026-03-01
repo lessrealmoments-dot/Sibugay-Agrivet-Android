@@ -629,6 +629,7 @@ async def reassign_upload_session(data: dict, user=Depends(get_current_user)):
 REVIEWABLE_COLLECTIONS = {
     "branch_transfer": "branch_transfer_orders",
     "expense": "expenses",
+    "invoice": "invoices",
 }
 
 @router.post("/mark-reviewed/{record_type}/{record_id}")

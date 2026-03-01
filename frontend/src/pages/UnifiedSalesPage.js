@@ -53,7 +53,7 @@ export default function UnifiedSalesPage() {
     // Load receipts for digital/split invoices
     if (inv && (inv.fund_source === 'digital' || inv.fund_source === 'split')) {
       try {
-        const res = await api.get(`/uploads/invoice/${inv.id}`);
+        const res = await api.get(`/uploads/record/invoice/${inv.id}`);
         const sessions = res.data?.sessions || [];
         const receipts = [];
         for (const s of sessions) {

@@ -15,7 +15,7 @@ import { Switch } from '../components/ui/switch';
 import SmartProductSearch from '../components/SmartProductSearch';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff,
-  RefreshCw, FileText, Lock, Zap, ClipboardList, AlertTriangle, Shield, CheckCircle2, Smartphone
+  RefreshCw, FileText, Lock, Zap, ClipboardList, AlertTriangle, Shield, CheckCircle2, Smartphone, Camera, Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {

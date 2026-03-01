@@ -80,7 +80,7 @@ async def get_unclosed_days(
         cash_total = 0
         if sales_count > 0:
             agg = await db.sales_log.aggregate([
-                {"$match": {"branch_id": branch_id, "date": d,
+                {"$match": {"branch_id": branch_id, "date": d, "voided": {"$ne": True},
                             "payment_method": {"$regex": "^cash$", "$options": "i"}}},
                 {"$group": {"_id": None, "total": {"$sum": "$line_total"}}}
             ]).to_list(1)

@@ -303,7 +303,13 @@ export default function PurchaseOrderPage() {
       const res = await api.post('/purchase-orders', buildPayload(valid, { po_type: 'draft' }));
       toast.success(`Draft PO ${res.data.po_number} saved`);
       resetForm(); fetchOrders(); setTab('list');
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error saving PO'); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail
+        : detail?.message ? detail.message
+        : e.message || 'Error saving PO';
+      toast.error(msg);
+    }
     setSaving(false);
   };
 

@@ -1045,8 +1045,22 @@ export default function UnifiedSalesPage() {
     setHeader(h => ({ ...h, terms: label, terms_days: t?.days || 0 }));
   };
 
+  // Handle date selection from unclosed days banner
+  const handleEncodingDateChange = useCallback((date) => {
+    setHeader(h => ({ ...h, order_date: date }));
+  }, []);
+
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col animate-fadeIn" data-testid="unified-sales-page">
+      {/* Unclosed Days Banner */}
+      {mainTab === 'sale' && currentBranch?.id && (
+        <UnclosedDaysBanner
+          branchId={currentBranch.id}
+          onDateSelect={handleEncodingDateChange}
+          className="mx-1 mb-2"
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-1 py-3">
         <div className="flex items-center gap-4">

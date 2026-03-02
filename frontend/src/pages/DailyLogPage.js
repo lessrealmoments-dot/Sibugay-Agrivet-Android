@@ -497,12 +497,42 @@ export default function DailyLogPage() {
             {logSummary && walkinEntries.length > 0 && (
               <div className="border-t-2 border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex flex-wrap gap-x-6 gap-y-1 mb-2">
-                  {Object.entries(logSummary.cash_by_category || {}).map(([cat, total]) => (
-                    <div key={cat} className="flex items-center gap-2 text-xs">
-                      <span className="text-slate-500">{cat}:</span>
-                      <span className="font-semibold font-mono">{formatPHP(total)}</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const catTotals = {};
+                    walkinEntries.forEach(e => {
+                      const cat = e.category || 'General';
+                      catTotals[cat] = (catTotals[cat] || 0) + parseFloat(e.line_total || 0);
+                    });
+                    return Object.entries(catTotals).sort(([,a],[,b]) => b - a).map(([cat, total]) => (
+                      <div key={cat} className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-500">{cat}:</span>
+                        <span className="font-semibold font-mono">{formatPHP(total)}</span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+                {/* Payment method breakdown */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mb-2 border-t border-slate-200 pt-2">
+                  {(() => {
+                    const pmTotals = {};
+                    walkinEntries.forEach(e => {
+                      const pm = (e.payment_method || 'cash').toUpperCase();
+                      pmTotals[pm] = (pmTotals[pm] || 0) + parseFloat(e.line_total || 0);
+                    });
+                    return Object.entries(pmTotals).sort(([,a],[,b]) => b - a).map(([pm, total]) => (
+                      <div key={pm} className="flex items-center gap-1.5 text-xs">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                          pm === 'CASH' ? 'bg-emerald-100 text-emerald-700'
+                          : pm === 'GCASH' ? 'bg-blue-100 text-blue-700'
+                          : pm === 'MAYA' ? 'bg-green-100 text-green-700'
+                          : pm === 'SPLIT' ? 'bg-indigo-100 text-indigo-700'
+                          : pm === 'PARTIAL' ? 'bg-teal-100 text-teal-700'
+                          : 'bg-violet-100 text-violet-700'
+                        }`}>{pm}</span>
+                        <span className="font-semibold font-mono">{formatPHP(total)}</span>
+                      </div>
+                    ));
+                  })()}
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-200 pt-2">
                   <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Total Walk-in Sales</span>

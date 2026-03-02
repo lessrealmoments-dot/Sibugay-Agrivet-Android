@@ -100,7 +100,7 @@ export default function UnifiedSalesPage() {
   };
 
   // Poll for phone uploads — detects when QR-scanned phone completes upload
-  React.useEffect(() => {
+  useEffect(() => {
     if (!showDigitalQR || !digitalReceiptQR?.token || digitalReceiptQR?._uploaded) return;
     const interval = setInterval(async () => {
       try {

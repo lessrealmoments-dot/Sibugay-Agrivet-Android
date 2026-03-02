@@ -1675,9 +1675,9 @@ export default function UnifiedSalesPage() {
                   <TabsTrigger value="credit" data-testid="pay-credit" disabled={!selectedCustomer}>Credit</TabsTrigger>
                 </TabsList>
               </Tabs>
-              {!selectedCustomer && paymentType !== 'cash' && paymentType !== 'digital' && paymentType !== 'split' && (
+              {!selectedCustomer && paymentType !== 'cash' && paymentType !== 'digital' && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle size={12} /> Select a customer for credit/partial payment
+                  <AlertTriangle size={12} /> Select a customer for split/partial/credit payment
                 </p>
               )}
             </div>

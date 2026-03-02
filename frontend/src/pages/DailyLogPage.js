@@ -192,8 +192,11 @@ function ZReport({ data, branchName, onPrint }) {
               <span className="font-semibold text-red-600 font-mono">{formatPHP(e.amount)}</span>
             </div>
             {e.category === 'Employee Advance' && e.monthly_ca_total !== undefined && (
-              <div className="text-[10px] text-amber-600 ml-1 mt-0.5">
+              <div className={`text-[10px] ml-1 mt-0.5 ${e.is_over_ca ? 'text-red-600' : 'text-amber-600'}`}>
                 {e.employee_name || 'Employee'} — monthly CA total: <span className="font-semibold">{formatPHP(e.monthly_ca_total)}</span>
+                {e.monthly_ca_limit > 0 && <span> / Limit: {formatPHP(e.monthly_ca_limit)}</span>}
+                {e.is_over_ca && <span className="font-bold ml-1 text-red-700">OVER CA</span>}
+                {e.manager_approved_by && <span className="ml-1 text-violet-600">(Approved: {e.manager_approved_by})</span>}
               </div>
             )}
           </div>

@@ -134,10 +134,11 @@ async def get_daily_close_preview(
 
     month_prefix = date[:7]  # "YYYY-MM"
 
-    # ── Starting float: yesterday's cash_to_drawer ───────────────────────────
-    yesterday = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    # ── Starting float: last closed day's cash_to_drawer ───────────────────────────
     prev_close = await db.daily_closings.find_one(
-        {"date": yesterday, "branch_id": branch_id}, {"_id": 0}
+        {"branch_id": branch_id, "date": {"$lt": date}, "status": "closed"},
+        {"_id": 0},
+        sort=[("date", -1)]
     )
     if prev_close:
         starting_float = float(prev_close.get("cash_to_drawer", 0))

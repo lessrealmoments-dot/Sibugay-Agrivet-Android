@@ -610,7 +610,7 @@ export default function DailyLogPage() {
               <div className="flex gap-6">
                 <div>
                   <div className="text-xs text-slate-400 uppercase tracking-wide">Walk-in Sales</div>
-                  <div className="font-mono font-bold text-emerald-400">{formatPHP(logSummary.total_cash)}</div>
+                  <div className="font-mono font-bold text-emerald-400">{formatPHP(totalWalkinSales)}</div>
                 </div>
                 {logSummary.total_credit > 0 && (
                   <div>
@@ -621,7 +621,7 @@ export default function DailyLogPage() {
               </div>
               <div className="text-right">
                 <div className="text-xs text-slate-400 uppercase tracking-wide">Total Sales Today</div>
-                <div className="font-mono font-bold text-xl">{formatPHP(logSummary.grand_total)}</div>
+                <div className="font-mono font-bold text-xl">{formatPHP(totalWalkinSales + (logSummary.total_credit || 0))}</div>
               </div>
             </div>
           )}

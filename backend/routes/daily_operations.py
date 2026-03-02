@@ -505,8 +505,9 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
     total_real_expenses = round(sum(float(e.get("amount", 0)) for e in real_expenses), 2)
     total_credit_expenses = round(sum(float(e.get("amount", 0)) for e in credit_expenses), 2)
     total_advance_expenses = round(sum(float(e.get("amount", 0)) for e in advance_expenses), 2)
+    total_inventory_expenses = round(sum(float(e.get("amount", 0)) for e in inventory_expenses), 2)
     # Legacy field: sum of ALL for backward compat
-    total_expenses = round(total_real_expenses + total_credit_expenses + total_advance_expenses, 2)
+    total_expenses = round(total_real_expenses + total_credit_expenses + total_advance_expenses + total_inventory_expenses, 2)
     
     # Also fetch today's AR invoices created from cash outs / farm expenses (for display)
     ar_today_query = {

@@ -476,12 +476,17 @@ export default function DailyLogPage() {
                 )}
                 {walkinEntries.map((e, idx) => {
                   const pm = (e.payment_method || 'cash').toLowerCase();
-                  const pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
+                  // Split entries: show as "Cash + [Platform]" instead of "split"
+                  let pmLabel = pm;
+                  let pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
                     : pm === 'gcash' ? 'bg-blue-100 text-blue-700'
                     : pm === 'maya' ? 'bg-green-100 text-green-700'
-                    : pm === 'split' ? 'bg-indigo-100 text-indigo-700'
                     : pm === 'partial' ? 'bg-teal-100 text-teal-700'
                     : 'bg-violet-100 text-violet-700';
+                  if (pm === 'split') {
+                    pmLabel = `Cash+${e.split_digital_platform || 'Digital'}`;
+                    pmColor = 'bg-indigo-100 text-indigo-700';
+                  }
                   return (
                     <tr key={e.id || idx}
                       className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}>

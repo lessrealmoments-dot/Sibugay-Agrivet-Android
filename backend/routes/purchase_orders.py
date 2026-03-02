@@ -92,10 +92,9 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
                 choice = "last_purchase"
             new_capital = moving_avg if choice == "moving_average" else price
 
-            # Step 6: Update global product cost
+            # Step 6: Update global reference fields only (cost_price is branch-specific)
             product_update = {
                 "last_vendor": po["vendor"],
-                "cost_price": new_capital,
                 "moving_average_cost": moving_avg,
             }
             await db.products.update_one({"id": pid}, {"$set": product_update})

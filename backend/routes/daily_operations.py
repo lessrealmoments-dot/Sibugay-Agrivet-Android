@@ -540,7 +540,8 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
     total_cash_from_invoices = sum(p["payment"]["amount"] for p in all_payments_today)
     
     gross_profit = round(total_revenue - total_cogs, 2)
-    # Net profit uses ONLY real expenses — credits (AR) and advances are not P&L losses
+    # Net profit uses ONLY real operating expenses
+    # Inventory purchases (PO/Supplier payments) are NOT P&L — COGS already covers cost when sold
     net_profit = round(gross_profit - total_real_expenses, 2)
     
     # Get real-time cashier wallet balance

@@ -432,18 +432,41 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
         for inv in credit_invoices
     ), 2)
 
-    total_cash = round(sum(float(e.get("line_total", 0)) for e in cash_entries), 2)
+    total_cash = round(sum(
+        float(e.get("_split_cash_portion", 0)) if (e.get("payment_method") or "cash").lower() == "split"
+        else float(e.get("line_total", 0))
+        for e in cash_entries
+    ), 2)
     total_credit = round(sum(float(inv.get("balance", 0)) for inv in credit_invoices), 2)
     total_all = round(sum(float(e.get("line_total", 0)) for e in all_entries), 2)
 
-    # Payment method breakdown
+    # Payment method breakdown — decompose "split" into cash + digital
     by_payment_method = {}
     for e in all_entries:
         pm = (e.get("payment_method") or "cash").lower()
-        if pm not in by_payment_method:
-            by_payment_method[pm] = {"total": 0.0, "count": 0}
-        by_payment_method[pm]["total"] = round(by_payment_method[pm]["total"] + float(e.get("line_total", 0)), 2)
-        by_payment_method[pm]["count"] += 1
+        lt = float(e.get("line_total", 0))
+        if pm == "split":
+            # Decompose into cash and digital portions
+            gt = float(e.get("split_grand_total", 0))
+            cash_ratio = float(e.get("split_cash_amount", 0)) / gt if gt > 0 else 0.5
+            cash_portion = round(lt * cash_ratio, 2)
+            digital_portion = round(lt - cash_portion, 2)
+            dp = (e.get("split_digital_platform") or "digital").lower()
+            # Cash portion
+            if "cash" not in by_payment_method:
+                by_payment_method["cash"] = {"total": 0.0, "count": 0}
+            by_payment_method["cash"]["total"] = round(by_payment_method["cash"]["total"] + cash_portion, 2)
+            by_payment_method["cash"]["count"] += 1
+            # Digital portion
+            if dp not in by_payment_method:
+                by_payment_method[dp] = {"total": 0.0, "count": 0}
+            by_payment_method[dp]["total"] = round(by_payment_method[dp]["total"] + digital_portion, 2)
+            by_payment_method[dp]["count"] += 1
+        else:
+            if pm not in by_payment_method:
+                by_payment_method[pm] = {"total": 0.0, "count": 0}
+            by_payment_method[pm]["total"] = round(by_payment_method[pm]["total"] + lt, 2)
+            by_payment_method[pm]["count"] += 1
 
     return {
         "entries": all_entries,

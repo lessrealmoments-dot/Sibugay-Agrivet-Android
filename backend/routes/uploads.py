@@ -208,7 +208,16 @@ async def upload_files_via_token(
         {"token": token},
         {"$push": {"files": {"$each": saved}}, "$inc": {"file_count": len(saved)}}
     )
-    return {"uploaded": len(saved), "total_files": current_count + len(saved)}
+
+    # Auto-update receipt_status on the linked invoice (for phone uploads via QR)
+    new_total = current_count + len(saved)
+    if record_type == "invoice" and record_id and new_total > 0:
+        await db.invoices.update_one(
+            {"id": record_id, "receipt_status": "pending"},
+            {"$set": {"receipt_status": "uploaded"}}
+        )
+
+    return {"uploaded": len(saved), "total_files": new_total}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

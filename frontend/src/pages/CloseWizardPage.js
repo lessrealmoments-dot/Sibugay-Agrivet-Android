@@ -848,10 +848,10 @@ export default function CloseWizardPage() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="font-mono font-bold text-amber-700">{formatPHP(inv.grand_total)}</p>
+                          <p className="font-mono font-bold text-amber-700">{formatPHP(inv.balance || inv.grand_total)}</p>
                           <div className="text-[10px] space-x-2">
                             {(inv.amount_paid || 0) > 0 && <span className="text-emerald-600">Paid: {formatPHP(inv.amount_paid)}</span>}
-                            {(inv.balance || 0) > 0 && <span className="text-red-500 font-semibold">Balance: {formatPHP(inv.balance)}</span>}
+                            {(inv.amount_paid || 0) > 0 && <span className="text-slate-400">of {formatPHP(inv.grand_total)}</span>}
                             {(inv.balance || 0) === 0 && <span className="text-emerald-600 font-semibold">FULLY PAID</span>}
                           </div>
                         </div>

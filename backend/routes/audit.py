@@ -128,6 +128,79 @@ async def update_audit_session(session_id: str, data: dict, user=Depends(get_cur
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  BULK VERIFY — verify multiple items at once from audit
+# ─────────────────────────────────────────────────────────────────────────────
+
+BULK_VERIFY_COLLECTIONS = {
+    "expense": "expenses",
+    "purchase_order": "purchase_orders",
+    "invoice": "invoices",
+}
+
+@router.post("/bulk-verify")
+async def bulk_verify(data: dict, user=Depends(get_current_user)):
+    """
+    Verify multiple items at once with a single PIN entry.
+    Expects: { pin: str, items: [{ doc_type: str, doc_id: str }] }
+    """
+    from routes.verify import verify_pin_for_action
+
+    pin = str(data.get("pin", ""))
+    items = data.get("items", [])
+    if not items:
+        raise HTTPException(status_code=400, detail="No items to verify")
+
+    verifier = await verify_pin_for_action(pin, "transaction_verify")
+    if not verifier:
+        raise HTTPException(status_code=400, detail="Invalid PIN — not recognized as admin PIN, TOTP, or auditor PIN")
+
+    verified_count = 0
+    errors = []
+    for item in items:
+        doc_type = item.get("doc_type", "")
+        doc_id = item.get("doc_id", "")
+        if doc_type not in BULK_VERIFY_COLLECTIONS:
+            errors.append(f"Unknown type: {doc_type}")
+            continue
+
+        collection = getattr(db, BULK_VERIFY_COLLECTIONS[doc_type])
+        result = await collection.update_one(
+            {"id": doc_id},
+            {"$set": {
+                "verified": True,
+                "verified_by_id": verifier["verifier_id"],
+                "verified_by_name": verifier["verifier_name"],
+                "verified_method": verifier["method"],
+                "verified_at": now_iso(),
+                "verification_status": "clean",
+            }}
+        )
+        if result.modified_count > 0:
+            verified_count += 1
+
+            # Also mark receipt as reviewed if receipts exist
+            upload_sessions = await db.upload_sessions.find(
+                {"record_type": doc_type, "record_id": doc_id, "is_pending": {"$ne": True}},
+                {"_id": 0, "file_count": 1}
+            ).to_list(20)
+            if sum(s.get("file_count", 0) for s in upload_sessions) > 0:
+                await collection.update_one({"id": doc_id}, {"$set": {
+                    "receipt_review_status": "reviewed",
+                    "receipt_reviewed_by_id": verifier["verifier_id"],
+                    "receipt_reviewed_by_name": verifier["verifier_name"],
+                    "receipt_reviewed_at": now_iso(),
+                }})
+
+    return {
+        "verified_count": verified_count,
+        "total_requested": len(items),
+        "errors": errors,
+        "verified_by": verifier["verifier_name"],
+    }
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  COMPUTE — The audit engine
 # ─────────────────────────────────────────────────────────────────────────────
 

@@ -489,6 +489,10 @@ export default function AuditCenterPage() {
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   // Receipt gallery state
   const [receiptView, setReceiptView] = useState(null); // { recordType, recordId, label }
+  // Bulk verify state
+  const [bulkVerifyOpen, setBulkVerifyOpen] = useState(false);
+  const [bulkVerifyPin, setBulkVerifyPin] = useState('');
+  const [bulkVerifying, setBulkVerifying] = useState(false);
 
   // ── Prepare for Audit (offline package) ───────────────────────────────
   const [preparing, setPreparing] = useState(false);

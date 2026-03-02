@@ -888,27 +888,42 @@ export default function DailyLogPage() {
                   </SectionCard>
 
                   {/* ── CASH SALES BY CATEGORY ──────────────────── */}
-                  <SectionCard title={`Walk-in Sales Today — ${formatPHP(preview.total_cash_sales)}`} accent="emerald">
-                    {preview.cash_sales_by_category?.length ? (
+                  <SectionCard title={`Walk-in Sales Today — ${formatPHP(totalWalkinSales)}`} accent="emerald">
+                    {walkinEntries.length > 0 ? (
                       <div className="space-y-1">
-                        {preview.cash_sales_by_category.map(c => (
-                          <div key={c.category} className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0">
-                            <span className="text-slate-600">{c.category}</span>
-                            <span className="font-semibold font-mono">{formatPHP(c.total)}</span>
-                          </div>
-                        ))}
-                        {preview.total_partial_cash > 0 && (
-                          <div className="flex justify-between text-sm py-1">
-                            <span className="text-slate-500 italic">Partial payments received today</span>
-                            <span className="font-semibold font-mono">{formatPHP(preview.total_partial_cash)}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          // Group by category
+                          const cats = {};
+                          walkinEntries.forEach(e => {
+                            const cat = e.category || 'General';
+                            cats[cat] = (cats[cat] || 0) + parseFloat(e.line_total || 0);
+                          });
+                          return Object.entries(cats).sort(([,a],[,b]) => b - a).map(([cat, total]) => (
+                            <div key={cat} className="flex justify-between text-sm py-1 border-b border-slate-100 last:border-0">
+                              <span className="text-slate-600">{cat}</span>
+                              <span className="font-semibold font-mono">{formatPHP(total)}</span>
+                            </div>
+                          ));
+                        })()}
+                        {/* Payment method breakdown */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-slate-100">
+                          {(() => {
+                            const pms = {};
+                            walkinEntries.forEach(e => {
+                              const pm = (e.payment_method || 'cash').toUpperCase();
+                              pms[pm] = (pms[pm] || 0) + parseFloat(e.line_total || 0);
+                            });
+                            return Object.entries(pms).sort(([,a],[,b]) => b - a).map(([pm, total]) => (
+                              <span key={pm} className="text-xs text-slate-500">{pm}: <strong className="font-mono">{formatPHP(total)}</strong></span>
+                            ));
+                          })()}
+                        </div>
                         <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
-                          <span>Total Cash Received from Sales</span>
-                          <span className="text-emerald-700">{formatPHP(r2(preview.total_cash_sales + preview.total_partial_cash))}</span>
+                          <span>Total Walk-in Sales</span>
+                          <span className="text-emerald-700">{formatPHP(totalWalkinSales)}</span>
                         </div>
                       </div>
-                    ) : <p className="text-sm text-slate-400">No cash sales today</p>}
+                    ) : <p className="text-sm text-slate-400">No walk-in sales today</p>}
                   </SectionCard>
 
                   {/* ── NEW CREDIT TODAY (info only) ─────────────── */}

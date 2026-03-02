@@ -410,6 +410,9 @@ export default function ExpensesPage() {
           )}
         </div>
         <div className="flex gap-2">
+          <Button onClick={openEmployeeAdvance} variant="outline" className="border-violet-300 text-violet-700 hover:bg-violet-50" data-testid="expenses-employee-advance-btn">
+            <UserCheck size={16} className="mr-2" /> Employee Cash Advance
+          </Button>
           <Button onClick={openCashOut} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="expenses-cashout-btn">
             <Banknote size={16} className="mr-2" /> Customer Cash Out
           </Button>

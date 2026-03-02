@@ -797,6 +797,11 @@ export default function ExpensesPage() {
             ? { ...e, verified: true, verification_status: 'clean' } : e));
         }}
       />
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
     </div>
   );
 }

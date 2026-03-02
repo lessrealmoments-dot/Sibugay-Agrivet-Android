@@ -802,6 +802,150 @@ function ExpenseReport({ branches, selectedBranchId }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  CA SUMMARY REPORT TAB
+// ─────────────────────────────────────────────────────────────────────────────
+function CaSummaryReport({ branches, selectedBranchId }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [branchFilter, setBranchFilter] = useState(selectedBranchId || 'all');
+  const [monthFilter, setMonthFilter] = useState(new Date().toISOString().slice(0, 7));
+  const { canViewAllBranches } = useAuth();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (branchFilter && branchFilter !== 'all') params.set('branch_id', branchFilter);
+      if (monthFilter) params.set('month', monthFilter);
+      const res = await api.get(`${BACKEND_URL}/api/employees/ca-report?${params}`);
+      setData(res.data);
+    } catch {
+      toast.error('Failed to load CA report');
+    } finally {
+      setLoading(false);
+    }
+  }, [branchFilter, monthFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const getBranchName = (bid) => (branches || []).find(b => b.id === bid)?.name || bid || '—';
+
+  return (
+    <div className="space-y-4" data-testid="ca-summary-tab">
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <Input type="month" className="h-9 w-44" value={monthFilter} onChange={e => setMonthFilter(e.target.value)} data-testid="ca-month-filter" />
+        {canViewAllBranches && (
+          <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <SelectTrigger className="h-9 w-48"><SelectValue placeholder="All branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {(branches || []).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <RefreshCw size={13} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
+      </div>
+
+      {/* Summary KPIs */}
+      {data && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCard label="Total Employees" value={data.total_employees} accent="slate" />
+          <KpiCard label="Advances This Month" value={formatPHP(data.total_advances_this_month)} accent="amber" />
+          <KpiCard label="Total Unpaid Balance" value={formatPHP(data.total_unpaid_balance)} sub="Pending salary deduction" accent="red" />
+          <KpiCard label="Over-Limit Employees" value={data.over_limit_employees} sub={data.over_limit_employees > 0 ? 'Need payroll review' : 'All within limits'} accent={data.over_limit_employees > 0 ? 'red' : 'emerald'} />
+        </div>
+      )}
+
+      {/* Employee Table */}
+      {data && (
+        <Card className="border-slate-200">
+          <CardContent className="p-0">
+            <Table data-testid="ca-report-table">
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500">Employee</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500">Branch</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Monthly Limit</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">This Month</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-center">Usage</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Over-Limit</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Prev Month Overage</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 text-right">Unpaid Balance</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500">Last Advance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.employees.map(emp => (
+                  <TableRow key={emp.employee_id} className={emp.is_over_limit ? 'bg-red-50/50' : ''}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium text-sm">{emp.name}</p>
+                        {emp.position && <p className="text-xs text-slate-400">{emp.position}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">{getBranchName(emp.branch_id)}</TableCell>
+                    <TableCell className="text-right text-sm font-mono">
+                      {emp.monthly_ca_limit > 0 ? formatPHP(emp.monthly_ca_limit) : <span className="text-slate-300">No limit</span>}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-mono font-semibold">
+                      {emp.this_month_total > 0 ? (
+                        <span className={emp.is_over_limit ? 'text-red-600' : ''}>{formatPHP(emp.this_month_total)}</span>
+                      ) : <span className="text-slate-300">—</span>}
+                      {emp.this_month_count > 0 && <p className="text-[10px] text-slate-400">{emp.this_month_count} advance{emp.this_month_count > 1 ? 's' : ''}</p>}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {emp.usage_pct !== null ? (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <div className="w-16 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                            <div className={`h-full rounded-full ${emp.usage_pct >= 100 ? 'bg-red-500' : emp.usage_pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${Math.min(100, emp.usage_pct)}%` }} />
+                          </div>
+                          <span className={`text-[10px] font-mono ${emp.usage_pct >= 100 ? 'text-red-600 font-bold' : 'text-slate-400'}`}>{emp.usage_pct}%</span>
+                        </div>
+                      ) : <span className="text-[10px] text-slate-300">N/A</span>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {emp.over_limit_count > 0 ? (
+                        <Badge className="bg-red-100 text-red-700 text-[10px]">
+                          <AlertTriangle size={9} className="mr-0.5" /> {emp.over_limit_count}x approved
+                        </Badge>
+                      ) : <span className="text-slate-300 text-xs">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-mono">
+                      {emp.prev_month_overage > 0 ? (
+                        <span className="text-amber-600 font-semibold">{formatPHP(emp.prev_month_overage)}</span>
+                      ) : <span className="text-slate-300">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-mono">
+                      {emp.unpaid_balance > 0 ? (
+                        <span className="text-red-600 font-semibold">{formatPHP(emp.unpaid_balance)}</span>
+                      ) : <span className="text-emerald-500 text-xs">Cleared</span>}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">{emp.last_advance_date || '—'}</TableCell>
+                  </TableRow>
+                ))}
+                {!loading && data.employees.length === 0 && (
+                  <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-10">No employees found</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {loading && !data && (
+        <div className="flex items-center justify-center py-16">
+          <RefreshCw size={20} className="animate-spin text-slate-400" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
@@ -816,7 +960,7 @@ export default function ReportsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-slate-800" style={{ fontFamily: 'Manrope' }}>Reports</h1>
-          <p className="text-xs text-slate-500">AR Aging · Sales · Expenses</p>
+          <p className="text-xs text-slate-500">AR Aging · Sales · Expenses · CA Summary</p>
         </div>
       </div>
 
@@ -831,6 +975,9 @@ export default function ReportsPage() {
           <TabsTrigger value="expenses" data-testid="tab-expenses" className="text-sm">
             <DollarSign size={14} className="mr-1.5" /> Expense Report
           </TabsTrigger>
+          <TabsTrigger value="ca-summary" data-testid="tab-ca-summary" className="text-sm">
+            <UserCheck size={14} className="mr-1.5" /> CA Summary
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="ar-aging">
@@ -843,6 +990,10 @@ export default function ReportsPage() {
 
         <TabsContent value="expenses">
           <ExpenseReport branches={branches || []} selectedBranchId={selectedBranchId} />
+        </TabsContent>
+
+        <TabsContent value="ca-summary">
+          <CaSummaryReport branches={branches || []} selectedBranchId={selectedBranchId} />
         </TabsContent>
       </Tabs>
     </div>

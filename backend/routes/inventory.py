@@ -302,8 +302,17 @@ async def set_inventory(data: dict, user=Depends(get_current_user)):
 async def admin_adjust_inventory(data: dict, user=Depends(get_current_user)):
     """
     Admin inventory correction — sets stock to exact new_quantity to fix counting errors.
-    Requires prior TOTP/password verification. Creates a full audit log.
+    Requires PIN verification per policy. Creates a full audit log.
     """
+    # PIN enforcement for inventory adjustment
+    pin = data.get("pin", "")
+    if pin:
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(pin, "inventory_adjust")
+        if not verifier:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Invalid PIN")
+
     product_id = data["product_id"]
     branch_id = data["branch_id"]
     new_quantity = float(data["new_quantity"])

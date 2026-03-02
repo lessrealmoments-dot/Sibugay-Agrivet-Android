@@ -125,6 +125,26 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - DailyLogPage: all 3 sections (mini report, full report advance_expenses, preview) show over-CA flag + limit + approver
   - daily-report endpoint enriches advance_expenses with CA data (was previously missing)
 
+### P0 — Completed (Mar 2026 — System Audit)
+- [x] Full system audit: 20 bugs found and fixed across 7 backend + 2 frontend files (Mar 2026)
+  - BUG 1: Daily Log "Total Sales Today" double-counted partial payments → fixed grand_total = total_all
+  - BUG 2: Z-Report Preview excluded partial payments from credit section → fixed query to include partial
+  - BUG 3: Expense edit safe logic INVERTED (money flowed backwards) → swapped conditions
+  - BUG 4: PO Pay balance used subtotal instead of grand_total → fixed to use grand_total
+  - BUG 5: Audit cash reconciliation used ALL expenses (not cashier-only) → fixed to cashier-only
+  - BUG 6: Expense edit didn't adjust employee advance_balance → added adjustment
+  - BUG 7: Receivable payment ignored interest/penalties → aligned with invoice payment logic
+  - BUG 8: Expense Report included voided expenses → added voided filter
+  - BUG 9: Expense List API included voided expenses → added voided filter
+  - BUG 10: Customer Transactions total included voided invoices → excluded voided
+  - BUG 11: Close Wizard showed grand_total instead of balance for partial credit → fixed display
+  - BUG 12: Daily Log AR section showed grand_total instead of balance → fixed display
+  - BUG 13: Daily Report net_profit = gross_profit (misleading) → now subtracts real expenses
+  - BUG 14: Receivable payment silently discarded overpayments → now rejects with error
+  - BUG 16: Count Sheet moving avg used different source than PO receive → aligned to movements
+  - BUG 19: Close starting float used yesterday only → now uses last closed date
+  - BUG 20: Safe expense deductions had no record_safe_movement audit trail → added
+
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)
 - [ ] Quick-action menu on Sales History page (Re-send Receipt, Print Invoice)

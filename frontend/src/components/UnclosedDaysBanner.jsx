@@ -58,7 +58,7 @@ export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
     <div className={`rounded-lg border ${className}`}
       style={{ borderColor: isEncodingPastDate ? '#d97706' : '#f59e0b', background: isEncodingPastDate ? '#fffbeb' : '#fefce8' }}>
       {/* Warning header */}
-      <div className="flex items-center justify-between px-4 py-2.5 gap-3"
+      <div className="flex items-center justify-between px-4 py-2.5 gap-3 rounded-t-lg"
         style={{ background: isEncodingPastDate ? '#fef3c7' : '#fef9c3' }}>
         <div className="flex items-center gap-2 min-w-0">
           <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />

@@ -772,10 +772,17 @@ async def get_capital_history(product_id: str, branch_id: Optional[str] = None, 
 
 
 @router.delete("/{product_id}")
-async def delete_product(product_id: str, user=Depends(get_current_user)):
+async def delete_product(product_id: str, user=Depends(get_current_user), pin: str = ""):
     """Soft delete a product and its repacks."""
     check_perm(user, "products", "delete")
-    
+
+    # PIN enforcement for product deletion
+    if pin:
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(pin, "product_delete")
+        if not verifier:
+            raise HTTPException(status_code=403, detail="Invalid PIN")
+
     await db.products.update_one({"id": product_id}, {"$set": {"active": False}})
     repacks = await db.products.find({"parent_id": product_id, "active": True}, {"_id": 0}).to_list(1000)
     for r in repacks:

@@ -175,6 +175,15 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Fund transfers displayed as separate line items in closing wizard
   - Fixed double-counting when no previous close (wallet balance already reflects all activity)
   - fund_transfers now store `date` and `target_wallet` fields
+- [x] Smart Unclosed Date Detection + Date Picker (Mar 2026)
+  - UnclosedDaysBanner component: detects unclosed days per branch, shows amber warning banner
+  - Date selector dropdown: switch encoding date between Today and any unclosed past date
+  - Integrated on Sales page (/sales-new) and Expenses page (/expenses)
+  - Past date indicator: "All transactions will be saved to [date]" with highlighted amber button
+  - Backend: sales_log entries now use order_date from request (not auto-detected get_active_date)
+  - Backend: fund_transfer endpoint accepts optional `date` parameter
+  - Backend: GET /api/daily-close/unclosed-days returns full list with per-day transaction counts
+  - No formula changes — existing closing wizard works seamlessly with correctly-dated transactions
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

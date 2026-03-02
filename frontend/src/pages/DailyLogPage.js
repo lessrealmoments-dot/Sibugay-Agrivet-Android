@@ -928,7 +928,12 @@ export default function DailyLogPage() {
                               <span className="font-medium">{c.customer_name}</span>
                               <button className="text-blue-600 text-xs ml-2 hover:underline" onClick={() => { setSelectedInvoiceNumber(c.invoice_number); setInvoiceModalOpen(true); }}>{c.invoice_number}</button>
                             </div>
-                            <span className="font-mono text-amber-700">{formatPHP(c.grand_total)}</span>
+                            <div className="text-right">
+                              <span className="font-mono text-amber-700">{formatPHP(c.balance)}</span>
+                              {c.grand_total !== c.balance && (
+                                <span className="text-[10px] text-slate-400 ml-1">(of {formatPHP(c.grand_total)})</span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>

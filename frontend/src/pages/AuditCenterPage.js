@@ -1621,6 +1621,11 @@ export default function AuditCenterPage() {
           </DialogContent>
         </Dialog>
       )}
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
     </div>
   );
 }

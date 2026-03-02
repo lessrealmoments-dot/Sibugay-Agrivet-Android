@@ -453,7 +453,7 @@ async def list_expenses(
 ):
     """List expenses with optional filters."""
     check_perm(user, "accounting", "view")
-    query = {}
+    query = {"voided": {"$ne": True}}
     if branch_id:
         query["branch_id"] = branch_id
     if category:

@@ -186,6 +186,7 @@ export default function DashboardPage() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const [analyticsPeriod, setAnalyticsPeriod] = useState('this_month');
+  const [unclosedDays, setUnclosedDays] = useState(null);
   const { width: gridWidth, containerRef: gridRef, mounted: gridMounted } = useContainerWidth();
 
   const layoutKey = `${LAYOUT_KEY}_${user?.id || 'default'}_${isConsolidatedView ? 'owner' : 'branch'}`;

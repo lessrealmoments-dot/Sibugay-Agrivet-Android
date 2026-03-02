@@ -493,7 +493,7 @@ function SalesReport({ branches, selectedBranchId }) {
               <TableBody>
                 {(data?.transactions || []).map(t => (
                   <TableRow key={t.invoice_number}>
-                    <TableCell className="font-mono text-xs">{t.invoice_number}</TableCell>
+                    <TableCell><button className="font-mono text-xs text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(t.invoice_number); setInvoiceModalOpen(true); }}>{t.invoice_number}</button></TableCell>
                     <TableCell className="text-sm">{t.date}</TableCell>
                     <TableCell className="text-sm">{t.customer_name}</TableCell>
                     <TableCell className="text-sm text-slate-500">{t.cashier_name}</TableCell>

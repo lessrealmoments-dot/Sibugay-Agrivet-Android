@@ -73,22 +73,19 @@ async def get_product_capital_price(product: dict, source: str, branch_id: str) 
         return float(product.get("cost_price", 0))
     
     elif source == "moving_average":
-        pipeline = [
-            {"$match": {"items.product_id": product["id"], "status": {"$in": ["received", "partial"]}}},
-            {"$unwind": "$items"},
-            {"$match": {"items.product_id": product["id"]}},
-            {"$group": {
-                "_id": None,
-                "total_cost": {"$sum": {"$multiply": [
-                    "$items.quantity",
-                    {"$ifNull": ["$items.unit_price", {"$ifNull": ["$items.cost", 0]}]}
-                ]}},
-                "total_qty": {"$sum": "$items.quantity"}
-            }}
-        ]
-        result = await db.purchase_orders.aggregate(pipeline).to_list(1)
-        if result and result[0]["total_qty"] > 0:
-            return round(result[0]["total_cost"] / result[0]["total_qty"], 2)
+        # Use movements collection (aligned with PO receive logic)
+        acq_query = {
+            "product_id": product["id"],
+            "type": {"$in": ["purchase", "transfer_in"]},
+            "quantity_change": {"$gt": 0}
+        }
+        if branch_id:
+            acq_query["branch_id"] = branch_id
+        all_acquisitions = await db.movements.find(acq_query, {"_id": 0}).to_list(10000)
+        total_pqty = sum(float(m.get("quantity_change") or 0) for m in all_acquisitions)
+        total_pcost = sum(float(m.get("quantity_change") or 0) * float(m.get("price_at_time") or 0) for m in all_acquisitions)
+        if total_pqty > 0:
+            return round(total_pcost / total_pqty, 2)
         return float(product.get("cost_price", 0))
     
     return float(product.get("cost_price", 0))

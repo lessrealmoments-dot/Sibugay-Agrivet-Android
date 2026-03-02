@@ -1075,6 +1075,7 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
                 take = min(lot["remaining_amount"], remaining)
                 await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
                 remaining -= take
+            await record_safe_movement(branch_id, -amount, ref_text)
     else:
         await update_cashier_wallet(branch_id, -amount, ref_text)
     await db.employees.update_one({"id": employee_id}, {"$inc": {"advance_balance": amount}})

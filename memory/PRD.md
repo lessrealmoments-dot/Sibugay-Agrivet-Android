@@ -90,11 +90,16 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
 - [x] **AUDIT FIX (Mar 2026):** Individual payment void handles digital wallets
 - [x] **AUDIT FIX (Mar 2026):** Batch close uses same corrected formulas
 
+### P0 — Completed (Mar 2026 — Usability)
+- [x] Dedicated top-level Expenses page (/expenses) in sidebar under Transactions
+  - New `ExpensesPage.js` with full CRUD, filters, Farm Expense, Customer Cash Out
+  - Reuses same backend endpoints — no backend changes, zero regression risk
+  - Error handling hardened for object-type API error responses
+
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)
 - [ ] Quick-action menu on Sales History page (Re-send Receipt, Print Invoice)
 - [ ] Closing History page (view past Z-Reports with search by date/branch)
-- [ ] Deployment instructions for VPS launch
 
 ### P1 — Upcoming
 - [ ] Weight-embedded EAN-13 barcode recognition in POS

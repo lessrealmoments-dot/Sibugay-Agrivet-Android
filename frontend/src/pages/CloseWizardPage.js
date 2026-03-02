@@ -206,7 +206,7 @@ export default function CloseWizardPage() {
     setPinVerifying(true);
     try {
       const res = await api.post('/auth/verify-manager-pin', {
-        pin: managerPin, required_level: 'manager',
+        pin: managerPin, action_key: 'daily_close',
         context: `Daily close ${date} — ${currentBranch?.name}`
       });
       if (res.data.valid) {

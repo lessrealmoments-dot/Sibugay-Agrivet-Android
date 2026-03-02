@@ -675,6 +675,12 @@ async def batch_close_preview(
                 {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
             ]).to_list(1)
             exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+            eid = e["employee_id"]
+            if eid not in _emp_limit_cache:
+                emp_doc = await db.employees.find_one({"id": eid}, {"_id": 0, "monthly_ca_limit": 1})
+                _emp_limit_cache[eid] = float(emp_doc.get("monthly_ca_limit", 0)) if emp_doc else 0
+            exp["monthly_ca_limit"] = _emp_limit_cache[eid]
+            exp["is_over_ca"] = exp["monthly_ca_limit"] > 0 and exp["monthly_ca_total"] > exp["monthly_ca_limit"]
         expenses.append(exp)
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
     total_cashier_expenses = round(sum(
@@ -867,6 +873,12 @@ async def close_day(data: dict, user=Depends(get_current_user)):
                 {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
             ]).to_list(1)
             exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+            eid = e["employee_id"]
+            if eid not in _emp_limit_cache:
+                emp_doc = await db.employees.find_one({"id": eid}, {"_id": 0, "monthly_ca_limit": 1})
+                _emp_limit_cache[eid] = float(emp_doc.get("monthly_ca_limit", 0)) if emp_doc else 0
+            exp["monthly_ca_limit"] = _emp_limit_cache[eid]
+            exp["is_over_ca"] = exp["monthly_ca_limit"] > 0 and exp["monthly_ca_total"] > exp["monthly_ca_limit"]
         expenses.append(exp)
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
     total_cashier_expenses = round(sum(
@@ -1137,6 +1149,12 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
                 {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
             ]).to_list(1)
             exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+            eid = e["employee_id"]
+            if eid not in _emp_limit_cache:
+                emp_doc = await db.employees.find_one({"id": eid}, {"_id": 0, "monthly_ca_limit": 1})
+                _emp_limit_cache[eid] = float(emp_doc.get("monthly_ca_limit", 0)) if emp_doc else 0
+            exp["monthly_ca_limit"] = _emp_limit_cache[eid]
+            exp["is_over_ca"] = exp["monthly_ca_limit"] > 0 and exp["monthly_ca_total"] > exp["monthly_ca_limit"]
         expenses.append(exp)
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
     total_cashier_expenses = round(sum(

@@ -1292,6 +1292,19 @@ export default function CloseWizardPage() {
                   {(preview?.total_digital_ar || 0) > 0 && (
                     <div className="flex justify-between text-xs"><span className="text-indigo-400 pl-3">AR Digital (e-wallet, not in drawer)</span><span className="font-mono text-indigo-400">{formatPHP(preview?.total_digital_ar || 0)}</span></div>
                   )}
+                  {(preview?.net_fund_transfers || 0) !== 0 && (
+                    <>
+                      {(preview?.capital_to_cashier || 0) > 0 && (
+                        <div className="flex justify-between"><span className="text-cyan-600">+ Capital Injection</span><span className="font-mono font-semibold text-cyan-700">{formatPHP(preview.capital_to_cashier)}</span></div>
+                      )}
+                      {(preview?.safe_to_cashier || 0) > 0 && (
+                        <div className="flex justify-between"><span className="text-cyan-600">+ Safe → Cashier</span><span className="font-mono text-cyan-700">{formatPHP(preview.safe_to_cashier)}</span></div>
+                      )}
+                      {(preview?.cashier_to_safe || 0) > 0 && (
+                        <div className="flex justify-between"><span className="text-orange-600">- Cashier → Safe</span><span className="font-mono font-semibold text-orange-600">{formatPHP(preview.cashier_to_safe)}</span></div>
+                      )}
+                    </>
+                  )}
                   <Separator />
                   <div className="flex justify-between font-semibold"><span className="text-green-700">= Total Cash In</span><span className="font-mono text-green-700">{formatPHP(preview?.total_cash_in || 0)}</span></div>
                   <div className="flex justify-between"><span className="text-red-600">- Cashier Expenses</span><span className="font-mono font-semibold text-red-600">{formatPHP(preview?.total_cashier_expenses ?? preview?.total_expenses ?? 0)}</span></div>

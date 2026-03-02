@@ -552,43 +552,72 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* TOTP Controls */}
-            <Card className="border-slate-200">
+            {/* PIN Policies */}
+            <Card className="border-slate-200" data-testid="pin-policies-card">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                      <Lock size={18} className="text-[#1A4D2E]" /> TOTP-Protected Actions
+                      <Shield size={18} className="text-[#1A4D2E]" /> PIN Policies
                     </CardTitle>
-                    <p className="text-sm text-slate-500 mt-0.5">Toggle which actions require TOTP verification.</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Configure which PIN types are accepted for each action.</p>
                   </div>
-                  <Button data-testid="save-totp-controls-btn" size="sm" onClick={saveControls} disabled={savingControls}
+                  <Button data-testid="save-pin-policies-btn" size="sm" onClick={savePinPolicies} disabled={savingPolicies}
                     className="bg-[#1A4D2E] hover:bg-[#14532d] text-white shrink-0">
-                    {savingControls ? <RefreshCw size={13} className="animate-spin mr-1" /> : null} Save
+                    {savingPolicies ? <RefreshCw size={13} className="animate-spin mr-1" /> : null} Save Policies
                   </Button>
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Method Legend */}
+                <div className="flex flex-wrap gap-2 mb-4 pb-3 border-b border-slate-100">
+                  {pinMethods.map(m => (
+                    <span key={m} className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md border ${METHOD_LABELS[m]?.color || 'bg-slate-100 text-slate-600'}`}>
+                      {METHOD_LABELS[m]?.label || m}
+                    </span>
+                  ))}
+                </div>
+
                 <div className="space-y-5">
-                  {Object.entries(actionsByModule).map(([module, actions]) => (
+                  {Object.entries(policyModules).map(([module, actions]) => (
                     <div key={module}>
                       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">{module}</p>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {actions.map(action => (
-                          <div key={action.key} data-testid={`totp-action-${action.key}`} onClick={() => toggleAction(action.key)}
-                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${enabledActions.includes(action.key) ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
-                            <Switch checked={enabledActions.includes(action.key)} onCheckedChange={() => toggleAction(action.key)}
-                              className="data-[state=checked]:bg-amber-500" onClick={e => e.stopPropagation()} />
-                            <div>
-                              <p className="text-sm font-medium">{action.label}</p>
-                              <p className="text-xs text-slate-400">{action.module}</p>
+                      <div className="space-y-2">
+                        {actions.map(action => {
+                          const activeMethods = pinPolicies[action.key] || action.defaults;
+                          return (
+                            <div key={action.key} data-testid={`pin-policy-${action.key}`}
+                              className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                              <div className="min-w-0 mr-3">
+                                <p className="text-sm font-medium text-slate-800 truncate">{action.label}</p>
+                              </div>
+                              <div className="flex gap-1.5 shrink-0">
+                                {pinMethods.map(method => {
+                                  const isActive = activeMethods.includes(method);
+                                  const meta = METHOD_LABELS[method] || {};
+                                  return (
+                                    <button
+                                      key={method}
+                                      data-testid={`pin-policy-${action.key}-${method}`}
+                                      onClick={() => togglePinMethod(action.key, method)}
+                                      className={`text-[10px] font-medium px-2 py-1 rounded-md border transition-all ${
+                                        isActive
+                                          ? meta.color
+                                          : 'bg-white text-slate-300 border-slate-200 hover:border-slate-300'
+                                      }`}
+                                    >
+                                      {meta.label || method}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
-                  {totpActions.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Loading actions...</p>}
+                  {pinPolicyActions.length === 0 && <p className="text-sm text-slate-400 text-center py-4">Loading...</p>}
                 </div>
               </CardContent>
             </Card>

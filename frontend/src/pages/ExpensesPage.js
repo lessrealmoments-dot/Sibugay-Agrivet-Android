@@ -213,7 +213,11 @@ export default function ExpensesPage() {
       } else {
         toast.error('Invalid PIN');
       }
-    } catch (e) { toast.error(e.response?.data?.detail || 'Verification failed'); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Verification failed';
+      toast.error(msg);
+    }
   };
 
   const handleCreateFarmExpense = async () => {

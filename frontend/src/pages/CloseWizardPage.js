@@ -814,7 +814,7 @@ export default function CloseWizardPage() {
                                   </td>
                                   <td className="px-3 py-1.5 text-center text-slate-500">{e.quantity} {e.unit || ''}</td>
                                   <td className="px-3 py-1.5 text-center">
-                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${pmColor}`}>{pm}</span>
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${pmColor}`}>{pmLabel}</span>
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-mono">{formatPHP(e.line_total)}</td>
                                   <td className="px-3 py-1.5 text-right font-mono text-emerald-700">{formatPHP(e._running)}</td>

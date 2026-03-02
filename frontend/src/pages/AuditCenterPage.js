@@ -1434,6 +1434,104 @@ export default function AuditCenterPage() {
                 </Card>
               )}
 
+              {/* Unverified Items Section */}
+              {auditData.unverified && auditData.unverified.total_items > 0 && (
+                <SectionCard
+                  title={`Unverified Items (${auditData.unverified.total_items})`}
+                  icon={<CircleAlert size={16} className="text-amber-600" />}
+                  sev={auditData.unverified.severity}
+                  defaultOpen={auditData.unverified.severity === 'critical'}
+                  data_testid="audit-unverified-section"
+                  insight={{
+                    type: auditData.unverified.severity,
+                    text: `${auditData.unverified.expenses_count} expense(s) and ${auditData.unverified.po_count} PO(s) have not been verified by admin or auditor.${
+                      auditData.unverified.expenses_no_receipt > 0 ? ` ${auditData.unverified.expenses_no_receipt} expense(s) have NO receipt attached.` : ''
+                    }${auditData.unverified.po_no_receipt > 0 ? ` ${auditData.unverified.po_no_receipt} PO(s) have NO receipt attached.` : ''}`,
+                    action: 'Review each item below. Verify with PIN after checking receipts and details. Items without receipts should be investigated first.',
+                  }}
+                >
+                  <div className="space-y-3 mt-2">
+                    {/* Unverified Expenses */}
+                    {auditData.unverified.expenses?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                          <Receipt size={13} className="text-amber-600" />
+                          Unverified Expenses ({auditData.unverified.expenses_count}) — Total: {formatPHP(auditData.unverified.total_unverified_expense_amount)}
+                        </p>
+                        <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                          {auditData.unverified.expenses.map((exp, i) => (
+                            <div key={i} className={`text-xs p-2.5 rounded-lg border flex items-center justify-between gap-2 ${!exp.has_receipt ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}
+                              data-testid={`unverified-expense-${exp.id}`}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-slate-700">{exp.category}</span>
+                                  <Badge className={`text-[9px] ${exp.fund_source === 'safe' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                                    {exp.fund_source || 'cashier'}
+                                  </Badge>
+                                  {exp.has_receipt ? (
+                                    <button
+                                      onClick={() => setReceiptView({ recordType: 'expense', recordId: exp.id, label: exp.category })}
+                                      className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5">
+                                      <ImageIcon size={9} /> View receipt
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] text-red-600 font-semibold flex items-center gap-0.5"><CircleAlert size={9} /> No receipt</span>
+                                  )}
+                                </div>
+                                <p className="text-slate-500 mt-0.5 truncate">
+                                  {exp.description || '—'}
+                                  {exp.employee_name && <span className="text-violet-600"> · {exp.employee_name}</span>}
+                                </p>
+                                <p className="text-[10px] text-slate-400">{exp.date} · by {exp.created_by_name}</p>
+                              </div>
+                              <span className="font-bold font-mono text-amber-700 shrink-0">{formatPHP(exp.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Unverified POs */}
+                    {auditData.unverified.purchase_orders?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                          <Package size={13} className="text-amber-600" />
+                          Unverified Purchase Orders ({auditData.unverified.po_count})
+                        </p>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {auditData.unverified.purchase_orders.map((po, i) => (
+                            <div key={i} className={`text-xs p-2.5 rounded-lg border flex items-center justify-between gap-2 ${!po.has_receipt ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}
+                              data-testid={`unverified-po-${po.id}`}>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button
+                                    className="font-mono text-blue-600 hover:underline font-semibold"
+                                    onClick={() => navigate('/purchase-orders')}>
+                                    {po.po_number}
+                                  </button>
+                                  <span className="text-slate-500">{po.vendor}</span>
+                                  {po.has_receipt ? (
+                                    <button
+                                      onClick={() => setReceiptView({ recordType: 'purchase_order', recordId: po.id, label: po.po_number })}
+                                      className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5">
+                                      <ImageIcon size={9} /> View receipt
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] text-red-600 font-semibold flex items-center gap-0.5"><CircleAlert size={9} /> No receipt</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-0.5">{po.purchase_date}</p>
+                              </div>
+                              <span className="font-bold font-mono text-amber-700 shrink-0">{formatPHP(po.grand_total)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </SectionCard>
+              )}
+
               {/* Security Flags section inside audit run */}
               {auditData.security && (auditData.security.total_events > 0 || true) && (
                 <Card className={`border-2 ${auditData.security.total_events > 0 ? (auditData.security.status === 'critical' ? 'border-red-300' : 'border-amber-300') : 'border-slate-200'}`}>

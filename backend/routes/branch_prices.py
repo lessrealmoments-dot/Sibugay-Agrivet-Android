@@ -44,9 +44,17 @@ async def list_branch_prices(
 async def upsert_branch_price(product_id: str, data: dict, user=Depends(get_current_user)):
     """
     Set or update branch-specific prices for a product.
-    Body: { branch_id, prices: {scheme_key: price}, cost_price? }
+    Body: { branch_id, prices: {scheme_key: price}, cost_price?, pin? }
     """
     check_perm(user, "products", "edit")
+
+    # PIN enforcement for price override
+    pin = data.get("pin", "")
+    if pin:
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(pin, "price_override")
+        if not verifier:
+            raise HTTPException(status_code=403, detail="Invalid PIN")
 
     branch_id = data.get("branch_id")
     if not branch_id:

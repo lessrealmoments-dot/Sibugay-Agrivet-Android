@@ -712,7 +712,7 @@ async def batch_close_preview(
          "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}},
         {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "balance": 1, "payment_type": 1, "sale_type": 1}
     ).to_list(500)
-    total_credit_today = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices), 2)
+    total_credit_today = round(sum(float(inv.get("balance", 0)) for inv in credit_invoices), 2)
 
     # Per-day breakdown
     per_day_sales = await db.sales_log.aggregate([

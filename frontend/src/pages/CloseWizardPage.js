@@ -882,6 +882,9 @@ export default function CloseWizardPage() {
                           <div>
                             <p className="font-semibold">{inv.customer_name}</p>
                             <p className="text-xs text-slate-400">{inv.invoice_number} · {inv.sale_type === 'cash_advance' ? 'Cash-out' : 'Farm Service'}</p>
+                            {inv.items?.[0]?.product_name && (
+                              <p className="text-xs text-slate-500 mt-0.5">{inv.items[0].product_name}{inv.items[0].description ? ` — ${inv.items[0].description}` : ''}</p>
+                            )}
                           </div>
                           <p className="font-mono font-bold text-blue-700">{formatPHP(inv.grand_total)}</p>
                         </div>

@@ -363,7 +363,7 @@ async def verify_transaction_public(
         raise HTTPException(status_code=404, detail="Document not found")
 
     pin = str(data.get("pin", ""))
-    verifier = await _resolve_pin(pin)
+    verifier = await verify_pin_for_action(pin, "public_receipt_verify")
     if not verifier:
         raise HTTPException(status_code=400, detail="Invalid PIN — not recognized as admin PIN, TOTP, or auditor PIN")
 

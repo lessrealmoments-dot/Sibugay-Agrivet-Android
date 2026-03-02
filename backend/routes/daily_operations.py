@@ -965,7 +965,8 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         ],
         "ar_credits_today": [
             {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],
-             "grand_total": inv.get("grand_total", 0), "type": inv.get("sale_type", "")}
+             "grand_total": inv.get("grand_total", 0), "type": inv.get("sale_type", ""),
+             "description": inv.get("items", [{}])[0].get("product_name", "") if inv.get("items") else ""}
             for inv in ar_credits_today
         ],
         "total_new_credit": total_new_credit,
@@ -1241,7 +1242,8 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
         ],
         "ar_credits_today": [
             {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],
-             "grand_total": inv.get("grand_total", 0), "type": inv.get("sale_type", "")}
+             "grand_total": inv.get("grand_total", 0), "type": inv.get("sale_type", ""),
+             "description": inv.get("items", [{}])[0].get("product_name", "") if inv.get("items") else ""}
             for inv in ar_credits_today
         ],
         "total_new_credit": total_new_credit,

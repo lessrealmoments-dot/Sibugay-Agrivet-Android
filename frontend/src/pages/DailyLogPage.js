@@ -627,7 +627,7 @@ export default function DailyLogPage() {
                               <td colSpan={5} className="pt-1.5 text-sm font-semibold text-amber-800">
                                 Total Credit — {inv.customer_name}
                               </td>
-                              <td className="pt-1.5 text-right font-bold font-mono text-amber-800">{formatPHP(invoiceTotal)}</td>
+                              <td className="pt-1.5 text-right font-bold font-mono text-amber-800">{formatPHP(balance)}</td>
                             </tr>
                           </tfoot>
                         </table>

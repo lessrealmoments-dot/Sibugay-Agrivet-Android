@@ -845,6 +845,51 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
     # Update customer balance
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": amount}})
     
+    # ── Link pending upload sessions (inline receipt uploads) ─────────────
+    upload_session_ids = data.get("upload_session_ids", [])
+    if upload_session_ids:
+        from pathlib import Path
+        upload_dir = Path("/app/uploads")
+        for sid in upload_session_ids:
+            session = await db.upload_sessions.find_one({"id": sid}, {"_id": 0})
+            if not session:
+                continue
+            old_record_id = session.get("record_id", "")
+            new_dir = upload_dir / "expense" / expense["id"]
+            new_dir.mkdir(parents=True, exist_ok=True)
+            updated_files = []
+            for f in session.get("files", []):
+                stored = f.get("stored_path", "")
+                if not stored or stored == ".":
+                    updated_files.append(f)
+                    continue
+                old_path = Path(stored)
+                if old_path.is_file():
+                    try:
+                        new_path = new_dir / old_path.name
+                        old_path.rename(new_path)
+                        f["stored_path"] = str(new_path)
+                    except OSError:
+                        pass
+                updated_files.append(f)
+            if old_record_id:
+                old_dir = upload_dir / "expense" / old_record_id
+                if old_dir.is_dir() and not any(old_dir.iterdir()):
+                    try:
+                        old_dir.rmdir()
+                    except Exception:
+                        pass
+            await db.upload_sessions.update_one(
+                {"id": sid},
+                {"$set": {
+                    "record_type": "expense",
+                    "record_id": expense["id"],
+                    "is_pending": False,
+                    "reassigned_at": now_iso(),
+                    "files": updated_files,
+                }}
+            )
+
     return {"expense": expense, "invoice": invoice, "message": f"Farm expense recorded — Invoice {inv_number} created for {customer.get('name', '')}"}
 
 

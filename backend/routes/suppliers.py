@@ -124,12 +124,10 @@ async def import_supplier_from_branch(data: dict, user=Depends(get_current_user)
     supplier_id = data.get("supplier_id")
 
     if not source_branch_id or not target_branch_id or not supplier_id:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="source_branch_id, target_branch_id, and supplier_id are required")
 
     supplier = await db.suppliers.find_one({"id": supplier_id, "active": True}, {"_id": 0})
     if not supplier:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Supplier not found")
 
     # Check if supplier name already exists at target branch
@@ -137,7 +135,6 @@ async def import_supplier_from_branch(data: dict, user=Depends(get_current_user)
         "name": supplier["name"], "branch_id": target_branch_id, "active": True
     }, {"_id": 0})
     if existing:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=f"Supplier '{supplier['name']}' already exists at this branch")
 
     # Create new supplier record for target branch

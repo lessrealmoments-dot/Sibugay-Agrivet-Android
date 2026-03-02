@@ -186,9 +186,11 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - No formula changes — existing closing wizard works seamlessly with correctly-dated transactions
 
 ### P0 — Upcoming
+- [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)
 - [ ] Quick-action menu on Sales History page (Re-send Receipt, Print Invoice)
 - [ ] Closing History page (view past Z-Reports with search by date/branch)
+- [ ] Cash Advances over-limit handling (deduct from next salary, reflect in reports)
 
 ### P1 — Upcoming
 - [ ] Weight-embedded EAN-13 barcode recognition in POS

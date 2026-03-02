@@ -1229,6 +1229,28 @@ async def list_po_vendors(user=Depends(get_current_user)):
     return sorted(vendors)
 
 
+
+@router.get("/vendor-prices")
+async def get_vendor_prices(
+    vendor: str = "",
+    branch_id: str = "",
+    user=Depends(get_current_user),
+):
+    """
+    Get product last-prices for a vendor at a specific branch.
+    Used by PO form to auto-fill unit prices when a supplier is selected.
+    Returns a dict: { product_id: last_price }
+    """
+    if not vendor:
+        return {}
+    query = {"vendor_name": vendor}
+    if branch_id:
+        query["branch_id"] = branch_id
+    prices = await db.product_vendors.find(query, {"_id": 0}).to_list(5000)
+    return {pv["product_id"]: pv.get("last_price", 0) for pv in prices if pv.get("last_price", 0) > 0}
+
+
+
 @router.get("/unpaid-summary")
 async def get_unpaid_po_summary(user=Depends(get_current_user), branch_id: Optional[str] = None):
     """Get unpaid POs ranked by urgency: overdue > due soon > later. For dashboard widget."""

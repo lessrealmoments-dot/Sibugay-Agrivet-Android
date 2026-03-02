@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Plus, ArrowDown, Search, Filter, Edit2, Tractor, FileText, Banknote, AlertTriangle, Shield, Upload, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { UnclosedDaysBanner } from '../components/UnclosedDaysBanner';
 import UploadQRDialog from '../components/UploadQRDialog';
 import ReceiptUploadInline from '../components/ReceiptUploadInline';
 import VerificationBadge from '../components/VerificationBadge';

@@ -799,8 +799,28 @@ async def batch_close_preview(
     ).to_list(500)
     total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_invs_batch), 2)
 
+    # ── Fund transfers affecting cashier drawer ─────────────────────────
+    ft_query_batch = {"branch_id": branch_id, "$or": [
+        {"date": date_filter},
+        {"date": {"$exists": False}, "created_at": {"$gte": f"{first_date}T00:00:00", "$lt": f"{last_date}T23:59:59"}}
+    ]}
+    fund_transfers_batch = await db.fund_transfers.find(ft_query_batch, {"_id": 0}).to_list(200)
+    capital_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_batch
+        if ft.get("transfer_type") == "capital_add" and ft.get("target_wallet", "cashier") == "cashier"
+    ), 2)
+    safe_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_batch
+        if ft.get("transfer_type") == "safe_to_cashier"
+    ), 2)
+    cashier_to_safe = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_batch
+        if ft.get("transfer_type") == "cashier_to_safe"
+    ), 2)
+    net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe, 2)
+
     total_cash_in = total_cash_sales + partial_total + total_cash_ar + total_split_cash
-    expected_counter = round(starting_float + total_cash_in - total_cashier_expenses, 2)
+    expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
 
     # Digital payments
     digital_invs = await db.invoices.find(

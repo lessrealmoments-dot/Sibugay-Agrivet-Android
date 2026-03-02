@@ -406,7 +406,7 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
     ), 2)
 
     total_cash = round(sum(float(e.get("line_total", 0)) for e in cash_entries), 2)
-    total_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices), 2)
+    total_credit = round(sum(float(inv.get("balance", 0)) for inv in credit_invoices), 2)
     total_all = round(sum(float(e.get("line_total", 0)) for e in all_entries), 2)
 
     # Payment method breakdown

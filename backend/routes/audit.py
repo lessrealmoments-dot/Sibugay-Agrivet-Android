@@ -1084,10 +1084,10 @@ async def get_offline_package(
 
 async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> dict:
     """
-    Find expenses and POs in the period that have NOT been verified by admin/auditor.
-    Also flags expenses without receipts.
+    Find expenses, POs, and digital payments in the period that have NOT been
+    verified by admin/auditor. Also flags items without receipts.
     """
-    # Unverified expenses
+    # ── Unverified expenses ───────────────────────────────────────────────
     unverified_expenses = await db.expenses.find(
         {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
          "voided": {"$ne": True}, "verified": {"$ne": True}},
@@ -1095,7 +1095,6 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
          "fund_source": 1, "date": 1, "employee_name": 1, "created_by_name": 1}
     ).sort("amount", -1).to_list(500)
 
-    # Check which have receipts
     unverified_ids = [e["id"] for e in unverified_expenses]
     has_receipt_set = set()
     if unverified_ids:
@@ -1123,10 +1122,9 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
             "created_by_name": e.get("created_by_name", ""),
             "has_receipt": has_receipt,
         })
-
     total_unverified_amount = round(sum(e["amount"] for e in expenses_result), 2)
 
-    # Unverified POs (received but not verified)
+    # ── Unverified POs (received but not verified) ────────────────────────
     unverified_pos = await db.purchase_orders.find(
         {"branch_id": branch_id,
          "purchase_date": {"$gte": date_from, "$lte": date_to},
@@ -1136,7 +1134,6 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
          "purchase_date": 1, "status": 1}
     ).sort("purchase_date", -1).to_list(500)
 
-    # Check PO receipts
     po_ids = [p["id"] for p in unverified_pos]
     po_receipt_set = set()
     if po_ids:
@@ -1162,8 +1159,59 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
             "has_receipt": has_receipt,
         })
 
-    total_items = len(expenses_result) + len(pos_result)
-    sev = "critical" if no_receipt_count > 3 or po_no_receipt > 2 else (
+    # ── Unverified digital payments (GCash, Maya, etc.) ───────────────────
+    # Digital invoices that haven't been verified (receipt_review_status != reviewed)
+    unverified_digital = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": {"$gte": date_from, "$lte": date_to},
+         "fund_source": {"$in": ["digital", "split"]}, "status": {"$ne": "voided"},
+         "receipt_review_status": {"$ne": "reviewed"}},
+        {"_id": 0, "id": 1, "invoice_number": 1, "customer_name": 1, "order_date": 1,
+         "amount_paid": 1, "digital_amount": 1, "cash_amount": 1,
+         "digital_platform": 1, "digital_ref_number": 1, "digital_sender": 1,
+         "fund_source": 1, "grand_total": 1}
+    ).sort("order_date", -1).to_list(500)
+
+    # Check which have receipt uploads
+    digital_ids = [d["id"] for d in unverified_digital]
+    digital_receipt_set = set()
+    if digital_ids:
+        digital_uploads = await db.upload_sessions.find(
+            {"record_type": "invoice", "record_id": {"$in": digital_ids},
+             "is_pending": {"$ne": True}, "file_count": {"$gt": 0}},
+            {"_id": 0, "record_id": 1}
+        ).to_list(500)
+        digital_receipt_set = {s["record_id"] for s in digital_uploads}
+
+    digital_result = []
+    digital_no_receipt = 0
+    digital_no_ref = 0
+    total_unverified_digital = 0.0
+    for inv in unverified_digital:
+        is_split = inv.get("fund_source") == "split"
+        digital_amt = float(inv.get("digital_amount", 0)) if is_split and inv.get("digital_amount") else float(inv.get("amount_paid", 0))
+        total_unverified_digital += digital_amt
+        has_receipt = inv["id"] in digital_receipt_set
+        has_ref = bool(inv.get("digital_ref_number"))
+        if not has_receipt:
+            digital_no_receipt += 1
+        if not has_ref:
+            digital_no_ref += 1
+        digital_result.append({
+            "id": inv["id"],
+            "invoice_number": inv.get("invoice_number", ""),
+            "customer_name": inv.get("customer_name", ""),
+            "date": inv.get("order_date", ""),
+            "platform": inv.get("digital_platform", "Digital") or "Digital",
+            "ref_number": inv.get("digital_ref_number", ""),
+            "sender": inv.get("digital_sender", ""),
+            "amount": round(digital_amt, 2),
+            "is_split": is_split,
+            "has_receipt": has_receipt,
+            "has_ref": has_ref,
+        })
+
+    total_items = len(expenses_result) + len(pos_result) + len(digital_result)
+    sev = "critical" if no_receipt_count > 3 or po_no_receipt > 2 or digital_no_ref > 2 else (
         "warning" if total_items > 0 else "ok"
     )
 
@@ -1175,6 +1223,11 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
         "purchase_orders": pos_result[:50],
         "po_count": len(pos_result),
         "po_no_receipt": po_no_receipt,
+        "digital_payments": digital_result[:50],
+        "digital_count": len(digital_result),
+        "digital_no_receipt": digital_no_receipt,
+        "digital_no_ref": digital_no_ref,
+        "total_unverified_digital": round(total_unverified_digital, 2),
         "total_items": total_items,
         "severity": sev,
     }

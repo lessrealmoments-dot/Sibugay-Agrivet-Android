@@ -492,7 +492,28 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
     exp_query = {"date": date, "voided": {"$ne": True}}
     if branch_id:
         exp_query["branch_id"] = branch_id
-    expenses = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
+    expenses_raw = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
+
+    # Enrich Employee Advance expenses with CA limit info
+    _emp_limit_cache_report = {}
+    month_prefix = date[:7]
+    expenses = []
+    for e in expenses_raw:
+        exp = dict(e)
+        if e.get("category") == "Employee Advance" and e.get("employee_id"):
+            month_res = await db.expenses.aggregate([
+                {"$match": {"category": "Employee Advance", "employee_id": e["employee_id"],
+                            "date": {"$gte": f"{month_prefix}-01", "$lte": f"{month_prefix}-31"}}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ]).to_list(1)
+            exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+            eid = e["employee_id"]
+            if eid not in _emp_limit_cache_report:
+                emp_doc = await db.employees.find_one({"id": eid}, {"_id": 0, "monthly_ca_limit": 1})
+                _emp_limit_cache_report[eid] = float(emp_doc.get("monthly_ca_limit", 0)) if emp_doc else 0
+            exp["monthly_ca_limit"] = _emp_limit_cache_report[eid]
+            exp["is_over_ca"] = exp["monthly_ca_limit"] > 0 and exp["monthly_ca_total"] > exp["monthly_ca_limit"]
+        expenses.append(exp)
 
     real_expenses = []         # Actual P&L expenses (utilities, rent, misc — reduces net profit)
     credit_expenses = []       # Credits extended to customers (AR — money comes back)

@@ -671,20 +671,15 @@ export default function DailyLogPage() {
           {report ? (
             <>
               {/* KPI row */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
-                  { label: 'New Sales Today', value: report.new_sales_today, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ArrowUp },
+                  { label: 'Sales Today', value: report.new_sales_today, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ArrowUp },
                   { label: 'COGS', value: report.total_cogs, color: 'text-slate-600', bg: 'bg-slate-50', icon: ArrowDown },
-                  { label: 'Gross Profit', value: report.gross_profit, color: report.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600', bg: 'bg-white', icon: TrendingUp },
-                  { label: 'Operating Expenses', value: report.total_expenses, color: 'text-red-600', bg: 'bg-red-50', icon: ArrowDown,
-                    sub: (report.total_inventory_expenses || 0) > 0
-                      ? `Inventory purchases ₱${(report.total_inventory_expenses || 0).toLocaleString()} excluded (balance sheet)` : null },
                   { label: 'Net Profit', value: report.net_profit, color: report.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700', bg: report.net_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50', icon: DollarSign },
                 ].map((kpi, i) => (
                   <Card key={i} className="border-slate-200"><CardContent className={`p-4 ${kpi.bg}`}>
                     <div className="flex items-center gap-1 mb-1"><kpi.icon size={14} className={kpi.color} /><span className="text-xs text-slate-500 uppercase">{kpi.label}</span></div>
                     <p className={`text-xl font-bold ${kpi.color}`} style={{ fontFamily: 'Manrope' }}>{formatPHP(kpi.value)}</p>
-                    {kpi.sub && <p className="text-[10px] text-slate-400 mt-0.5">{kpi.sub}</p>}
                   </CardContent></Card>
                 ))}
               </div>
@@ -695,19 +690,8 @@ export default function DailyLogPage() {
                 <span className="text-emerald-600 font-medium">Sales {formatPHP(report.new_sales_today)}</span>
                 <span>−</span>
                 <span className="text-slate-600 font-medium">COGS {formatPHP(report.total_cogs)}</span>
-                <span>−</span>
-                <span className="text-red-600 font-medium">Operating Exp {formatPHP(report.total_expenses)}</span>
                 <span>=</span>
                 <span className={`font-bold ${report.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatPHP(report.net_profit)}</span>
-                {((report.total_credit_expenses || 0) + (report.total_inventory_expenses || 0) + (report.total_advance_expenses || 0)) > 0 && (
-                  <span className="ml-1 text-slate-400">
-                    · Excluded: {[
-                      (report.total_inventory_expenses || 0) > 0 ? `PO ₱${(report.total_inventory_expenses).toLocaleString()}` : '',
-                      (report.total_credit_expenses || 0) > 0 ? `Credits ₱${(report.total_credit_expenses).toLocaleString()}` : '',
-                      (report.total_advance_expenses || 0) > 0 ? `Advances ₱${(report.total_advance_expenses).toLocaleString()}` : '',
-                    ].filter(Boolean).join(', ')}
-                  </span>
-                )}
               </div>
 
               {/* Sales by Category */}

@@ -128,10 +128,12 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
                 "changed_at": now_iso(),
             })
 
-            # Step 9: Update vendor last_price
-            await db.product_vendors.update_many(
-                {"product_id": pid, "vendor_name": po["vendor"]},
-                {"$set": {"last_price": price, "last_order_date": now_iso()[:10]}}
+            # Step 9: Update vendor last_price — BRANCH-SPECIFIC
+            await db.product_vendors.update_one(
+                {"product_id": pid, "vendor_name": po["vendor"], "branch_id": branch_id},
+                {"$set": {"last_price": price, "last_order_date": now_iso()[:10]},
+                 "$setOnInsert": {"id": new_id(), "created_at": now_iso()}},
+                upsert=True
             )
 
         except Exception as e:

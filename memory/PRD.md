@@ -157,6 +157,15 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Fixed: auth.py verify-manager-pin, accounting.py fund transfers/reversals, daily_operations.py close, invoices.py void, returns.py void
 - [x] Split/Partial payment tabs disabled without customer (Mar 2026)
   - Split, Partial, and Credit tabs now all require a customer to be selected before use
+- [x] PIN Policy Configuration System (Mar 2026)
+  - 23 PIN-protected actions across 9 modules (Sales, Fund Mgmt, Reversals, Daily Ops, Inventory, Products, PO, Audit, System)
+  - 4 PIN methods: Owner PIN, Manager PIN, TOTP (Google Auth), Auditor PIN
+  - Admin-only Settings UI: matrix of actions × methods with toggle buttons
+  - New: GET/PUT /api/settings/pin-policies — CRUD for per-action PIN type policies
+  - `_resolve_pin` now accepts `allowed_methods` filter; `verify_pin_for_action` loads policy per action
+  - All endpoints updated: auth.py, accounting.py, daily_operations.py, invoices.py, returns.py, purchase_orders.py, uploads.py, verify.py, backups.py
+  - 6 new PIN-enforceable actions: invoice edit, product delete, inventory adjust, price override, reopen PO, POS discount
+  - Replaces old TOTP Controls section in Settings
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

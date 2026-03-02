@@ -496,7 +496,7 @@ export default function DailyLogPage() {
                       <td className="px-3 py-2 text-slate-500 text-xs">{e.customer_name || 'Walk-in'}</td>
                       <td className="px-3 py-2 font-mono text-xs"><button className="text-blue-600 hover:underline hover:text-blue-800" onClick={() => { setSelectedInvoiceNumber(e.invoice_number); setInvoiceModalOpen(true); }}>{e.invoice_number}</button></td>
                       <td className="px-3 py-2 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${pmColor}`}>{pm}</span>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${pmColor}`}>{pmLabel}</span>
                       </td>
                       <td className="px-3 py-2 text-right text-slate-600">{e.quantity} <span className="text-slate-400 text-xs">{e.unit || ''}</span></td>
                       <td className="px-3 py-2 text-right font-mono">{formatPHP(e.unit_price)}</td>

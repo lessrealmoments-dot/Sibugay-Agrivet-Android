@@ -2025,6 +2025,62 @@ export default function AuditCenterPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Bulk Verify Dialog */}
+      {bulkVerifyOpen && (
+        <Dialog open={bulkVerifyOpen} onOpenChange={() => { setBulkVerifyOpen(false); setBulkVerifyPin(''); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-slate-800">
+                <ShieldCheck size={16} className="text-[#1A4D2E]" /> Verify All Items
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="font-medium text-amber-800">
+                  This will verify {auditData?.unverified?.total_items || 0} unverified item(s):
+                </p>
+                <ul className="text-xs text-amber-700 mt-1 space-y-0.5">
+                  {auditData?.unverified?.expenses_count > 0 && (
+                    <li>· {auditData.unverified.expenses_count} expense(s)</li>
+                  )}
+                  {auditData?.unverified?.po_count > 0 && (
+                    <li>· {auditData.unverified.po_count} purchase order(s)</li>
+                  )}
+                  {auditData?.unverified?.digital_count > 0 && (
+                    <li>· {auditData.unverified.digital_count} digital payment(s)</li>
+                  )}
+                </ul>
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Enter Admin/Auditor PIN or TOTP</Label>
+                <Input
+                  type="password"
+                  value={bulkVerifyPin}
+                  onChange={e => setBulkVerifyPin(e.target.value)}
+                  placeholder="PIN or TOTP code"
+                  className="mt-1"
+                  autoFocus
+                  onKeyDown={e => e.key === 'Enter' && bulkVerify()}
+                  data-testid="bulk-verify-pin-input"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                All items will be marked as verified and recorded in the audit trail.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={() => { setBulkVerifyOpen(false); setBulkVerifyPin(''); }}>Cancel</Button>
+                <Button onClick={bulkVerify} disabled={bulkVerifying || !bulkVerifyPin}
+                  className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                  data-testid="bulk-verify-confirm-btn">
+                  {bulkVerifying ? <RefreshCw size={13} className="animate-spin mr-1" /> : <Check size={13} className="mr-1" />}
+                  Verify All
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

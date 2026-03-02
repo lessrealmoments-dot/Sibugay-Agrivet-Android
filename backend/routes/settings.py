@@ -8,6 +8,48 @@ from utils import get_current_user, check_perm, now_iso
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
+# ── PIN Policies ─────────────────────────────────────────────────────────────
+
+@router.get("/pin-policies")
+async def get_pin_policies(user=Depends(get_current_user)):
+    """Get PIN policy configuration. Admin only."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    from routes.verify import PIN_POLICY_ACTIONS, PIN_METHODS, _get_pin_policy
+    custom = await _get_pin_policy()
+    # Merge defaults with custom overrides
+    policies = {}
+    for action in PIN_POLICY_ACTIONS:
+        policies[action["key"]] = custom.get(action["key"], action["defaults"])
+    return {"actions": PIN_POLICY_ACTIONS, "methods": PIN_METHODS, "policies": policies}
+
+
+@router.put("/pin-policies")
+async def update_pin_policies(data: dict, user=Depends(get_current_user)):
+    """Update PIN policies. Admin only."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    from routes.verify import PIN_METHODS
+    policies = data.get("policies", {})
+    # Validate: each value must be a list of valid methods
+    valid_methods = set(PIN_METHODS)
+    for key, methods in policies.items():
+        if not isinstance(methods, list):
+            raise HTTPException(status_code=400, detail=f"Invalid policy for {key}")
+        if not all(m in valid_methods for m in methods):
+            raise HTTPException(status_code=400, detail=f"Invalid method in policy for {key}")
+        if len(methods) == 0:
+            raise HTTPException(status_code=400, detail=f"At least one PIN method required for {key}")
+    await db.system_settings.update_one(
+        {"key": "pin_policies"},
+        {"$set": {"key": "pin_policies", "policies": policies, "updated_at": now_iso(), "updated_by": user["id"]}},
+        upsert=True
+    )
+    return {"message": "PIN policies updated", "policies": policies}
+
+
+# ── Legacy TOTP Controls (kept for backward compatibility) ───────────────────
+
 # All sensitive actions that can be protected by TOTP
 TOTP_PROTECTED_ACTIONS = [
     {"key": "inventory_adjust",    "label": "Direct Inventory Correction",   "module": "Inventory"},
@@ -24,7 +66,28 @@ TOTP_PROTECTED_ACTIONS = [
 DEFAULT_TOTP_ACTIONS = ["inventory_adjust", "close_day"]
 
 
-@router.get("/invoice-prefixes")
+@router.get("/totp-controls")
+async def get_totp_controls(user=Depends(get_current_user)):
+    """Get which sensitive actions are protected by TOTP."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    doc = await db.system_settings.find_one({"key": "totp_controls"}, {"_id": 0})
+    enabled = doc.get("enabled_actions", DEFAULT_TOTP_ACTIONS) if doc else DEFAULT_TOTP_ACTIONS
+    return {"actions": TOTP_PROTECTED_ACTIONS, "enabled_actions": enabled}
+
+
+@router.put("/totp-controls")
+async def update_totp_controls(data: dict, user=Depends(get_current_user)):
+    """Update which actions require TOTP verification."""
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    enabled = data.get("enabled_actions", [])
+    await db.system_settings.update_one(
+        {"key": "totp_controls"},
+        {"$set": {"key": "totp_controls", "enabled_actions": enabled, "updated_at": now_iso()}},
+        upsert=True
+    )
+    return {"message": "TOTP controls updated", "enabled_actions": enabled}
 async def get_invoice_prefixes(user=Depends(get_current_user)):
     """Get invoice prefix settings."""
     s = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})

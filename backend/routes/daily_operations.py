@@ -191,7 +191,7 @@ async def get_daily_close_preview(
          "grand_total": inv.get("grand_total", 0), "balance": inv.get("balance", 0)}
         for inv in credit_invoices
     ]
-    total_credit_today = round(sum(c["grand_total"] for c in credit_sales_today), 2)
+    total_credit_today = round(sum(c["balance"] for c in credit_sales_today), 2)
 
     # ── AR payments received today (on OLDER invoices) ───────────────────────
     ar_pipeline = [

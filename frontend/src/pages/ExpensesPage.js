@@ -503,6 +503,11 @@ export default function ExpensesPage() {
                   <TableCell className="text-sm">
                     <div>{e.description}</div>
                     {e.notes && <div className="text-xs text-slate-400">{e.notes}</div>}
+                    {e.employee_name && (
+                      <div className="text-xs text-violet-600">
+                        Employee: {e.employee_name}
+                      </div>
+                    )}
                     {e.customer_name && (
                       <div className={`text-xs ${e.category === 'Customer Cash Out' ? 'text-blue-600' : 'text-amber-600'}`}>
                         {e.category === 'Customer Cash Out' ? 'Loaned to: ' : 'Billed to: '}{e.customer_name}

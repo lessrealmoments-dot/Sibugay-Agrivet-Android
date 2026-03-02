@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Plus, ArrowDown, Search, Filter, Edit2, Tractor, FileText, Banknote, AlertTriangle, Shield, Upload } from 'lucide-react';
+import { Plus, ArrowDown, Search, Filter, Edit2, Tractor, FileText, Banknote, AlertTriangle, Shield, Upload, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
 import ReceiptUploadInline from '../components/ReceiptUploadInline';
@@ -49,6 +49,7 @@ export default function ExpensesPage() {
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [farmExpenseDialog, setFarmExpenseDialog] = useState(false);
   const [cashOutDialog, setCashOutDialog] = useState(false);
+  const [employeeAdvanceDialog, setEmployeeAdvanceDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
   const [expenseForm, setExpenseForm] = useState({

@@ -755,17 +755,38 @@ async def _compute_payables(branch_id: str, date_from: str, date_to: str) -> dic
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     unpaid = await db.purchase_orders.find(
         {"branch_id": branch_id, "payment_status": {"$in": ["unpaid", "partial"]}, "status": {"$ne": "cancelled"}},
-        {"_id": 0, "po_number": 1, "vendor": 1, "balance": 1, "grand_total": 1, "subtotal": 1, "due_date": 1}
+        {"_id": 0, "id": 1, "po_number": 1, "vendor": 1, "balance": 1, "grand_total": 1, "subtotal": 1,
+         "due_date": 1, "purchase_date": 1, "payment_status": 1, "verified": 1, "verified_by_name": 1}
     ).to_list(500)
 
     total_ap = sum(float(p.get("balance") or p.get("grand_total") or p.get("subtotal", 0)) for p in unpaid)
     overdue = [p for p in unpaid if p.get("due_date") and p["due_date"] < today]
+
+    # Build PO detail list for drill-down
+    po_details = []
+    for p in unpaid:
+        bal = float(p.get("balance") or p.get("grand_total") or p.get("subtotal", 0))
+        is_overdue = bool(p.get("due_date") and p["due_date"] < today)
+        po_details.append({
+            "id": p.get("id", ""),
+            "po_number": p.get("po_number", ""),
+            "vendor": p.get("vendor", ""),
+            "balance": round(bal, 2),
+            "grand_total": round(float(p.get("grand_total") or p.get("subtotal", 0)), 2),
+            "due_date": p.get("due_date", ""),
+            "purchase_date": p.get("purchase_date", ""),
+            "payment_status": p.get("payment_status", ""),
+            "is_overdue": is_overdue,
+            "verified": p.get("verified", False),
+        })
+    po_details.sort(key=lambda x: (not x["is_overdue"], x.get("due_date", "9999")))
 
     return {
         "total_outstanding_ap": round(total_ap, 2),
         "unpaid_po_count": len(unpaid),
         "overdue_count": len(overdue),
         "overdue_value": round(sum(float(p.get("balance") or p.get("grand_total") or 0) for p in overdue), 2),
+        "po_details": po_details[:50],
         "severity": "critical" if overdue else ("warning" if total_ap > 0 else "ok"),
     }
 

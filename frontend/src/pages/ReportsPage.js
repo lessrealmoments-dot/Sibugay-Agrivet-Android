@@ -522,6 +522,7 @@ function SalesReport({ branches, selectedBranchId }) {
           </CardContent>
         </Card>
       )}
+      <InvoiceDetailModal open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} invoiceNumber={selectedInvoiceNumber} />
     </div>
   );
 }

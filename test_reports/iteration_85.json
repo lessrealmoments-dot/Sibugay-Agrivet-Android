@@ -1,0 +1,97 @@
+{
+  "summary": "Bug fix verification for 3 reported bugs: (1) Toast notification description, (2) Farm expense description in Closing Wizard, (3) Total credit using balance vs grand_total. All 3 bugs confirmed FIXED.",
+  
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  
+  "bug_verification": {
+    "bug_1_toast_notification": {
+      "status": "FIXED",
+      "description": "Farm expense and customer cashout endpoints now return 'message' field",
+      "verification": [
+        "POST /api/expenses/farm returns: 'Farm expense recorded — Invoice SVC-xxx created for CustomerName'",
+        "POST /api/expenses/customer-cashout returns: 'Cash out recorded — Invoice CA-xxx created for CustomerName'"
+      ],
+      "code_location": "accounting.py lines 848, 951"
+    },
+    "bug_2_farm_expense_description": {
+      "status": "FIXED",
+      "description": "ar_credits_today now includes 'items' array with product_name/description for display",
+      "verification": [
+        "daily-report API returns ar_credits_today with items[0].product_name (e.g., 'Farm Service: Tilling service')",
+        "daily-close POST saves ar_credits_today with description extracted from items[0].product_name",
+        "Frontend CloseWizardPage.js reads items[0].product_name and description correctly (lines 883-886)",
+        "Frontend DailyLogPage.js reads description or items[0].product_name (lines 118-132)"
+      ],
+      "code_location": "daily_operations.py lines 520-521, 897-901, 966-970, 1168-1172, 1243-1247"
+    },
+    "bug_3_balance_vs_grand_total": {
+      "status": "FIXED",
+      "description": "total_credit_today now uses 'balance' instead of 'grand_total' for partial payments",
+      "verification": [
+        "daily-close-preview: total_credit_today = sum(balance) for credit invoices (line 194)",
+        "daily-log: total_credit = sum(balance) for credit invoices (line 409)",
+        "daily-report: total_credit_today = sum(balance) for credit sales (not directly visible but ar_credits_today correctly shows balance)"
+      ],
+      "code_location": "daily_operations.py lines 194, 409, 715, 894, 1166"
+    }
+  },
+  
+  "test_results": {
+    "backend_tests": {
+      "passed": 9,
+      "skipped": 2,
+      "failed": 0,
+      "details": "Bug 1 tests skipped due to no credit customers in initial test data (but manually verified with created test customer)"
+    },
+    "manual_verification": {
+      "bug_1_farm_expense": "PASS - Message: 'Farm expense recorded — Invoice SVC-20260302-0013 created for TEST_BUG85_Credit_Customer'",
+      "bug_1_cashout": "PASS - Message: 'Cash out recorded — Invoice CA-20260302-0012 created for TEST_BUG85_Credit_Customer'",
+      "bug_2_daily_report": "PASS - ar_credits_today contains 3 items with items[0].product_name",
+      "bug_3_balance_calc": "PASS - total_new_credit correctly sums balance values"
+    }
+  },
+  
+  "test_report_links": [
+    "/app/backend/tests/test_bug_fixes_iteration_85.py",
+    "/app/test_reports/pytest/pytest_results_85.xml"
+  ],
+  
+  "action_items": [],
+  
+  "critical_code_review_comments": [
+    "Bug fixes are correctly applied to the specified lines in accounting.py and daily_operations.py",
+    "Frontend correctly handles both 'description' field and fallback to 'items[0].product_name' for older data",
+    "Note: daily-close-preview GET endpoint doesn't return ar_credits_today (farm expenses/cashouts) - only daily-report does. The Close Wizard works because it reads from saved daily_closings records after close."
+  ],
+  
+  "updated_files": [
+    "/app/backend/tests/test_bug_fixes_iteration_85.py"
+  ],
+  
+  "success_rate": {
+    "backend": "100% (9 passed, 2 skipped)",
+    "frontend": "N/A - verified via backend API responses"
+  },
+  
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "manager_pin": "521325",
+    "branch_tested": "IPIL BRANCH (c435277f-9fc7-4d83-83e7-38be5b4423ac)"
+  },
+  
+  "seed_data_creation": "Created TEST_BUG85_Credit_Customer and multiple farm expenses/cashouts for testing",
+  
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  
+  "context_for_next_testing_agent": "All 3 reported bugs are verified FIXED. Test data created: TEST_BUG85_Credit_Customer with multiple SVC- and CA- invoices on 2026-03-02. The daily-close-preview GET endpoint doesn't return ar_credits_today for farm expenses/cashouts - this data only appears after day close is saved. Frontend correctly displays description from items[0].product_name."
+}

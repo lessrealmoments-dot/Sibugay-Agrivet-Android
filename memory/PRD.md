@@ -104,6 +104,18 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Toast notification now shows descriptive message with invoice number
   - Close Wizard and Daily Ops show farm expense description (what money was for)
   - Total Credit Extended Today uses `balance` instead of `grand_total` for partial payments
+- [x] Employee Cash Advance quick action on Expenses page (Mar 2026)
+  - New "Employee Cash Advance" button with violet styling alongside Farm Expense and Customer Cash Out
+  - Dedicated dialog with employee selector, CA summary (monthly usage/limit/balance), amount, date, description
+  - Manager PIN approval flow when monthly CA limit exceeded
+  - Backend returns descriptive {expense, message} format
+- [x] Employee name shown in expense summaries (Mar 2026)
+  - Both Expenses page and Accounting page now display "Employee: [name]" in violet for Employee Advance expenses
+  - Employee Advance category badge has violet styling
+- [x] Farm Expense receipt upload (Mar 2026)
+  - ReceiptUploadInline component added to Farm Expense dialog (desktop upload + phone QR)
+  - "Skip & Upload Later" option with note about uploading in Closing Wizard or expense row
+  - Backend farm endpoint now handles upload_session_ids to link receipt photos
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

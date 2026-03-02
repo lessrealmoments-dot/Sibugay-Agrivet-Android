@@ -383,20 +383,37 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
 
     all_entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
 
-    # Separate cash vs credit entries
-    cash_entries = [e for e in all_entries if (e.get("payment_method") or "cash").lower() == "cash"]
+    # Separate cash vs credit entries (split cash portion counts as cash)
+    cash_entries = []
+    for e in all_entries:
+        pm = (e.get("payment_method") or "cash").lower()
+        if pm == "cash":
+            cash_entries.append(e)
+        elif pm == "split":
+            # Split: compute cash portion of this item
+            gt = float(e.get("split_grand_total", 0))
+            cash_ratio = float(e.get("split_cash_amount", 0)) / gt if gt > 0 else 0
+            cash_portion = round(float(e.get("line_total", 0)) * cash_ratio, 2)
+            e["_split_cash_portion"] = cash_portion
+            cash_entries.append(e)
 
     # Compute cash-only running total
     cash_running = 0.0
     for e in cash_entries:
-        cash_running += float(e.get("line_total", 0))
+        pm = (e.get("payment_method") or "cash").lower()
+        if pm == "split":
+            cash_running += float(e.get("_split_cash_portion", 0))
+        else:
+            cash_running += float(e.get("line_total", 0))
         e["cash_running_total"] = round(cash_running, 2)
 
     # Cash by category
     cash_by_category = {}
     for e in cash_entries:
         cat = e.get("category") or "General"
-        cash_by_category[cat] = round(cash_by_category.get(cat, 0.0) + float(e.get("line_total", 0)), 2)
+        pm = (e.get("payment_method") or "cash").lower()
+        amt = float(e.get("_split_cash_portion", 0)) if pm == "split" else float(e.get("line_total", 0))
+        cash_by_category[cat] = round(cash_by_category.get(cat, 0.0) + amt, 2)
     cash_by_category = dict(sorted(cash_by_category.items(), key=lambda x: -x[1]))
 
     # Credit/partial invoices with full item details

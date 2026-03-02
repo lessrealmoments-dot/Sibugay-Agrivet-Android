@@ -902,6 +902,117 @@ export default function ExpensesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* EMPLOYEE CASH ADVANCE DIALOG */}
+      <Dialog open={employeeAdvanceDialog} onOpenChange={setEmployeeAdvanceDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
+              <UserCheck size={20} className="text-violet-600" /> Employee Cash Advance
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 text-sm text-violet-800">
+              This will record a cash advance for an employee and deduct from the cashier wallet.
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500 font-semibold">Select Employee *</Label>
+              <Select value={employeeAdvanceForm.employee_id || 'none'} onValueChange={v => handleEaEmployeeSelect(v === 'none' ? '' : v)}>
+                <SelectTrigger className="h-10" data-testid="expenses-ea-employee-select">
+                  <SelectValue placeholder="Select employee..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— Select employee —</SelectItem>
+                  {employees.filter(e => e.active !== false).map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.name} {e.position ? `(${e.position})` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {eaCaSummary && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-white rounded border p-2">
+                    <p className="text-[10px] text-slate-400">This Month</p>
+                    <p className={`text-sm font-bold ${eaCaSummary.is_over_limit ? 'text-red-600' : 'text-violet-600'}`}>{formatPHP(eaCaSummary.this_month_total)}</p>
+                  </div>
+                  <div className="bg-white rounded border p-2">
+                    <p className="text-[10px] text-slate-400">Monthly Limit</p>
+                    <p className="text-sm font-bold">{eaCaSummary.monthly_ca_limit > 0 ? formatPHP(eaCaSummary.monthly_ca_limit) : 'None'}</p>
+                  </div>
+                  <div className="bg-white rounded border p-2">
+                    <p className="text-[10px] text-slate-400">Unpaid Balance</p>
+                    <p className="text-sm font-bold text-slate-700">{formatPHP(eaCaSummary.total_advance_balance)}</p>
+                  </div>
+                </div>
+                {eaCaSummary.is_over_limit && (
+                  <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 rounded p-2">
+                    <AlertTriangle size={13} /> Monthly limit reached — manager PIN will be required
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-slate-500">Amount (₱) *</Label>
+                <Input type="number" className="h-10" value={employeeAdvanceForm.amount}
+                  onChange={e => setEmployeeAdvanceForm({ ...employeeAdvanceForm, amount: parseFloat(e.target.value) || 0 })} data-testid="expenses-ea-amount" />
+              </div>
+              <div>
+                <Label className="text-xs text-slate-500">Date</Label>
+                <Input type="date" className="h-10" value={employeeAdvanceForm.date}
+                  onChange={e => setEmployeeAdvanceForm({ ...employeeAdvanceForm, date: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Description</Label>
+              <Input className="h-10" value={employeeAdvanceForm.description}
+                onChange={e => setEmployeeAdvanceForm({ ...employeeAdvanceForm, description: e.target.value })}
+                placeholder="e.g. Emergency advance, rice advance..." data-testid="expenses-ea-description" />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500">Notes (optional)</Label>
+              <Input className="h-10" value={employeeAdvanceForm.notes}
+                onChange={e => setEmployeeAdvanceForm({ ...employeeAdvanceForm, notes: e.target.value })} placeholder="Additional details..." />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEmployeeAdvanceDialog(false)}>Cancel</Button>
+              <Button onClick={() => handleCreateEmployeeAdvance()} className="bg-violet-600 hover:bg-violet-700 text-white" data-testid="expenses-save-ea-btn">
+                <UserCheck size={14} className="mr-2" /> Record Cash Advance
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* EA MANAGER PIN DIALOG */}
+      <Dialog open={eaManagerPinDialog} onOpenChange={setEaManagerPinDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+              <Shield size={18} className="text-amber-500" /> Manager Approval Required
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-red-700">
+                {employees.find(e => e.id === employeeAdvanceForm.employee_id)?.name || 'Employee'} has exceeded their monthly CA limit
+              </p>
+              <p className="text-xs text-red-600 mt-1">This month: {formatPHP(eaCaSummary?.this_month_total || 0)} / Limit: {formatPHP(eaCaSummary?.monthly_ca_limit || 0)}</p>
+              <p className="text-xs text-red-500 mt-1">Additional: {formatPHP(parseFloat(employeeAdvanceForm.amount || 0))}</p>
+            </div>
+            <div>
+              <Label>Manager PIN</Label>
+              <Input type="password" value={eaManagerPin} onChange={e => setEaManagerPin(e.target.value)}
+                placeholder="Enter 4-digit PIN" className="text-center text-2xl tracking-widest h-14" maxLength={6} />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setEaManagerPinDialog(false); setEaManagerPin(''); }}>Cancel</Button>
+              <Button className="flex-1 bg-amber-500 hover:bg-amber-600 text-white" onClick={handleEaManagerPin}>Approve & Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <UploadQRDialog
         open={uploadQROpen}
         onClose={(count) => { setUploadQROpen(false); if (count > 0) toast.success(`${count} receipt photo(s) saved!`); }}

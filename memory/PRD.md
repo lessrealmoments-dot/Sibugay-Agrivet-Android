@@ -151,6 +151,12 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - New: POST /api/suppliers/import-from-branch — copies supplier + pricing from another branch
   - New: GET /api/suppliers/available-for-import — lists importable suppliers from other branches
   - Frontend PO form: select supplier → loads vendor prices → auto-fills unit_price from history
+- [x] Unified PIN verification across all sections (Mar 2026)
+  - All PIN-protected actions now use centralized `_resolve_pin` from verify.py
+  - Accepts: Owner PIN (system_settings), Manager PIN (user doc), TOTP (Google Authenticator), Auditor PIN
+  - Fixed: auth.py verify-manager-pin, accounting.py fund transfers/reversals, daily_operations.py close, invoices.py void, returns.py void
+- [x] Split/Partial payment tabs disabled without customer (Mar 2026)
+  - Split, Partial, and Credit tabs now all require a customer to be selected before use
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

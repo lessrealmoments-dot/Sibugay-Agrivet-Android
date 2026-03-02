@@ -602,6 +602,11 @@ export default function DashboardPage() {
       </Responsive>
       )}
       </div>
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
     </div>
   );
 }

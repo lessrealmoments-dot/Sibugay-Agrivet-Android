@@ -627,7 +627,7 @@ export default function DailyLogPage() {
           )}
 
           {/* Empty state */}
-          {cashEntries.length === 0 && creditInvoices.length === 0 && (
+          {walkinEntries.length === 0 && creditInvoices.length === 0 && (
             <div className="text-center py-16 text-slate-400">
               <ClipboardList size={40} className="mx-auto mb-3 opacity-30" />
               <p>No sales recorded for {date}</p>

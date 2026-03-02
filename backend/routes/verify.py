@@ -231,7 +231,7 @@ async def verify_transaction(
         raise HTTPException(status_code=404, detail="Document not found")
 
     pin = str(data.get("pin", ""))
-    verifier = await _resolve_pin(pin)
+    verifier = await verify_pin_for_action(pin, "transaction_verify")
     if not verifier:
         # Log the failed attempt silently — alert admin if threshold exceeded
         doc_label = doc.get("po_number") or doc.get("reference_number") or doc_id[:8]

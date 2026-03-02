@@ -95,6 +95,11 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - New `ExpensesPage.js` with full CRUD, filters, Farm Expense, Customer Cash Out
   - Reuses same backend endpoints — no backend changes, zero regression risk
   - Error handling hardened for object-type API error responses
+- [x] Clickable invoice/PO numbers across entire app
+  - All invoice numbers in 8 pages now open InvoiceDetailModal (view + edit with PIN)
+  - PO numbers on Dashboard navigate to Purchase Orders page
+  - Pages: DailyLogPage, DashboardPage, AccountingPage, ExpensesPage, ReportsPage, AuditCenterPage
+  - SalesPage and PaymentsPage already had this — verified no regression
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

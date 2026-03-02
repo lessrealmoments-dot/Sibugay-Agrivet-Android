@@ -1146,10 +1146,17 @@ async def pay_receivable(rec_id: str, data: dict, user=Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Already fully paid")
 
     amount = float(data["amount"])
-    amount = min(amount, inv["balance"])  # Cap at balance
+    if amount > inv["balance"]:
+        raise HTTPException(status_code=400, detail=f"Amount ₱{amount:,.2f} exceeds balance ₱{inv['balance']:,.2f}")
     new_balance = max(0, round(inv["balance"] - amount, 2))
     new_paid = round(inv.get("amount_paid", 0) + amount, 2)
     new_status = "paid" if new_balance <= 0 else "partial"
+
+    # Interest & penalties first, then principal (aligned with invoice payment logic)
+    interest_owed = float(inv.get("interest_accrued", 0)) + float(inv.get("penalties", 0))
+    applied_interest = min(amount, interest_owed)
+    applied_principal = round(amount - applied_interest, 2)
+    new_interest = max(0, round(float(inv.get("interest_accrued", 0)) - applied_interest, 2))
 
     method = data.get("method", "Cash")
     digital = is_digital_payment(method)
@@ -1162,14 +1169,14 @@ async def pay_receivable(rec_id: str, data: dict, user=Depends(get_current_user)
         "method": method,
         "reference": data.get("reference", ""),
         "fund_source": fund_source,
-        "applied_to_interest": 0,
-        "applied_to_principal": amount,
+        "applied_to_interest": round(applied_interest, 2),
+        "applied_to_principal": applied_principal,
         "recorded_by": user.get("full_name", user["username"]),
         "recorded_at": now_iso(),
     }
 
     await db.invoices.update_one({"id": rec_id}, {
-        "$set": {"balance": new_balance, "amount_paid": new_paid, "status": new_status},
+        "$set": {"balance": new_balance, "amount_paid": new_paid, "status": new_status, "interest_accrued": new_interest},
         "$push": {"payments": payment_record}
     })
 

@@ -897,7 +897,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     ar_credits_today = await db.invoices.find(
         {"branch_id": branch_id, "order_date": date,
          "sale_type": {"$in": ["cash_advance", "farm_expense"]}, "status": {"$ne": "voided"}},
-        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "sale_type": 1}
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "sale_type": 1, "items": 1}
     ).to_list(200)
 
     # ── Total outstanding AR at time of close ─────────────────────────────────

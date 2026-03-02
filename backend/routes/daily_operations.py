@@ -891,7 +891,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1,
          "balance": 1, "payment_type": 1, "sale_type": 1}
     ).to_list(500)
-    total_new_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices_today), 2)
+    total_new_credit = round(sum(float(inv.get("balance", 0)) for inv in credit_invoices_today), 2)
 
     # Also get cashouts/farm AR credits
     ar_credits_today = await db.invoices.find(
@@ -1163,7 +1163,7 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
         {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1,
          "balance": 1, "payment_type": 1, "sale_type": 1}
     ).to_list(500)
-    total_new_credit = round(sum(float(inv.get("grand_total", 0)) for inv in credit_invoices_today), 2)
+    total_new_credit = round(sum(float(inv.get("balance", 0)) for inv in credit_invoices_today), 2)
 
     # Cashouts/farm AR
     ar_credits_today = await db.invoices.find(

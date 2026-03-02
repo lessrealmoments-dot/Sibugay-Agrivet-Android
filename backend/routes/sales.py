@@ -32,7 +32,16 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     items = data.get("items", [])
     if not items:
         raise HTTPException(status_code=400, detail="No items in sale")
-    
+
+    # PIN enforcement for discounted items (pos_discount policy)
+    has_discount = any(float(item.get("discount_value", 0)) > 0 for item in items)
+    discount_pin = data.get("discount_pin", "")
+    if has_discount and discount_pin:
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(discount_pin, "pos_discount")
+        if not verifier:
+            raise HTTPException(status_code=403, detail="Invalid PIN for discount authorization")
+
     customer_id = data.get("customer_id")
     customer_name = data.get("customer_name", "Walk-in")
     payment_type = data.get("payment_type", "cash")  # cash, partial, credit

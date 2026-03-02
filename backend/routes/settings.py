@@ -1,7 +1,7 @@
 """
-Settings routes: Invoice prefixes, terms options, system settings, TOTP controls.
+Settings routes: Invoice prefixes, terms options, system settings, PIN policies.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from config import db
 from utils import get_current_user, check_perm, now_iso
 

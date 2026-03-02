@@ -593,17 +593,19 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
 
     # ── Expected cash (matches Closing Wizard formula) ────────────────────
     total_cash_in = cash_sales + total_partial_cash + total_cash_ar + total_split_cash
+
+    # Current cashier balance (real-time truth)
+    cashier = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
+    current_cashier = float(cashier.get("balance", 0)) if cashier else 0.0
+
     if has_prev_close:
         expected_cash = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
     else:
-        wallet_now = await db.fund_wallets.find_one(
-            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
-        )
-        expected_cash = round(float(wallet_now["balance"]) if wallet_now else 0, 2)
-
-    # Current cashier balance
-    cashier = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
-    current_cashier = float(cashier.get("balance", 0)) if cashier else 0.0
+        # No previous close: wallet balance is real-time truth.
+        # Reverse-calculate the starting float so the formula adds up correctly:
+        # starting_float = wallet_balance - cash_in - net_fund_transfers + cashier_expenses
+        expected_cash = round(current_cashier, 2)
+        starting_float = round(current_cashier - total_cash_in - net_fund_transfers + total_cashier_expenses, 2)
 
     # Safe balance
     safe = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0})

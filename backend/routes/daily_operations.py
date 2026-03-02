@@ -1064,11 +1064,9 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
     if user.get("role") != "admin":
         if not admin_pin:
             raise HTTPException(status_code=403, detail="Admin PIN required for batch close")
-        admin = await db.users.find_one({"role": "admin", "active": True}, {"_id": 0})
-        if not admin:
-            raise HTTPException(status_code=403, detail="No admin user found")
-        admin_stored_pin = admin.get("manager_pin", "") or admin.get("password_hash", "")[-4:]
-        if admin_pin != admin_stored_pin:
+        from routes.verify import _resolve_pin
+        verifier = await _resolve_pin(admin_pin)
+        if not verifier:
             raise HTTPException(status_code=403, detail="Invalid admin PIN")
 
     # Check none of the dates are already closed

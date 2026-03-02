@@ -1139,6 +1139,11 @@ export default function AccountingPage() {
             ? { ...e, verified: true, verification_status: 'clean' } : e));
         }}
       />
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
     </div>
   );
 }

@@ -389,6 +389,19 @@ async def get_daily_close_preview(
         # Summary
         "total_cash_in": round(total_cash_in, 2),
         "expected_counter": expected_counter,
+        # Fund transfers affecting cashier
+        "fund_transfers_today": [
+            {"type": ft["transfer_type"], "amount": float(ft.get("amount", 0)),
+             "note": ft.get("note", ""), "authorized_by": ft.get("authorized_by", ""),
+             "target_wallet": ft.get("target_wallet", ""),
+             "time": ft.get("created_at", "")[-19:-10] if ft.get("created_at") else ""}
+            for ft in fund_transfers_today
+            if ft.get("transfer_type") in ("capital_add", "safe_to_cashier", "cashier_to_safe")
+        ],
+        "capital_to_cashier": capital_to_cashier,
+        "safe_to_cashier": safe_to_cashier,
+        "cashier_to_safe": cashier_to_safe,
+        "net_fund_transfers": net_fund_transfers,
     }
 
 

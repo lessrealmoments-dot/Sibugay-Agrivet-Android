@@ -1335,62 +1335,176 @@ export default function CloseWizardPage() {
                 </div>
               </div>
 
-              {/* Z-Report: Credit Sales Summary */}
-              {((dailyLog?.summary?.total_credit || 0) > 0 || (report?.total_ar_credits_today || 0) > 0) && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-amber-800">Credit Extended Today</p>
-                    <span className="font-bold font-mono text-amber-700">{formatPHP(r2((dailyLog?.summary?.total_credit || 0) + (report?.total_ar_credits_today || 0)))}</span>
+              {/* Z-Report: AR Cash Payments — Detailed */}
+              {(preview?.ar_payments || []).length > 0 && (
+                <div className="rounded-xl border border-indigo-200 overflow-hidden">
+                  <div className="px-4 py-2 bg-indigo-50 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">AR Cash Payments</p>
+                    <span className="font-bold font-mono text-indigo-700 text-sm">{formatPHP(preview?.total_ar_received || 0)}</span>
                   </div>
-                  <p className="text-[11px] text-amber-600">
-                    {dailyLog?.summary?.credit_invoice_count || 0} credit invoice(s)
-                    {(report?.ar_credits_today || []).length > 0 && ` + ${report.ar_credits_today.length} cashout/farm`}
-                  </p>
-                </div>
-              )}
-
-              {/* Z-Report: Expense Summary */}
-              {(preview?.total_expenses || 0) > 0 && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-red-800">Expenses</p>
-                    <span className="font-bold font-mono text-red-700">{formatPHP(preview?.total_expenses || 0)}</span>
-                  </div>
-                  {(preview?.total_safe_expenses || 0) > 0 && (
-                    <div className="flex justify-between text-[11px] text-red-500 mb-1">
-                      <span>From drawer: {formatPHP(preview?.total_cashier_expenses || 0)} | From safe: {formatPHP(preview?.total_safe_expenses || 0)}</span>
-                    </div>
-                  )}
-                  {(() => {
-                    const groups = {};
-                    (preview?.expenses || []).forEach(e => {
-                      const cat = e.category || 'Misc';
-                      const fs = e.fund_source === 'safe' ? ' (safe)' : '';
-                      const key = cat + fs;
-                      groups[key] = (groups[key] || 0) + parseFloat(e.amount || 0);
-                    });
-                    return Object.entries(groups).map(([cat, total]) => (
-                      <div key={cat} className="flex justify-between text-xs py-0.5 text-red-600">
-                        <span>{cat}</span><span className="font-mono font-semibold">{formatPHP(total)}</span>
+                  <div className="divide-y divide-indigo-100">
+                    {preview.ar_payments.map((p, i) => (
+                      <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium text-slate-800">{p.customer_name}</span>
+                          <span className="text-xs text-slate-400 ml-2">{p.invoice_number}</span>
+                          <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${p.fund_source === 'cashier' ? 'bg-emerald-100 text-emerald-700' : 'bg-violet-100 text-violet-700'}`}>
+                            {p.method || (p.fund_source === 'cashier' ? 'Cash' : 'Digital')}
+                          </span>
+                        </div>
+                        <span className="font-mono font-semibold text-indigo-700">{formatPHP(p.amount_paid)}</span>
                       </div>
-                    ));
-                  })()}
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Digital Payment Summary */}
-              {(preview?.total_digital_today || 0) > 0 && (
-                <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-violet-800">E-Wallet Payments</p>
-                    <span className="font-bold font-mono text-violet-700">{formatPHP(preview?.total_digital_today || 0)}</span>
+              {/* Z-Report: Capital Injections — Detailed, separated by target */}
+              {(preview?.fund_transfers_today || []).length > 0 && (
+                <div className="rounded-xl border border-cyan-200 overflow-hidden">
+                  <div className="px-4 py-2 bg-cyan-50 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-cyan-700">Fund Transfers</p>
+                    <span className="font-bold font-mono text-cyan-700 text-sm">{preview.net_fund_transfers > 0 ? '+' : ''}{formatPHP(preview?.net_fund_transfers || 0)}</span>
                   </div>
-                  <p className="text-[11px] text-violet-600 mb-1">Tracked separately — not part of cash drawer</p>
-                  {Object.entries(preview?.digital_by_platform || {}).map(([platform, amt]) => (
-                    <div key={platform} className="flex justify-between text-xs py-0.5 text-violet-600">
-                      <span>{platform}</span><span className="font-mono font-semibold">{formatPHP(amt)}</span>
-                    </div>
-                  ))}
+                  <div className="divide-y divide-cyan-100">
+                    {preview.fund_transfers_today.map((ft, i) => {
+                      const isCapital = ft.type === 'capital_add';
+                      const isCashierToSafe = ft.type === 'cashier_to_safe';
+                      const label = isCapital
+                        ? `Capital → ${ft.target_wallet === 'safe' ? 'Safe' : 'Cashier'}`
+                        : ft.type === 'safe_to_cashier' ? 'Safe → Cashier'
+                        : 'Cashier → Safe';
+                      return (
+                        <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
+                          <div>
+                            <span className="font-medium text-slate-800">{label}</span>
+                            {ft.note && <span className="text-xs text-slate-400 ml-2">{ft.note}</span>}
+                            {ft.authorized_by && <span className="text-[10px] text-slate-400 ml-1">by {ft.authorized_by}</span>}
+                          </div>
+                          <span className={`font-mono font-semibold ${isCashierToSafe ? 'text-orange-600' : 'text-cyan-700'}`}>
+                            {isCashierToSafe ? '-' : '+'}{formatPHP(ft.amount)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Z-Report: Cashier Expenses — Detailed */}
+              {(() => {
+                const cashierExps = (preview?.expenses || []).filter(e => e.fund_source !== 'safe');
+                const safeExps = (preview?.expenses || []).filter(e => e.fund_source === 'safe');
+                return (
+                  <>
+                    {cashierExps.length > 0 && (
+                      <div className="rounded-xl border border-red-200 overflow-hidden">
+                        <div className="px-4 py-2 bg-red-50 flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wider text-red-600">Cashier Expenses (from drawer)</p>
+                          <span className="font-bold font-mono text-red-700 text-sm">{formatPHP(preview?.total_cashier_expenses || 0)}</span>
+                        </div>
+                        <div className="divide-y divide-red-100">
+                          {cashierExps.map((e, i) => (
+                            <div key={i} className="px-4 py-2 text-sm">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium text-slate-800">{e.description || e.category}</span>
+                                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-medium">{e.category}</span>
+                                  {e.employee_name && <span className="text-xs text-slate-400 ml-1">({e.employee_name})</span>}
+                                  {e.customer_name && <span className="text-xs text-slate-400 ml-1">({e.customer_name})</span>}
+                                </div>
+                                <span className="font-mono font-semibold text-red-700">{formatPHP(e.amount)}</span>
+                              </div>
+                              {e.notes && <p className="text-[11px] text-slate-400 mt-0.5">{e.notes}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Z-Report: Safe Expenses — Detailed */}
+                    {safeExps.length > 0 && (
+                      <div className="rounded-xl border border-orange-200 overflow-hidden">
+                        <div className="px-4 py-2 bg-orange-50 flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wider text-orange-600">Safe Expenses (not from drawer)</p>
+                          <span className="font-bold font-mono text-orange-700 text-sm">{formatPHP(preview?.total_safe_expenses || 0)}</span>
+                        </div>
+                        <div className="divide-y divide-orange-100">
+                          {safeExps.map((e, i) => (
+                            <div key={i} className="px-4 py-2 text-sm">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <span className="font-medium text-slate-800">{e.description || e.category}</span>
+                                  <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">{e.category}</span>
+                                </div>
+                                <span className="font-mono font-semibold text-orange-700">{formatPHP(e.amount)}</span>
+                              </div>
+                              {e.notes && <p className="text-[11px] text-slate-400 mt-0.5">{e.notes}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+
+              {/* Z-Report: Credit Extended Today — Detailed */}
+              {(preview?.credit_sales_today || []).length > 0 && (
+                <div className="rounded-xl border border-amber-200 overflow-hidden">
+                  <div className="px-4 py-2 bg-amber-50 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-700">Credit Extended Today</p>
+                    <span className="font-bold font-mono text-amber-700 text-sm">{formatPHP(preview?.total_credit_today || 0)}</span>
+                  </div>
+                  <div className="divide-y divide-amber-100">
+                    {preview.credit_sales_today.map((inv, i) => (
+                      <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium text-slate-800">{inv.customer_name}</span>
+                          <span className="text-xs text-slate-400 ml-2">{inv.invoice_number}</span>
+                          <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-medium ${inv.payment_type === 'credit' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                            {inv.payment_type === 'credit' ? 'Full Credit' : 'Partial'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono font-semibold text-amber-700">{formatPHP(inv.balance)}</span>
+                          {inv.amount_paid > 0 && <span className="text-[10px] text-emerald-500 ml-1">(paid {formatPHP(inv.amount_paid)})</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Z-Report: E-Wallet Payments — Detailed */}
+              {(preview?.digital_sales_today || []).length > 0 && (
+                <div className="rounded-xl border border-violet-200 overflow-hidden">
+                  <div className="px-4 py-2 bg-violet-50 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-violet-700">E-Wallet Payments</p>
+                    <span className="font-bold font-mono text-violet-700 text-sm">{formatPHP(preview?.total_digital_today || 0)}</span>
+                  </div>
+                  <p className="px-4 py-1 text-[11px] text-violet-500 bg-violet-50/50">Tracked separately — not part of cash drawer</p>
+                  <div className="divide-y divide-violet-100">
+                    {preview.digital_sales_today.map((d, i) => (
+                      <div key={i} className="px-4 py-2 flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium text-slate-800">{d.customer_name || 'Walk-in'}</span>
+                          <span className="text-xs text-slate-400 ml-2">{d.invoice_number}</span>
+                          <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-600 font-medium">{d.platform}</span>
+                          {d.ref_number && <span className="text-[10px] text-slate-400 ml-1">Ref: {d.ref_number}</span>}
+                        </div>
+                        <span className="font-mono font-semibold text-violet-700">{formatPHP(d.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Platform totals */}
+                  <div className="px-4 py-2 bg-violet-50 border-t border-violet-200">
+                    {Object.entries(preview?.digital_by_platform || {}).map(([platform, amt]) => (
+                      <div key={platform} className="flex justify-between text-xs py-0.5 text-violet-600">
+                        <span className="font-medium">{platform} Total</span><span className="font-mono font-semibold">{formatPHP(amt)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

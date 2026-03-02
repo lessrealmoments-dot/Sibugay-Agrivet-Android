@@ -34,7 +34,7 @@ async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_nu
     })
 
 
-async def log_sale_items(branch_id, date, items, invoice_number, customer_name, payment_method, cashier_name):
+async def log_sale_items(branch_id, date, items, invoice_number, customer_name, payment_method, cashier_name, split_meta=None):
     """Record each sold item to sequential sales log."""
     last = await db.sales_log.find_one(
         {"branch_id": branch_id, "date": date},
@@ -69,6 +69,12 @@ async def log_sale_items(branch_id, date, items, invoice_number, customer_name, 
             "payment_method": (payment_method or "cash").lower(),
             "cashier_name": cashier_name,
         }
+        # Store split ratio so daily log can decompose into cash + digital
+        if split_meta:
+            entry["split_cash_amount"] = split_meta.get("cash_amount", 0)
+            entry["split_digital_amount"] = split_meta.get("digital_amount", 0)
+            entry["split_digital_platform"] = split_meta.get("digital_platform", "")
+            entry["split_grand_total"] = split_meta.get("grand_total", 0)
         await db.sales_log.insert_one(entry)
 
 

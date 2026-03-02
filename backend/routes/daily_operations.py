@@ -518,7 +518,7 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
     if branch_id:
         ar_today_query["branch_id"] = branch_id
     ar_credits_today = await db.invoices.find(ar_today_query, {"_id": 0,
-        "invoice_number": 1, "customer_name": 1, "sale_type": 1, "grand_total": 1}).to_list(200)
+        "invoice_number": 1, "customer_name": 1, "sale_type": 1, "grand_total": 1, "items": 1}).to_list(200)
     total_ar_credits_today = round(sum(float(inv.get("grand_total", 0)) for inv in ar_credits_today), 2)
     
     # Credit collections: only payments on OLD invoices (not today's new sales)

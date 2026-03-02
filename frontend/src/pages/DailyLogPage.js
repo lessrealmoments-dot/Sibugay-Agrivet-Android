@@ -117,7 +117,12 @@ function ZReport({ data, branchName, onPrint }) {
                 ))}
                 {(data.ar_credits_today || []).map((c, i) => (
                   <tr key={`arc-${i}`} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-1.5 font-medium">{c.customer_name}</td>
+                    <td className="px-3 py-1.5">
+                      <div className="font-medium">{c.customer_name}</div>
+                      {(c.description || c.items?.[0]?.product_name) && (
+                        <div className="text-xs text-slate-400">{c.description || c.items?.[0]?.product_name}</div>
+                      )}
+                    </td>
                     <td className="px-3 py-1.5 font-mono text-xs text-blue-600"><button className="hover:underline hover:text-blue-800" onClick={() => { setSelectedInvoiceNumber(c.invoice_number); setInvoiceModalOpen(true); }} data-testid={`inv-link-arc-${i}`}>{c.invoice_number}</button></td>
                     <td className="px-3 py-1.5 text-right font-mono font-semibold text-blue-700">{formatPHP(c.grand_total)}</td>
                     <td className="px-3 py-1.5 text-right font-mono text-slate-500">—</td>

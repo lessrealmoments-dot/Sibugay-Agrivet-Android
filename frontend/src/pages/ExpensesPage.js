@@ -322,9 +322,14 @@ export default function ExpensesPage() {
     if (!farmExpenseForm.customer_id) { toast.error('Please select a customer to bill'); return; }
     if (!farmExpenseForm.amount || farmExpenseForm.amount <= 0) { toast.error('Amount must be greater than 0'); return; }
     try {
-      const res = await api.post('/expenses/farm', { ...farmExpenseForm, branch_id: currentBranch?.id });
+      const payload = { ...farmExpenseForm, branch_id: currentBranch?.id };
+      if (farmReceiptData?.sessionId) {
+        payload.upload_session_ids = [farmReceiptData.sessionId];
+      }
+      const res = await api.post('/expenses/farm', payload);
       toast.success(res.data.message);
       setFarmExpenseDialog(false);
+      setFarmReceiptData(null);
       fetchAll();
     } catch (e) {
       const detail = e.response?.data?.detail;

@@ -698,6 +698,7 @@ export default function AuditCenterPage() {
           activity: auditData.activity?.severity,
           digital: auditData.digital?.severity,
           inventory: auditData.inventory?.severity,
+          unverified: auditData.unverified?.severity,
         },
       });
       toast.success(`Audit completed! Score: ${score}/100`);

@@ -644,13 +644,13 @@ async def update_expense(expense_id: str, data: dict, user=Depends(get_current_u
         # FIX: use the expense's original fund_source, not always cashier
         fund_source = expense.get("fund_source", "cashier")
         ref = f"Expense adjusted: {expense.get('description', '')} ({'+' if amount_diff > 0 else ''}{amount_diff:.2f})"
-        if fund_source == "safe" and amount_diff < 0:
-            # Additional spend from safe
+        if fund_source == "safe" and amount_diff > 0:
+            # Expense increased — deduct additional from safe
             safe_wallet = await db.fund_wallets.find_one(
                 {"branch_id": expense["branch_id"], "type": "safe", "active": True}, {"_id": 0}
             )
             if safe_wallet:
-                remaining = abs(amount_diff)
+                remaining = amount_diff
                 for lot in await db.safe_lots.find(
                     {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}
                 ).sort("remaining_amount", -1).to_list(500):
@@ -658,21 +658,31 @@ async def update_expense(expense_id: str, data: dict, user=Depends(get_current_u
                     take = min(lot["remaining_amount"], remaining)
                     await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
                     remaining -= take
-        elif fund_source == "safe" and amount_diff > 0:
-            # Refund back to safe
+                await record_safe_movement(expense["branch_id"], -amount_diff, ref)
+        elif fund_source == "safe" and amount_diff < 0:
+            # Expense decreased — refund difference back to safe
             safe_wallet = await db.fund_wallets.find_one(
                 {"branch_id": expense["branch_id"], "type": "safe", "active": True}, {"_id": 0}
             )
             if safe_wallet:
+                refund = abs(amount_diff)
                 await db.safe_lots.insert_one({
                     "id": new_id(), "branch_id": expense["branch_id"],
                     "wallet_id": safe_wallet["id"],
                     "date_received": now_iso()[:10],
-                    "original_amount": amount_diff, "remaining_amount": amount_diff,
+                    "original_amount": refund, "remaining_amount": refund,
                     "source_reference": ref, "created_by": user["id"], "created_at": now_iso(),
                 })
+                await record_safe_movement(expense["branch_id"], refund, ref)
         else:
             await update_cashier_wallet(expense["branch_id"], -amount_diff, ref)
+
+    # BUG-6 FIX: Adjust employee advance_balance when editing Employee Advance expenses
+    if amount_diff != 0 and expense.get("category") == "Employee Advance" and expense.get("employee_id"):
+        await db.employees.update_one(
+            {"id": expense["employee_id"]},
+            {"$inc": {"advance_balance": amount_diff}, "$set": {"updated_at": now_iso()}}
+        )
     
     return await db.expenses.find_one({"id": expense_id}, {"_id": 0})
 

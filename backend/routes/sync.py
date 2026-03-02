@@ -254,7 +254,7 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
                 )
 
             # ── FIX: log to daily sales log (was missing) ────────────────────
-            active_date = await get_active_date(branch_id)
+            log_date = sale.get("order_date", invoice.get("order_date", now_iso()[:10]))
             enriched = []
             for item in items:
                 prod = await db.products.find_one({"id": item.get("product_id")}, {"_id": 0, "category": 1})
@@ -262,7 +262,7 @@ async def sync_offline_sales(data: dict, user=Depends(get_current_user)):
 
             payment_method = sale.get("payment_method", "cash" if invoice["payment_type"] == "cash" else "credit")
             await log_sale_items(
-                branch_id, active_date, enriched, inv_number,
+                branch_id, log_date, enriched, inv_number,
                 invoice["customer_name"], payment_method,
                 user.get("full_name", user["username"])
             )

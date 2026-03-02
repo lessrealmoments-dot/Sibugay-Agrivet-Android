@@ -300,6 +300,7 @@ async def get_daily_close_preview(
 
     # ── Expected counter ──────────────────────────────────────────────────────
     # starting_float + all_cash_received_today - cashier_expenses_only
+    # + fund transfers that affect the cashier drawer
     # Include split payment cash portions (stored on invoices, not in sales_log)
     split_invoices = await db.invoices.find(
         {"branch_id": branch_id, "order_date": date,
@@ -315,8 +316,33 @@ async def get_daily_close_preview(
     ), 2)
     total_digital_ar = round(total_ar_received - total_cash_ar, 2)
 
+    # ── Fund transfers that affect cashier drawer today ─────────────────────
+    ft_query = {"branch_id": branch_id, "$or": [
+        {"date": date},
+        {"date": {"$exists": False}, "created_at": {"$gte": f"{date}T00:00:00", "$lt": f"{date}T23:59:59"}}
+    ]}
+    fund_transfers_today = await db.fund_transfers.find(ft_query, {"_id": 0}).to_list(200)
+
+    # Capital injections to cashier (+ to drawer)
+    capital_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_today
+        if ft.get("transfer_type") == "capital_add" and ft.get("target_wallet", "cashier") == "cashier"
+    ), 2)
+    # Safe → Cashier transfers (+ to drawer)
+    safe_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_today
+        if ft.get("transfer_type") == "safe_to_cashier"
+    ), 2)
+    # Cashier → Safe transfers (- from drawer)
+    cashier_to_safe = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_today
+        if ft.get("transfer_type") == "cashier_to_safe"
+    ), 2)
+    # Net cashier fund movement
+    net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe, 2)
+
     total_cash_in = total_cash_sales + total_partial_cash + total_cash_ar + total_split_cash
-    expected_counter = round(starting_float + total_cash_in - total_cashier_expenses, 2)
+    expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
 
     return {
         "date": date,

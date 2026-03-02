@@ -972,7 +972,7 @@ export default function AuditCenterPage() {
                       <div className="mt-2 space-y-1">
                         {auditData.sales.edited_invoices.map((e, i) => (
                           <div key={i} className="text-xs p-2 bg-amber-50 rounded">
-                            <span className="font-mono">{e.invoice_number}</span>
+                            <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(e.invoice_number); setInvoiceModalOpen(true); }}>{e.invoice_number}</button>
                             <span className="text-slate-500 ml-2">{e.edited_by_name} · {e.edited_at?.slice(0, 10)}</span>
                           </div>
                         ))}
@@ -1075,7 +1075,7 @@ export default function AuditCenterPage() {
                       <div className="mt-2 space-y-1">
                         {auditData.activity.off_hours_transactions.map((t, i) => (
                           <div key={i} className="text-xs p-2 bg-red-50 rounded flex justify-between">
-                            <span><span className="font-mono">{t.invoice_number}</span> · {t.cashier_name}</span>
+                            <span><button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(t.invoice_number); setInvoiceModalOpen(true); }}>{t.invoice_number}</button> · {t.cashier_name}</span>
                             <span>{formatPHP(t.grand_total)} · {t.created_at?.slice(11, 16)}</span>
                           </div>
                         ))}
@@ -1137,7 +1137,7 @@ export default function AuditCenterPage() {
                           {auditData.digital.transactions.map((t, i) => (
                             <div key={i} className={`text-xs p-2 rounded flex items-center justify-between gap-2 ${t.has_ref ? 'bg-blue-50' : 'bg-red-50 border border-red-200'}`}>
                               <div className="min-w-0">
-                                <span className="font-mono text-blue-700 mr-1">{t.invoice_number}</span>
+                                <button className="font-mono text-blue-700 mr-1 hover:underline" onClick={() => { setSelectedInvoiceNumber(t.invoice_number); setInvoiceModalOpen(true); }}>{t.invoice_number}</button>
                                 <span className="text-slate-500 truncate">{t.customer_name}</span>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <span className="text-[10px] text-blue-500">{t.platform}</span>

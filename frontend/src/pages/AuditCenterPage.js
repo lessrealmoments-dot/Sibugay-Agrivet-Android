@@ -487,6 +487,8 @@ export default function AuditCenterPage() {
   const [actualCashCount, setActualCashCount] = useState('');
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  // Receipt gallery state
+  const [receiptView, setReceiptView] = useState(null); // { recordType, recordId, label }
 
   // ── Prepare for Audit (offline package) ───────────────────────────────
   const [preparing, setPreparing] = useState(false);

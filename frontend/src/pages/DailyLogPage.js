@@ -921,7 +921,7 @@ export default function DailyLogPage() {
                           <div key={i} className="flex items-center justify-between text-sm py-1 border-b border-slate-100 last:border-0">
                             <div>
                               <span className="font-medium">{c.customer_name}</span>
-                              <span className="text-slate-400 text-xs ml-2">{c.invoice_number}</span>
+                              <button className="text-blue-600 text-xs ml-2 hover:underline" onClick={() => { setSelectedInvoiceNumber(c.invoice_number); setInvoiceModalOpen(true); }}>{c.invoice_number}</button>
                             </div>
                             <span className="font-mono text-amber-700">{formatPHP(c.grand_total)}</span>
                           </div>
@@ -948,7 +948,7 @@ export default function DailyLogPage() {
                               <tr key={i} className="border-b border-slate-100 last:border-0">
                                 <td className="px-3 py-2">
                                   <div className="font-medium">{p.customer_name}</div>
-                                  <div className="text-xs text-slate-400 font-mono">{p.invoice_number}</div>
+                                  <button className="text-xs text-blue-600 font-mono hover:underline" onClick={() => { setSelectedInvoiceNumber(p.invoice_number); setInvoiceModalOpen(true); }}>{p.invoice_number}</button>
                                 </td>
                                 <td className="px-3 py-2 text-right font-mono">{formatPHP(p.balance_before)}</td>
                                 <td className="px-3 py-2 text-right font-mono text-amber-600">{p.interest_paid > 0 ? formatPHP(p.interest_paid) : '—'}</td>

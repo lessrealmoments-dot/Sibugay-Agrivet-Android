@@ -713,8 +713,8 @@ export default function DailyLogPage() {
               <Card className="border-slate-200">
                 <CardHeader className="pb-2 flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Expenses (P&L)</CardTitle>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Actual cash outflows — included in Net Profit calculation</p>
+                    <CardTitle className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Operating Expenses</CardTitle>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Tracked for monthly review — not included in daily Net Profit</p>
                   </div>
                   {!isClosed && (
                     <div className="flex gap-1">

@@ -485,7 +485,7 @@ export default function AccountingPage() {
                         )}
                         {e.linked_invoice_number && (
                           <div className="text-xs text-blue-600 flex items-center gap-1">
-                            <FileText size={10} /> Invoice: {e.linked_invoice_number}
+                            <FileText size={10} /> Invoice: <button className="hover:underline" onClick={() => { setSelectedInvoiceNumber(e.linked_invoice_number); setInvoiceModalOpen(true); }}>{e.linked_invoice_number}</button>
                           </div>
                         )}
                       </TableCell>
@@ -562,7 +562,7 @@ export default function AccountingPage() {
                     }[r.sale_type] || { label: 'Invoice', cls: 'bg-slate-100 text-slate-700' };
                     return (
                       <TableRow key={r.id} className="table-row-hover">
-                        <TableCell className="font-mono text-xs text-blue-600">{r.invoice_number || '—'}</TableCell>
+                        <TableCell><button className="font-mono text-xs text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(r.invoice_number); setInvoiceModalOpen(true); }}>{r.invoice_number || '—'}</button></TableCell>
                         <TableCell className="font-medium">{r.customer_name}</TableCell>
                         <TableCell><Badge className={`text-[9px] ${typeConfig.cls}`}>{typeConfig.label}</Badge></TableCell>
                         <TableCell className="text-sm text-slate-600">{r.description || '-'}</TableCell>

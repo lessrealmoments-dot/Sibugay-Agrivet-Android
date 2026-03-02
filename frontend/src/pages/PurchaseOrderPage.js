@@ -96,6 +96,7 @@ export default function PurchaseOrderPage() {
   const [supplierResults, setSupplierResults] = useState([]);
   const [showSupplierDd, setShowSupplierDd] = useState(false);
   const supplierRef = useRef(null);
+  const [vendorPrices, setVendorPrices] = useState({}); // { product_id: last_price }
 
   // ── Cash dialog ────────────────────────────────────────────────────────
   const [cashDialog, setCashDialog] = useState(false);

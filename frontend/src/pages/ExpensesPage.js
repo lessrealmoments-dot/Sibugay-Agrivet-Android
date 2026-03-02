@@ -228,7 +228,11 @@ export default function ExpensesPage() {
       toast.success(res.data.message);
       setFarmExpenseDialog(false);
       fetchAll();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error creating farm expense'); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Error creating farm expense';
+      toast.error(msg);
+    }
   };
 
   const handleCreateCashOut = async () => {

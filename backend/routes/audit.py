@@ -214,6 +214,9 @@ async def compute_audit(
     # ── Section N: Security Flags ────────────────────────────────────────────
     result["security"] = await _compute_security(period_from, period_to)
 
+    # ── Section: Unverified Items ─────────────────────────────────────────
+    result["unverified"] = await _compute_unverified(b_id, period_from, period_to)
+
     return result
 
 

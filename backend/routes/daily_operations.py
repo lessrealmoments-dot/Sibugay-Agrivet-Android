@@ -237,8 +237,9 @@ async def get_daily_close_preview(
         {"branch_id": branch_id, "date": date, "voided": {"$ne": True}}, {"_id": 0}
     ).to_list(500)
 
-    # For Employee Advance expenses: add monthly running total
+    # For Employee Advance expenses: add monthly running total and limit info
     expenses = []
+    _emp_limit_cache = {}
     for e in expenses_raw:
         exp = dict(e)
         if e.get("category") == "Employee Advance" and e.get("employee_id"):
@@ -253,6 +254,13 @@ async def get_daily_close_preview(
             ]
             month_res = await db.expenses.aggregate(month_total_pipeline).to_list(1)
             exp["monthly_ca_total"] = round(month_res[0]["total"] if month_res else 0, 2)
+            # Fetch employee's monthly limit (cached)
+            eid = e["employee_id"]
+            if eid not in _emp_limit_cache:
+                emp_doc = await db.employees.find_one({"id": eid}, {"_id": 0, "monthly_ca_limit": 1})
+                _emp_limit_cache[eid] = float(emp_doc.get("monthly_ca_limit", 0)) if emp_doc else 0
+            exp["monthly_ca_limit"] = _emp_limit_cache[eid]
+            exp["is_over_ca"] = exp["monthly_ca_limit"] > 0 and exp["monthly_ca_total"] > exp["monthly_ca_limit"]
         expenses.append(exp)
 
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)

@@ -1068,7 +1068,7 @@ async def create_employee_advance(data: dict, user=Depends(get_current_user)):
     await db.expenses.insert_one(expense)
     del expense["_id"]
     
-    return expense
+    return {"expense": expense, "message": f"Cash advance of ₱{amount:,.2f} recorded for {employee.get('name', '')}"}
 
 
 # ==================== RECEIVABLES ====================

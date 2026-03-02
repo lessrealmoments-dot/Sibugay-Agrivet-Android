@@ -141,7 +141,6 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
 - [ ] Quick-action user details on Team page
 - [ ] Kiosk Mode for POS
 - [ ] Advanced Reporting on barcode scan history
-- [ ] Employee Cash Advance Summary Report
 - [ ] User Roles & Presets
 - [ ] "Pack & Ship" Workflow
 - [ ] Smarter Price Suggestions

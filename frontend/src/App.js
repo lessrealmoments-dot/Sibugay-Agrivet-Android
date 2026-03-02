@@ -142,6 +142,7 @@ function AppRoutes() {
       <Route path="/close-wizard" element={<ProtectedRoute><CloseWizardPage /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
       <Route path="/fund-management" element={<ProtectedRoute><FeatureGate featureKey="full_fund_management"><FundManagementPage /></FeatureGate></ProtectedRoute>} />
+      <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamPage /></ProtectedRoute>} />

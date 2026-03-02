@@ -414,7 +414,7 @@ export default function DailyLogPage() {
           <div className="flex items-center justify-between mb-4 print:hidden">
             <div>
               <p className="text-sm text-slate-500">
-                <span className="font-medium text-slate-700">{cashEntries.length}</span> cash sales
+                <span className="font-medium text-slate-700">{walkinEntries.length}</span> walk-in sales
                 {creditInvoices.length > 0 && <> · <span className="font-medium text-amber-600">{creditInvoices.length}</span> credit</>}
               </p>
             </div>

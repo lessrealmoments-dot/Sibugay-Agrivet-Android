@@ -831,7 +831,10 @@ async def batch_close_preview(
     net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe, 2)
 
     total_cash_in = total_cash_sales + partial_total + total_cash_ar + total_split_cash
-    expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
+    if has_prev_close:
+        expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
+    else:
+        expected_counter = round(float(wallet["balance"]) if wallet else 0, 2)
 
     # Digital payments
     digital_invs = await db.invoices.find(

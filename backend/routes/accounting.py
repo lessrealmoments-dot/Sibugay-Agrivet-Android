@@ -239,49 +239,28 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
             raise HTTPException(status_code=400, detail="Invalid manager PIN")
 
     elif transfer_type == "safe_to_bank":
-        # Admin TOTP required
+        # Policy-driven: defaults to admin_pin + totp
         totp_code = data.get("totp_code", "")
         if not totp_code:
-            raise HTTPException(status_code=400, detail="Admin TOTP code required for bank deposit")
-        admins = await db.users.find(
-            {"role": "admin", "active": True, "totp_enabled": True}, {"_id": 0}
-        ).to_list(10)
-        for admin in admins:
-            secret = admin.get("totp_secret")
-            if secret:
-                totp = pyotp.TOTP(secret)
-                if totp.verify(totp_code, valid_window=1):
-                    authorized_by = admin.get("full_name", admin["username"])
-                    break
+            raise HTTPException(status_code=400, detail="Admin TOTP code or Owner PIN required for bank deposit")
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(totp_code, "fund_transfer_safe_bank")
+        if verifier:
+            authorized_by = verifier["verifier_name"]
         if not authorized_by:
             await log_failed_pin_attempt(user, f"Fund transfer: safe → bank (₱{amount:,.2f})", "fund_transfer")
-            raise HTTPException(status_code=400, detail="Invalid TOTP code — check your authenticator app")
+            raise HTTPException(status_code=400, detail="Invalid code — check your authenticator app or Owner PIN")
 
     elif transfer_type == "capital_add":
-        # Accept Owner PIN or TOTP — allows trusted employees to execute with admin authorization
-        import pyotp as _pyotp
         owner_pin = data.get("owner_pin", "") or data.get("totp_code", "")
         if not owner_pin:
             raise HTTPException(status_code=400, detail="Owner PIN or TOTP code required for capital injection")
-        # Check owner PIN (system_settings.admin_pin)
-        pin_doc = await db.system_settings.find_one({"key": "admin_pin"}, {"_id": 0})
-        if pin_doc and pin_doc.get("pin_hash") and verify_password(str(owner_pin), pin_doc["pin_hash"]):
-            first_admin = await db.users.find_one({"role": "admin", "active": True}, {"_id": 0})
-            authorized_by = first_admin.get("full_name", first_admin.get("username", "Admin")) if first_admin else "Admin"
-        else:
-            # Check admin TOTP
-            admins = await db.users.find(
-                {"role": "admin", "active": True, "totp_enabled": True}, {"_id": 0}
-            ).to_list(10)
-            for admin in admins:
-                secret = admin.get("totp_secret")
-                if secret and len(str(owner_pin)) == 6 and str(owner_pin).isdigit():
-                    totp = _pyotp.TOTP(secret)
-                    if totp.verify(str(owner_pin), valid_window=1):
-                        authorized_by = admin.get("full_name", admin["username"])
-                        break
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(owner_pin, "fund_transfer_capital_add")
+        if verifier:
+            authorized_by = verifier["verifier_name"]
         if not authorized_by:
-            await log_failed_pin_attempt(user, f"Capital injection (₱{amount:,.2f}) into {capitalTarget if 'capitalTarget' in dir() else 'wallet'}", "fund_transfer")
+            await log_failed_pin_attempt(user, f"Capital injection (₱{amount:,.2f})", "fund_transfer")
             raise HTTPException(status_code=400, detail="Invalid Owner PIN or TOTP code")
 
     else:

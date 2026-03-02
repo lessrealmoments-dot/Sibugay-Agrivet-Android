@@ -385,7 +385,7 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
         "performed_by_id": user["id"],
         "performed_by_name": user.get("full_name", user["username"]),
         "created_at": now_iso(),
-        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "date": data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d")),
     }
     # Store target for capital_add so closing wizard knows if it went to cashier or safe
     if transfer_type == "capital_add":

@@ -55,7 +55,7 @@ export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
   const isEncodingPastDate = selectedDate < today;
 
   return (
-    <div className={`rounded-lg border overflow-hidden ${className}`}
+    <div className={`rounded-lg border ${className}`}
       style={{ borderColor: isEncodingPastDate ? '#d97706' : '#f59e0b', background: isEncodingPastDate ? '#fffbeb' : '#fefce8' }}>
       {/* Warning header */}
       <div className="flex items-center justify-between px-4 py-2.5 gap-3"

@@ -1295,9 +1295,9 @@ async def mark_po_reviewed(po_id: str, data: dict, user=Depends(get_current_user
     if not pin:
         raise HTTPException(status_code=400, detail="Admin PIN or TOTP required")
 
-    # Use unified PIN resolver from verify module
-    from routes.verify import _resolve_pin
-    verifier = await _resolve_pin(pin)
+    # Use policy-aware PIN resolver
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "po_mark_reviewed")
     if not verifier:
         raise HTTPException(status_code=403, detail="Invalid PIN or TOTP")
 

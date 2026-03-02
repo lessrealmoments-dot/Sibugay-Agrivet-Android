@@ -880,7 +880,7 @@ export default function AuditCenterPage() {
           {auditData && (
             <div className="space-y-3">
               {/* Score summary */}
-              <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+              <div className="grid grid-cols-4 md:grid-cols-9 gap-2">
                 {[
                   { key: 'cash', label: 'Cash', icon: <Banknote size={14} /> },
                   { key: 'sales', label: 'Sales', icon: <TrendingUp size={14} /> },
@@ -889,6 +889,7 @@ export default function AuditCenterPage() {
                   { key: 'transfers', label: 'Transfers', icon: <ArrowRight size={14} /> },
                   { key: 'returns', label: 'Returns', icon: <RotateCcw size={14} /> },
                   { key: 'activity', label: 'Activity', icon: <Users size={14} /> },
+                  { key: 'unverified', label: 'Unverified', icon: <CircleAlert size={14} /> },
                   ...(auditData.inventory?.available ? [{ key: 'inventory', label: 'Inventory', icon: <Package size={14} /> }] : []),
                 ].map(s => {
                   const sev = auditData[s.key]?.severity || 'ok';

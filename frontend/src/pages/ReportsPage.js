@@ -53,6 +53,8 @@ function ArAgingReport({ branches, selectedBranchId }) {
   const [loading, setLoading] = useState(false);
   const [branchFilter, setBranchFilter] = useState(selectedBranchId || 'all');
   const [expandedRows, setExpandedRows] = useState({});
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const { canViewAllBranches } = useAuth();
 
   const load = useCallback(async () => {
@@ -268,6 +270,8 @@ function SalesReport({ branches, selectedBranchId }) {
   const [dateTo, setDateTo] = useState(todayStr);
   const [branchFilter, setBranchFilter] = useState(selectedBranchId || 'all');
   const [view, setView] = useState('summary'); // summary | transactions
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const { canViewAllBranches } = useAuth();
 
   const load = useCallback(async () => {

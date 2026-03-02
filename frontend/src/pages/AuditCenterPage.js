@@ -484,6 +484,8 @@ export default function AuditCenterPage() {
 
   // ── Cash actual count entry ────────────────────────────────────────────
   const [actualCashCount, setActualCashCount] = useState('');
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
 
   // ── Prepare for Audit (offline package) ───────────────────────────────
   const [preparing, setPreparing] = useState(false);

@@ -216,6 +216,8 @@ export default function DailyLogPage() {
   const [employees, setEmployees] = useState([]);
   const [empDialog, setEmpDialog] = useState(false);
   const [empForm, setEmpForm] = useState({ name: '', position: '', phone: '' });
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
 
   // Close form state
   const [actualCash, setActualCash] = useState('');

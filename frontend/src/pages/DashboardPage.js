@@ -183,6 +183,8 @@ export default function DashboardPage() {
   const [poSummary, setPoSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const [analyticsPeriod, setAnalyticsPeriod] = useState('this_month');
   const { width: gridWidth, containerRef: gridRef, mounted: gridMounted } = useContainerWidth();
 

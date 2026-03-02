@@ -907,16 +907,43 @@ export default function AuditCenterPage() {
                 sev={auditData.cash?.severity} defaultOpen insight={getInsight('cash', auditData.cash)} data_testid="audit-cash-section">
                 <div className="space-y-1 mt-2">
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 mb-3">
-                    <p className="text-[10px] text-slate-500 font-medium uppercase mb-2">Formula: Starting Float + Cash Sales + AR Collected − All Expenses = Expected Cash</p>
+                    <p className="text-[10px] text-slate-500 font-medium uppercase mb-2">Formula: Starting Float + Cash In + Net Fund Transfers − Cashier Expenses = Expected Cash</p>
                     <StatRow label="Starting Float" value={formatPHP(auditData.cash.starting_float)} />
+                    <Separator className="my-1.5" />
+                    <p className="text-[10px] text-emerald-600 font-semibold uppercase mt-1">Cash Inflows</p>
                     <StatRow label="+ Cash Sales" value={formatPHP(auditData.cash.cash_sales)} highlight="text-emerald-600" />
-                    <StatRow label="+ AR Collected" value={formatPHP(auditData.cash.ar_collected)} highlight="text-emerald-600" />
-                    <StatRow label="− Total Expenses" value={`-${formatPHP(auditData.cash.total_expenses)}`} highlight="text-red-600" />
+                    {auditData.cash.total_partial_cash > 0 && (
+                      <StatRow label="+ Partial Payment Cash" value={formatPHP(auditData.cash.total_partial_cash)} highlight="text-emerald-600" />
+                    )}
+                    {auditData.cash.total_split_cash > 0 && (
+                      <StatRow label="+ Split Payment Cash" value={formatPHP(auditData.cash.total_split_cash)} highlight="text-emerald-600" />
+                    )}
+                    <StatRow label="+ AR Collected (Cash)" value={formatPHP(auditData.cash.total_cash_ar || auditData.cash.ar_collected)} highlight="text-emerald-600" />
+                    {auditData.cash.total_digital_ar > 0 && (
+                      <StatRow label="  (Digital AR — not in drawer)" value={formatPHP(auditData.cash.total_digital_ar)} highlight="text-slate-400 text-xs italic" />
+                    )}
+                    {auditData.cash.net_fund_transfers !== 0 && (
+                      <>
+                        <Separator className="my-1.5" />
+                        <p className="text-[10px] text-blue-600 font-semibold uppercase mt-1">Fund Transfers</p>
+                        {auditData.cash.capital_to_cashier > 0 && <StatRow label="+ Capital Injection" value={formatPHP(auditData.cash.capital_to_cashier)} highlight="text-blue-600" />}
+                        {auditData.cash.safe_to_cashier > 0 && <StatRow label="+ Safe → Cashier" value={formatPHP(auditData.cash.safe_to_cashier)} highlight="text-blue-600" />}
+                        {auditData.cash.cashier_to_safe > 0 && <StatRow label="− Cashier → Safe" value={`-${formatPHP(auditData.cash.cashier_to_safe)}`} highlight="text-red-600" />}
+                        <StatRow label="= Net Fund Transfers" value={formatPHP(auditData.cash.net_fund_transfers)} highlight={auditData.cash.net_fund_transfers >= 0 ? 'text-blue-600 font-bold' : 'text-red-600 font-bold'} />
+                      </>
+                    )}
+                    <Separator className="my-1.5" />
+                    <p className="text-[10px] text-red-600 font-semibold uppercase mt-1">Expenses (Cashier Only)</p>
+                    <StatRow label="− Cashier Expenses" value={`-${formatPHP(auditData.cash.total_cashier_expenses)}`} highlight="text-red-600" />
+                    {auditData.cash.total_safe_expenses > 0 && (
+                      <StatRow label="  (Safe Expenses — not from drawer)" value={formatPHP(auditData.cash.total_safe_expenses)} highlight="text-slate-400 text-xs italic" />
+                    )}
                     <Separator className="my-2" />
                     <StatRow label="Expected Cash" value={formatPHP(auditData.cash.expected_cash)} highlight="font-bold text-slate-800" />
                     <StatRow label="Current Cashier Balance" value={formatPHP(auditData.cash.current_cashier_balance)} />
                     <StatRow label="Safe Balance" value={formatPHP(auditData.cash.safe_balance)} />
                   </div>
+
                   {/* Cash actual count entry + Reconcile Now */}
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
                     <div className="flex-1">
@@ -933,21 +960,154 @@ export default function AuditCenterPage() {
                         </p>
                       </div>
                     )}
-                    <Button
-                      size="sm"
-                      onClick={() => navigate('/close-wizard')}
-                      className="h-9 shrink-0 bg-amber-600 hover:bg-amber-700 text-white"
-                      data-testid="reconcile-now-btn"
-                    >
+                    <Button size="sm" onClick={() => navigate('/close-wizard')}
+                      className="h-9 shrink-0 bg-amber-600 hover:bg-amber-700 text-white" data-testid="reconcile-now-btn">
                       <Banknote size={14} className="mr-1.5" /> Reconcile Now
                     </Button>
                   </div>
+
+                  {/* Expense breakdown by category */}
                   {auditData.cash.expense_breakdown?.length > 0 && (
                     <details className="mt-2">
-                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">Expense Breakdown ({auditData.cash.expense_breakdown.length} categories)</summary>
+                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700 font-medium">Expense Breakdown ({auditData.cash.expense_breakdown.length} categories)</summary>
                       <div className="mt-2 space-y-0.5">
                         {auditData.cash.expense_breakdown.map(e => (
                           <StatRow key={e.category} label={e.category} value={formatPHP(e.total)} sub={`${e.count} entries`} />
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Detailed expense list */}
+                  {auditData.cash.expenses?.length > 0 && (
+                    <details className="mt-2" data-testid="expense-detail-list">
+                      <summary className="text-xs text-slate-600 cursor-pointer hover:text-slate-800 font-medium">
+                        View All Expenses ({auditData.cash.expenses.length})
+                      </summary>
+                      <div className="mt-2 space-y-1.5 max-h-64 overflow-y-auto">
+                        {auditData.cash.expenses.map((exp, i) => (
+                          <div key={i} className={`text-xs p-2.5 rounded-lg border flex items-center justify-between gap-2 ${exp.verified ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-slate-700">{exp.category}</span>
+                                <Badge className={`text-[9px] ${exp.fund_source === 'safe' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                                  {exp.fund_source || 'cashier'}
+                                </Badge>
+                                {exp.verified ? (
+                                  <Badge className="text-[9px] bg-emerald-100 text-emerald-700"><Check size={8} className="mr-0.5" />Verified</Badge>
+                                ) : (
+                                  <Badge className="text-[9px] bg-amber-100 text-amber-700">Unverified</Badge>
+                                )}
+                                {exp.has_receipt && (
+                                  <button
+                                    onClick={() => setReceiptView({ recordType: 'expense', recordId: exp.id, label: exp.category })}
+                                    className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5"
+                                    data-testid={`view-receipt-${exp.id}`}>
+                                    <ImageIcon size={9} /> {exp.receipt_count} receipt(s)
+                                  </button>
+                                )}
+                                {!exp.has_receipt && (
+                                  <span className="text-[9px] text-red-500 flex items-center gap-0.5"><CircleAlert size={9} /> No receipt</span>
+                                )}
+                              </div>
+                              <p className="text-slate-500 mt-0.5 truncate">{exp.description || '—'} {exp.employee_name && <span className="text-violet-600">· {exp.employee_name}</span>}</p>
+                              <p className="text-[10px] text-slate-400">{exp.date} · by {exp.created_by_name}</p>
+                            </div>
+                            <span className={`font-bold font-mono shrink-0 ${exp.fund_source === 'safe' ? 'text-blue-700' : 'text-red-600'}`}>
+                              {formatPHP(exp.amount)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* AR Payments detail */}
+                  {auditData.cash.ar_payments?.length > 0 && (
+                    <details className="mt-2" data-testid="ar-payment-detail-list">
+                      <summary className="text-xs text-purple-600 cursor-pointer hover:text-purple-800 font-medium">
+                        AR Payments Received ({auditData.cash.ar_payments.length}) — Total: {formatPHP(auditData.cash.total_ar_received)}
+                      </summary>
+                      <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                        {auditData.cash.ar_payments.map((ar, i) => (
+                          <div key={i} className="text-xs p-2 rounded bg-purple-50 border border-purple-200 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(ar.invoice_number); setInvoiceModalOpen(true); }}>
+                                {ar.invoice_number}
+                              </button>
+                              <span className="text-slate-500 ml-2">{ar.customer_name}</span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <Badge className={`text-[9px] ${ar.fund_source === 'cashier' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                  {ar.fund_source === 'cashier' ? 'Cash' : ar.method || 'Digital'}
+                                </Badge>
+                                <span className="text-[10px] text-slate-400">{ar.date}</span>
+                              </div>
+                            </div>
+                            <span className="font-bold font-mono text-purple-700 shrink-0">{formatPHP(ar.amount_paid)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Fund Transfer details */}
+                  {auditData.cash.fund_transfer_details?.length > 0 && (
+                    <details className="mt-2" data-testid="fund-transfer-detail-list">
+                      <summary className="text-xs text-blue-600 cursor-pointer hover:text-blue-800 font-medium">
+                        Fund Transfers ({auditData.cash.fund_transfer_details.length})
+                      </summary>
+                      <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                        {auditData.cash.fund_transfer_details.map((ft, i) => {
+                          const label = ft.type === 'capital_add' ? 'Capital Injection' : ft.type === 'safe_to_cashier' ? 'Safe → Cashier' : 'Cashier → Safe';
+                          const isOut = ft.type === 'cashier_to_safe';
+                          return (
+                            <div key={i} className={`text-xs p-2 rounded border flex items-center justify-between ${isOut ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'}`}>
+                              <div>
+                                <span className="font-medium text-slate-700">{label}</span>
+                                {ft.note && <span className="text-slate-400 ml-2">— {ft.note}</span>}
+                                <p className="text-[10px] text-slate-400">{ft.date} {ft.authorized_by && `· by ${ft.authorized_by}`}</p>
+                              </div>
+                              <span className={`font-bold font-mono ${isOut ? 'text-red-600' : 'text-blue-700'}`}>
+                                {isOut ? '-' : '+'}{formatPHP(ft.amount)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Partial invoice details */}
+                  {auditData.cash.partial_invoices?.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">Partial Payment Invoices ({auditData.cash.partial_invoices.length})</summary>
+                      <div className="mt-2 space-y-1">
+                        {auditData.cash.partial_invoices.map((inv, i) => (
+                          <div key={i} className="text-xs p-2 bg-slate-50 rounded flex justify-between">
+                            <span>
+                              <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(inv.invoice_number); setInvoiceModalOpen(true); }}>{inv.invoice_number}</button>
+                              <span className="text-slate-400 ml-2">{inv.customer_name}</span>
+                            </span>
+                            <span className="font-mono">{formatPHP(inv.amount_paid)} / {formatPHP(inv.grand_total)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Split invoice details */}
+                  {auditData.cash.split_invoices?.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-700">Split Payment Invoices ({auditData.cash.split_invoices.length})</summary>
+                      <div className="mt-2 space-y-1">
+                        {auditData.cash.split_invoices.map((inv, i) => (
+                          <div key={i} className="text-xs p-2 bg-slate-50 rounded flex justify-between">
+                            <span>
+                              <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(inv.invoice_number); setInvoiceModalOpen(true); }}>{inv.invoice_number}</button>
+                              <span className="text-slate-400 ml-2">{inv.customer_name}</span>
+                            </span>
+                            <span className="font-mono">Cash: {formatPHP(inv.cash_amount)} · Digital: {formatPHP(inv.digital_amount)}</span>
+                          </div>
                         ))}
                       </div>
                     </details>

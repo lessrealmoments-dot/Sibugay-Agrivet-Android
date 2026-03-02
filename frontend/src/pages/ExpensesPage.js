@@ -66,7 +66,15 @@ export default function ExpensesPage() {
     payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
     due_date: '', terms: ''
   });
+  const [employeeAdvanceForm, setEmployeeAdvanceForm] = useState({
+    description: '', notes: '', amount: 0, employee_id: '',
+    date: new Date().toISOString().slice(0, 10),
+  });
+  const [eaCaSummary, setEaCaSummary] = useState(null);
+  const [eaManagerPin, setEaManagerPin] = useState('');
+  const [eaManagerPinDialog, setEaManagerPinDialog] = useState(false);
   const [expenseReceiptData, setExpenseReceiptData] = useState(null);
+  const [farmReceiptData, setFarmReceiptData] = useState(null);
 
   const [filters, setFilters] = useState({
     category: '', payment_method: '', date_from: '', date_to: '', search: ''

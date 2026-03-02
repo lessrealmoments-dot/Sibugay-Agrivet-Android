@@ -186,13 +186,16 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - No formula changes — existing closing wizard works seamlessly with correctly-dated transactions
 - [x] Audit Center Full Overhaul (Mar 2026)
   - Fixed cash reconciliation formula to match Closing Wizard: Starting Float + Cash In (Cash Sales + Partial Cash + Split Cash + Cash AR) + Net Fund Transfers - Cashier Expenses
+  - Fixed starting float: reverse-calculated from wallet when no previous daily close exists (prevents misleading formula display)
   - Added missing components: partial cash, split cash, fund transfers (capital injection, safe↔cashier), digital AR separation
   - Detailed drill-down lists: expenses (with verified/unverified badge, receipt indicator, fund_source), AR payments (with fund_source, clickable invoices), fund transfers, partial/split invoices
-  - New "Unverified Items" section: shows expenses and POs not verified by admin/auditor with receipt warnings
-  - Interactive receipt viewer: click "View receipt" to open ReceiptGallery dialog for expenses and POs
+  - New "Unverified Items" section: shows expenses, POs, AND digital payments (GCash/Maya) not verified by admin/auditor with receipt warnings
+  - "Verify All" bulk action: batch-verify all unverified items with a single PIN entry via POST /api/audit/bulk-verify
+  - Interactive receipt viewer: click "View receipt" to open ReceiptGallery dialog for expenses, POs, and invoices
   - Payables section enhanced with PO detail drill-down (PO numbers, vendor, overdue status, verification status)
   - Score summary grid includes new "Unverified" tile; overall audit score factors in unverified severity
   - Print report includes unverified items summary
+  - Warning banner when no previous daily close found (starting float reverse-calculated)
 
 ### P0 — Upcoming
 - [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)

@@ -343,7 +343,16 @@ async def get_daily_close_preview(
     net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe, 2)
 
     total_cash_in = total_cash_sales + total_partial_cash + total_cash_ar + total_split_cash
-    expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
+    # When starting_float comes from current wallet balance (no prev close),
+    # it already includes today's fund transfers — don't double-count
+    if has_prev_close:
+        expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
+    else:
+        # Wallet balance is real-time truth; expected = wallet balance (all transactions already reflected)
+        wallet_now = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+        )
+        expected_counter = round(float(wallet_now["balance"]) if wallet_now else 0, 2)
 
     return {
         "date": date,

@@ -88,6 +88,9 @@ async def update_totp_controls(data: dict, user=Depends(get_current_user)):
         upsert=True
     )
     return {"message": "TOTP controls updated", "enabled_actions": enabled}
+
+
+@router.get("/invoice-prefixes")
 async def get_invoice_prefixes(user=Depends(get_current_user)):
     """Get invoice prefix settings."""
     s = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})

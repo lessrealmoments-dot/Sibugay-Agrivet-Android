@@ -17,6 +17,7 @@ import ReceiptUploadInline from '../components/ReceiptUploadInline';
 import VerificationBadge from '../components/VerificationBadge';
 import VerifyPinDialog from '../components/VerifyPinDialog';
 import ViewQRDialog from '../components/ViewQRDialog';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const EXPENSE_CATEGORIES = [
   "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
@@ -45,6 +46,8 @@ export default function AccountingPage() {
   const [verifyExpenseOpen, setVerifyExpenseOpen] = useState(false);
   const [viewQRExpenseId, setViewQRExpenseId] = useState(null);
   const [viewQRExpenseOpen, setViewQRExpenseOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   
   // Dialog states
   const [expenseDialog, setExpenseDialog] = useState(false);

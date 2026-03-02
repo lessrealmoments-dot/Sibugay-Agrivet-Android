@@ -345,11 +345,22 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     for item in sale_items:
         product = products_map.get(item["product_id"])
         item["category"] = product.get("category", "General") if product else "General"
-    
+
+    # For split sales, pass split metadata so daily log can decompose into cash + digital
+    split_meta = None
+    if is_split:
+        split_meta = {
+            "cash_amount": cash_amount,
+            "digital_amount": digital_amount,
+            "digital_platform": digital_meta.get("digital_platform", "GCash"),
+            "grand_total": grand_total,
+        }
+
     await log_sale_items(
         branch_id, active_date, sale_items, inv_number,
-        customer_name, data.get("payment_method", "Cash"),
-        user.get("full_name", user["username"])
+        customer_name, "split" if is_split else data.get("payment_method", "Cash"),
+        user.get("full_name", user["username"]),
+        split_meta=split_meta,
     )
     
     return invoice

@@ -1059,8 +1059,16 @@ export default function CloseWizardPage() {
                                   {e.payment_method && e.payment_method !== 'Cash' && <p className="text-[10px] text-slate-400">via {e.payment_method}</p>}
                                   {e.fund_source === 'safe' && <span className="inline-block text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold mt-0.5">SAFE</span>}
                                   {e.monthly_ca_total != null && (
-                                    <div className="mt-1 inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 text-[10px] text-amber-700">
-                                      <AlertTriangle size={9} /> Monthly advance total: {formatPHP(e.monthly_ca_total)}
+                                    <div className={`mt-1 inline-flex items-center gap-1 ${e.is_over_ca ? 'bg-red-50 border-red-200 text-red-700' : 'bg-amber-50 border-amber-200 text-amber-700'} border rounded px-2 py-0.5 text-[10px]`}>
+                                      <AlertTriangle size={9} />
+                                      Monthly total: {formatPHP(e.monthly_ca_total)}
+                                      {e.monthly_ca_limit > 0 && <span> / Limit: {formatPHP(e.monthly_ca_limit)}</span>}
+                                      {e.is_over_ca && <span className="font-bold ml-1">OVER CA</span>}
+                                    </div>
+                                  )}
+                                  {e.manager_approved_by && (
+                                    <div className="mt-0.5 inline-flex items-center gap-1 bg-violet-50 border border-violet-200 rounded px-2 py-0.5 text-[10px] text-violet-700">
+                                      Approved by: {e.manager_approved_by}
                                     </div>
                                   )}
                                 </div>

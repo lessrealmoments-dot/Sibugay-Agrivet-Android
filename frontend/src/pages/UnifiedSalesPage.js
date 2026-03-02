@@ -883,6 +883,7 @@ export default function UnifiedSalesPage() {
         pin: managerPin,
         action_key: 'credit_sale_approval',
         context: {
+          type: 'credit_sale',
           description: `₱${total.toFixed(2)} ${paymentType} sale to ${customerName}`,
           amount: total,
           customer_name: customerName,

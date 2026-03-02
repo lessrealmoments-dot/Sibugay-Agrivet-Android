@@ -100,6 +100,10 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - PO numbers on Dashboard navigate to Purchase Orders page
   - Pages: DailyLogPage, DashboardPage, AccountingPage, ExpensesPage, ReportsPage, AuditCenterPage
   - SalesPage and PaymentsPage already had this — verified no regression
+- [x] Fix farm expense/cashout bugs (Mar 2026)
+  - Toast notification now shows descriptive message with invoice number
+  - Close Wizard and Daily Ops show farm expense description (what money was for)
+  - Total Credit Extended Today uses `balance` instead of `grand_total` for partial payments
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

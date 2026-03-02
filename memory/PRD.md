@@ -122,6 +122,8 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Z-Report/Close Wizard enhanced: shows OVER CA flag + "Approved by: [name]" on employee advances
   - Backend: GET /api/employees/ca-report with month and branch filters
   - All daily operations endpoints (daily-report, daily-log, daily-close-preview, daily-close) return is_over_ca, monthly_ca_limit fields
+  - DailyLogPage: all 3 sections (mini report, full report advance_expenses, preview) show over-CA flag + limit + approver
+  - daily-report endpoint enriches advance_expenses with CA data (was previously missing)
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

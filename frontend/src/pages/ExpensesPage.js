@@ -110,7 +110,7 @@ export default function ExpensesPage() {
     setEditMode(false);
     setExpenseForm({
       category: 'Miscellaneous', description: '', notes: '', amount: 0,
-      payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
+      payment_method: 'Cash', reference_number: '', date: encodingDate,
       employee_id: '', employee_name: '',
     });
     setCaSummary(null);
@@ -148,7 +148,7 @@ export default function ExpensesPage() {
   const openFarmExpense = () => {
     setFarmExpenseForm({
       description: '', notes: '', amount: 0, customer_id: '',
-      payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
+      payment_method: 'Cash', reference_number: '', date: encodingDate,
       due_date: '', terms: ''
     });
     setFarmExpenseDialog(true);
@@ -157,7 +157,7 @@ export default function ExpensesPage() {
   const openCashOut = () => {
     setCashOutForm({
       description: '', notes: '', amount: 0, customer_id: '',
-      payment_method: 'Cash', reference_number: '', date: new Date().toISOString().slice(0, 10),
+      payment_method: 'Cash', reference_number: '', date: encodingDate,
       due_date: '', terms: ''
     });
     setCashOutDialog(true);
@@ -166,7 +166,7 @@ export default function ExpensesPage() {
   const openEmployeeAdvance = () => {
     setEmployeeAdvanceForm({
       description: '', notes: '', amount: 0, employee_id: '',
-      date: new Date().toISOString().slice(0, 10),
+      date: encodingDate,
     });
     setEaCaSummary(null);
     setEmployeeAdvanceDialog(true);

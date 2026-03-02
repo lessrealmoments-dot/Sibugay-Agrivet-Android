@@ -229,6 +229,16 @@ export default function DashboardPage() {
         setStats(res.data);
         setPoSummary(poRes.data);
         setBranchSummary(null);
+        // Fetch unclosed days for the selected branch
+        if (selectedBranchId && selectedBranchId !== 'all') {
+          try {
+            const ucRes = await api.get('/daily-close/unclosed-days', { params: { branch_id: selectedBranchId } });
+            const pastDays = (ucRes.data.unclosed_days || []).filter(d => d.date < new Date().toISOString().slice(0, 10));
+            setUnclosedDays(pastDays.length > 0 ? { days: pastDays, last_close_date: ucRes.data.last_close_date } : null);
+          } catch { setUnclosedDays(null); }
+        } else {
+          setUnclosedDays(null);
+        }
       }
     } catch (err) { console.error('Dashboard load error', err); }
     setLoading(false);

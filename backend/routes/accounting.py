@@ -230,8 +230,8 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
         manager_pin = data.get("manager_pin", "")
         if not manager_pin:
             raise HTTPException(status_code=400, detail="Manager PIN required for this transfer")
-        from routes.verify import _resolve_pin
-        verifier = await _resolve_pin(manager_pin)
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(manager_pin, "fund_transfer_cashier_safe")
         if verifier:
             authorized_by = verifier["verifier_name"]
         if not authorized_by:

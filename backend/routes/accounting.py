@@ -798,6 +798,7 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
                 take = min(lot["remaining_amount"], remaining)
                 await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
                 remaining -= take
+            await record_safe_movement(branch_id, -amount, ref_text)
     else:
         await update_cashier_wallet(branch_id, -amount, ref_text)
     

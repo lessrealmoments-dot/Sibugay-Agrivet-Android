@@ -1172,6 +1172,45 @@ export default function AuditCenterPage() {
                     highlight={auditData.payables.overdue_count > 0 ? 'text-red-600 font-bold' : ''} />
                   <StatRow label="Overdue Value" value={formatPHP(auditData.payables.overdue_value)}
                     highlight={auditData.payables.overdue_value > 0 ? 'text-red-600' : ''} />
+                  {auditData.payables.po_details?.length > 0 && (
+                    <details className="mt-2" data-testid="po-detail-list">
+                      <summary className="text-xs text-orange-600 cursor-pointer hover:text-orange-800 font-medium">
+                        View PO Details ({auditData.payables.po_details.length})
+                      </summary>
+                      <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto">
+                        {auditData.payables.po_details.map((po, i) => (
+                          <div key={i} className={`text-xs p-2.5 rounded-lg border flex items-center justify-between gap-2 ${po.is_overdue ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'}`}>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                  className="font-mono text-blue-600 hover:underline font-semibold"
+                                  onClick={() => navigate('/purchase-orders')}
+                                  data-testid={`po-link-${po.po_number}`}>
+                                  {po.po_number}
+                                </button>
+                                <span className="text-slate-500">{po.vendor}</span>
+                                {po.is_overdue && <Badge className="text-[9px] bg-red-100 text-red-700">Overdue</Badge>}
+                                <Badge className={`text-[9px] ${po.payment_status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                                  {po.payment_status}
+                                </Badge>
+                                {!po.verified && <Badge className="text-[9px] bg-amber-100 text-amber-700">Unverified</Badge>}
+                                <button
+                                  onClick={() => setReceiptView({ recordType: 'purchase_order', recordId: po.id, label: po.po_number })}
+                                  className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5">
+                                  <ImageIcon size={9} /> Receipts
+                                </button>
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Due: {po.due_date || 'N/A'} · Ordered: {po.purchase_date}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="font-bold font-mono text-red-600">{formatPHP(po.balance)}</p>
+                              <p className="text-[10px] text-slate-400">of {formatPHP(po.grand_total)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               </SectionCard>
 

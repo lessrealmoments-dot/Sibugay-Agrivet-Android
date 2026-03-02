@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
       { path: '/returns',    label: 'Return & Refund',   icon: RotateCcw,    perm: 'sales.view' },
       { path: '/customers',  label: 'Customers',         icon: Users,        perm: 'customers.view',   offlineOk: 'readonly' },
       { path: '/payments',   label: 'Receive Payments',  icon: Tags,         perm: 'accounting.view' },
+      { path: '/expenses',   label: 'Expenses',          icon: Receipt,      perm: 'accounting.view' },
     ],
   },
   {

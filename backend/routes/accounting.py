@@ -1760,7 +1760,7 @@ async def reverse_customer_cashout(expense_id: str, data: dict, user=Depends(get
     Requires manager PIN.
     """
     check_perm(user, "accounting", "edit_expense")
-    mgr = await _verify_manager(data.get("manager_pin", ""))
+    mgr = await _verify_manager(data.get("manager_pin", ""), "reverse_customer_cashout")
 
     expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
     if not expense:

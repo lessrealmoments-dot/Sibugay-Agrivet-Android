@@ -291,7 +291,7 @@ export default function DashboardPage() {
               <div className="space-y-1.5 text-xs">
                 {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
                   <div key={po.id || po.po_number} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
-                    <div><p className="font-semibold">{po.vendor}</p><p className="text-slate-400 font-mono">{po.po_number}</p></div>
+                    <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => navigate('/purchase-orders')}>{po.po_number}</button></div>
                     <p className="font-bold text-red-700">{formatPHP(po.balance)}</p>
                   </div>
                 ))}

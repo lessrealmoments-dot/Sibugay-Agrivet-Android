@@ -219,7 +219,7 @@ function ArAgingReport({ branches, selectedBranchId }) {
                     <TableRow key={inv.invoice_number} className="bg-slate-50/50 text-xs">
                       <TableCell />
                       <TableCell className="pl-8 text-slate-500">
-                        {inv.invoice_number}
+                        <button className="text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(inv.invoice_number); setInvoiceModalOpen(true); }}>{inv.invoice_number}</button>
                         <span className="ml-2 text-slate-400">{inv.invoice_date}</span>
                         <span className={`ml-2 font-medium ${bucketLabel[inv.bucket]?.color}`}>
                           {inv.days_old}d old

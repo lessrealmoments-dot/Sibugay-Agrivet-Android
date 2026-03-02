@@ -77,6 +77,8 @@ export default function ExpensesPage() {
   const [expenseReceiptData, setExpenseReceiptData] = useState(null);
   const [farmReceiptData, setFarmReceiptData] = useState(null);
 
+  const [encodingDate, setEncodingDate] = useState(new Date().toISOString().slice(0, 10));
+
   const [filters, setFilters] = useState({
     category: '', payment_method: '', date_from: '', date_to: '', search: ''
   });

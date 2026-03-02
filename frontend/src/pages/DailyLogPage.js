@@ -109,7 +109,7 @@ function ZReport({ data, branchName, onPrint }) {
                 {(data.credit_sales_today || []).map((c, i) => (
                   <tr key={i} className="border-b border-slate-100 last:border-0">
                     <td className="px-3 py-1.5 font-medium">{c.customer_name}</td>
-                    <td className="px-3 py-1.5 font-mono text-xs text-blue-600">{c.invoice_number}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-blue-600"><button className="hover:underline hover:text-blue-800" onClick={() => { setSelectedInvoiceNumber(c.invoice_number); setInvoiceModalOpen(true); }} data-testid={`inv-link-credit-${i}`}>{c.invoice_number}</button></td>
                     <td className="px-3 py-1.5 text-right font-mono font-semibold text-amber-700">{formatPHP(c.grand_total)}</td>
                     <td className="px-3 py-1.5 text-right font-mono text-slate-500">{formatPHP(c.balance)}</td>
                     <td className="px-3 py-1.5 text-center"><Badge className="text-[9px] bg-amber-100 text-amber-700">Credit</Badge></td>
@@ -118,7 +118,7 @@ function ZReport({ data, branchName, onPrint }) {
                 {(data.ar_credits_today || []).map((c, i) => (
                   <tr key={`arc-${i}`} className="border-b border-slate-100 last:border-0">
                     <td className="px-3 py-1.5 font-medium">{c.customer_name}</td>
-                    <td className="px-3 py-1.5 font-mono text-xs text-blue-600">{c.invoice_number}</td>
+                    <td className="px-3 py-1.5 font-mono text-xs text-blue-600"><button className="hover:underline hover:text-blue-800" onClick={() => { setSelectedInvoiceNumber(c.invoice_number); setInvoiceModalOpen(true); }} data-testid={`inv-link-arc-${i}`}>{c.invoice_number}</button></td>
                     <td className="px-3 py-1.5 text-right font-mono font-semibold text-blue-700">{formatPHP(c.grand_total)}</td>
                     <td className="px-3 py-1.5 text-right font-mono text-slate-500">—</td>
                     <td className="px-3 py-1.5 text-center">
@@ -481,7 +481,7 @@ export default function DailyLogPage() {
                       <td className="px-3 py-2 font-mono text-xs text-slate-500">{e.time}</td>
                       <td className="px-3 py-2 font-medium text-slate-800">{e.product_name}</td>
                       <td className="px-3 py-2 text-slate-500 text-xs">{e.customer_name || 'Walk-in'}</td>
-                      <td className="px-3 py-2 font-mono text-xs text-slate-400">{e.invoice_number}</td>
+                      <td className="px-3 py-2 font-mono text-xs"><button className="text-blue-600 hover:underline hover:text-blue-800" onClick={() => { setSelectedInvoiceNumber(e.invoice_number); setInvoiceModalOpen(true); }}>{e.invoice_number}</button></td>
                       <td className="px-3 py-2 text-center">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${pmColor}`}>{pm}</span>
                       </td>
@@ -573,7 +573,7 @@ export default function DailyLogPage() {
                         <div>
                           <span className="font-bold text-slate-800 text-base">{inv.customer_name || 'Unknown Customer'}</span>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="font-mono text-xs text-slate-400">{inv.invoice_number}</span>
+                            <button className="font-mono text-xs text-blue-600 hover:underline hover:text-blue-800" onClick={() => { setSelectedInvoiceNumber(inv.invoice_number); setInvoiceModalOpen(true); }}>{inv.invoice_number}</button>
                             <Badge className={`text-[9px] border-0 ${inv.payment_type === 'partial' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
                               {inv.payment_type === 'partial' ? 'PARTIAL PAYMENT' : 'FULL CREDIT'}
                             </Badge>

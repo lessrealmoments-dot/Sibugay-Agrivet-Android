@@ -116,6 +116,12 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - ReceiptUploadInline component added to Farm Expense dialog (desktop upload + phone QR)
   - "Skip & Upload Later" option with note about uploading in Closing Wizard or expense row
   - Backend farm endpoint now handles upload_session_ids to link receipt photos
+- [x] Employee CA Summary Report (Mar 2026)
+  - New "CA Summary" tab in Reports page with KPI cards + full employee table
+  - Shows monthly usage vs limit, usage %, over-limit count (with approver info), prev month overage, unpaid balance
+  - Z-Report/Close Wizard enhanced: shows OVER CA flag + "Approved by: [name]" on employee advances
+  - Backend: GET /api/employees/ca-report with month and branch filters
+  - All daily operations endpoints (daily-report, daily-log, daily-close-preview, daily-close) return is_over_ca, monthly_ca_limit fields
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

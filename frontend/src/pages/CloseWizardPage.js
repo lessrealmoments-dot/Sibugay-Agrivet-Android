@@ -793,12 +793,16 @@ export default function CloseWizardPage() {
                             ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">No sales yet for this day</td></tr>
                             : entriesWithTotal.map((e, i) => {
                               const pm = (e.payment_method || 'cash').toLowerCase();
-                              const pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
+                              let pmLabel = pm;
+                              let pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
                                 : pm === 'gcash' ? 'bg-blue-100 text-blue-700'
                                 : pm === 'maya' ? 'bg-green-100 text-green-700'
-                                : pm === 'split' ? 'bg-indigo-100 text-indigo-700'
                                 : pm === 'partial' ? 'bg-teal-100 text-teal-700'
                                 : 'bg-violet-100 text-violet-700';
+                              if (pm === 'split') {
+                                pmLabel = `Cash+${e.split_digital_platform || 'Digital'}`;
+                                pmColor = 'bg-indigo-100 text-indigo-700';
+                              }
                               return (
                                 <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
                                   <td className="px-3 py-1.5 text-xs text-slate-400">{e.sequence || i+1}</td>

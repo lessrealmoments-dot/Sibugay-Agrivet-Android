@@ -15,10 +15,11 @@ import {
   ShieldCheck, RefreshCw, AlertTriangle, Check, X, ChevronDown, ChevronUp,
   Printer, History, Plus, Package, Banknote, TrendingUp, Users, ArrowRight,
   RotateCcw, FileText, Clock, Building2, Download, ShieldAlert, Smartphone,
-  KeyRound, Eye
+  KeyRound, Eye, ImageIcon, CircleAlert, Receipt, ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import ReceiptGallery from '../components/ReceiptGallery';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

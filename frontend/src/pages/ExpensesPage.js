@@ -718,7 +718,7 @@ export default function ExpensesPage() {
 
       {/* FARM EXPENSE DIALOG */}
       <Dialog open={farmExpenseDialog} onOpenChange={setFarmExpenseDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Manrope' }} className="flex items-center gap-2">
               <Tractor size={20} className="text-amber-600" /> Farm Expense

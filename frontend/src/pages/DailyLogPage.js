@@ -676,9 +676,9 @@ export default function DailyLogPage() {
                   { label: 'New Sales Today', value: report.new_sales_today, color: 'text-emerald-600', bg: 'bg-emerald-50', icon: ArrowUp },
                   { label: 'COGS', value: report.total_cogs, color: 'text-slate-600', bg: 'bg-slate-50', icon: ArrowDown },
                   { label: 'Gross Profit', value: report.gross_profit, color: report.gross_profit >= 0 ? 'text-emerald-600' : 'text-red-600', bg: 'bg-white', icon: TrendingUp },
-                  { label: 'Real Expenses', value: report.total_expenses, color: 'text-red-600', bg: 'bg-red-50', icon: ArrowDown,
-                    sub: report.total_all_expenses !== report.total_expenses
-                      ? `(₱${(report.total_all_expenses - report.total_expenses).toLocaleString()} in credits excluded)` : null },
+                  { label: 'Operating Expenses', value: report.total_expenses, color: 'text-red-600', bg: 'bg-red-50', icon: ArrowDown,
+                    sub: (report.total_inventory_expenses || 0) > 0
+                      ? `Inventory purchases ₱${(report.total_inventory_expenses || 0).toLocaleString()} excluded (balance sheet)` : null },
                   { label: 'Net Profit', value: report.net_profit, color: report.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700', bg: report.net_profit >= 0 ? 'bg-emerald-50' : 'bg-red-50', icon: DollarSign },
                 ].map((kpi, i) => (
                   <Card key={i} className="border-slate-200"><CardContent className={`p-4 ${kpi.bg}`}>
@@ -690,16 +690,24 @@ export default function DailyLogPage() {
               </div>
 
               {/* Formula explanation */}
-              <div className="px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center gap-2">
+              <div className="px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                 <span>Net Profit =</span>
                 <span className="text-emerald-600 font-medium">Sales {formatPHP(report.new_sales_today)}</span>
                 <span>−</span>
                 <span className="text-slate-600 font-medium">COGS {formatPHP(report.total_cogs)}</span>
                 <span>−</span>
-                <span className="text-red-600 font-medium">Expenses {formatPHP(report.total_expenses)}</span>
+                <span className="text-red-600 font-medium">Operating Exp {formatPHP(report.total_expenses)}</span>
                 <span>=</span>
                 <span className={`font-bold ${report.net_profit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatPHP(report.net_profit)}</span>
-                <span className="ml-1 text-slate-400">· Credits {formatPHP(report.total_credit_expenses || 0)} excluded (AR)</span>
+                {((report.total_credit_expenses || 0) + (report.total_inventory_expenses || 0) + (report.total_advance_expenses || 0)) > 0 && (
+                  <span className="ml-1 text-slate-400">
+                    · Excluded: {[
+                      (report.total_inventory_expenses || 0) > 0 ? `PO ₱${(report.total_inventory_expenses).toLocaleString()}` : '',
+                      (report.total_credit_expenses || 0) > 0 ? `Credits ₱${(report.total_credit_expenses).toLocaleString()}` : '',
+                      (report.total_advance_expenses || 0) > 0 ? `Advances ₱${(report.total_advance_expenses).toLocaleString()}` : '',
+                    ].filter(Boolean).join(', ')}
+                  </span>
+                )}
               </div>
 
               {/* Sales by Category */}

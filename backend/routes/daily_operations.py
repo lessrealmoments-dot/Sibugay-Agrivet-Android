@@ -665,6 +665,7 @@ async def batch_close_preview(
     # Expenses — split by fund source
     expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
+    _emp_limit_cache = {}
     for e in expenses_raw:
         exp = dict(e)
         if e.get("category") == "Employee Advance" and e.get("employee_id"):
@@ -1139,6 +1140,7 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
     # Expenses across all dates — split by fund source
     expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date_filter, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
+    _emp_limit_cache = {}
     for e in expenses_raw:
         exp = dict(e)
         if e.get("category") == "Employee Advance" and e.get("employee_id"):

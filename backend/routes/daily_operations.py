@@ -564,8 +564,10 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
         "expenses": real_expenses,
         "credit_expenses": credit_expenses,           # Farm + Cash-out (AR — NOT a loss)
         "advance_expenses": advance_expenses,          # Employee advances (asset)
+        "inventory_expenses": inventory_expenses,      # PO/Supplier payments (balance sheet — NOT P&L)
         "total_credit_expenses": total_credit_expenses,
         "total_advance_expenses": total_advance_expenses,
+        "total_inventory_expenses": total_inventory_expenses,
         # AR credits created today from cash outs / farm service (invoice-backed)
         "ar_credits_today": ar_credits_today,
         "total_ar_credits_today": total_ar_credits_today,

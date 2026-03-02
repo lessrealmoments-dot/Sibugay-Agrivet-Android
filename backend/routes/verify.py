@@ -38,40 +38,47 @@ COLLECTION_MAP = {
 #  PIN Verification helper
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def _resolve_pin(pin: str) -> Optional[dict]:
+async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]:
     """
-    Returns verifier info dict if pin matches any of:
-      - Admin PIN (system_settings.admin_pin — hashed)
-      - Manager/Admin PIN (user.manager_pin or user.owner_pin — plain text)
-      - Admin TOTP (6-digit code)
-      - Auditor PIN (user with is_auditor=True)
-    Returns None if no match.
+    Returns verifier info dict if pin matches any of the allowed methods.
+    Methods: admin_pin, manager_pin, totp, auditor_pin
+    If allowed_methods is None, all methods are checked (backward compatible).
     """
     if not pin:
         return None
 
+    check_all = allowed_methods is None
+    methods = set(allowed_methods or [])
+
     # 1. System Admin PIN (hashed in system_settings)
-    admin_pin_doc = await db.system_settings.find_one({"key": "admin_pin"}, {"_id": 0})
-    if admin_pin_doc:
-        stored = admin_pin_doc.get("pin_hash", "")
-        if stored and verify_password(pin, stored):
-            return {"verifier_id": "system_admin", "verifier_name": "Admin", "method": "admin_pin"}
+    if check_all or "admin_pin" in methods:
+        admin_pin_doc = await db.system_settings.find_one({"key": "admin_pin"}, {"_id": 0})
+        if admin_pin_doc:
+            stored = admin_pin_doc.get("pin_hash", "")
+            if stored and verify_password(pin, stored):
+                return {"verifier_id": "system_admin", "verifier_name": "Admin", "method": "admin_pin"}
 
     # 2. Manager/Admin PIN (plain text on user documents)
-    managers = await db.users.find(
-        {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
-    ).to_list(50)
-    for mgr in managers:
-        mgr_pin = mgr.get("manager_pin", "") or mgr.get("owner_pin", "")
-        if mgr_pin and pin == mgr_pin:
-            return {
-                "verifier_id": mgr["id"],
-                "verifier_name": mgr.get("full_name", mgr["username"]),
-                "method": "manager_pin",
-            }
+    managers = None
+    if check_all or "manager_pin" in methods:
+        managers = await db.users.find(
+            {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
+        ).to_list(50)
+        for mgr in managers:
+            mgr_pin = mgr.get("manager_pin", "") or mgr.get("owner_pin", "")
+            if mgr_pin and pin == mgr_pin:
+                return {
+                    "verifier_id": mgr["id"],
+                    "verifier_name": mgr.get("full_name", mgr["username"]),
+                    "method": "manager_pin",
+                }
 
     # 3. Admin TOTP (6-digit code)
-    if len(pin) == 6 and pin.isdigit():
+    if (check_all or "totp" in methods) and len(pin) == 6 and pin.isdigit():
+        if managers is None:
+            managers = await db.users.find(
+                {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
+            ).to_list(50)
         for mgr in managers:
             secret = mgr.get("totp_secret")
             if secret and mgr.get("totp_enabled"):
@@ -84,19 +91,84 @@ async def _resolve_pin(pin: str) -> Optional[dict]:
                     }
 
     # 4. Auditor PIN
-    auditors = await db.users.find(
-        {"is_auditor": True, "active": True}, {"_id": 0}
-    ).to_list(50)
-    for auditor in auditors:
-        auditor_pin = auditor.get("auditor_pin", "")
-        if auditor_pin and pin == auditor_pin:
-            return {
-                "verifier_id": auditor["id"],
-                "verifier_name": auditor.get("full_name", auditor["username"]),
-                "method": "auditor_pin",
-            }
+    if check_all or "auditor_pin" in methods:
+        auditors = await db.users.find(
+            {"is_auditor": True, "active": True}, {"_id": 0}
+        ).to_list(50)
+        for auditor in auditors:
+            auditor_pin = auditor.get("auditor_pin", "")
+            if auditor_pin and pin == auditor_pin:
+                return {
+                    "verifier_id": auditor["id"],
+                    "verifier_name": auditor.get("full_name", auditor["username"]),
+                    "method": "auditor_pin",
+                }
 
     return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  PIN Policy definitions & resolver
+# ─────────────────────────────────────────────────────────────────────────────
+
+PIN_METHODS = ["admin_pin", "manager_pin", "totp", "auditor_pin"]
+
+PIN_POLICY_ACTIONS = [
+    # Sales & Invoicing
+    {"key": "credit_sale_approval",   "label": "Credit / Partial Sale Approval",  "module": "Sales",             "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "void_invoice",           "label": "Void Invoice",                    "module": "Sales",             "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "void_payment",           "label": "Void Payment on Invoice",         "module": "Sales",             "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "void_return",            "label": "Void Return",                     "module": "Sales",             "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "invoice_edit",           "label": "Edit Posted Invoice",             "module": "Sales",             "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "pos_discount",           "label": "POS Discount / Price Override",   "module": "Sales",             "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Fund Management
+    {"key": "fund_transfer_cashier_safe", "label": "Cashier / Safe Transfer",     "module": "Fund Management",   "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "fund_transfer_safe_bank",    "label": "Safe to Bank Deposit",        "module": "Fund Management",   "defaults": ["admin_pin", "totp"]},
+    {"key": "fund_transfer_capital_add",  "label": "Capital Injection",           "module": "Fund Management",   "defaults": ["admin_pin", "totp"]},
+    # Reversals
+    {"key": "reverse_customer_cashout",   "label": "Reverse Customer Cash-Out",   "module": "Reversals",         "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "reverse_employee_advance",   "label": "Reverse Employee Advance",    "module": "Reversals",         "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Daily Operations
+    {"key": "daily_close",            "label": "Close Day (Z-Report)",            "module": "Daily Operations",  "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "daily_close_batch",      "label": "Batch Close Days",               "module": "Daily Operations",  "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Inventory & Products
+    {"key": "inventory_adjust",       "label": "Direct Inventory Correction",     "module": "Inventory",         "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "product_delete",         "label": "Delete Product",                  "module": "Products",          "defaults": ["admin_pin", "totp"]},
+    {"key": "price_override",         "label": "Override Branch Price",           "module": "Products",          "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "reopen_po",              "label": "Reopen Purchase Order",           "module": "Purchase Orders",   "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Audit & Verification
+    {"key": "transaction_verify",     "label": "Verify Transaction (PO/Expense)", "module": "Audit",             "defaults": ["admin_pin", "manager_pin", "totp", "auditor_pin"]},
+    {"key": "po_mark_reviewed",       "label": "PO Receipt Review",              "module": "Audit",             "defaults": ["admin_pin", "manager_pin", "totp", "auditor_pin"]},
+    {"key": "receipt_mark_reviewed",  "label": "Expense/Transfer Receipt Review", "module": "Audit",             "defaults": ["admin_pin", "manager_pin", "totp", "auditor_pin"]},
+    {"key": "public_receipt_verify",  "label": "Public Receipt Verification",    "module": "Audit",             "defaults": ["admin_pin", "manager_pin", "totp", "auditor_pin"]},
+    # System
+    {"key": "admin_action",           "label": "Admin Action (Bulk Ops)",         "module": "System",            "defaults": ["admin_pin", "totp"]},
+    {"key": "backup_restore",         "label": "Restore Backup",                  "module": "System",            "defaults": ["admin_pin", "totp"]},
+]
+
+# Build quick lookup: action_key → default methods
+_ACTION_DEFAULTS = {a["key"]: a["defaults"] for a in PIN_POLICY_ACTIONS}
+
+
+async def _get_pin_policy() -> dict:
+    """Load custom PIN policies from DB, falling back to defaults."""
+    doc = await db.system_settings.find_one({"key": "pin_policies"}, {"_id": 0})
+    return doc.get("policies", {}) if doc else {}
+
+
+async def verify_pin_for_action(pin: str, action_key: str) -> Optional[dict]:
+    """
+    Verify a PIN against the configured policy for a specific action.
+    Loads the policy from DB (or uses defaults) and calls _resolve_pin
+    with only the allowed methods for that action.
+    """
+    if not pin:
+        return None
+    custom = await _get_pin_policy()
+    allowed = custom.get(action_key, _ACTION_DEFAULTS.get(action_key))
+    if not allowed:
+        allowed = ["admin_pin", "manager_pin", "totp"]
+    return await _resolve_pin(pin, allowed_methods=allowed)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

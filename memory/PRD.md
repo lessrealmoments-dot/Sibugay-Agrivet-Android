@@ -166,6 +166,15 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - All endpoints updated: auth.py, accounting.py, daily_operations.py, invoices.py, returns.py, purchase_orders.py, uploads.py, verify.py, backups.py
   - 6 new PIN-enforceable actions: invoice edit, product delete, inventory adjust, price override, reopen PO, POS discount
   - Replaces old TOTP Controls section in Settings
+- [x] Split payment decomposition in daily log (Mar 2026)
+  - Split payments no longer appear as "Split" in payment method breakdown
+  - Cash portion → "Cash", digital portion → platform name (e.g., "GCash")
+  - sales_log entries store split metadata (split_cash_amount, split_digital_amount, split_digital_platform)
+- [x] Capital injection in closing wizard expected counter (Mar 2026)
+  - Expected counter now includes: capital injections, safe↔cashier transfers
+  - Fund transfers displayed as separate line items in closing wizard
+  - Fixed double-counting when no previous close (wallet balance already reflects all activity)
+  - fund_transfers now store `date` and `target_wallet` fields
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

@@ -740,68 +740,89 @@ export default function CloseWizardPage() {
         </CardHeader>
         <CardContent>
 
-          {/* ── STEP 1: Sales Log ── */}
+          {/* ── STEP 1: Sales Log (non-credit only — credit is in Step 2) ── */}
           {step === 1 && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex gap-3 text-sm flex-wrap">
-                  <span className="text-slate-500">All Sales: <strong className="text-emerald-700">{formatPHP(dailyLog?.summary?.total_all || 0)}</strong></span>
-                  {dailyLog?.summary?.by_payment_method && Object.entries(dailyLog.summary.by_payment_method).map(([method, d]) => (
-                    <span key={method} className="text-slate-400 capitalize">{method}: <strong className="text-slate-600">{formatPHP(d.total)}</strong> <span className="text-[10px]">({d.count})</span></span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setSaleDialog(true)} data-testid="quick-add-sale-btn">
-                    <Plus size={13} className="mr-1" /> Quick Add Sale
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => window.open('/sales-new', '_blank')} className="text-slate-500">
-                    <ExternalLink size={13} className="mr-1" /> Full Sales Panel
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className="h-[280px] rounded-lg border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
-                    <tr className="text-xs uppercase text-slate-500">
-                      <th className="px-3 py-2 text-left">#</th>
-                      <th className="px-3 py-2 text-left">Product</th>
-                      <th className="px-3 py-2 text-center">Qty</th>
-                      <th className="px-3 py-2 text-center">Payment</th>
-                      <th className="px-3 py-2 text-right">Amount</th>
-                      <th className="px-3 py-2 text-right">Running Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(dailyLog?.entries || []).length === 0
-                      ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">No sales yet for this day</td></tr>
-                      : (dailyLog?.entries || []).map((e, i) => {
-                        const pm = (e.payment_method || 'cash').toLowerCase();
-                        const pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
-                          : pm === 'gcash' ? 'bg-blue-100 text-blue-700'
-                          : pm === 'maya' ? 'bg-green-100 text-green-700'
-                          : pm === 'credit' ? 'bg-amber-100 text-amber-700'
-                          : 'bg-violet-100 text-violet-700';
-                        return (
-                          <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
-                            <td className="px-3 py-1.5 text-xs text-slate-400">{e.sequence || i+1}</td>
-                            <td className="px-3 py-1.5">
-                              <span className="font-medium">{e.product_name}</span>
-                              {e.customer_name && e.customer_name !== 'Walk-in' && (
-                                <span className="text-[10px] text-slate-400 ml-1">({e.customer_name})</span>
-                              )}
-                            </td>
-                            <td className="px-3 py-1.5 text-center text-slate-500">{e.quantity} {e.unit || ''}</td>
-                            <td className="px-3 py-1.5 text-center">
-                              <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${pmColor}`}>{pm}</span>
-                            </td>
-                            <td className="px-3 py-1.5 text-right font-mono">{formatPHP(e.line_total)}</td>
-                            <td className="px-3 py-1.5 text-right font-mono text-emerald-700">{formatPHP(e.running_total)}</td>
+              {(() => {
+                // Filter out credit entries — they're shown in Step 2 (Customer Credits)
+                const nonCreditEntries = (dailyLog?.entries || []).filter(e => {
+                  const pm = (e.payment_method || 'cash').toLowerCase();
+                  return pm !== 'credit';
+                });
+                // Compute running total for non-credit entries
+                let runTotal = 0;
+                const entriesWithTotal = nonCreditEntries.map(e => {
+                  runTotal += parseFloat(e.line_total || 0);
+                  return { ...e, _running: Math.round(runTotal * 100) / 100 };
+                });
+                const totalNonCredit = Math.round(runTotal * 100) / 100;
+                return (
+                  <>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex gap-3 text-sm flex-wrap">
+                        <span className="text-slate-500">Walk-in Sales: <strong className="text-emerald-700">{formatPHP(totalNonCredit)}</strong></span>
+                        {dailyLog?.summary?.by_payment_method && Object.entries(dailyLog.summary.by_payment_method)
+                          .filter(([method]) => method.toLowerCase() !== 'credit')
+                          .map(([method, d]) => (
+                            <span key={method} className="text-slate-400 capitalize">{method}: <strong className="text-slate-600">{formatPHP(d.total)}</strong> <span className="text-[10px]">({d.count})</span></span>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setSaleDialog(true)} data-testid="quick-add-sale-btn">
+                          <Plus size={13} className="mr-1" /> Quick Add Sale
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => window.open('/sales-new', '_blank')} className="text-slate-500">
+                          <ExternalLink size={13} className="mr-1" /> Full Sales Panel
+                        </Button>
+                      </div>
+                    </div>
+                    <ScrollArea className="h-[280px] rounded-lg border border-slate-200">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+                          <tr className="text-xs uppercase text-slate-500">
+                            <th className="px-3 py-2 text-left">#</th>
+                            <th className="px-3 py-2 text-left">Product</th>
+                            <th className="px-3 py-2 text-center">Qty</th>
+                            <th className="px-3 py-2 text-center">Payment</th>
+                            <th className="px-3 py-2 text-right">Amount</th>
+                            <th className="px-3 py-2 text-right">Running Total</th>
                           </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </ScrollArea>
+                        </thead>
+                        <tbody>
+                          {entriesWithTotal.length === 0
+                            ? <tr><td colSpan={6} className="text-center py-8 text-slate-400">No sales yet for this day</td></tr>
+                            : entriesWithTotal.map((e, i) => {
+                              const pm = (e.payment_method || 'cash').toLowerCase();
+                              const pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
+                                : pm === 'gcash' ? 'bg-blue-100 text-blue-700'
+                                : pm === 'maya' ? 'bg-green-100 text-green-700'
+                                : pm === 'split' ? 'bg-indigo-100 text-indigo-700'
+                                : pm === 'partial' ? 'bg-teal-100 text-teal-700'
+                                : 'bg-violet-100 text-violet-700';
+                              return (
+                                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                  <td className="px-3 py-1.5 text-xs text-slate-400">{e.sequence || i+1}</td>
+                                  <td className="px-3 py-1.5">
+                                    <span className="font-medium">{e.product_name}</span>
+                                    {e.customer_name && e.customer_name !== 'Walk-in' && (
+                                      <span className="text-[10px] text-slate-400 ml-1">({e.customer_name})</span>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-1.5 text-center text-slate-500">{e.quantity} {e.unit || ''}</td>
+                                  <td className="px-3 py-1.5 text-center">
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${pmColor}`}>{pm}</span>
+                                  </td>
+                                  <td className="px-3 py-1.5 text-right font-mono">{formatPHP(e.line_total)}</td>
+                                  <td className="px-3 py-1.5 text-right font-mono text-emerald-700">{formatPHP(e._running)}</td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  </>
+                );
+              })()}
             </div>
           )}
 

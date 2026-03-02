@@ -644,6 +644,27 @@ export default function AuditCenterPage() {
     setResolveSaving(false);
   };
 
+  const bulkVerify = async () => {
+    if (!bulkVerifyPin || !auditData?.unverified) return;
+    setBulkVerifying(true);
+    try {
+      const items = [
+        ...(auditData.unverified.expenses || []).map(e => ({ doc_type: 'expense', doc_id: e.id })),
+        ...(auditData.unverified.purchase_orders || []).map(p => ({ doc_type: 'purchase_order', doc_id: p.id })),
+        ...(auditData.unverified.digital_payments || []).map(d => ({ doc_type: 'invoice', doc_id: d.id })),
+      ];
+      const res = await api.post(`${BACKEND_URL}/api/audit/bulk-verify`, { pin: bulkVerifyPin, items });
+      toast.success(`Verified ${res.data.verified_count} of ${res.data.total_requested} items by ${res.data.verified_by}`);
+      setBulkVerifyOpen(false);
+      setBulkVerifyPin('');
+      // Re-run audit to refresh data
+      runAudit();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Verification failed');
+    }
+    setBulkVerifying(false);
+  };
+
   const runAudit = async () => {
     if (!auditBranchId && !isAdmin) { toast.error('Select a branch'); return; }
     setComputing(true);

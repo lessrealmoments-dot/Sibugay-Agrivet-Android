@@ -172,13 +172,13 @@ async def update_profile(data: dict, user=Depends(get_current_user)):
 @router.post("/verify-manager-pin")
 async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
     from routes.notifications import create_pin_notification
-    from routes.verify import _resolve_pin
+    from routes.verify import verify_pin_for_action
     pin = data.get("pin", "")
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
 
-    # Use unified PIN resolver: checks Owner PIN, Manager/Admin PIN, TOTP, Auditor PIN
-    verifier = await _resolve_pin(pin)
+    action_key = data.get("action_key", "credit_sale_approval")
+    verifier = await verify_pin_for_action(pin, action_key)
     if verifier:
         context = data.get("context")
         if context:

@@ -1140,6 +1140,19 @@ export default function CloseWizardPage() {
                     <p className="text-[10px] text-indigo-400 mt-0.5">+ {formatPHP(preview.total_digital_ar)} digital AR (e-wallet)</p>
                   )}
                 </div>
+                {(preview?.net_fund_transfers || 0) !== 0 && (
+                  <div className={`p-3 rounded-lg border ${preview.net_fund_transfers > 0 ? 'bg-cyan-50 border-cyan-200' : 'bg-orange-50 border-orange-200'}`}>
+                    <p className={`text-xs uppercase font-medium mb-1 ${preview.net_fund_transfers > 0 ? 'text-cyan-600' : 'text-orange-600'}`}>Fund Transfers</p>
+                    <p className={`text-xl font-bold font-mono ${preview.net_fund_transfers > 0 ? 'text-cyan-700' : 'text-orange-700'}`}>
+                      {preview.net_fund_transfers > 0 ? '+' : ''}{formatPHP(preview.net_fund_transfers)}
+                    </p>
+                    <div className="text-[10px] mt-1 space-y-0.5">
+                      {(preview?.capital_to_cashier || 0) > 0 && <p className="text-cyan-500">Capital: +{formatPHP(preview.capital_to_cashier)}</p>}
+                      {(preview?.safe_to_cashier || 0) > 0 && <p className="text-cyan-500">Safe In: +{formatPHP(preview.safe_to_cashier)}</p>}
+                      {(preview?.cashier_to_safe || 0) > 0 && <p className="text-orange-500">To Safe: -{formatPHP(preview.cashier_to_safe)}</p>}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* E-Wallet / Digital Payments */}

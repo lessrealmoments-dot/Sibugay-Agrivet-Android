@@ -464,14 +464,24 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
     ]).to_list(1)
     ar_collected = round(ar_r[0]["total"] if ar_r else 0, 2)
 
-    # Cash expenses in period
+    # Cash expenses in period — only cashier-sourced expenses affect the drawer
     exp_r = await db.expenses.aggregate([
-        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to}}},
+        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
+                    "voided": {"$ne": True},
+                    "fund_source": {"$ne": "safe"}}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
     ]).to_list(1)
-    total_expenses = round(exp_r[0]["total"] if exp_r else 0, 2)
+    total_cashier_expenses = round(exp_r[0]["total"] if exp_r else 0, 2)
 
-    expected_cash = round(starting_float + cash_sales + ar_collected - total_expenses, 2)
+    # All expenses for breakdown display
+    all_exp_r = await db.expenses.aggregate([
+        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
+                    "voided": {"$ne": True}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_expenses = round(all_exp_r[0]["total"] if all_exp_r else 0, 2)
+
+    expected_cash = round(starting_float + cash_sales + ar_collected - total_cashier_expenses, 2)
 
     # Current cashier balance
     cashier = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
@@ -486,7 +496,8 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
 
     # Expense breakdown by category
     exp_breakdown = await db.expenses.aggregate([
-        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to}}},
+        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
+                    "voided": {"$ne": True}}},
         {"$group": {"_id": "$category", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
         {"$sort": {"total": -1}}
     ]).to_list(50)
@@ -507,7 +518,7 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
         "discrepancy_type": "over" if discrepancy > 0 else ("short" if discrepancy < 0 else "balanced"),
         "expense_breakdown": [{"category": r["_id"] or "Other", "total": round(r["total"], 2), "count": r["count"]} for r in exp_breakdown],
         "severity": sev,
-        "formula": "Starting Float + Cash Sales + AR Collected - All Expenses = Expected Cash",
+        "formula": "Starting Float + Cash Sales + AR Collected - Cashier Expenses = Expected Cash",
     }
 
 

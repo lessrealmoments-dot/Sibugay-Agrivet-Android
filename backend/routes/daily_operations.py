@@ -471,21 +471,25 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
                 total_cogs += (prod.get("cost_price", 0) * entry.get("quantity", 0))
     total_cogs = round(total_cogs, 2)
     
-    # Expenses — split into real P&L expenses vs credit-generating items
+    # Expenses — split into real P&L expenses vs credit-generating items vs inventory purchases
     # Credit-generating categories create AR invoices (receivables, not real losses):
     #   "Farm Expense" → farm service billed to customer (invoice created)
     #   "Customer Cash-out" / "Customer Cash Out" → cash given to customer (invoice created)
     #   "Employee Advance" → advance to employee (to be deducted from salary)
-    CREDIT_CATEGORIES = {"farm expense", "customer cash-out", "customer cash out", "employee advance"}
+    # Inventory purchases are balance-sheet movements (cash → inventory asset):
+    #   "Purchase Payment" → PO cash payment (inventory bought, NOT an operating expense)
+    #   "Supplier Payment" → AP payment on terms PO (same)
+    # These must NOT be in P&L because COGS already captures inventory cost when items are sold.
 
-    exp_query = {"date": date}
+    exp_query = {"date": date, "voided": {"$ne": True}}
     if branch_id:
         exp_query["branch_id"] = branch_id
     expenses = await db.expenses.find(exp_query, {"_id": 0}).to_list(500)
 
-    real_expenses = []       # Actual P&L expenses (utilities, rent, PO payments, etc.)
-    credit_expenses = []     # Credits extended to customers (AR — money comes back)
-    advance_expenses = []    # Employee advances (asset — comes back via salary deduction)
+    real_expenses = []         # Actual P&L expenses (utilities, rent, misc — reduces net profit)
+    credit_expenses = []       # Credits extended to customers (AR — money comes back)
+    advance_expenses = []      # Employee advances (asset — comes back via salary deduction)
+    inventory_expenses = []    # Inventory purchases (balance sheet — NOT P&L, COGS covers this)
 
     for e in expenses:
         cat = (e.get("category") or "").lower().strip()
@@ -493,6 +497,8 @@ async def get_daily_report(user=Depends(get_current_user), branch_id: Optional[s
             advance_expenses.append(e)
         elif "farm expense" in cat or "customer cash" in cat:
             credit_expenses.append(e)
+        elif "purchase payment" in cat or "supplier payment" in cat:
+            inventory_expenses.append(e)
         else:
             real_expenses.append(e)
 

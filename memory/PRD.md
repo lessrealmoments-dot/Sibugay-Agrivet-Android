@@ -144,6 +144,13 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - BUG 16: Count Sheet moving avg used different source than PO receive → aligned to movements
   - BUG 19: Close starting float used yesterday only → now uses last closed date
   - BUG 20: Safe expense deductions had no record_safe_movement audit trail → added
+- [x] Branch-specific supplier pricing system (Mar 2026)
+  - PO receive no longer overwrites global product.cost_price — only writes to branch_prices
+  - product_vendors.last_price is now branch-scoped (each branch tracks its own vendor prices)
+  - New: GET /api/purchase-orders/vendor-prices — PO form auto-fills from vendor's last price
+  - New: POST /api/suppliers/import-from-branch — copies supplier + pricing from another branch
+  - New: GET /api/suppliers/available-for-import — lists importable suppliers from other branches
+  - Frontend PO form: select supplier → loads vendor prices → auto-fills unit_price from history
 
 ### P0 — Upcoming
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

@@ -89,6 +89,131 @@ async def delete_employee(emp_id: str, user=Depends(get_current_user)):
     return {"message": "Employee deleted"}
 
 
+@router.get("/ca-report")
+async def get_ca_report(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    month: Optional[str] = None,
+):
+    """
+    Employee Cash Advance Summary Report.
+    Returns all employees with their CA usage, limits, overages, and unpaid balances.
+    Optional filters: branch_id, month (YYYY-MM format, defaults to current month).
+    """
+    now_dt = datetime.now(timezone.utc)
+    if month:
+        try:
+            parts = month.split("-")
+            year, mo = int(parts[0]), int(parts[1])
+        except (ValueError, IndexError):
+            year, mo = now_dt.year, now_dt.month
+    else:
+        year, mo = now_dt.year, now_dt.month
+
+    month_start = f"{year}-{mo:02d}-01"
+    if mo == 12:
+        next_month_start = f"{year + 1}-01-01"
+    else:
+        next_month_start = f"{year}-{mo + 1:02d}-01"
+
+    # Previous month bounds
+    if mo == 1:
+        prev_year, prev_mo = year - 1, 12
+    else:
+        prev_year, prev_mo = year, mo - 1
+    prev_start = f"{prev_year}-{prev_mo:02d}-01"
+
+    # Fetch employees
+    emp_query = {"active": True}
+    if branch_id:
+        emp_query["branch_id"] = branch_id
+    employees = await db.employees.find(emp_query, {"_id": 0}).to_list(500)
+
+    # Aggregate all CA expenses for the selected month
+    ca_pipeline = [
+        {"$match": {
+            "category": "Employee Advance",
+            "date": {"$gte": month_start, "$lt": next_month_start},
+            "voided": {"$ne": True},
+        }},
+        {"$group": {
+            "_id": "$employee_id",
+            "total": {"$sum": "$amount"},
+            "count": {"$sum": 1},
+            "over_limit_count": {
+                "$sum": {"$cond": [{"$and": [{"$ne": ["$manager_approved_by", ""]}, {"$ne": ["$manager_approved_by", None]}]}, 1, 0]}
+            },
+            "last_date": {"$max": "$date"},
+        }}
+    ]
+    ca_data = await db.expenses.aggregate(ca_pipeline).to_list(500)
+    ca_map = {item["_id"]: item for item in ca_data}
+
+    # Previous month totals
+    prev_pipeline = [
+        {"$match": {
+            "category": "Employee Advance",
+            "date": {"$gte": prev_start, "$lt": month_start},
+            "voided": {"$ne": True},
+        }},
+        {"$group": {"_id": "$employee_id", "total": {"$sum": "$amount"}}}
+    ]
+    prev_data = await db.expenses.aggregate(prev_pipeline).to_list(500)
+    prev_map = {item["_id"]: item["total"] for item in prev_data}
+
+    report = []
+    total_advances = 0
+    total_unpaid = 0
+    over_limit_employees = 0
+
+    for emp in employees:
+        eid = emp["id"]
+        limit = float(emp.get("monthly_ca_limit", 0))
+        balance = float(emp.get("advance_balance", 0))
+        ca = ca_map.get(eid, {})
+        this_month = ca.get("total", 0)
+        prev_month = prev_map.get(eid, 0)
+        prev_overage = max(0, prev_month - limit) if limit > 0 else 0
+        is_over = limit > 0 and this_month > limit
+        remaining = max(0, limit - this_month) if limit > 0 else None
+
+        if is_over:
+            over_limit_employees += 1
+        total_advances += this_month
+        total_unpaid += balance
+
+        row = {
+            "employee_id": eid,
+            "name": emp.get("name", ""),
+            "position": emp.get("position", ""),
+            "branch_id": emp.get("branch_id", ""),
+            "monthly_ca_limit": limit,
+            "this_month_total": round(this_month, 2),
+            "this_month_count": ca.get("count", 0),
+            "over_limit_count": ca.get("over_limit_count", 0),
+            "prev_month_total": round(prev_month, 2),
+            "prev_month_overage": round(prev_overage, 2),
+            "remaining": round(remaining, 2) if remaining is not None else None,
+            "is_over_limit": is_over,
+            "unpaid_balance": round(balance, 2),
+            "last_advance_date": ca.get("last_date", ""),
+            "usage_pct": round((this_month / limit) * 100, 1) if limit > 0 else None,
+        }
+        report.append(row)
+
+    # Sort: over-limit first, then by unpaid balance desc
+    report.sort(key=lambda r: (not r["is_over_limit"], -r["unpaid_balance"]))
+
+    return {
+        "month": f"{year}-{mo:02d}",
+        "total_employees": len(employees),
+        "total_advances_this_month": round(total_advances, 2),
+        "total_unpaid_balance": round(total_unpaid, 2),
+        "over_limit_employees": over_limit_employees,
+        "employees": report,
+    }
+
+
 @router.get("/{emp_id}/ca-summary")
 async def get_employee_ca_summary(emp_id: str, user=Depends(get_current_user)):
     """Get Cash Advance summary for an employee (current month, previous month overage)."""

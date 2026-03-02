@@ -223,6 +223,7 @@ export default function ExpensesPage() {
         pin: eaManagerPin,
         action_key: 'reverse_employee_advance',
         context: {
+          type: 'employee_advance',
           description: `₱${parseFloat(employeeAdvanceForm.amount).toFixed(2)} cash advance for ${employeeName} (over ₱${limit.toFixed(2)} monthly limit)`,
           amount: parseFloat(employeeAdvanceForm.amount),
           employee_name: employeeName,

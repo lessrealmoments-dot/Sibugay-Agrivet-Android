@@ -788,6 +788,25 @@ export default function ExpensesPage() {
                   onChange={e => setFarmExpenseForm({ ...farmExpenseForm, terms: e.target.value })} placeholder="e.g. Net 30" />
               </div>
             </div>
+            <div className="border-t pt-4">
+              <ReceiptUploadInline
+                required={false}
+                label="Farm Receipt Photo (Optional — can upload later in Closing Wizard)"
+                recordType="expense"
+                compact={false}
+                recordSummary={{
+                  type_label: 'Farm Expense',
+                  title: farmExpenseForm.description || 'Farm Expense',
+                  description: farmExpenseForm.notes || '',
+                  amount: farmExpenseForm.amount || 0,
+                  date: farmExpenseForm.date,
+                }}
+                onUploaded={(data) => setFarmReceiptData(data)}
+              />
+              <p className="text-[11px] text-slate-400 mt-1.5 italic">
+                No receipt yet? Skip this — you can upload it later from the Closing Wizard or the expense row's upload button.
+              </p>
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setFarmExpenseDialog(false)}>Cancel</Button>
               <Button onClick={handleCreateFarmExpense} className="bg-amber-600 hover:bg-amber-700 text-white" data-testid="expenses-save-farm-btn">

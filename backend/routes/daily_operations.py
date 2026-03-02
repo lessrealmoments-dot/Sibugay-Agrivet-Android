@@ -733,6 +733,7 @@ async def batch_close_preview(
     # Starting float
     day_before = (datetime.strptime(first_date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
     prev_close = await db.daily_closings.find_one({"date": day_before, "branch_id": branch_id}, {"_id": 0})
+    has_prev_close = bool(prev_close)
     wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
     starting_float = float(prev_close.get("cash_to_drawer", 0)) if prev_close else float(wallet["balance"] if wallet else 0)
 

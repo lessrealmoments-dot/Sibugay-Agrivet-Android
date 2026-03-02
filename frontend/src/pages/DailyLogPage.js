@@ -754,6 +754,38 @@ export default function DailyLogPage() {
                 </CardContent>
               </Card>
 
+              {/* Inventory Purchases — balance sheet, NOT P&L */}
+              {(report.inventory_expenses?.length > 0) && (
+                <Card className="border-orange-200 bg-orange-50/30">
+                  <CardHeader className="pb-2">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-orange-800" style={{ fontFamily: 'Manrope' }}>
+                        Inventory Purchases (PO/Supplier Payments)
+                      </CardTitle>
+                      <p className="text-[10px] text-orange-600 mt-0.5">
+                        Cash → Inventory asset. NOT included in Net Profit — COGS covers cost when items are sold.
+                      </p>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {report.inventory_expenses.map((e, i) => (
+                      <div key={i} className="flex justify-between items-center p-2 rounded bg-white mb-1 border border-orange-100">
+                        <div>
+                          <Badge variant="outline" className="text-[10px] mr-2 border-orange-300 text-orange-700">{e.category}</Badge>
+                          <span className="text-sm">{e.description}</span>
+                          {e.fund_source === 'safe' && <span className="ml-1 text-[9px] bg-amber-100 text-amber-700 px-1 py-0.5 rounded font-semibold">SAFE</span>}
+                        </div>
+                        <span className="font-bold text-orange-700">{formatPHP(e.amount)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between font-bold text-sm pt-2 border-t border-orange-200 mt-2">
+                      <span className="text-orange-800">Total Inventory Purchases</span>
+                      <span className="text-orange-700">{formatPHP(report.total_inventory_expenses)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Credits Extended Today — AR section, NOT included in P&L */}
               {((report.credit_expenses?.length > 0) || (report.advance_expenses?.length > 0)) && (
                 <Card className="border-blue-200 bg-blue-50/30">

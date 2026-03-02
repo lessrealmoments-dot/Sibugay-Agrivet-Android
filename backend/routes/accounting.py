@@ -230,14 +230,10 @@ async def create_fund_transfer(data: dict, user=Depends(get_current_user)):
         manager_pin = data.get("manager_pin", "")
         if not manager_pin:
             raise HTTPException(status_code=400, detail="Manager PIN required for this transfer")
-        managers = await db.users.find(
-            {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
-        ).to_list(50)
-        for mgr in managers:
-            pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
-            if pin and manager_pin == pin:
-                authorized_by = mgr.get("full_name", mgr["username"])
-                break
+        from routes.verify import _resolve_pin
+        verifier = await _resolve_pin(manager_pin)
+        if verifier:
+            authorized_by = verifier["verifier_name"]
         if not authorized_by:
             await log_failed_pin_attempt(user, f"Fund transfer: cashier ↔ safe (₱{amount:,.2f})", "fund_transfer")
             raise HTTPException(status_code=400, detail="Invalid manager PIN")

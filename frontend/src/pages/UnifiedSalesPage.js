@@ -1670,8 +1670,8 @@ export default function UnifiedSalesPage() {
                 <TabsList className="grid grid-cols-5 w-full">
                   <TabsTrigger value="cash" data-testid="pay-cash">Cash</TabsTrigger>
                   <TabsTrigger value="digital" data-testid="pay-digital">Digital</TabsTrigger>
-                  <TabsTrigger value="split" data-testid="pay-split">Split</TabsTrigger>
-                  <TabsTrigger value="partial" data-testid="pay-partial">Partial</TabsTrigger>
+                  <TabsTrigger value="split" data-testid="pay-split" disabled={!selectedCustomer}>Split</TabsTrigger>
+                  <TabsTrigger value="partial" data-testid="pay-partial" disabled={!selectedCustomer}>Partial</TabsTrigger>
                   <TabsTrigger value="credit" data-testid="pay-credit" disabled={!selectedCustomer}>Credit</TabsTrigger>
                 </TabsList>
               </Tabs>

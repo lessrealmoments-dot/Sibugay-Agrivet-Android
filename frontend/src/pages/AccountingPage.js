@@ -212,9 +212,9 @@ export default function AccountingPage() {
       const limit = caSummary?.monthly_ca_limit || 0;
       const res = await api.post('/auth/verify-manager-pin', {
         pin: caManagerPin,
+        action_key: 'reverse_employee_advance',
         context: {
           type: 'employee_advance',
-          description: `₱${parseFloat(expenseForm.amount).toFixed(2)} cash advance for ${employeeName} (over ₱${limit.toFixed(2)} monthly limit)`,
           amount: parseFloat(expenseForm.amount),
           employee_name: employeeName,
           monthly_limit: limit,

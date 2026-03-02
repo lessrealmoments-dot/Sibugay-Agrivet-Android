@@ -468,7 +468,8 @@ export default function AccountingPage() {
                       <TableCell>
                         <Badge variant="outline" className={`text-[10px] ${
                           e.category === 'Farm Expense' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                          e.category === 'Customer Cash Out' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''
+                          e.category === 'Customer Cash Out' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          e.category === 'Employee Advance' ? 'bg-violet-50 text-violet-700 border-violet-200' : ''
                         }`}>
                           {e.category === 'Farm Expense' && <Tractor size={10} className="mr-1" />}
                           {e.category === 'Customer Cash Out' && <Banknote size={10} className="mr-1" />}

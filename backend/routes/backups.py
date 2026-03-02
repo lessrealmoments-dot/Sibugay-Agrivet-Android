@@ -98,8 +98,8 @@ async def restore_org_from_backup(org_id: str, filename: str, data: dict = None,
     # PIN verification for dangerous operation
     pin = str(data.get("pin", ""))
     if pin:
-        from routes.verify import _resolve_pin
-        verifier = await _resolve_pin(pin)
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(pin, "backup_restore")
         if not verifier:
             raise HTTPException(status_code=403, detail="Invalid PIN")
 

@@ -133,9 +133,9 @@ async def get_customer_transactions(customer_id: str, user=Depends(get_current_u
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     
     # Calculate totals
-    total_invoiced = sum(inv.get("grand_total", 0) for inv in invoices)
-    total_paid = sum(inv.get("amount_paid", 0) for inv in invoices)
-    total_balance = sum(inv.get("balance", 0) for inv in invoices if inv.get("status") != "paid")
+    total_invoiced = sum(inv.get("grand_total", 0) for inv in invoices if inv.get("status") != "voided")
+    total_paid = sum(inv.get("amount_paid", 0) for inv in invoices if inv.get("status") != "voided")
+    total_balance = sum(inv.get("balance", 0) for inv in invoices if inv.get("status") not in ["paid", "voided"])
     
     # Add receivables totals
     total_receivables = sum(r.get("balance", 0) for r in receivables if r.get("status") != "paid")

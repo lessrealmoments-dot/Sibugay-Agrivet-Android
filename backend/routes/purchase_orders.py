@@ -1167,7 +1167,7 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
         await update_cashier_wallet(branch_id, -amount, ref_text)
     
     new_paid = po.get("amount_paid", 0) + amount
-    new_balance = max(0, round(po["subtotal"] - new_paid, 2))
+    new_balance = max(0, round(float(po.get("grand_total", po["subtotal"])) - new_paid, 2))
     new_status = "paid" if new_balance <= 0 else "partial"
     
     payment_record = {

@@ -183,12 +183,13 @@ async def get_daily_close_preview(
     # ── New credit sales today (info only — not cash) ─────────────────────────
     credit_invoices = await db.invoices.find(
         {"branch_id": branch_id, "order_date": date,
-         "payment_type": "credit", "status": {"$ne": "voided"}},
-        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "balance": 1}
+         "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "grand_total": 1, "balance": 1, "payment_type": 1, "amount_paid": 1}
     ).to_list(500)
     credit_sales_today = [
         {"customer_name": inv["customer_name"], "invoice_number": inv["invoice_number"],
-         "grand_total": inv.get("grand_total", 0), "balance": inv.get("balance", 0)}
+         "grand_total": inv.get("grand_total", 0), "balance": inv.get("balance", 0),
+         "payment_type": inv.get("payment_type", "credit"), "amount_paid": inv.get("amount_paid", 0)}
         for inv in credit_invoices
     ]
     total_credit_today = round(sum(c["balance"] for c in credit_sales_today), 2)

@@ -226,7 +226,7 @@ async def expense_report(
     if not date_to:
         date_to = today
 
-    query = {"date": {"$gte": date_from, "$lte": date_to}}
+    query = {"date": {"$gte": date_from, "$lte": date_to}, "voided": {"$ne": True}}
     if branch_id:
         query["branch_id"] = branch_id
     if category:

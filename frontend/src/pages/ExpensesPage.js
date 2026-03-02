@@ -391,6 +391,14 @@ export default function ExpensesPage() {
         <p className="text-sm text-slate-500 mt-1">Record and manage all business expenses</p>
       </div>
 
+      {/* Unclosed Days Banner */}
+      {currentBranch?.id && (
+        <UnclosedDaysBanner
+          branchId={currentBranch.id}
+          onDateSelect={setEncodingDate}
+        />
+      )}
+
       {/* Summary */}
       <Card className="border-slate-200">
         <CardContent className="p-4">

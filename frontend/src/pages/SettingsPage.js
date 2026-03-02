@@ -172,10 +172,61 @@ export default function SettingsPage() {
     catch { toast.error('Failed'); }
   };
 
-  // ── TOTP Controls ──────────────────────────────────────────────────────────
+  // ── PIN Policies ──────────────────────────────────────────────────────────
+  const [pinPolicyActions, setPinPolicyActions] = useState([]);
+  const [pinMethods, setPinMethods] = useState([]);
+  const [pinPolicies, setPinPolicies] = useState({});
+  const [savingPolicies, setSavingPolicies] = useState(false);
+
+  // Also keep old TOTP state for backward compat
   const [totpActions, setTotpActions] = useState([]);
   const [enabledActions, setEnabledActions] = useState([]);
   const [savingControls, setSavingControls] = useState(false);
+
+  const loadPinPolicies = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const res = await api.get('/settings/pin-policies');
+      setPinPolicyActions(res.data.actions || []);
+      setPinMethods(res.data.methods || []);
+      setPinPolicies(res.data.policies || {});
+    } catch {}
+  }, [isAdmin]);
+
+  useEffect(() => { loadPinPolicies(); }, [loadPinPolicies]);
+
+  const togglePinMethod = (actionKey, method) => {
+    setPinPolicies(prev => {
+      const current = prev[actionKey] || pinPolicyActions.find(a => a.key === actionKey)?.defaults || [];
+      const updated = current.includes(method)
+        ? current.filter(m => m !== method)
+        : [...current, method];
+      if (updated.length === 0) { toast.error('At least one method must be enabled'); return prev; }
+      return { ...prev, [actionKey]: updated };
+    });
+  };
+
+  const savePinPolicies = async () => {
+    setSavingPolicies(true);
+    try {
+      await api.put('/settings/pin-policies', { policies: pinPolicies });
+      toast.success('PIN policies saved');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save'); }
+    setSavingPolicies(false);
+  };
+
+  const policyModules = pinPolicyActions.reduce((acc, a) => {
+    if (!acc[a.module]) acc[a.module] = [];
+    acc[a.module].push(a);
+    return acc;
+  }, {});
+
+  const METHOD_LABELS = {
+    admin_pin: { label: 'Owner PIN', color: 'bg-red-100 text-red-700 border-red-200' },
+    manager_pin: { label: 'Manager PIN', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    totp: { label: 'TOTP', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    auditor_pin: { label: 'Auditor PIN', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+  };
 
   const loadTotpControls = useCallback(async () => {
     if (!isAdmin) return;

@@ -239,7 +239,10 @@ export default function PurchaseOrderPage() {
   // ── Line item actions ──────────────────────────────────────────────────
   const handleProductSelect = (index, product) => {
     const nl = [...lines];
-    nl[index] = { ...nl[index], product_id: product.id, product_name: product.name, unit: product.unit || '', unit_price: product.cost_price || 0 };
+    // Use vendor's last price for this product if available, else fall back to product cost
+    const vendorPrice = vendorPrices[product.id] || 0;
+    const fillPrice = vendorPrice > 0 ? vendorPrice : (product.cost_price || 0);
+    nl[index] = { ...nl[index], product_id: product.id, product_name: product.name, unit: product.unit || '', unit_price: fillPrice };
     if (index === lines.length - 1) nl.push({ ...EMPTY_LINE });
     setLines(nl);
     setTimeout(() => qtyRefs.current[index]?.focus(), 50);

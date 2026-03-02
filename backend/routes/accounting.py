@@ -845,7 +845,7 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
     # Update customer balance
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": amount}})
     
-    return {"expense": expense, "invoice": invoice}
+    return {"expense": expense, "invoice": invoice, "message": f"Farm expense recorded — Invoice {inv_number} created for {customer.get('name', '')}"}
 
 
 @router.post("/expenses/customer-cashout")
@@ -948,7 +948,7 @@ async def create_customer_cashout(data: dict, user=Depends(get_current_user)):
     
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": amount}})
     
-    return {"expense": expense, "invoice": invoice}
+    return {"expense": expense, "invoice": invoice, "message": f"Cash out recorded — Invoice {inv_number} created for {customer.get('name', '')}"}
 
 
 @router.post("/expenses/employee-advance")

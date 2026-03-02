@@ -605,7 +605,7 @@ export default function DailyLogPage() {
           )}
 
           {/* ── SUMMARY STRIP ──────────────────────────────────────── */}
-          {logSummary && (cashEntries.length > 0 || creditInvoices.length > 0) && (
+          {logSummary && (walkinEntries.length > 0 || creditInvoices.length > 0) && (
             <div className="mt-4 bg-slate-800 text-white rounded-xl px-5 py-4 flex flex-wrap gap-6 items-center justify-between print:bg-black">
               <div className="flex gap-6">
                 <div>

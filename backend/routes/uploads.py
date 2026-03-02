@@ -664,8 +664,8 @@ async def mark_record_reviewed(record_type: str, record_id: str, data: dict, use
     if not pin:
         raise HTTPException(status_code=400, detail="Admin PIN or TOTP required")
 
-    from routes.verify import _resolve_pin
-    verifier = await _resolve_pin(pin)
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "receipt_mark_reviewed")
     if not verifier:
         raise HTTPException(status_code=403, detail="Invalid PIN or TOTP")
 

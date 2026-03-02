@@ -834,15 +834,25 @@ export default function DailyLogPage() {
                       <div>
                         <p className="text-xs font-medium text-blue-700 mb-1 uppercase tracking-wide">Employee Advances (Asset)</p>
                         {report.advance_expenses.map((e, i) => (
-                          <div key={i} className="flex justify-between items-center p-2 rounded bg-white border border-blue-100 mb-1">
-                            <div>
-                              <Badge className="text-[10px] mr-2 bg-indigo-100 text-indigo-700 border-0">{e.category}</Badge>
-                              <span className="text-sm">{e.description || e.employee_name}</span>
+                          <div key={i} className={`p-2 rounded border mb-1 ${e.is_over_ca ? 'bg-red-50 border-red-200' : 'bg-white border-blue-100'}`}>
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <Badge className="text-[10px] mr-2 bg-indigo-100 text-indigo-700 border-0">{e.category}</Badge>
+                                <span className="text-sm">{e.description || e.employee_name}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="font-bold text-indigo-700">{formatPHP(e.amount)}</span>
+                                <p className="text-[10px] text-indigo-400">Salary deduction</p>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className="font-bold text-indigo-700">{formatPHP(e.amount)}</span>
-                              <p className="text-[10px] text-indigo-400">Salary deduction</p>
-                            </div>
+                            {e.monthly_ca_total != null && (
+                              <div className={`text-[10px] mt-1 ${e.is_over_ca ? 'text-red-600' : 'text-amber-600'}`}>
+                                Monthly total: {formatPHP(e.monthly_ca_total)}
+                                {e.monthly_ca_limit > 0 && <span> / Limit: {formatPHP(e.monthly_ca_limit)}</span>}
+                                {e.is_over_ca && <span className="font-bold ml-1">OVER CA</span>}
+                                {e.manager_approved_by && <span className="ml-1 text-violet-600">(Approved: {e.manager_approved_by})</span>}
+                              </div>
+                            )}
                           </div>
                         ))}
                         <div className="flex justify-between text-sm font-medium text-indigo-700 pt-1 border-t border-blue-200">

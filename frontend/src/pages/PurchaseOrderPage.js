@@ -216,6 +216,12 @@ export default function PurchaseOrderPage() {
     setHeader(h => ({ ...h, vendor: name }));
     setSupplierSearch(name);
     setShowSupplierDd(false);
+    // Load vendor-specific product prices for this branch
+    if (name && currentBranch?.id) {
+      api.get('/purchase-orders/vendor-prices', { params: { vendor: name, branch_id: currentBranch.id } })
+        .then(r => setVendorPrices(r.data || {}))
+        .catch(() => setVendorPrices({}));
+    }
   };
 
   const quickCreateSupplier = async () => {

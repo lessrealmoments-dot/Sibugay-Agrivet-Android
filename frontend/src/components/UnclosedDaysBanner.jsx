@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle, Calendar, ChevronDown, Check } from 'lucide-react';
 import { api } from '../contexts/AuthContext';
 
@@ -8,6 +8,7 @@ export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const dropdownRef = useRef(null);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -27,6 +28,16 @@ export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
   }, [branchId]);
 
   useEffect(() => { fetchUnclosedDays(); }, [fetchUnclosedDays]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
   const handleDateSelect = (date) => {
     setSelectedDate(date);

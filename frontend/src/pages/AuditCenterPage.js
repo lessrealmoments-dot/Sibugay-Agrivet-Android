@@ -1926,6 +1926,24 @@ export default function AuditCenterPage() {
         onOpenChange={setInvoiceModalOpen}
         invoiceNumber={selectedInvoiceNumber}
       />
+
+      {/* Receipt Gallery Dialog */}
+      {receiptView && (
+        <Dialog open={!!receiptView} onOpenChange={() => setReceiptView(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-slate-800">
+                <ImageIcon size={16} className="text-blue-600" />
+                Receipts — {receiptView.label}
+              </DialogTitle>
+            </DialogHeader>
+            <ReceiptGallery
+              recordType={receiptView.recordType}
+              recordId={receiptView.recordId}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

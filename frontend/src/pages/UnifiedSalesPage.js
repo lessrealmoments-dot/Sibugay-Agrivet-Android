@@ -99,6 +99,24 @@ export default function UnifiedSalesPage() {
     try { localStorage.removeItem(PENDING_RECEIPT_KEY); } catch {}
   };
 
+  // Poll for phone uploads — detects when QR-scanned phone completes upload
+  React.useEffect(() => {
+    if (!showDigitalQR || !digitalReceiptQR?.token || digitalReceiptQR?._uploaded) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/preview/${digitalReceiptQR.token}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.file_count > 0) {
+            setDigitalReceiptQR(prev => prev ? ({ ...prev, _uploaded: true, _fileCount: data.file_count }) : prev);
+            toast.success('Receipt uploaded from phone!');
+          }
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showDigitalQR, digitalReceiptQR?.token, digitalReceiptQR?._uploaded]);
+
   // ── Split payment (cash + digital) ────────────────────────────────────────
   const [splitCash, setSplitCash] = useState('');
   const [splitDigital, setSplitDigital] = useState('');

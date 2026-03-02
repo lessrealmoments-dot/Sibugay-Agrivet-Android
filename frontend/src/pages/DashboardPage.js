@@ -588,6 +588,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Unclosed Days Warning */}
+      {unclosedDays && unclosedDays.days.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-amber-300 bg-amber-50" data-testid="dashboard-unclosed-warning">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <AlertTriangle size={18} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-amber-800">
+                {unclosedDays.days.length} unclosed day{unclosedDays.days.length > 1 ? 's' : ''} need attention
+              </p>
+              <p className="text-xs text-amber-600">
+                {unclosedDays.days[0].date} to {unclosedDays.days[unclosedDays.days.length - 1].date}
+                {unclosedDays.last_close_date ? ` · Last closed: ${unclosedDays.last_close_date}` : ' · No previous close on record'}
+              </p>
+            </div>
+          </div>
+          <Button size="sm" onClick={() => navigate('/close-wizard')} className="bg-amber-600 hover:bg-amber-700 text-white flex-shrink-0" data-testid="dashboard-go-close-wizard">
+            <Lock size={13} className="mr-1.5" /> Close Wizard
+          </Button>
+        </div>
+      )}
+
       <div ref={gridRef}>
       {gridMounted && (
       <Responsive

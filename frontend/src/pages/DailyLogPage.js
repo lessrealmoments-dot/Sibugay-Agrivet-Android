@@ -19,6 +19,7 @@ import {
   Archive, Eye, RefreshCw, Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 // ── Small helper components ───────────────────────────────────────────────────
 function SectionCard({ title, children, accent = 'slate', note }) {

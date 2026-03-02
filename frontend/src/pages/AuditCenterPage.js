@@ -18,6 +18,7 @@ import {
   KeyRound, Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 

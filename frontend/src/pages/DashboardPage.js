@@ -17,6 +17,7 @@ import {
   RotateCcw, Smartphone
 } from 'lucide-react';
 import { formatPHP } from '../lib/utils';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import PendingReviewsWidget from '../components/PendingReviewsWidget';
 import SalesTrendsWidget from '../components/dashboard/SalesTrendsWidget';
 import BranchComparisonWidget from '../components/dashboard/BranchComparisonWidget';

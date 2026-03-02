@@ -1077,3 +1077,101 @@ async def get_offline_package(
         },
     }
 
+
+
+async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> dict:
+    """
+    Find expenses and POs in the period that have NOT been verified by admin/auditor.
+    Also flags expenses without receipts.
+    """
+    # Unverified expenses
+    unverified_expenses = await db.expenses.find(
+        {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
+         "voided": {"$ne": True}, "verified": {"$ne": True}},
+        {"_id": 0, "id": 1, "category": 1, "description": 1, "amount": 1,
+         "fund_source": 1, "date": 1, "employee_name": 1, "created_by_name": 1}
+    ).sort("amount", -1).to_list(500)
+
+    # Check which have receipts
+    unverified_ids = [e["id"] for e in unverified_expenses]
+    has_receipt_set = set()
+    if unverified_ids:
+        upload_sessions = await db.upload_sessions.find(
+            {"record_type": "expense", "record_id": {"$in": unverified_ids},
+             "is_pending": {"$ne": True}, "file_count": {"$gt": 0}},
+            {"_id": 0, "record_id": 1}
+        ).to_list(500)
+        has_receipt_set = {s["record_id"] for s in upload_sessions}
+
+    expenses_result = []
+    no_receipt_count = 0
+    for e in unverified_expenses:
+        has_receipt = e["id"] in has_receipt_set
+        if not has_receipt:
+            no_receipt_count += 1
+        expenses_result.append({
+            "id": e["id"],
+            "category": e.get("category", ""),
+            "description": e.get("description", ""),
+            "amount": float(e.get("amount", 0)),
+            "fund_source": e.get("fund_source", "cashier"),
+            "date": e.get("date", ""),
+            "employee_name": e.get("employee_name", ""),
+            "created_by_name": e.get("created_by_name", ""),
+            "has_receipt": has_receipt,
+        })
+
+    total_unverified_amount = round(sum(e["amount"] for e in expenses_result), 2)
+
+    # Unverified POs (received but not verified)
+    unverified_pos = await db.purchase_orders.find(
+        {"branch_id": branch_id,
+         "purchase_date": {"$gte": date_from, "$lte": date_to},
+         "status": {"$in": ["received", "partial"]},
+         "verified": {"$ne": True}},
+        {"_id": 0, "id": 1, "po_number": 1, "vendor": 1, "grand_total": 1, "subtotal": 1,
+         "purchase_date": 1, "status": 1}
+    ).sort("purchase_date", -1).to_list(500)
+
+    # Check PO receipts
+    po_ids = [p["id"] for p in unverified_pos]
+    po_receipt_set = set()
+    if po_ids:
+        po_uploads = await db.upload_sessions.find(
+            {"record_type": "purchase_order", "record_id": {"$in": po_ids},
+             "is_pending": {"$ne": True}, "file_count": {"$gt": 0}},
+            {"_id": 0, "record_id": 1}
+        ).to_list(500)
+        po_receipt_set = {s["record_id"] for s in po_uploads}
+
+    pos_result = []
+    po_no_receipt = 0
+    for p in unverified_pos:
+        has_receipt = p["id"] in po_receipt_set
+        if not has_receipt:
+            po_no_receipt += 1
+        pos_result.append({
+            "id": p["id"],
+            "po_number": p.get("po_number", ""),
+            "vendor": p.get("vendor", ""),
+            "grand_total": round(float(p.get("grand_total") or p.get("subtotal", 0)), 2),
+            "purchase_date": p.get("purchase_date", ""),
+            "has_receipt": has_receipt,
+        })
+
+    total_items = len(expenses_result) + len(pos_result)
+    sev = "critical" if no_receipt_count > 3 or po_no_receipt > 2 else (
+        "warning" if total_items > 0 else "ok"
+    )
+
+    return {
+        "expenses": expenses_result[:50],
+        "expenses_count": len(expenses_result),
+        "expenses_no_receipt": no_receipt_count,
+        "total_unverified_expense_amount": total_unverified_amount,
+        "purchase_orders": pos_result[:50],
+        "po_count": len(pos_result),
+        "po_no_receipt": po_no_receipt,
+        "total_items": total_items,
+        "severity": sev,
+    }

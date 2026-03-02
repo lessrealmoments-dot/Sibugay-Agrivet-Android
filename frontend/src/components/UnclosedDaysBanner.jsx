@@ -71,7 +71,7 @@ export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
         </div>
 
         {/* Date selector */}
-        <div className="relative flex-shrink-0">
+        <div className="relative flex-shrink-0" ref={dropdownRef}>
           <button
             onClick={() => setOpen(!open)}
             className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors"

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Calendar, ChevronDown, Check } from 'lucide-react';
-import api from '../api';
+import { api } from '../contexts/AuthContext';
 
 export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
   const [unclosedDays, setUnclosedDays] = useState([]);

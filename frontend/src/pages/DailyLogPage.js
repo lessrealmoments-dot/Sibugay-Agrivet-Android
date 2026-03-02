@@ -662,7 +662,7 @@ export default function DailyLogPage() {
               </div>
               <div className="text-right">
                 <div className="text-xs text-slate-400 uppercase tracking-wide">Total Sales Today</div>
-                <div className="font-mono font-bold text-xl">{formatPHP(totalWalkinSales + (logSummary.total_credit || 0))}</div>
+                <div className="font-mono font-bold text-xl">{formatPHP(logSummary?.grand_total || 0)}</div>
               </div>
             </div>
           )}

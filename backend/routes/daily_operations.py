@@ -864,6 +864,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
 
     expenses_raw = await db.expenses.find({"branch_id": branch_id, "date": date, "voided": {"$ne": True}}, {"_id": 0}).to_list(500)
     expenses = []
+    _emp_limit_cache = {}
     for e in expenses_raw:
         exp = dict(e)
         if e.get("category") == "Employee Advance" and e.get("employee_id"):

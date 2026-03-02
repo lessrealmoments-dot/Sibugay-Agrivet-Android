@@ -588,9 +588,9 @@ export default function DailyLogPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-mono font-bold text-slate-800">{formatPHP(invoiceTotal)}</div>
+                          <div className="font-mono font-bold text-slate-800">{formatPHP(balance)}</div>
                           {amountPaid > 0 && (
-                            <div className="text-xs text-slate-500">Paid: {formatPHP(amountPaid)} · Balance: <span className="text-red-600 font-semibold">{formatPHP(balance)}</span></div>
+                            <div className="text-xs text-slate-500">of {formatPHP(invoiceTotal)} · Paid: {formatPHP(amountPaid)}</div>
                           )}
                         </div>
                       </div>

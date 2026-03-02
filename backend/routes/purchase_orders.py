@@ -1341,18 +1341,19 @@ async def get_payables_by_supplier(user=Depends(get_current_user), branch_id: Op
 
 
 @router.post("/{po_id}/reopen")
-async def reopen_purchase_order(po_id: str, user=Depends(get_current_user)):
+async def reopen_purchase_order(po_id: str, data: dict = None, user=Depends(get_current_user)):
     """
     Reopen a received PO: reverses inventory AND fully reverses the payment.
-    
-    Cash POs: payment returned to the original fund source, reversal expense created.
-    Terms POs: accounts payable entry voided — no fund movement needed.
-    
-    After reopen: PO is in 'ordered' status, payment_status='unpaid', amount_paid=0.
-    User edits the PO, then receives it again with a fresh payment at the new total.
-    This ensures complete audit trail with no double-deductions.
     """
     check_perm(user, "inventory", "adjust")
+
+    # PIN enforcement for PO reopen
+    if data and data.get("pin"):
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(data["pin"], "reopen_po")
+        if not verifier:
+            raise HTTPException(status_code=403, detail="Invalid PIN")
+
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")

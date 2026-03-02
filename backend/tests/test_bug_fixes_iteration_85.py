@@ -83,7 +83,7 @@ class TestBugFixesIteration85:
             "notes": "Test farm expense for bug 1 verification"
         }
         
-        response = self.session.post(f"{BASE_URL}/api/expenses/farm-expense", json=farm_expense_payload)
+        response = self.session.post(f"{BASE_URL}/api/expenses/farm", json=farm_expense_payload)
         
         # Verify response
         assert response.status_code == 200, f"Farm expense creation failed: {response.status_code} - {response.text}"

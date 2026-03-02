@@ -471,7 +471,15 @@ async def compute_interest(inv_id: str, user=Depends(get_current_user)):
 async def edit_invoice(invoice_id: str, data: dict, user=Depends(get_current_user)):
     """Edit an invoice with reason and optional proof. Handles inventory adjustments."""
     check_perm(user, "pos", "edit")
-    
+
+    # PIN enforcement for invoice edit
+    pin = data.get("pin", "")
+    if pin:
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(pin, "invoice_edit")
+        if not verifier:
+            raise HTTPException(status_code=403, detail="Invalid PIN")
+
     reason = data.get("reason", "").strip()
     if not reason:
         raise HTTPException(status_code=400, detail="Edit reason is required")

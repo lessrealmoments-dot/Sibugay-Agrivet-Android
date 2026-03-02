@@ -1459,6 +1459,11 @@ export default function DailyLogPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
     </div>
   );
 }

@@ -828,8 +828,11 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     # Pull all data (reuse preview logic)
     from datetime import timedelta
     month_prefix = date[:7]
-    yesterday = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
-    prev_close = await db.daily_closings.find_one({"date": yesterday, "branch_id": branch_id}, {"_id": 0})
+    prev_close = await db.daily_closings.find_one(
+        {"branch_id": branch_id, "date": {"$lt": date}, "status": "closed"},
+        {"_id": 0},
+        sort=[("date", -1)]
+    )
     wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
     starting_float = float(prev_close.get("cash_to_drawer", 0)) if prev_close else float(wallet["balance"] if wallet else 0)
 

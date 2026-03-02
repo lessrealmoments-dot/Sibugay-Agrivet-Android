@@ -619,6 +619,7 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
 
     return {
         "starting_float": starting_float,
+        "has_prev_close": has_prev_close,
         "cash_sales": cash_sales,
         "total_partial_cash": total_partial_cash,
         "total_split_cash": total_split_cash,

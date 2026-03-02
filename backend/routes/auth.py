@@ -172,34 +172,24 @@ async def update_profile(data: dict, user=Depends(get_current_user)):
 @router.post("/verify-manager-pin")
 async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
     from routes.notifications import create_pin_notification
+    from routes.verify import _resolve_pin
     pin = data.get("pin", "")
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
 
-    required_level = data.get("required_level", "manager")
-    allowed_roles = ["admin"] if required_level == "admin" else ["admin", "manager"]
+    # Use unified PIN resolver: checks Owner PIN, Manager/Admin PIN, TOTP, Auditor PIN
+    verifier = await _resolve_pin(pin)
+    if verifier:
+        context = data.get("context")
+        if context:
+            await create_pin_notification(context, verifier["verifier_id"], verifier["verifier_name"])
+        return {
+            "valid": True,
+            "manager_id": verifier["verifier_id"],
+            "manager_name": verifier["verifier_name"],
+            "role": verifier.get("method", "admin"),
+        }
 
-    managers = await db.users.find(
-        {"role": {"$in": allowed_roles}, "active": True}, {"_id": 0}
-    ).to_list(100)
-
-    for mgr in managers:
-        mgr_pin = mgr.get("manager_pin", "")
-        if not mgr_pin:
-            mgr_pin = mgr.get("password_hash", "")[-4:]
-        if mgr_pin and pin == mgr_pin:
-            context = data.get("context")
-            if context:
-                await create_pin_notification(context, mgr["id"], mgr.get("full_name", mgr["username"]))
-            return {
-                "valid": True,
-                "manager_id": mgr["id"],
-                "manager_name": mgr.get("full_name", mgr.get("username", "")),
-                "role": mgr["role"],
-            }
-
-    if required_level == "admin":
-        return {"valid": False, "error": "Invalid — only admin PIN accepted for this action"}
     return {"valid": False}
 
 

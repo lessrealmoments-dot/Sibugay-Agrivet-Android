@@ -1763,13 +1763,15 @@ async def _verify_manager(manager_pin: str) -> dict:
     """Verify manager PIN and return the authorizing manager. Raises 401 on failure."""
     if not manager_pin:
         raise HTTPException(status_code=400, detail="Manager PIN required")
-    managers = await db.users.find(
-        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
-    ).to_list(50)
-    for mgr in managers:
-        pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
-        if pin and manager_pin == pin:
-            return mgr
+    from routes.verify import _resolve_pin
+    verifier = await _resolve_pin(manager_pin)
+    if verifier:
+        return {
+            "id": verifier["verifier_id"],
+            "full_name": verifier["verifier_name"],
+            "username": verifier["verifier_name"],
+            "role": verifier.get("method", "admin"),
+        }
     raise HTTPException(status_code=403, detail="Invalid manager PIN")
 
 

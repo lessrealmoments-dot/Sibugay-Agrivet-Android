@@ -752,6 +752,8 @@ export default function AuditCenterPage() {
             <td>Total: ${php(auditData.digital?.total_digital_collected)} · Missing ref#: ${auditData.digital?.missing_ref_count || 0} · Transactions: ${auditData.digital?.transaction_count || 0}</td></tr>` : ''}
         ${auditData.inventory?.available ? `<tr><td>Inventory (Physical)</td><td class="${auditData.inventory?.severity}">${sevLabel(auditData.inventory?.severity)}</td>
             <td>Accuracy: ${auditData.inventory?.summary?.inventory_accuracy_pct}% · Variance: ${php(auditData.inventory?.summary?.total_variance_capital)}</td></tr>` : ''}
+        ${auditData.unverified?.total_items > 0 ? `<tr><td>Unverified Items</td><td class="${auditData.unverified?.severity}">${sevLabel(auditData.unverified?.severity)}</td>
+            <td>Expenses: ${auditData.unverified?.expenses_count} (no receipt: ${auditData.unverified?.expenses_no_receipt}) · POs: ${auditData.unverified?.po_count} (no receipt: ${auditData.unverified?.po_no_receipt})</td></tr>` : ''}
       </tbody>
     </table>
     <p style="font-size:10px;color:#888">Generated: ${new Date().toLocaleString()} — AgriBooks Business Management</p>

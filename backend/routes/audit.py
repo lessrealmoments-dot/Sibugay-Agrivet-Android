@@ -434,54 +434,169 @@ async def _compute_inventory(branch_id: str, baseline_id: str, current_id: str) 
 
 
 async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
-    """Compute cash reconciliation for the period."""
-    # Starting float: look for the last daily_closing before date_from
+    """
+    Compute cash reconciliation for the period.
+    Formula matches Closing Wizard: starting_float + cash_in + net_fund_transfers - cashier_expenses
+    Where cash_in = cash_sales + partial_cash + split_cash + cash_ar
+    """
+    # Starting float: last daily_closing before date_from
     prev_close = await db.daily_closings.find_one(
         {"branch_id": branch_id, "date": {"$lt": date_from}},
         {"_id": 0},
         sort=[("date", -1)]
     )
+    has_prev_close = bool(prev_close)
     starting_float = float(prev_close.get("cash_to_drawer", 0)) if prev_close else 0.0
-    # Fallback: current cashier wallet
     if starting_float == 0 and not prev_close:
         wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
         starting_float = float(wallet.get("balance", 0)) if wallet else 0.0
 
-    # Cash sales in period
+    # ── Cash sales (pure cash from sales_log) ─────────────────────────────
     cash_sales_r = await db.sales_log.aggregate([
         {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
+                    "voided": {"$ne": True},
                     "payment_method": {"$regex": "^cash$", "$options": "i"}}},
         {"$group": {"_id": None, "total": {"$sum": "$line_total"}}}
     ]).to_list(1)
     cash_sales = round(cash_sales_r[0]["total"] if cash_sales_r else 0, 2)
 
-    # AR collected in period (invoice payments)
-    ar_r = await db.invoices.aggregate([
+    # ── Partial payment cash (amount_paid from partial invoices) ──────────
+    partial_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": {"$gte": date_from, "$lte": date_to},
+         "payment_type": "partial", "status": {"$ne": "voided"}},
+        {"_id": 0, "customer_name": 1, "invoice_number": 1, "amount_paid": 1, "grand_total": 1}
+    ).to_list(500)
+    total_partial_cash = round(sum(float(inv.get("amount_paid", 0)) for inv in partial_invoices), 2)
+
+    # ── Split payment cash portions ───────────────────────────────────────
+    split_invoices = await db.invoices.find(
+        {"branch_id": branch_id, "order_date": {"$gte": date_from, "$lte": date_to},
+         "fund_source": "split", "status": {"$ne": "voided"}},
+        {"_id": 0, "cash_amount": 1, "invoice_number": 1, "customer_name": 1, "grand_total": 1, "digital_amount": 1}
+    ).to_list(500)
+    total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_invoices), 2)
+
+    # ── AR payments — split by fund source (cash vs digital) ──────────────
+    ar_pipeline = [
+        {"$match": {"branch_id": branch_id, "status": {"$ne": "voided"}}},
         {"$unwind": "$payments"},
-        {"$match": {"branch_id": branch_id, "payments.date": {"$gte": date_from, "$lte": date_to},
-                    "payments.fund_source": "cashier"}},
-        {"$group": {"_id": None, "total": {"$sum": "$payments.amount"}}}
-    ]).to_list(1)
-    ar_collected = round(ar_r[0]["total"] if ar_r else 0, 2)
+        {"$match": {"payments.date": {"$gte": date_from, "$lte": date_to}}},
+        {"$project": {
+            "_id": 0, "customer_name": 1, "invoice_number": 1, "customer_id": 1, "balance": 1,
+            "payment": "$payments"
+        }}
+    ]
+    ar_payments_raw = await db.invoices.aggregate(ar_pipeline).to_list(500)
+    ar_payments = []
+    for p in ar_payments_raw:
+        pmt = p.get("payment", {})
+        amount = float(pmt.get("amount", 0))
+        ar_payments.append({
+            "customer_name": p.get("customer_name", ""),
+            "invoice_number": p.get("invoice_number", ""),
+            "amount_paid": round(amount, 2),
+            "fund_source": pmt.get("fund_source", "cashier"),
+            "method": pmt.get("method", "Cash"),
+            "date": pmt.get("date", ""),
+        })
+    total_ar_received = round(sum(p["amount_paid"] for p in ar_payments), 2)
+    total_cash_ar = round(sum(
+        p["amount_paid"] for p in ar_payments if p.get("fund_source", "cashier") == "cashier"
+    ), 2)
+    total_digital_ar = round(total_ar_received - total_cash_ar, 2)
 
-    # Cash expenses in period — only cashier-sourced expenses affect the drawer
-    exp_r = await db.expenses.aggregate([
-        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
-                    "voided": {"$ne": True},
-                    "fund_source": {"$ne": "safe"}}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
-    ]).to_list(1)
-    total_cashier_expenses = round(exp_r[0]["total"] if exp_r else 0, 2)
+    # ── Fund transfers affecting cashier drawer ───────────────────────────
+    ft_query = {"branch_id": branch_id, "$or": [
+        {"date": {"$gte": date_from, "$lte": date_to}},
+        {"date": {"$exists": False}, "created_at": {"$gte": f"{date_from}T00:00:00", "$lte": f"{date_to}T23:59:59"}}
+    ]}
+    fund_transfers = await db.fund_transfers.find(ft_query, {"_id": 0}).to_list(500)
+    capital_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers
+        if ft.get("transfer_type") == "capital_add" and ft.get("target_wallet", "cashier") == "cashier"
+    ), 2)
+    safe_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers
+        if ft.get("transfer_type") == "safe_to_cashier"
+    ), 2)
+    cashier_to_safe = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers
+        if ft.get("transfer_type") == "cashier_to_safe"
+    ), 2)
+    net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe, 2)
 
-    # All expenses for breakdown display
-    all_exp_r = await db.expenses.aggregate([
+    fund_transfer_details = [
+        {"type": ft["transfer_type"], "amount": float(ft.get("amount", 0)),
+         "note": ft.get("note", ""), "authorized_by": ft.get("authorized_by", ""),
+         "target_wallet": ft.get("target_wallet", ""),
+         "date": ft.get("date", ft.get("created_at", "")[:10])}
+        for ft in fund_transfers
+        if ft.get("transfer_type") in ("capital_add", "safe_to_cashier", "cashier_to_safe")
+    ]
+
+    # ── Expenses — full list with verification status ─────────────────────
+    expenses_raw = await db.expenses.find(
+        {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
+         "voided": {"$ne": True}}, {"_id": 0}
+    ).sort("date", -1).to_list(500)
+
+    # Enrich expenses with receipt info
+    expense_ids = [e["id"] for e in expenses_raw]
+    expense_uploads = {}
+    if expense_ids:
+        upload_sessions = await db.upload_sessions.find(
+            {"record_type": "expense", "record_id": {"$in": expense_ids}, "is_pending": {"$ne": True}},
+            {"_id": 0, "record_id": 1, "file_count": 1, "files": 1}
+        ).to_list(500)
+        for s in upload_sessions:
+            rid = s["record_id"]
+            if rid not in expense_uploads:
+                expense_uploads[rid] = []
+            expense_uploads[rid].extend(s.get("files", []))
+
+    expenses = []
+    for e in expenses_raw:
+        files = expense_uploads.get(e["id"], [])
+        expenses.append({
+            "id": e["id"],
+            "category": e.get("category", ""),
+            "description": e.get("description", ""),
+            "amount": float(e.get("amount", 0)),
+            "fund_source": e.get("fund_source", "cashier"),
+            "date": e.get("date", ""),
+            "employee_name": e.get("employee_name", ""),
+            "created_by_name": e.get("created_by_name", ""),
+            "verified": e.get("verified", False),
+            "verified_by_name": e.get("verified_by_name", ""),
+            "verified_at": e.get("verified_at", ""),
+            "receipt_review_status": e.get("receipt_review_status", ""),
+            "has_receipt": len(files) > 0,
+            "receipt_count": len(files),
+        })
+
+    total_expenses = round(sum(e["amount"] for e in expenses), 2)
+    total_cashier_expenses = round(sum(
+        e["amount"] for e in expenses if e.get("fund_source", "cashier") != "safe"
+    ), 2)
+    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
+
+    # Expense breakdown by category
+    exp_breakdown = await db.expenses.aggregate([
         {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
                     "voided": {"$ne": True}}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
-    ]).to_list(1)
-    total_expenses = round(all_exp_r[0]["total"] if all_exp_r else 0, 2)
+        {"$group": {"_id": "$category", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
+        {"$sort": {"total": -1}}
+    ]).to_list(50)
 
-    expected_cash = round(starting_float + cash_sales + ar_collected - total_cashier_expenses, 2)
+    # ── Expected cash (matches Closing Wizard formula) ────────────────────
+    total_cash_in = cash_sales + total_partial_cash + total_cash_ar + total_split_cash
+    if has_prev_close:
+        expected_cash = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
+    else:
+        wallet_now = await db.fund_wallets.find_one(
+            {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+        )
+        expected_cash = round(float(wallet_now["balance"]) if wallet_now else 0, 2)
 
     # Current cashier balance
     cashier = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
@@ -494,22 +609,29 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
         lots = await db.safe_lots.find({"wallet_id": safe["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
         safe_balance = sum(lot["remaining_amount"] for lot in lots)
 
-    # Expense breakdown by category
-    exp_breakdown = await db.expenses.aggregate([
-        {"$match": {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
-                    "voided": {"$ne": True}}},
-        {"$group": {"_id": "$category", "total": {"$sum": "$amount"}, "count": {"$sum": 1}}},
-        {"$sort": {"total": -1}}
-    ]).to_list(50)
-
     discrepancy = round(current_cashier - expected_cash, 2)
     sev = cash_severity(discrepancy)
 
     return {
         "starting_float": starting_float,
         "cash_sales": cash_sales,
-        "ar_collected": ar_collected,
+        "total_partial_cash": total_partial_cash,
+        "total_split_cash": total_split_cash,
+        "total_cash_in": round(total_cash_in, 2),
+        "ar_collected": total_cash_ar,
+        "total_ar_received": total_ar_received,
+        "total_cash_ar": total_cash_ar,
+        "total_digital_ar": total_digital_ar,
+        "ar_payments": ar_payments[:50],
+        "net_fund_transfers": net_fund_transfers,
+        "capital_to_cashier": capital_to_cashier,
+        "safe_to_cashier": safe_to_cashier,
+        "cashier_to_safe": cashier_to_safe,
+        "fund_transfer_details": fund_transfer_details,
         "total_expenses": total_expenses,
+        "total_cashier_expenses": total_cashier_expenses,
+        "total_safe_expenses": total_safe_expenses,
+        "expenses": expenses[:100],
         "expected_cash": expected_cash,
         "current_cashier_balance": round(current_cashier, 2),
         "safe_balance": round(safe_balance, 2),
@@ -518,7 +640,19 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
         "discrepancy_type": "over" if discrepancy > 0 else ("short" if discrepancy < 0 else "balanced"),
         "expense_breakdown": [{"category": r["_id"] or "Other", "total": round(r["total"], 2), "count": r["count"]} for r in exp_breakdown],
         "severity": sev,
-        "formula": "Starting Float + Cash Sales + AR Collected - Cashier Expenses = Expected Cash",
+        "formula": "Starting Float + Cash Sales + Partial Cash + Split Cash + Cash AR + Net Fund Transfers - Cashier Expenses = Expected Cash",
+        # Partial / split invoice details for drill-down
+        "partial_invoices": [
+            {"invoice_number": inv["invoice_number"], "customer_name": inv.get("customer_name", ""),
+             "amount_paid": round(float(inv.get("amount_paid", 0)), 2), "grand_total": round(float(inv.get("grand_total", 0)), 2)}
+            for inv in partial_invoices
+        ],
+        "split_invoices": [
+            {"invoice_number": inv["invoice_number"], "customer_name": inv.get("customer_name", ""),
+             "cash_amount": round(float(inv.get("cash_amount", 0)), 2), "digital_amount": round(float(inv.get("digital_amount", 0)), 2),
+             "grand_total": round(float(inv.get("grand_total", 0)), 2)}
+            for inv in split_invoices
+        ],
     }
 
 

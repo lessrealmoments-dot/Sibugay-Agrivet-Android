@@ -16,6 +16,7 @@ import ReceiptUploadInline from '../components/ReceiptUploadInline';
 import VerificationBadge from '../components/VerificationBadge';
 import VerifyPinDialog from '../components/VerifyPinDialog';
 import ViewQRDialog from '../components/ViewQRDialog';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const EXPENSE_CATEGORIES = [
   "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
@@ -42,6 +43,8 @@ export default function ExpensesPage() {
   const [verifyExpenseOpen, setVerifyExpenseOpen] = useState(false);
   const [viewQRExpenseId, setViewQRExpenseId] = useState(null);
   const [viewQRExpenseOpen, setViewQRExpenseOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
 
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [farmExpenseDialog, setFarmExpenseDialog] = useState(false);
@@ -404,7 +407,7 @@ export default function ExpensesPage() {
                     )}
                     {e.linked_invoice_number && (
                       <div className="text-xs text-blue-600 flex items-center gap-1">
-                        <FileText size={10} /> Invoice: {e.linked_invoice_number}
+                        <FileText size={10} /> Invoice: <button className="hover:underline" onClick={() => { setSelectedInvoiceNumber(e.linked_invoice_number); setInvoiceModalOpen(true); }}>{e.linked_invoice_number}</button>
                       </div>
                     )}
                   </TableCell>

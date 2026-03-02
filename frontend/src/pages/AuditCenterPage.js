@@ -912,6 +912,11 @@ export default function AuditCenterPage() {
                 <div className="space-y-1 mt-2">
                   <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 mb-3">
                     <p className="text-[10px] text-slate-500 font-medium uppercase mb-2">Formula: Starting Float + Cash In + Net Fund Transfers − Cashier Expenses = Expected Cash</p>
+                    {!auditData.cash.has_prev_close && (
+                      <div className="rounded-md bg-amber-50 border border-amber-300 px-3 py-1.5 mb-2">
+                        <p className="text-[10px] text-amber-800 font-medium">No previous daily close found — starting float was reverse-calculated from current wallet balance. Close your days to get an accurate opening balance.</p>
+                      </div>
+                    )}
                     <StatRow label="Starting Float" value={formatPHP(auditData.cash.starting_float)} />
                     <Separator className="my-1.5" />
                     <p className="text-[10px] text-emerald-600 font-semibold uppercase mt-1">Cash Inflows</p>

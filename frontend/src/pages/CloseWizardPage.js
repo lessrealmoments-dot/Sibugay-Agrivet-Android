@@ -461,7 +461,7 @@ export default function CloseWizardPage() {
   const verifyExpCaPin = async () => {
     if (!expCaPin) { toast.error('Enter manager PIN'); return; }
     try {
-      await api.post('/auth/verify-manager-pin', { pin: expCaPin });
+      await api.post('/auth/verify-manager-pin', { pin: expCaPin, action_key: 'reverse_employee_advance' });
       setExpCaPinVerified(true);
       setExpCaPinNeeded(false);
       toast.success('PIN verified — you can now save the advance');

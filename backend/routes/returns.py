@@ -302,17 +302,11 @@ async def void_return(return_id: str, data: dict, user=Depends(get_current_user)
     if not manager_pin:
         raise HTTPException(status_code=400, detail="Manager PIN required")
 
-    managers = await db.users.find(
-        {"role": {"$in": ["admin", "manager"]}, "active": True}, {"_id": 0}
-    ).to_list(50)
-    authorized_manager = None
-    for mgr in managers:
-        mgr_pin = mgr.get("manager_pin", "") or mgr.get("password_hash", "")[-4:]
-        if mgr_pin and manager_pin == mgr_pin:
-            authorized_manager = mgr
-            break
-    if not authorized_manager:
+    from routes.verify import _resolve_pin
+    verifier = await _resolve_pin(manager_pin)
+    if not verifier:
         raise HTTPException(status_code=403, detail="Invalid manager PIN")
+    authorized_manager = {"id": verifier["verifier_id"], "full_name": verifier["verifier_name"], "username": verifier["verifier_name"]}
 
     branch_id = ret.get("branch_id", "")
 

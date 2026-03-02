@@ -140,6 +140,7 @@ async def get_daily_close_preview(
         {"_id": 0},
         sort=[("date", -1)]
     )
+    has_prev_close = bool(prev_close)
     if prev_close:
         starting_float = float(prev_close.get("cash_to_drawer", 0))
     else:

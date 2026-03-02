@@ -341,7 +341,8 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         )
     
     # Log to sequential sales log — reuse products_map (no extra DB calls)
-    active_date = await get_active_date(branch_id)
+    # Use the same order_date the invoice uses so sales_log matches
+    log_date = data.get("order_date", now_iso()[:10])
     for item in sale_items:
         product = products_map.get(item["product_id"])
         item["category"] = product.get("category", "General") if product else "General"
@@ -357,7 +358,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         }
 
     await log_sale_items(
-        branch_id, active_date, sale_items, inv_number,
+        branch_id, log_date, sale_items, inv_number,
         customer_name, "split" if is_split else data.get("payment_method", "Cash"),
         user.get("full_name", user["username"]),
         split_meta=split_meta,

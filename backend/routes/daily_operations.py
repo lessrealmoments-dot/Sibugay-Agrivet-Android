@@ -441,7 +441,7 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
             "total_credit": total_credit,
             "total_credit_balance": total_credit_balance,
             "total_all": total_all,
-            "grand_total": round(total_cash + total_credit, 2),
+            "grand_total": total_all,
             "cash_count": len(cash_entries),
             "credit_invoice_count": len(credit_invoices),
             "cash_by_category": cash_by_category,

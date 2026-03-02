@@ -181,7 +181,11 @@ export default function ExpensesPage() {
       setCaSummary(null);
       setExpenseReceiptData(null);
       fetchAll();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Error saving expense'); }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Error saving expense';
+      toast.error(msg);
+    }
   };
 
   const handleCaManagerPin = async () => {

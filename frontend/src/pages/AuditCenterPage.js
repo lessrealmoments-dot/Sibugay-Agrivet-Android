@@ -1453,13 +1453,22 @@ export default function AuditCenterPage() {
                   data_testid="audit-unverified-section"
                   insight={{
                     type: auditData.unverified.severity,
-                    text: `${auditData.unverified.expenses_count} expense(s) and ${auditData.unverified.po_count} PO(s) have not been verified by admin or auditor.${
-                      auditData.unverified.expenses_no_receipt > 0 ? ` ${auditData.unverified.expenses_no_receipt} expense(s) have NO receipt attached.` : ''
-                    }${auditData.unverified.po_no_receipt > 0 ? ` ${auditData.unverified.po_no_receipt} PO(s) have NO receipt attached.` : ''}`,
-                    action: 'Review each item below. Verify with PIN after checking receipts and details. Items without receipts should be investigated first.',
+                    text: `${auditData.unverified.expenses_count} expense(s), ${auditData.unverified.po_count} PO(s), and ${auditData.unverified.digital_count || 0} digital payment(s) have not been verified.${
+                      auditData.unverified.expenses_no_receipt > 0 ? ` ${auditData.unverified.expenses_no_receipt} expense(s) have NO receipt.` : ''
+                    }${auditData.unverified.digital_no_ref > 0 ? ` ${auditData.unverified.digital_no_ref} digital payment(s) have NO reference number.` : ''}`,
+                    action: 'Review each item below. Use "Verify All" to batch-verify with a single PIN entry, or investigate items without receipts first.',
                   }}
                 >
                   <div className="space-y-3 mt-2">
+                    {/* Verify All button */}
+                    <div className="flex justify-end">
+                      <Button size="sm" onClick={() => setBulkVerifyOpen(true)}
+                        className="bg-[#1A4D2E] hover:bg-[#14532d] text-white h-8 text-xs"
+                        data-testid="verify-all-btn">
+                        <Check size={13} className="mr-1.5" /> Verify All ({auditData.unverified.total_items})
+                      </Button>
+                    </div>
+
                     {/* Unverified Expenses */}
                     {auditData.unverified.expenses?.length > 0 && (
                       <div>
@@ -1478,8 +1487,7 @@ export default function AuditCenterPage() {
                                     {exp.fund_source || 'cashier'}
                                   </Badge>
                                   {exp.has_receipt ? (
-                                    <button
-                                      onClick={() => setReceiptView({ recordType: 'expense', recordId: exp.id, label: exp.category })}
+                                    <button onClick={() => setReceiptView({ recordType: 'expense', recordId: exp.id, label: exp.category })}
                                       className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5">
                                       <ImageIcon size={9} /> View receipt
                                     </button>
@@ -1513,15 +1521,12 @@ export default function AuditCenterPage() {
                               data-testid={`unverified-po-${po.id}`}>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <button
-                                    className="font-mono text-blue-600 hover:underline font-semibold"
-                                    onClick={() => navigate('/purchase-orders')}>
+                                  <button className="font-mono text-blue-600 hover:underline font-semibold" onClick={() => navigate('/purchase-orders')}>
                                     {po.po_number}
                                   </button>
                                   <span className="text-slate-500">{po.vendor}</span>
                                   {po.has_receipt ? (
-                                    <button
-                                      onClick={() => setReceiptView({ recordType: 'purchase_order', recordId: po.id, label: po.po_number })}
+                                    <button onClick={() => setReceiptView({ recordType: 'purchase_order', recordId: po.id, label: po.po_number })}
                                       className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5">
                                       <ImageIcon size={9} /> View receipt
                                     </button>
@@ -1532,6 +1537,48 @@ export default function AuditCenterPage() {
                                 <p className="text-[10px] text-slate-400 mt-0.5">{po.purchase_date}</p>
                               </div>
                               <span className="font-bold font-mono text-amber-700 shrink-0">{formatPHP(po.grand_total)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Unverified Digital Payments (GCash, Maya, etc.) */}
+                    {auditData.unverified.digital_payments?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                          <Smartphone size={13} className="text-blue-600" />
+                          Unverified Digital Payments ({auditData.unverified.digital_count}) — Total: {formatPHP(auditData.unverified.total_unverified_digital)}
+                        </p>
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {auditData.unverified.digital_payments.map((dp, i) => (
+                            <div key={i} className={`text-xs p-2.5 rounded-lg border flex items-center justify-between gap-2 ${!dp.has_ref ? 'bg-red-50 border-red-200' : !dp.has_receipt ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}
+                              data-testid={`unverified-digital-${dp.id}`}>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(dp.invoice_number); setInvoiceModalOpen(true); }}>
+                                    {dp.invoice_number}
+                                  </button>
+                                  <Badge className="text-[9px] bg-blue-100 text-blue-700">{dp.platform}</Badge>
+                                  {dp.is_split && <Badge className="text-[9px] bg-purple-100 text-purple-700">Split</Badge>}
+                                  {!dp.has_ref && <span className="text-[9px] text-red-600 font-semibold flex items-center gap-0.5"><CircleAlert size={9} /> No ref#</span>}
+                                  {dp.has_receipt ? (
+                                    <button onClick={() => setReceiptView({ recordType: 'invoice', recordId: dp.id, label: dp.invoice_number })}
+                                      className="text-[9px] text-blue-600 hover:text-blue-800 underline flex items-center gap-0.5">
+                                      <ImageIcon size={9} /> View receipt
+                                    </button>
+                                  ) : (
+                                    <span className="text-[9px] text-amber-600 flex items-center gap-0.5"><CircleAlert size={9} /> No receipt photo</span>
+                                  )}
+                                </div>
+                                <p className="text-slate-500 mt-0.5 truncate">
+                                  {dp.customer_name || 'Walk-in'}
+                                  {dp.ref_number && <span className="font-mono text-slate-400"> · #{dp.ref_number}</span>}
+                                  {dp.sender && <span className="text-slate-400"> · from {dp.sender}</span>}
+                                </p>
+                                <p className="text-[10px] text-slate-400">{dp.date}</p>
+                              </div>
+                              <span className="font-bold font-mono text-blue-700 shrink-0">{formatPHP(dp.amount)}</span>
                             </div>
                           ))}
                         </div>

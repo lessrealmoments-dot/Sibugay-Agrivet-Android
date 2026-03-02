@@ -160,6 +160,92 @@ export default function ExpensesPage() {
     setCashOutDialog(true);
   };
 
+  const openEmployeeAdvance = () => {
+    setEmployeeAdvanceForm({
+      description: '', notes: '', amount: 0, employee_id: '',
+      date: new Date().toISOString().slice(0, 10),
+    });
+    setEaCaSummary(null);
+    setEmployeeAdvanceDialog(true);
+  };
+
+  const handleEaEmployeeSelect = async (empId) => {
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) { setEmployeeAdvanceForm(f => ({...f, employee_id: ''})); setEaCaSummary(null); return; }
+    setEmployeeAdvanceForm(f => ({...f, employee_id: emp.id, description: f.description || `Advance to ${emp.name}`}));
+    try {
+      const res = await api.get(`/employees/${emp.id}/ca-summary`);
+      setEaCaSummary(res.data);
+    } catch { setEaCaSummary(null); }
+  };
+
+  const handleCreateEmployeeAdvance = async (approvedBy = '') => {
+    if (!employeeAdvanceForm.employee_id) { toast.error('Please select an employee'); return; }
+    if (!employeeAdvanceForm.amount || employeeAdvanceForm.amount <= 0) { toast.error('Amount must be greater than 0'); return; }
+    if (!currentBranch?.id) { toast.error('Please select a branch first'); return; }
+
+    // Check CA limit
+    if (eaCaSummary) {
+      const limit = eaCaSummary.monthly_ca_limit || 0;
+      if (limit > 0 && (eaCaSummary.this_month_total + parseFloat(employeeAdvanceForm.amount)) > limit && !approvedBy) {
+        setEaManagerPinDialog(true);
+        return;
+      }
+    }
+
+    try {
+      const emp = employees.find(e => e.id === employeeAdvanceForm.employee_id);
+      const payload = {
+        ...employeeAdvanceForm,
+        branch_id: currentBranch.id,
+        employee_name: emp?.name || '',
+      };
+      if (approvedBy) payload.manager_approved_by = approvedBy;
+      await api.post('/expenses/employee-advance', payload);
+      toast.success(`Cash advance recorded for ${emp?.name || 'employee'}`);
+      setEmployeeAdvanceDialog(false);
+      setEaCaSummary(null);
+      fetchAll();
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Error creating employee advance';
+      toast.error(msg);
+    }
+  };
+
+  const handleEaManagerPin = async () => {
+    if (!eaManagerPin) { toast.error('Enter manager PIN'); return; }
+    try {
+      const emp = employees.find(e => e.id === employeeAdvanceForm.employee_id);
+      const employeeName = emp?.name || 'employee';
+      const limit = eaCaSummary?.monthly_ca_limit || 0;
+      const res = await api.post('/auth/verify-manager-pin', {
+        pin: eaManagerPin,
+        context: {
+          type: 'employee_advance',
+          description: `₱${parseFloat(employeeAdvanceForm.amount).toFixed(2)} cash advance for ${employeeName} (over ₱${limit.toFixed(2)} monthly limit)`,
+          amount: parseFloat(employeeAdvanceForm.amount),
+          employee_name: employeeName,
+          monthly_limit: limit,
+          branch_id: currentBranch?.id,
+          branch_name: currentBranch?.name,
+        }
+      });
+      if (res.data.valid) {
+        toast.success(`Approved by ${res.data.manager_name}`);
+        setEaManagerPinDialog(false);
+        setEaManagerPin('');
+        await handleCreateEmployeeAdvance(res.data.manager_name);
+      } else {
+        toast.error('Invalid PIN');
+      }
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Verification failed';
+      toast.error(msg);
+    }
+  };
+
   const handleSaveExpense = async (approvedBy = '') => {
     if (!expenseForm.amount || expenseForm.amount <= 0) {
       toast.error('Amount must be greater than 0');

@@ -286,6 +286,18 @@ export default function DailyLogPage() {
     } catch {}
   }, [date, currentBranch]);
 
+  // Walk-in sales = all non-credit entries with sequential running total
+  const walkinEntries = React.useMemo(() => {
+    const filtered = logEntries.filter(e => (e.payment_method || 'cash').toLowerCase() !== 'credit');
+    let running = 0;
+    return filtered.map(e => {
+      running += parseFloat(e.line_total || 0);
+      return { ...e, walkin_running_total: Math.round(running * 100) / 100 };
+    });
+  }, [logEntries]);
+  const totalWalkinSales = walkinEntries.length > 0
+    ? walkinEntries[walkinEntries.length - 1].walkin_running_total : 0;
+
   const fetchReport = useCallback(async () => {
     if (!currentBranch) return;
     try {

@@ -433,12 +433,12 @@ export default function DailyLogPage() {
               </div>
               {logSummary && (
                 <span className="font-mono font-bold text-emerald-200 text-sm">
-                  {cashEntries.length} transactions
+                  {walkinEntries.length} transactions
                 </span>
               )}
             </div>
 
-            {/* Cash sales table */}
+            {/* Walk-in sales table — all non-credit sales in sequential order */}
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 tracking-wide">
@@ -447,6 +447,7 @@ export default function DailyLogPage() {
                   <th className="px-3 py-2 text-left font-semibold">Product</th>
                   <th className="px-3 py-2 text-left font-semibold">Customer</th>
                   <th className="px-3 py-2 text-left font-semibold">Invoice</th>
+                  <th className="px-3 py-2 text-center w-16 font-semibold">Payment</th>
                   <th className="px-3 py-2 text-right w-12 font-semibold">Qty</th>
                   <th className="px-3 py-2 text-right w-24 font-semibold">Unit Price</th>
                   <th className="px-3 py-2 text-right w-20 font-semibold">Disc</th>
@@ -455,33 +456,45 @@ export default function DailyLogPage() {
                 </tr>
               </thead>
               <tbody>
-                {cashEntries.length === 0 && (
+                {walkinEntries.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="text-center py-10 text-slate-400 italic">
-                      No cash sales recorded for {date}
+                    <td colSpan={11} className="text-center py-10 text-slate-400 italic">
+                      No walk-in sales recorded for {date}
                     </td>
                   </tr>
                 )}
-                {cashEntries.map((e, idx) => (
-                  <tr key={e.id || idx}
-                    className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
-                    <td className="px-3 py-2 text-center font-mono text-xs text-slate-400 font-medium">{e.sequence}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-slate-500">{e.time}</td>
-                    <td className="px-3 py-2 font-medium text-slate-800">{e.product_name}</td>
-                    <td className="px-3 py-2 text-slate-500 text-xs">{e.customer_name || 'Walk-in'}</td>
-                    <td className="px-3 py-2 font-mono text-xs text-slate-400">{e.invoice_number}</td>
-                    <td className="px-3 py-2 text-right text-slate-600">{e.quantity} <span className="text-slate-400 text-xs">{e.unit || ''}</span></td>
-                    <td className="px-3 py-2 text-right font-mono">{formatPHP(e.unit_price)}</td>
-                    <td className="px-3 py-2 text-right text-slate-400 text-xs">{e.discount > 0 ? formatPHP(e.discount) : '—'}</td>
-                    <td className="px-3 py-2 text-right font-semibold font-mono">{formatPHP(e.line_total)}</td>
-                    <td className="px-3 py-2 text-right font-bold font-mono text-[#1A4D2E]">{formatPHP(e.cash_running_total)}</td>
-                  </tr>
-                ))}
+                {walkinEntries.map((e, idx) => {
+                  const pm = (e.payment_method || 'cash').toLowerCase();
+                  const pmColor = pm === 'cash' ? 'bg-emerald-100 text-emerald-700'
+                    : pm === 'gcash' ? 'bg-blue-100 text-blue-700'
+                    : pm === 'maya' ? 'bg-green-100 text-green-700'
+                    : pm === 'split' ? 'bg-indigo-100 text-indigo-700'
+                    : pm === 'partial' ? 'bg-teal-100 text-teal-700'
+                    : 'bg-violet-100 text-violet-700';
+                  return (
+                    <tr key={e.id || idx}
+                      className={`border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-50/30'}`}>
+                      <td className="px-3 py-2 text-center font-mono text-xs text-slate-400 font-medium">{e.sequence}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-slate-500">{e.time}</td>
+                      <td className="px-3 py-2 font-medium text-slate-800">{e.product_name}</td>
+                      <td className="px-3 py-2 text-slate-500 text-xs">{e.customer_name || 'Walk-in'}</td>
+                      <td className="px-3 py-2 font-mono text-xs text-slate-400">{e.invoice_number}</td>
+                      <td className="px-3 py-2 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${pmColor}`}>{pm}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right text-slate-600">{e.quantity} <span className="text-slate-400 text-xs">{e.unit || ''}</span></td>
+                      <td className="px-3 py-2 text-right font-mono">{formatPHP(e.unit_price)}</td>
+                      <td className="px-3 py-2 text-right text-slate-400 text-xs">{e.discount > 0 ? formatPHP(e.discount) : '—'}</td>
+                      <td className="px-3 py-2 text-right font-semibold font-mono">{formatPHP(e.line_total)}</td>
+                      <td className="px-3 py-2 text-right font-bold font-mono text-[#1A4D2E]">{formatPHP(e.walkin_running_total)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
-            {/* Cash subtotals by category + grand total */}
-            {logSummary && cashEntries.length > 0 && (
+            {/* Walk-in subtotals + grand total */}
+            {logSummary && walkinEntries.length > 0 && (
               <div className="border-t-2 border-slate-200 bg-slate-50 px-4 py-3">
                 <div className="flex flex-wrap gap-x-6 gap-y-1 mb-2">
                   {Object.entries(logSummary.cash_by_category || {}).map(([cat, total]) => (

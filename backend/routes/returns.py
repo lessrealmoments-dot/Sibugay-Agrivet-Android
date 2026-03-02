@@ -302,8 +302,8 @@ async def void_return(return_id: str, data: dict, user=Depends(get_current_user)
     if not manager_pin:
         raise HTTPException(status_code=400, detail="Manager PIN required")
 
-    from routes.verify import _resolve_pin
-    verifier = await _resolve_pin(manager_pin)
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(manager_pin, "void_return")
     if not verifier:
         raise HTTPException(status_code=403, detail="Invalid manager PIN")
     authorized_manager = {"id": verifier["verifier_id"], "full_name": verifier["verifier_name"], "username": verifier["verifier_name"]}

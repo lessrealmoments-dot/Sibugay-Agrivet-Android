@@ -881,8 +881,8 @@ export default function UnifiedSalesPage() {
       const customerName = selectedCustomer?.name || 'Walk-in';
       const res = await api.post('/auth/verify-manager-pin', {
         pin: managerPin,
+        action_key: 'credit_sale_approval',
         context: {
-          type: 'credit_sale',
           description: `₱${total.toFixed(2)} ${paymentType} sale to ${customerName}`,
           amount: total,
           customer_name: customerName,

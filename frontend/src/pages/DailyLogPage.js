@@ -506,7 +506,7 @@ export default function DailyLogPage() {
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-200 pt-2">
                   <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Total Walk-in Sales</span>
-                  <span className="font-mono font-bold text-lg text-[#1A4D2E]">{formatPHP(logSummary.total_cash)}</span>
+                  <span className="font-mono font-bold text-lg text-[#1A4D2E]">{formatPHP(totalWalkinSales)}</span>
                 </div>
               </div>
             )}

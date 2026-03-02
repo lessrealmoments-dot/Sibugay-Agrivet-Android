@@ -812,8 +812,8 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     if user.get("role") != "admin":
         if not admin_pin:
             raise HTTPException(status_code=403, detail="Admin PIN required to close the day")
-        from routes.verify import _resolve_pin
-        verifier = await _resolve_pin(admin_pin)
+        from routes.verify import verify_pin_for_action
+        verifier = await verify_pin_for_action(admin_pin, "daily_close")
         if not verifier:
             raise HTTPException(status_code=403, detail="Invalid admin PIN")
 

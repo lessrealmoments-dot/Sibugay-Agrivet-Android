@@ -1755,12 +1755,12 @@ async def get_customer_statement(
 # REVERSE / VOID FLOWS — Fix #8–10
 # ══════════════════════════════════════════════════════════════════
 
-async def _verify_manager(manager_pin: str) -> dict:
+async def _verify_manager(manager_pin: str, action_key: str = "reverse_customer_cashout") -> dict:
     """Verify manager PIN and return the authorizing manager. Raises 401 on failure."""
     if not manager_pin:
         raise HTTPException(status_code=400, detail="Manager PIN required")
-    from routes.verify import _resolve_pin
-    verifier = await _resolve_pin(manager_pin)
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(manager_pin, action_key)
     if verifier:
         return {
             "id": verifier["verifier_id"],

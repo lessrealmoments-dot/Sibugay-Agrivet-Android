@@ -23,7 +23,7 @@ import {
 import { toast } from 'sonner';
 
 export default function InvoiceDetailModal({
-  open, onOpenChange, invoiceId, invoiceNumber, onUpdated
+  open, onOpenChange, invoiceId, invoiceNumber, expenseId, onUpdated
 }) {
   const { hasPerm, user } = useAuth();
   const [invoice, setInvoice] = useState(null);
@@ -55,20 +55,23 @@ export default function InvoiceDetailModal({
   const [section, setSection] = useState('detail'); // detail | receipts | payments | history
 
   useEffect(() => {
-    if (open && (invoiceId || invoiceNumber)) {
+    if (open && (invoiceId || invoiceNumber || expenseId)) {
       loadInvoice();
       setSection('detail');
       setEditMode(false);
       setShowHistory(false);
     }
   // eslint-disable-next-line
-  }, [open, invoiceId, invoiceNumber]);
+  }, [open, invoiceId, invoiceNumber, expenseId]);
 
   const loadInvoice = async () => {
     setLoading(true);
     try {
       let res;
-      if (invoiceId) {
+      if (expenseId) {
+        res = await api.get(`/expenses/${expenseId}`);
+        res.data._collection = 'expenses';
+      } else if (invoiceId) {
         res = await api.get(`/invoices/${invoiceId}`);
       } else {
         res = await api.get(`/invoices/by-number/${encodeURIComponent(invoiceNumber)}`);
@@ -77,7 +80,7 @@ export default function InvoiceDetailModal({
       setEditData({
         items: JSON.parse(JSON.stringify(res.data.items || [])),
         customer_name: res.data.customer_name || '',
-        notes: res.data.notes || '',
+        notes: res.data.notes || res.data.description || '',
         freight: res.data.freight || 0,
         overall_discount: res.data.overall_discount || 0,
       });
@@ -91,21 +94,23 @@ export default function InvoiceDetailModal({
 
   // ── Derived state ──────────────────────────────────────────────────────
   const isPO = invoice?._collection === 'purchase_orders';
-  const isInvoice = !isPO;
-  const docNumber = invoice?.invoice_number || invoice?.sale_number || invoice?.po_number || '';
-  const docName = isPO ? (invoice?.vendor || '') : (invoice?.customer_name || 'Walk-in');
-  const docDate = invoice?.order_date || invoice?.purchase_date || invoice?.created_at?.slice(0, 10) || '';
+  const isExpense = invoice?._collection === 'expenses';
+  const isInvoice = !isPO && !isExpense;
+  const docNumber = invoice?.invoice_number || invoice?.sale_number || invoice?.po_number || invoice?.reference_number || invoice?.linked_invoice_number || '';
+  const docName = isPO ? (invoice?.vendor || '') : isExpense ? (invoice?.description || invoice?.category || '') : (invoice?.customer_name || 'Walk-in');
+  const docDate = invoice?.order_date || invoice?.purchase_date || invoice?.date || invoice?.created_at?.slice(0, 10) || '';
   const isVerified = invoice?.verified === true;
   const isVoided = invoice?.status === 'voided' || invoice?.status === 'cancelled';
   const payments = invoice?.payments || [];
-  const recordType = isPO ? 'purchase_order' : 'invoice';
+  const recordType = isPO ? 'purchase_order' : isExpense ? 'expense' : 'invoice';
   const recordId = invoice?.id;
 
   // Permissions
   const isAdmin = user?.role === 'admin';
-  const canEdit = isInvoice && !isVoided && (isAdmin || hasPerm('pos', 'sell'));
-  const canVoid = isInvoice && !isVoided && (isAdmin || hasPerm('pos', 'sell'));
+  const canEdit = isInvoice && !isVoided && !isExpense && (isAdmin || hasPerm('pos', 'sell'));
+  const canVoid = !isVoided && !isExpense && (isAdmin || hasPerm('pos', 'sell'));
   const canVerify = !isVerified && !isVoided && (isAdmin || hasPerm('reports', 'view'));
+  const canDeleteExpense = isExpense && (isAdmin || hasPerm('accounting', 'view'));
 
   // ── Edit logic ─────────────────────────────────────────────────────────
   const handleItemChange = (index, field, value) => {
@@ -168,6 +173,9 @@ export default function InvoiceDetailModal({
       if (isPO) {
         await api.delete(`/purchase-orders/${invoice.id}`);
         toast.success('PO cancelled');
+      } else if (isExpense) {
+        await api.delete(`/expenses/${invoice.id}`);
+        toast.success('Expense deleted');
       } else {
         await api.post(`/invoices/${invoice.id}/void`, { reason: voidReason, pin: voidPin });
         toast.success('Invoice voided');
@@ -196,6 +204,7 @@ export default function InvoiceDetailModal({
   const getTypeInfo = () => {
     if (!invoice) return { label: 'Invoice', color: 'bg-blue-100 text-blue-700' };
     if (isPO) return { label: 'Purchase Order', color: 'bg-amber-100 text-amber-700' };
+    if (isExpense) return { label: invoice.category || 'Expense', color: 'bg-red-100 text-red-700' };
     const st = invoice.sale_type || '';
     if (st === 'interest_charge') return { label: 'Interest Charge', color: 'bg-amber-100 text-amber-700' };
     if (st === 'penalty_charge') return { label: 'Penalty Charge', color: 'bg-red-100 text-red-700' };
@@ -270,7 +279,13 @@ export default function InvoiceDetailModal({
                     {canVoid && (
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50"
                         onClick={() => setVoidOpen(true)} data-testid="void-btn">
-                        <Ban size={14} className="mr-1" /> Void
+                        <Ban size={14} className="mr-1" /> {isPO ? 'Cancel' : 'Void'}
+                      </Button>
+                    )}
+                    {canDeleteExpense && (
+                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => setVoidOpen(true)} data-testid="delete-expense-btn">
+                        <Ban size={14} className="mr-1" /> Delete
                       </Button>
                     )}
                   </div>
@@ -301,6 +316,60 @@ export default function InvoiceDetailModal({
                 {/* DETAIL section */}
                 {section === 'detail' && (
                   <div className="space-y-5">
+
+                    {/* ── Expense-specific view ─────────────────────── */}
+                    {isExpense ? (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-xs text-slate-500">Category</Label>
+                            <p className="font-medium text-sm">{invoice.category || '—'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-slate-500">Amount</Label>
+                            <p className="font-bold text-sm text-red-600">{formatPHP(invoice.amount || 0)}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-slate-500">Date</Label>
+                            <p className="font-medium text-sm">{invoice.date || '—'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-xs text-slate-500">Fund Source</Label>
+                            <p className="font-medium text-sm capitalize">{invoice.fund_source || 'cashier'}</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {invoice.vendor_name && <div><Label className="text-xs text-slate-500">Vendor</Label><p className="font-medium text-sm">{invoice.vendor_name}</p></div>}
+                          {invoice.reference_number && <div><Label className="text-xs text-slate-500">Reference #</Label><p className="font-mono text-sm">{invoice.reference_number}</p></div>}
+                          {invoice.customer_name && <div><Label className="text-xs text-slate-500">Customer</Label><p className="font-medium text-sm">{invoice.customer_name}</p></div>}
+                          {invoice.employee_name && <div><Label className="text-xs text-slate-500">Employee</Label><p className="font-medium text-sm">{invoice.employee_name}</p></div>}
+                          {invoice.linked_invoice_number && <div><Label className="text-xs text-slate-500">Linked Invoice</Label><p className="font-mono text-sm">{invoice.linked_invoice_number}</p></div>}
+                        </div>
+                        {invoice.description && (
+                          <>
+                            <Separator />
+                            <div>
+                              <Label className="text-xs text-slate-500">Description</Label>
+                              <p className="text-sm text-slate-800 mt-1">{invoice.description}</p>
+                            </div>
+                          </>
+                        )}
+                        {/* Verification info */}
+                        {isVerified && (
+                          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                            <CheckCircle2 size={16} className="text-emerald-600" />
+                            <span className="text-sm text-emerald-700">
+                              Verified by <strong>{invoice.verified_by_name}</strong> on {invoice.verified_at?.slice(0, 10)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <p>Created: {invoice.created_at ? new Date(invoice.created_at).toLocaleString() : '—'} by {invoice.created_by_name || '—'}</p>
+                        </div>
+                      </>
+                    ) : (
+                    /* ── Invoice / PO view ──────────────────────────── */
+                    <>
                     {/* Info grid */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
@@ -482,6 +551,8 @@ export default function InvoiceDetailModal({
                       {invoice.sales_rep_name && <p>Sales Rep: {invoice.sales_rep_name}</p>}
                       {invoice.edited && <p>Last edited: {new Date(invoice.last_edited_at).toLocaleString()} by {invoice.last_edited_by}</p>}
                     </div>
+                    </>
+                    )}
                   </div>
                 )}
 
@@ -610,7 +681,7 @@ export default function InvoiceDetailModal({
       {/* Void dialog */}
       <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
         <DialogContent className="sm:max-w-sm" data-testid="void-dialog">
-          <DialogHeader><DialogTitle className="flex items-center gap-2 text-red-600"><Ban size={18} /> {isPO ? 'Cancel PO' : 'Void Invoice'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-red-600"><Ban size={18} /> {isExpense ? 'Delete Expense' : isPO ? 'Cancel PO' : 'Void Invoice'}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <Input placeholder="Reason" value={voidReason} onChange={e => setVoidReason(e.target.value)} data-testid="void-reason-input" />
             <Input type="password" placeholder="Manager/Admin PIN" value={voidPin} onChange={e => setVoidPin(e.target.value)}
@@ -618,7 +689,7 @@ export default function InvoiceDetailModal({
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setVoidOpen(false); setVoidReason(''); setVoidPin(''); }}>Cancel</Button>
               <Button variant="destructive" className="flex-1" onClick={handleVoid} disabled={!voidReason || !voidPin || actionLoading} data-testid="void-confirm-btn">
-                {actionLoading ? 'Processing...' : (isPO ? 'Cancel PO' : 'Void')}
+                {actionLoading ? 'Processing...' : (isExpense ? 'Delete' : isPO ? 'Cancel PO' : 'Void')}
               </Button>
             </div>
           </div>

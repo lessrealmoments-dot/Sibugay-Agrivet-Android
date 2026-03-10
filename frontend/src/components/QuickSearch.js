@@ -33,7 +33,7 @@ export default function QuickSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '' });
+  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '', expenseId: '' });
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
@@ -89,9 +89,10 @@ export default function QuickSearch() {
     setQuery('');
     setResults([]);
     if ((item.type === 'invoice' || item.type === 'purchase_order') && item.number) {
-      setInvoiceModal({ open: true, number: item.number });
-    } else if (item.type === 'expense') navigate('/expenses');
-    else if (item.type === 'internal_invoice') navigate('/internal-invoices');
+      setInvoiceModal({ open: true, number: item.number, expenseId: '' });
+    } else if (item.type === 'expense' && item.id) {
+      setInvoiceModal({ open: true, number: '', expenseId: item.id });
+    } else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
   };
 
@@ -118,8 +119,9 @@ export default function QuickSearch() {
         </button>
         <InvoiceDetailModal
           open={invoiceModal.open}
-          onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '' })}
+          onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '', expenseId: o ? invoiceModal.expenseId : '' })}
           invoiceNumber={invoiceModal.number}
+          expenseId={invoiceModal.expenseId}
         />
       </>
     );
@@ -189,8 +191,9 @@ export default function QuickSearch() {
       )}
       <InvoiceDetailModal
         open={invoiceModal.open}
-        onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '' })}
+        onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '', expenseId: o ? invoiceModal.expenseId : '' })}
         invoiceNumber={invoiceModal.number}
+        expenseId={invoiceModal.expenseId}
       />
     </div>
   );

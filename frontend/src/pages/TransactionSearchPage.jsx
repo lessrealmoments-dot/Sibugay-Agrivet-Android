@@ -77,8 +77,8 @@ export default function TransactionSearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  // Invoice detail modal (reuse existing InvoiceDetailModal)
-  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '' });
+  // Invoice detail modal (reuse existing InvoiceDetailModal for invoices, POs, and expenses)
+  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '', expenseId: '' });
 
   const doSearch = useCallback(async (q, t, df, dt, bid) => {
     if (!q && !df && !dt) {
@@ -142,10 +142,13 @@ export default function TransactionSearchPage() {
   const handleResultClick = (item) => {
     // Invoices and POs: open via InvoiceDetailModal (by-number endpoint handles both)
     if ((item.type === 'invoice' || item.type === 'purchase_order') && item.number) {
-      setInvoiceModal({ open: true, number: item.number });
+      setInvoiceModal({ open: true, number: item.number, expenseId: '' });
+    }
+    // Expenses: open via InvoiceDetailModal with expenseId
+    else if (item.type === 'expense' && item.id) {
+      setInvoiceModal({ open: true, number: '', expenseId: item.id });
     }
     // Others: navigate to their native pages
-    else if (item.type === 'expense') navigate('/expenses');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
   };
@@ -306,8 +309,9 @@ export default function TransactionSearchPage() {
 
       <InvoiceDetailModal
         open={invoiceModal.open}
-        onOpenChange={(open) => setInvoiceModal({ open, number: open ? invoiceModal.number : '' })}
+        onOpenChange={(open) => setInvoiceModal({ open, number: open ? invoiceModal.number : '', expenseId: open ? invoiceModal.expenseId : '' })}
         invoiceNumber={invoiceModal.number}
+        expenseId={invoiceModal.expenseId}
         onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
       />
     </div>

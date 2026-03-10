@@ -230,6 +230,135 @@ async def search_transactions(
                 "created_at": ft.get("created_at", ""),
             })
 
+    # ── Returns / Refunds ────────────────────────────────────────────────
+    if type in ("all", "return"):
+        query = {}
+        query = apply_branch_filter(query, branch_filter)
+        if text_conditions:
+            query["$or"] = [
+                {"rma_number": text_conditions[0]},
+                {"customer_name": text_conditions[0]},
+                {"reason": text_conditions[0]},
+            ]
+        if date_from:
+            query.setdefault("return_date", {})["$gte"] = date_from
+        if date_to:
+            query.setdefault("return_date", {})["$lte"] = date_to
+
+        returns = await db.returns.find(
+            query,
+            {"_id": 0, "id": 1, "rma_number": 1, "customer_name": 1,
+             "refund_amount": 1, "status": 1, "return_date": 1,
+             "branch_id": 1, "created_at": 1, "reason": 1, "refund_method": 1}
+        ).sort("created_at", -1).limit(per_type_limit).to_list(per_type_limit)
+
+        for ret in returns:
+            results.append({
+                "type": "return",
+                "id": ret["id"],
+                "number": ret.get("rma_number", ""),
+                "title": f"{ret.get('customer_name', '')} — {ret.get('reason', '')}",
+                "amount": ret.get("refund_amount", 0),
+                "balance": 0,
+                "status": ret.get("status", ""),
+                "date": ret.get("return_date", (ret.get("created_at") or "")[:10]),
+                "branch_id": ret.get("branch_id", ""),
+                "sub_type": ret.get("refund_method", "Return"),
+                "created_at": ret.get("created_at", ""),
+            })
+
+    # ── Branch Transfers ─────────────────────────────────────────────────
+    if type in ("all", "branch_transfer"):
+        query = {}
+        if text_conditions:
+            query["$or"] = [
+                {"order_number": text_conditions[0]},
+                {"from_branch_name": text_conditions[0]},
+                {"to_branch_name": text_conditions[0]},
+                {"notes": text_conditions[0]},
+                {"created_by_name": text_conditions[0]},
+            ]
+        if date_from:
+            query.setdefault("created_at", {})["$gte"] = f"{date_from}T00:00:00"
+        if date_to:
+            query.setdefault("created_at", {})["$lte"] = f"{date_to}T23:59:59"
+
+        bt_orders = await db.branch_transfer_orders.find(
+            query,
+            {"_id": 0, "id": 1, "order_number": 1, "from_branch_id": 1,
+             "to_branch_id": 1, "from_branch_name": 1, "to_branch_name": 1,
+             "status": 1, "total_at_transfer_capital": 1,
+             "created_at": 1, "created_by_name": 1, "notes": 1}
+        ).sort("created_at", -1).limit(per_type_limit).to_list(per_type_limit)
+
+        # Resolve branch names if missing
+        branch_cache = {}
+        for bt in bt_orders:
+            from_name = bt.get("from_branch_name", "")
+            to_name = bt.get("to_branch_name", "")
+            if not from_name and bt.get("from_branch_id"):
+                bid = bt["from_branch_id"]
+                if bid not in branch_cache:
+                    b = await db.branches.find_one({"id": bid}, {"_id": 0, "name": 1})
+                    branch_cache[bid] = b.get("name", "") if b else ""
+                from_name = branch_cache[bid]
+            if not to_name and bt.get("to_branch_id"):
+                bid = bt["to_branch_id"]
+                if bid not in branch_cache:
+                    b = await db.branches.find_one({"id": bid}, {"_id": 0, "name": 1})
+                    branch_cache[bid] = b.get("name", "") if b else ""
+                to_name = branch_cache[bid]
+
+            results.append({
+                "type": "branch_transfer",
+                "id": bt["id"],
+                "number": bt.get("order_number", ""),
+                "title": f"{from_name} → {to_name}",
+                "amount": bt.get("total_at_transfer_capital", 0),
+                "balance": 0,
+                "status": bt.get("status", ""),
+                "date": (bt.get("created_at") or "")[:10],
+                "branch_id": bt.get("to_branch_id", bt.get("from_branch_id", "")),
+                "sub_type": "Branch Transfer",
+                "created_at": bt.get("created_at", ""),
+            })
+
+    # ── Payables (Accounts Payable) ──────────────────────────────────────
+    if type in ("all", "payable"):
+        query = {}
+        query = apply_branch_filter(query, branch_filter)
+        if text_conditions:
+            query["$or"] = [
+                {"supplier": text_conditions[0]},
+                {"description": text_conditions[0]},
+            ]
+        if date_from:
+            query.setdefault("due_date", {})["$gte"] = date_from
+        if date_to:
+            query.setdefault("due_date", {})["$lte"] = date_to
+
+        payables = await db.payables.find(
+            query,
+            {"_id": 0, "id": 1, "supplier": 1, "description": 1, "amount": 1,
+             "balance": 1, "status": 1, "due_date": 1, "branch_id": 1,
+             "created_at": 1, "po_id": 1}
+        ).sort("created_at", -1).limit(per_type_limit).to_list(per_type_limit)
+
+        for pay in payables:
+            results.append({
+                "type": "payable",
+                "id": pay["id"],
+                "number": "",
+                "title": pay.get("supplier", pay.get("description", "")),
+                "amount": pay.get("amount", 0),
+                "balance": pay.get("balance", 0),
+                "status": pay.get("status", ""),
+                "date": pay.get("due_date", (pay.get("created_at") or "")[:10]),
+                "branch_id": pay.get("branch_id", ""),
+                "sub_type": "Payable",
+                "created_at": pay.get("created_at", ""),
+            })
+
     # Sort all results by created_at descending
     results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
-import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2 } from 'lucide-react';
+import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
 import InvoiceDetailModal from './InvoiceDetailModal';
 
 const TYPE_ICONS = {
@@ -10,6 +10,9 @@ const TYPE_ICONS = {
   expense: Receipt,
   internal_invoice: ArrowLeftRight,
   fund_transfer: Wallet,
+  return: RotateCcw,
+  branch_transfer: Building2,
+  payable: CreditCard,
 };
 
 const TYPE_LABELS = {
@@ -18,6 +21,9 @@ const TYPE_LABELS = {
   expense: 'Expense',
   internal_invoice: 'Internal',
   fund_transfer: 'Transfer',
+  return: 'Return',
+  branch_transfer: 'Branch Xfer',
+  payable: 'Payable',
 };
 
 const TYPE_COLORS = {
@@ -26,6 +32,9 @@ const TYPE_COLORS = {
   expense: 'text-red-600',
   internal_invoice: 'text-purple-600',
   fund_transfer: 'text-emerald-600',
+  return: 'text-orange-600',
+  branch_transfer: 'text-indigo-600',
+  payable: 'text-pink-600',
 };
 
 export default function QuickSearch() {
@@ -92,8 +101,11 @@ export default function QuickSearch() {
       setInvoiceModal({ open: true, number: item.number, expenseId: '' });
     } else if (item.type === 'expense' && item.id) {
       setInvoiceModal({ open: true, number: '', expenseId: item.id });
-    } else if (item.type === 'internal_invoice') navigate('/internal-invoices');
+    } else if (item.type === 'return') navigate('/returns');
+    else if (item.type === 'branch_transfer') navigate('/branch-transfers');
+    else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
+    else if (item.type === 'payable') navigate('/pay-supplier');
   };
 
   const goToAdvanced = () => {

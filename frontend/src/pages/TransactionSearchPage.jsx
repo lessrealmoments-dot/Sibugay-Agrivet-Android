@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
-import { Search, Filter, Calendar, X, FileText, Truck, Receipt, ArrowLeftRight, Wallet, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Filter, Calendar, X, FileText, Truck, Receipt, ArrowLeftRight, Wallet, ChevronRight, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const TYPE_CONFIG = {
@@ -15,6 +15,9 @@ const TYPE_CONFIG = {
   expense:          { label: 'Expense',        icon: Receipt,  color: 'bg-red-100 text-red-700 border-red-200' },
   internal_invoice: { label: 'Internal Invoice', icon: ArrowLeftRight, color: 'bg-purple-100 text-purple-700 border-purple-200' },
   fund_transfer:    { label: 'Fund Transfer',  icon: Wallet,   color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  return:           { label: 'Return / Refund', icon: RotateCcw, color: 'bg-orange-100 text-orange-700 border-orange-200' },
+  branch_transfer:  { label: 'Branch Transfer', icon: Building2, color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+  payable:          { label: 'Payable (AP)',    icon: CreditCard, color: 'bg-pink-100 text-pink-700 border-pink-200' },
 };
 
 function ResultRow({ item, branches, onClick }) {
@@ -149,8 +152,11 @@ export default function TransactionSearchPage() {
       setInvoiceModal({ open: true, number: '', expenseId: item.id });
     }
     // Others: navigate to their native pages
+    else if (item.type === 'return') navigate('/returns');
+    else if (item.type === 'branch_transfer') navigate('/branch-transfers');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
+    else if (item.type === 'payable') navigate('/pay-supplier');
   };
 
   // Group results by type for summary
@@ -220,8 +226,11 @@ export default function TransactionSearchPage() {
                   <SelectItem value="invoice">Invoices / Sales</SelectItem>
                   <SelectItem value="po">Purchase Orders</SelectItem>
                   <SelectItem value="expense">Expenses</SelectItem>
+                  <SelectItem value="return">Returns / Refunds</SelectItem>
                   <SelectItem value="internal_invoice">Internal Invoices</SelectItem>
+                  <SelectItem value="branch_transfer">Branch Transfers</SelectItem>
                   <SelectItem value="fund_transfer">Fund Transfers</SelectItem>
+                  <SelectItem value="payable">Payables (AP)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

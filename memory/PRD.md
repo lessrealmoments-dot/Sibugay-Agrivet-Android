@@ -197,6 +197,38 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Print report includes unverified items summary
   - Warning banner when no previous daily close found (starting float reverse-calculated)
 
+### P0 — Completed (Mar 2026 — Receipt Numbering & Universal Search)
+- [x] **Atomic Transaction Numbering System**
+  - New format: `{PREFIX}-{BRANCH_CODE}-{SEQUENCE}` (e.g., `SI-MN-001042`, `PO-IB-001000`)
+  - MongoDB atomic `$inc` via `counters` collection — race-safe, no duplicates even under concurrent POS terminals
+  - Branch-specific sequences: each branch gets its own counter per transaction type
+  - Never resets: 27+ year capacity at 100 transactions/day per branch per type
+  - Starting sequence at 1000 for professional appearance
+  - Old transaction numbers remain untouched; new ones use new format
+  - Auto-generated 2-char branch codes from branch names (with uniqueness enforcement)
+  - Updated all 8 number generators: sales.py, invoices.py, purchase_orders.py, internal_invoices.py, accounting.py (SVC, CA, INT, PEN)
+  - Backend: `utils/numbering.py` with `generate_next_number()`, `check_idempotency()`, `get_branch_code()`
+- [x] **Idempotency Protection** for offline-to-online duplicate prevention
+  - `idempotency_key` field added to sales, invoices, and PO creation endpoints
+  - Server rejects duplicate transactions on sync (returns existing transaction)
+- [x] **Universal Transaction Search** (Find Transaction)
+  - Backend: `GET /api/search/transactions` — searches across invoices, POs, expenses, internal invoices, fund transfers
+  - Supports: text search (number, customer, vendor, description), type filter, date range, branch filter
+  - Returns unified result format with type, number, title, amount, balance, status, date, branch
+  - Frontend: Full dedicated page at `/find-transaction` with advanced filters
+  - Frontend: Quick search bar in header (`Find... Ctrl+K`) with live dropdown results
+  - Sidebar nav item "Find Transaction" with search icon
+- [x] **Reference Number Prompt** after transaction creation
+  - Modal shows after creating sales and POs with large, copyable reference number
+  - Prompts user: "Write this reference on your original receipt"
+  - Copy button for convenience
+  - Mentions Ctrl+K search for finding it later
+  - Integrated in UnifiedSalesPage and PurchaseOrderPage
+- [x] **Branch Code Management**
+  - `PUT /api/branches/{id}/code` — manually set branch code
+  - `GET /api/branches/{id}/code` — get or auto-generate branch code
+  - `branch_code` field added to branch documents
+
 ### P0 — Upcoming
 - [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

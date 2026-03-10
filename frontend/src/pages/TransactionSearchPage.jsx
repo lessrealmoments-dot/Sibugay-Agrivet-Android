@@ -157,7 +157,10 @@ export default function TransactionSearchPage() {
     else if (item.type === 'branch_transfer') navigate('/branch-transfers');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
-    else if (item.type === 'payable') navigate('/pay-supplier');
+    else if (item.type === 'payable') {
+      if (item.po_id) setDetailModal({ type: 'po', number: '', id: item.po_id });
+      else navigate('/pay-supplier');
+    }
   };
 
   // Group results by type for summary
@@ -320,6 +323,7 @@ export default function TransactionSearchPage() {
       <PODetailModal
         open={detailModal.type === 'po'}
         onOpenChange={(open) => { if (!open) setDetailModal({ type: null, number: '', id: '' }); }}
+        poId={detailModal.id}
         poNumber={detailModal.number}
         onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
       />

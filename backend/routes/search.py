@@ -357,6 +357,7 @@ async def search_transactions(
                 "branch_id": pay.get("branch_id", ""),
                 "sub_type": "Payable",
                 "created_at": pay.get("created_at", ""),
+                "po_id": pay.get("po_id", ""),
             })
 
     # Sort all results by created_at descending

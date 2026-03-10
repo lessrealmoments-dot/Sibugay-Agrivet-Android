@@ -109,7 +109,10 @@ export default function QuickSearch() {
     else if (item.type === 'branch_transfer') navigate('/branch-transfers');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
-    else if (item.type === 'payable') navigate('/pay-supplier');
+    else if (item.type === 'payable') {
+      if (item.po_id) setDetailModal({ type: 'po', number: '', id: item.po_id });
+      else navigate('/pay-supplier');
+    }
   };
 
   const goToAdvanced = () => {
@@ -133,7 +136,7 @@ export default function QuickSearch() {
             Ctrl+K
           </kbd>
         </button>
-        <PODetailModal open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} />
+        <PODetailModal open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} poId={detailModal.id} />
         <SaleDetailModal open={detailModal.type === 'sale'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} invoiceNumber={detailModal.number} />
         <ExpenseDetailModal open={detailModal.type === 'expense'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} expenseId={detailModal.id} />
       </>

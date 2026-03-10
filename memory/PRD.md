@@ -252,6 +252,8 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
 - [x] **BUG FIX: close record not saving fund transfer data** — Fund transfers data (capital_to_cashier, safe_to_cashier, cashier_to_safe, net_fund_transfers, fund_transfers_today list) now persisted in both single and batch close records for audit trail.
 - [x] **Added Returns, Branch Transfers, Payables to Universal Search** — All 8 transaction types now searchable with proper type badges, icons, and navigation routing.
 - [x] **Expense detail in modal** — Expenses now open inline in InvoiceDetailModal (via expenseId prop) with category, amount, fund source, description, verify/delete actions, and receipt gallery.
+- [x] **Audit Center formula alignment with Closing Wizard** — Verified that audit.py `_compute_cash` uses the same formula as daily_operations.py: `Starting Float + Cash In + Net Fund Transfers - Cashier Expenses = Expected Cash`. Both correctly include fund transfers.
+- [x] **Interactive transaction references in Audit Center** — All transaction numbers (invoices, POs, expenses) in every Audit Center section are now clickable and open the InvoiceDetailModal inline. PO numbers use the `by-number` endpoint, expenses use `expenseId`. No more navigation away from the Audit Center. Added `reference_number` to expense audit data.
 
 ### P0 — Upcoming
 - [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)

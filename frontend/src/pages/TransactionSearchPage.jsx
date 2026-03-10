@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api, useAuth } from '../contexts/AuthContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Search, Filter, Calendar, X, FileText, Truck, Receipt, ArrowLeftRight, Wallet, ChevronRight, Loader2 } from 'lucide-react';
-import TransactionDetailModal from '../components/TransactionDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const TYPE_CONFIG = {
   invoice:          { label: 'Invoice / Sale', icon: FileText, color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -62,6 +62,7 @@ function ResultRow({ item, branches, onClick }) {
 
 export default function TransactionSearchPage() {
   const { branches } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const inputRef = useRef(null);
 
@@ -75,7 +76,9 @@ export default function TransactionSearchPage() {
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [selectedTx, setSelectedTx] = useState(null);
+
+  // Invoice detail modal (reuse existing InvoiceDetailModal)
+  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '' });
 
   const doSearch = useCallback(async (q, t, df, dt, bid) => {
     if (!q && !df && !dt) {
@@ -137,7 +140,15 @@ export default function TransactionSearchPage() {
   };
 
   const handleResultClick = (item) => {
-    setSelectedTx(item);
+    // Invoices/Sales: open the existing InvoiceDetailModal (has edit, void, history)
+    if (item.type === 'invoice' && item.number) {
+      setInvoiceModal({ open: true, number: item.number });
+    }
+    // POs, expenses, etc: navigate to their native pages
+    else if (item.type === 'purchase_order') navigate('/purchase-orders');
+    else if (item.type === 'expense') navigate('/expenses');
+    else if (item.type === 'internal_invoice') navigate('/internal-invoices');
+    else if (item.type === 'fund_transfer') navigate('/fund-management');
   };
 
   // Group results by type for summary
@@ -294,10 +305,10 @@ export default function TransactionSearchPage() {
         </div>
       )}
 
-      <TransactionDetailModal
-        open={!!selectedTx}
-        onOpenChange={(open) => { if (!open) setSelectedTx(null); }}
-        transaction={selectedTx}
+      <InvoiceDetailModal
+        open={invoiceModal.open}
+        onOpenChange={(open) => setInvoiceModal({ open, number: open ? invoiceModal.number : '' })}
+        invoiceNumber={invoiceModal.number}
         onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
       />
     </div>

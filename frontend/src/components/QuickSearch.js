@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
 import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2 } from 'lucide-react';
-import TransactionDetailModal from './TransactionDetailModal';
+import InvoiceDetailModal from './InvoiceDetailModal';
 
 const TYPE_ICONS = {
   invoice: FileText,
@@ -33,7 +33,7 @@ export default function QuickSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedTx, setSelectedTx] = useState(null);
+  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '' });
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
@@ -88,7 +88,12 @@ export default function QuickSearch() {
     setOpen(false);
     setQuery('');
     setResults([]);
-    setSelectedTx(item);
+    if (item.type === 'invoice' && item.number) {
+      setInvoiceModal({ open: true, number: item.number });
+    } else if (item.type === 'purchase_order') navigate('/purchase-orders');
+    else if (item.type === 'expense') navigate('/expenses');
+    else if (item.type === 'internal_invoice') navigate('/internal-invoices');
+    else if (item.type === 'fund_transfer') navigate('/fund-management');
   };
 
   const goToAdvanced = () => {
@@ -112,10 +117,10 @@ export default function QuickSearch() {
             Ctrl+K
           </kbd>
         </button>
-        <TransactionDetailModal
-          open={!!selectedTx}
-          onOpenChange={(o) => { if (!o) setSelectedTx(null); }}
-          transaction={selectedTx}
+        <InvoiceDetailModal
+          open={invoiceModal.open}
+          onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '' })}
+          invoiceNumber={invoiceModal.number}
         />
       </>
     );
@@ -183,10 +188,10 @@ export default function QuickSearch() {
           </button>
         </div>
       )}
-      <TransactionDetailModal
-        open={!!selectedTx}
-        onOpenChange={(o) => { if (!o) setSelectedTx(null); }}
-        transaction={selectedTx}
+      <InvoiceDetailModal
+        open={invoiceModal.open}
+        onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '' })}
+        invoiceNumber={invoiceModal.number}
       />
     </div>
   );

@@ -218,6 +218,9 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Frontend: Full dedicated page at `/find-transaction` with advanced filters
   - Frontend: Quick search bar in header (`Find... Ctrl+K`) with live dropdown results
   - Sidebar nav item "Find Transaction" with search icon
+  - **Click invoice → opens InvoiceDetailModal (same window as invoice creation — edit, void, history all built in)**
+  - **Click PO/expense → navigates to their native page (PurchaseOrders, Expenses)**
+  - Added `GET /api/purchase-orders/{po_id}` and `GET /api/expenses/{expense_id}` single-item endpoints
 - [x] **Reference Number Prompt** after transaction creation
   - Modal shows after creating sales and POs with large, copyable reference number
   - Prompts user: "Write this reference on your original receipt"

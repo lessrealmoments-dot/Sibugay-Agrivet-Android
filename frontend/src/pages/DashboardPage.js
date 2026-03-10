@@ -17,7 +17,8 @@ import {
   RotateCcw, Smartphone
 } from 'lucide-react';
 import { formatPHP } from '../lib/utils';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import PODetailModal from '../components/PODetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
 import PendingReviewsWidget from '../components/PendingReviewsWidget';
 import SalesTrendsWidget from '../components/dashboard/SalesTrendsWidget';
 import BranchComparisonWidget from '../components/dashboard/BranchComparisonWidget';
@@ -185,7 +186,8 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
-  const openDetailModal = (num) => { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); };
+  const [detailType, setDetailType] = useState('sale');
+  const openDetailModal = (num, type = 'sale') => { setSelectedInvoiceNumber(num); setDetailType(type); setInvoiceModalOpen(true); };
   const [analyticsPeriod, setAnalyticsPeriod] = useState('this_month');
   const [unclosedDays, setUnclosedDays] = useState(null);
   const { width: gridWidth, containerRef: gridRef, mounted: gridMounted } = useContainerWidth();
@@ -303,7 +305,7 @@ export default function DashboardPage() {
               <div className="space-y-1.5 text-xs">
                 {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
                   <div key={po.id || po.po_number} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
-                    <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(po.po_number)}>{po.po_number}</button></div>
+                    <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(po.po_number, 'po')}>{po.po_number}</button></div>
                     <p className="font-bold text-red-700">{formatPHP(po.balance)}</p>
                   </div>
                 ))}
@@ -522,7 +524,7 @@ export default function DashboardPage() {
             <div className="space-y-1.5 text-xs">
               {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
                 <div key={po.id || po.po_number} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
-                  <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(po.po_number)}>{po.po_number}</button></div>
+                  <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(po.po_number, 'po')}>{po.po_number}</button></div>
                   <p className="font-bold text-red-700">{formatPHP(po.balance)}</p>
                 </div>
               ))}
@@ -637,9 +639,14 @@ export default function DashboardPage() {
       </Responsive>
       )}
       </div>
-      <InvoiceDetailModal
-        open={invoiceModalOpen}
-        onOpenChange={setInvoiceModalOpen}
+      <PODetailModal
+        open={invoiceModalOpen && detailType === 'po'}
+        onOpenChange={(open) => { if (!open) setInvoiceModalOpen(false); }}
+        poNumber={selectedInvoiceNumber}
+      />
+      <SaleDetailModal
+        open={invoiceModalOpen && detailType === 'sale'}
+        onOpenChange={(open) => { if (!open) setInvoiceModalOpen(false); }}
         invoiceNumber={selectedInvoiceNumber}
       />
     </div>

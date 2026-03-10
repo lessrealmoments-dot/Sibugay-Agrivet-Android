@@ -16,7 +16,7 @@ import {
   CheckSquare, Square, Info, ChevronDown, ChevronUp, Zap, Edit3
 } from 'lucide-react';
 import { toast } from 'sonner';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
 
 const METHODS = ['Cash', 'Check', 'Bank Transfer', 'GCash', 'Maya'];
 
@@ -603,10 +603,10 @@ export default function PaymentsPage() {
       </Dialog>
 
       {/* Invoice Detail Modal */}
-      <InvoiceDetailModal
+      <SaleDetailModal
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
-        invoiceId={selectedInvoiceId}
+        saleId={selectedInvoiceId}
         onUpdated={() => { if (selectedCustomer) { loadInvoices(selectedCustomer.id); loadChargesPreview(selectedCustomer.id); } }}
       />
     </div>

@@ -13,7 +13,7 @@ import {
   Building2, ArrowRight, Banknote
 } from 'lucide-react';
 import { toast } from 'sonner';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
 
 const STATUS_COLORS = {
   prepared: 'bg-slate-100 text-slate-600',
@@ -279,7 +279,7 @@ export default function InternalInvoicesPage() {
           </DialogContent>
         </Dialog>
       )}
-      <InvoiceDetailModal
+      <SaleDetailModal
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         invoiceNumber={selectedInvoiceNumber}

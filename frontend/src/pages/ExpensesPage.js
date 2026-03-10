@@ -17,7 +17,8 @@ import ReceiptUploadInline from '../components/ReceiptUploadInline';
 import VerificationBadge from '../components/VerificationBadge';
 import VerifyPinDialog from '../components/VerifyPinDialog';
 import ViewQRDialog from '../components/ViewQRDialog';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import ExpenseDetailModal from '../components/ExpenseDetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
 
 const EXPENSE_CATEGORIES = [
   "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
@@ -47,7 +48,11 @@ export default function ExpensesPage() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const [selectedExpenseId, setSelectedExpenseId] = useState(null);
-  const openDetailModal = (num = null, expId = null) => { setSelectedInvoiceNumber(num); setSelectedExpenseId(expId); setInvoiceModalOpen(true); };
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const openDetailModal = (num = null, expId = null) => {
+    if (expId) { setSelectedExpenseId(expId); setExpenseModalOpen(true); }
+    else if (num) { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); }
+  };
 
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [farmExpenseDialog, setFarmExpenseDialog] = useState(false);
@@ -1052,11 +1057,17 @@ export default function ExpensesPage() {
             ? { ...e, verified: true, verification_status: 'clean' } : e));
         }}
       />
-      <InvoiceDetailModal
-        open={invoiceModalOpen}
-        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) { setSelectedInvoiceNumber(null); setSelectedExpenseId(null); } }}
-        invoiceNumber={selectedInvoiceNumber}
+      <ExpenseDetailModal
+        open={expenseModalOpen}
+        onOpenChange={(open) => { setExpenseModalOpen(open); if (!open) setSelectedExpenseId(null); }}
         expenseId={selectedExpenseId}
+        onUpdated={fetchAll}
+      />
+      <SaleDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) setSelectedInvoiceNumber(null); }}
+        invoiceNumber={selectedInvoiceNumber}
+        onUpdated={fetchAll}
       />
     </div>
   );

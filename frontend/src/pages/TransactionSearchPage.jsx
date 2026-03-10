@@ -7,7 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Search, Filter, Calendar, X, FileText, Truck, Receipt, ArrowLeftRight, Wallet, ChevronRight, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import PODetailModal from '../components/PODetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
+import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
 const TYPE_CONFIG = {
   invoice:          { label: 'Invoice / Sale', icon: FileText, color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -80,8 +82,8 @@ export default function TransactionSearchPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  // Invoice detail modal (reuse existing InvoiceDetailModal for invoices, POs, and expenses)
-  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '', expenseId: '' });
+  // Detail modals — route by type
+  const [detailModal, setDetailModal] = useState({ type: null, number: '', id: '' });
 
   const doSearch = useCallback(async (q, t, df, dt, bid) => {
     if (!q && !df && !dt) {
@@ -143,13 +145,12 @@ export default function TransactionSearchPage() {
   };
 
   const handleResultClick = (item) => {
-    // Invoices and POs: open via InvoiceDetailModal (by-number endpoint handles both)
-    if ((item.type === 'invoice' || item.type === 'purchase_order') && item.number) {
-      setInvoiceModal({ open: true, number: item.number, expenseId: '' });
-    }
-    // Expenses: open via InvoiceDetailModal with expenseId
-    else if (item.type === 'expense' && item.id) {
-      setInvoiceModal({ open: true, number: '', expenseId: item.id });
+    if (item.type === 'invoice' && item.number) {
+      setDetailModal({ type: 'sale', number: item.number, id: '' });
+    } else if (item.type === 'purchase_order' && item.number) {
+      setDetailModal({ type: 'po', number: item.number, id: '' });
+    } else if (item.type === 'expense' && item.id) {
+      setDetailModal({ type: 'expense', number: '', id: item.id });
     }
     // Others: navigate to their native pages
     else if (item.type === 'return') navigate('/returns');
@@ -316,11 +317,22 @@ export default function TransactionSearchPage() {
         </div>
       )}
 
-      <InvoiceDetailModal
-        open={invoiceModal.open}
-        onOpenChange={(open) => setInvoiceModal({ open, number: open ? invoiceModal.number : '', expenseId: open ? invoiceModal.expenseId : '' })}
-        invoiceNumber={invoiceModal.number}
-        expenseId={invoiceModal.expenseId}
+      <PODetailModal
+        open={detailModal.type === 'po'}
+        onOpenChange={(open) => { if (!open) setDetailModal({ type: null, number: '', id: '' }); }}
+        poNumber={detailModal.number}
+        onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
+      />
+      <SaleDetailModal
+        open={detailModal.type === 'sale'}
+        onOpenChange={(open) => { if (!open) setDetailModal({ type: null, number: '', id: '' }); }}
+        invoiceNumber={detailModal.number}
+        onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
+      />
+      <ExpenseDetailModal
+        open={detailModal.type === 'expense'}
+        onOpenChange={(open) => { if (!open) setDetailModal({ type: null, number: '', id: '' }); }}
+        expenseId={detailModal.id}
         onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
       />
     </div>

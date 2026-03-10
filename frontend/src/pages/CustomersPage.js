@@ -14,7 +14,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Users, Plus, Pencil, Trash2, Search, FileText, Eye, X, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import CustomerStatementModal from '../components/CustomerStatementModal';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
 
 const SALE_TYPE_LABELS = {
   farm_expense: { label: 'Farm Expense', cls: 'bg-green-100 text-green-700' },
@@ -400,7 +400,7 @@ export default function CustomersPage() {
         onOpenChange={setStatementDialog}
         customer={statementCustomer}
       />
-      <InvoiceDetailModal
+      <SaleDetailModal
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         invoiceNumber={selectedInvoiceNumber}

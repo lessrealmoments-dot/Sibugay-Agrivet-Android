@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import PODetailModal from '../components/PODetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
+import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
 const STEPS = [
   { id: 1, title: 'Sales Log',        icon: Receipt,      desc: 'Verify all cash & credit sales' },
@@ -76,7 +78,12 @@ export default function CloseWizardPage() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const [selectedExpenseId, setSelectedExpenseId] = useState(null);
-  const openDetailModal = (num = null, expId = null) => { setSelectedInvoiceNumber(num); setSelectedExpenseId(expId); setInvoiceModalOpen(true); };
+  const [detailType, setDetailType] = useState('sale');
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const openDetailModal = (num = null, expId = null, type = 'sale') => {
+    if (expId) { setSelectedExpenseId(expId); setExpenseModalOpen(true); }
+    else { setSelectedInvoiceNumber(num); setDetailType(type); setInvoiceModalOpen(true); }
+  };
   const [wizUploadQROpen, setWizUploadQROpen] = useState(false);
   const [wizUploadExpenseId, setWizUploadExpenseId] = useState(null);
   const [pmtDialog, setPmtDialog]     = useState({ open: false, invoice: null });
@@ -2024,7 +2031,7 @@ export default function CloseWizardPage() {
                     <tr key={i} className={`border-b border-slate-50 hover:bg-slate-50/50 ${p.is_overdue ? 'bg-red-50/50' : p.is_urgent ? 'bg-amber-50/50' : ''}`}>
                       <td className="px-3 py-2">
                         <p className="font-medium">{p.vendor}</p>
-                        <p className="text-xs font-mono"><button className="text-blue-600 hover:underline" onClick={() => openDetailModal(p.po_number)}>{p.po_number}</button></p>
+                        <p className="text-xs font-mono"><button className="text-blue-600 hover:underline" onClick={() => openDetailModal(p.po_number, null, 'po')}>{p.po_number}</button></p>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-slate-500">{formatPHP(p.subtotal)}</td>
                       <td className="px-3 py-2 text-right font-mono font-bold text-red-700">{formatPHP(p.balance)}</td>
@@ -2062,10 +2069,19 @@ export default function CloseWizardPage() {
         recordType="expense"
         recordId={wizUploadExpenseId}
       />
-      <InvoiceDetailModal
-        open={invoiceModalOpen}
-        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) { setSelectedInvoiceNumber(null); setSelectedExpenseId(null); } }}
+      <PODetailModal
+        open={invoiceModalOpen && detailType === 'po'}
+        onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
+        poNumber={selectedInvoiceNumber}
+      />
+      <SaleDetailModal
+        open={invoiceModalOpen && detailType === 'sale'}
+        onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
         invoiceNumber={selectedInvoiceNumber}
+      />
+      <ExpenseDetailModal
+        open={expenseModalOpen}
+        onOpenChange={(open) => { setExpenseModalOpen(open); if (!open) setSelectedExpenseId(null); }}
         expenseId={selectedExpenseId}
       />
     </div>

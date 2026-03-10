@@ -4,21 +4,18 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Receipt, Edit3 } from 'lucide-react';
+import { Edit3 } from 'lucide-react';
 import { toast } from 'sonner';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
 
 export default function SalesPage() {
   const { currentBranch } = useAuth();
   const [sales, setSales] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [detailDialog, setDetailDialog] = useState(false);
-  const [selectedSale, setSelectedSale] = useState(null);
   const LIMIT = 20;
   
-  // Invoice detail modal
+  // Sale detail modal
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
 
@@ -47,31 +44,6 @@ export default function SalesPage() {
   const openInvoiceDetail = (sale) => {
     setSelectedInvoiceId(sale.id);
     setInvoiceModalOpen(true);
-  };
-
-  const viewSale = async (sale) => {
-    try {
-      // Use invoices endpoint
-      const res = await api.get(`/invoices/${sale.id}`);
-      const inv = res.data;
-      // Map to sale format
-      setSelectedSale({
-        ...inv,
-        sale_number: inv.invoice_number,
-        total: inv.grand_total,
-        subtotal: inv.subtotal,
-        discount: inv.overall_discount || 0,
-        items: inv.items || [],
-        status: inv.status === 'voided' ? 'voided' : 'completed',
-      });
-      setDetailDialog(true);
-    } catch { toast.error('Failed to load sale details'); }
-  };
-
-  const voidSale = async (saleId) => {
-    if (!window.confirm('Void this sale? Stock will be restored.')) return;
-    try { await api.post(`/invoices/${saleId}/void`); toast.success('Sale voided'); fetchSales(); setDetailDialog(false); }
-    catch (e) { toast.error(e.response?.data?.detail || 'Failed to void sale'); }
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -110,17 +82,17 @@ export default function SalesPage() {
                       {s.edited && <Edit3 size={10} className="text-orange-500" />}
                     </button>
                   </TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer">{s.customer_name}</TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer">{s.items?.length || 0}</TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer text-right font-semibold">{s.total?.toFixed(2)}</TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer"><Badge variant="outline" className="text-[10px]">{s.payment_method}</Badge></TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer text-slate-500 text-sm">{s.cashier_name}</TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer">
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer">{s.customer_name}</TableCell>
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer">{s.items?.length || 0}</TableCell>
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer text-right font-semibold">{s.total?.toFixed(2)}</TableCell>
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer"><Badge variant="outline" className="text-[10px]">{s.payment_method}</Badge></TableCell>
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer text-slate-500 text-sm">{s.cashier_name}</TableCell>
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer">
                     <Badge className={`text-[10px] ${s.status === 'voided' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                       {s.status}
                     </Badge>
                   </TableCell>
-                  <TableCell onClick={() => viewSale(s)} className="cursor-pointer text-xs text-slate-500">{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell onClick={() => openInvoiceDetail(s)} className="cursor-pointer text-xs text-slate-500">{new Date(s.created_at).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
               {!sales.length && (
@@ -141,57 +113,11 @@ export default function SalesPage() {
         </div>
       )}
 
-      <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Sale Details</DialogTitle></DialogHeader>
-          {selectedSale && (
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-slate-500">Sale #:</span> <span className="font-mono">{selectedSale.sale_number}</span></div>
-                <div><span className="text-slate-500">Date:</span> {new Date(selectedSale.created_at).toLocaleString()}</div>
-                <div><span className="text-slate-500">Customer:</span> {selectedSale.customer_name}</div>
-                <div><span className="text-slate-500">Cashier:</span> {selectedSale.cashier_name}</div>
-                <div><span className="text-slate-500">Payment:</span> {selectedSale.payment_method}</div>
-                <div><span className="text-slate-500">Status:</span> <Badge className={selectedSale.status === 'voided' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}>{selectedSale.status}</Badge></div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Product</TableHead>
-                    <TableHead className="text-xs text-right">Qty</TableHead>
-                    <TableHead className="text-xs text-right">Price</TableHead>
-                    <TableHead className="text-xs text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedSale.items?.map((item, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-sm">{item.product_name} {item.is_repack && <Badge variant="outline" className="text-[9px] ml-1">R</Badge>}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right">{item.price?.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-semibold">{item.total?.toFixed(2)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>Subtotal</span><span>{selectedSale.subtotal?.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>Discount</span><span>-{selectedSale.discount?.toFixed(2)}</span></div>
-                <div className="flex justify-between text-lg font-bold pt-2 border-t"><span>Total</span><span>{selectedSale.total?.toFixed(2)}</span></div>
-              </div>
-              {selectedSale.status === 'completed' && (
-                <Button data-testid="void-sale-btn" variant="destructive" className="w-full" onClick={() => voidSale(selectedSale.id)}>Void Sale</Button>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Invoice Detail Modal */}
-      <InvoiceDetailModal 
+      {/* Sale Detail Modal */}
+      <SaleDetailModal 
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
-        invoiceId={selectedInvoiceId}
+        saleId={selectedInvoiceId}
         onUpdated={fetchSales}
       />
     </div>

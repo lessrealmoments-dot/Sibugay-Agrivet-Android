@@ -18,7 +18,9 @@ import {
   KeyRound, Eye, ImageIcon, CircleAlert, Receipt, ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import PODetailModal from '../components/PODetailModal';
+import SaleDetailModal from '../components/SaleDetailModal';
+import ExpenseDetailModal from '../components/ExpenseDetailModal';
 import ReceiptGallery from '../components/ReceiptGallery';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -488,12 +490,13 @@ export default function AuditCenterPage() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
   const [selectedExpenseId, setSelectedExpenseId] = useState(null);
+  const [detailType, setDetailType] = useState('sale');
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
 
-  // Helper: open unified detail modal for any transaction type
-  const openDetailModal = (invoiceNumber = null, expenseId = null) => {
-    setSelectedInvoiceNumber(invoiceNumber);
-    setSelectedExpenseId(expenseId);
-    setInvoiceModalOpen(true);
+  // Helper: open detail modal for any transaction type
+  const openDetailModal = (invoiceNumber = null, expenseId = null, type = 'sale') => {
+    if (expenseId) { setSelectedExpenseId(expenseId); setExpenseModalOpen(true); }
+    else { setSelectedInvoiceNumber(invoiceNumber); setDetailType(type); setInvoiceModalOpen(true); }
   };
   // Receipt gallery state
   const [receiptView, setReceiptView] = useState(null); // { recordType, recordId, label }
@@ -1278,7 +1281,7 @@ export default function AuditCenterPage() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button
                                   className="font-mono text-blue-600 hover:underline font-semibold"
-                                  onClick={() => openDetailModal(po.po_number)}
+                                  onClick={() => openDetailModal(po.po_number, null, 'po')}
                                   data-testid={`po-link-${po.po_number}`}>
                                   {po.po_number}
                                 </button>
@@ -1606,7 +1609,7 @@ export default function AuditCenterPage() {
                               data-testid={`unverified-po-${po.id}`}>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <button className="font-mono text-blue-600 hover:underline font-semibold" onClick={() => openDetailModal(po.po_number)}>
+                                  <button className="font-mono text-blue-600 hover:underline font-semibold" onClick={() => openDetailModal(po.po_number, null, 'po')}>
                                     {po.po_number}
                                   </button>
                                   <span className="text-slate-500">{po.vendor}</span>
@@ -2062,10 +2065,21 @@ export default function AuditCenterPage() {
           </DialogContent>
         </Dialog>
       )}
-      <InvoiceDetailModal
-        open={invoiceModalOpen}
-        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) { setSelectedInvoiceNumber(null); setSelectedExpenseId(null); } }}
+      <PODetailModal
+        open={invoiceModalOpen && detailType === 'po'}
+        onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
+        poNumber={selectedInvoiceNumber}
+        onUpdated={() => { if (auditData) runAudit(); }}
+      />
+      <SaleDetailModal
+        open={invoiceModalOpen && detailType === 'sale'}
+        onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
         invoiceNumber={selectedInvoiceNumber}
+        onUpdated={() => { if (auditData) runAudit(); }}
+      />
+      <ExpenseDetailModal
+        open={expenseModalOpen}
+        onOpenChange={(open) => { setExpenseModalOpen(open); if (!open) setSelectedExpenseId(null); }}
         expenseId={selectedExpenseId}
         onUpdated={() => { if (auditData) runAudit(); }}
       />

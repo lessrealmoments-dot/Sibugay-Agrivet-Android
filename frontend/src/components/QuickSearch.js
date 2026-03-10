@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
 import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
-import InvoiceDetailModal from './InvoiceDetailModal';
+import PODetailModal from './PODetailModal';
+import SaleDetailModal from './SaleDetailModal';
+import ExpenseDetailModal from './ExpenseDetailModal';
 
 const TYPE_ICONS = {
   invoice: FileText,
@@ -42,7 +44,7 @@ export default function QuickSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [invoiceModal, setInvoiceModal] = useState({ open: false, number: '', expenseId: '' });
+  const [detailModal, setDetailModal] = useState({ type: null, number: '', id: '' });
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
@@ -97,10 +99,12 @@ export default function QuickSearch() {
     setOpen(false);
     setQuery('');
     setResults([]);
-    if ((item.type === 'invoice' || item.type === 'purchase_order') && item.number) {
-      setInvoiceModal({ open: true, number: item.number, expenseId: '' });
+    if (item.type === 'invoice' && item.number) {
+      setDetailModal({ type: 'sale', number: item.number, id: '' });
+    } else if (item.type === 'purchase_order' && item.number) {
+      setDetailModal({ type: 'po', number: item.number, id: '' });
     } else if (item.type === 'expense' && item.id) {
-      setInvoiceModal({ open: true, number: '', expenseId: item.id });
+      setDetailModal({ type: 'expense', number: '', id: item.id });
     } else if (item.type === 'return') navigate('/returns');
     else if (item.type === 'branch_transfer') navigate('/branch-transfers');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
@@ -129,12 +133,9 @@ export default function QuickSearch() {
             Ctrl+K
           </kbd>
         </button>
-        <InvoiceDetailModal
-          open={invoiceModal.open}
-          onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '', expenseId: o ? invoiceModal.expenseId : '' })}
-          invoiceNumber={invoiceModal.number}
-          expenseId={invoiceModal.expenseId}
-        />
+        <PODetailModal open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} />
+        <SaleDetailModal open={detailModal.type === 'sale'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} invoiceNumber={detailModal.number} />
+        <ExpenseDetailModal open={detailModal.type === 'expense'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} expenseId={detailModal.id} />
       </>
     );
   }
@@ -201,12 +202,9 @@ export default function QuickSearch() {
           </button>
         </div>
       )}
-      <InvoiceDetailModal
-        open={invoiceModal.open}
-        onOpenChange={(o) => setInvoiceModal({ open: o, number: o ? invoiceModal.number : '', expenseId: o ? invoiceModal.expenseId : '' })}
-        invoiceNumber={invoiceModal.number}
-        expenseId={invoiceModal.expenseId}
-      />
+      <PODetailModal open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} />
+      <SaleDetailModal open={detailModal.type === 'sale'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} invoiceNumber={detailModal.number} />
+      <ExpenseDetailModal open={detailModal.type === 'expense'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} expenseId={detailModal.id} />
     </div>
   );
 }

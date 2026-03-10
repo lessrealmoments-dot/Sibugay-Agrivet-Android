@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
-import InvoiceDetailModal from '../components/InvoiceDetailModal';
+import PODetailModal from '../components/PODetailModal';
 
 const METHODS = ['Cash', 'Check', 'Bank Transfer', 'GCash'];
 
@@ -433,11 +433,12 @@ export default function PaySupplierPage() {
         </div>
       )}
 
-      {/* Unified PO Detail Modal */}
-      <InvoiceDetailModal
+      {/* PO Detail Modal */}
+      <PODetailModal
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
-        invoiceNumber={selectedInvoiceNumber}
+        poNumber={selectedInvoiceNumber}
+        onUpdated={loadPOs}
       />
       <UploadQRDialog
         open={psUploadQROpen}

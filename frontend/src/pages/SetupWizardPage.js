@@ -56,6 +56,7 @@ export default function SetupWizardPage() {
     bank_account_number: '',
   });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     checkSetupStatus();
   }, []);

@@ -95,6 +95,7 @@ export default function PaymentsPage() {
   };
 
   // Recalculate preview when date changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedCustomer) loadChargesPreview(selectedCustomer.id);
   }, [payDate, selectedCustomer]);

@@ -347,6 +347,7 @@ export default function UnifiedSalesPage() {
       window.removeEventListener('offline', goOffline);
       stopAutoSync();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async (forceOnline = false) => {

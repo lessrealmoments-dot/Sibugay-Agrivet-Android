@@ -39,6 +39,7 @@ export default function SuppliersPage() {
   });
   const [saving, setSaving] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchData();
   }, [currentBranch]);

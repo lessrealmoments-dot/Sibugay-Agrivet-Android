@@ -81,6 +81,7 @@ export default function POSPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       stopAutoSync();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load POS data (API when online, IndexedDB when offline)

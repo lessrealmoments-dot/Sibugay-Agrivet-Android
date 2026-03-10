@@ -227,6 +227,20 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - Copy button for convenience
   - Mentions Ctrl+K search for finding it later
   - Integrated in UnifiedSalesPage and PurchaseOrderPage
+- [x] **Enhanced InvoiceDetailModal — Full Transaction Viewer (Mar 2026)**
+  - Single reusable modal for both invoices AND purchase orders (via by-number endpoint)
+  - **Receipt gallery**: ReceiptGallery component embedded in Receipts tab
+  - **QR Upload/View**: "Upload via Phone" and "View on Phone" buttons with QR dialogs
+  - **Payment history**: Shows all partial payments with method, amount, date, fund_source
+  - **Digital payment info**: Platform (GCash/Maya), reference #, sender, cash/digital portions for split payments
+  - **PO-aware rendering**: Detects `_collection=purchase_orders` and shows vendor, DR#, payment_status
+  - **Verify action**: PIN dialog for transaction verification (admin/manager/auditor)
+  - **Void action**: PIN + reason dialog for voiding invoices or cancelling POs
+  - **Edit action**: Existing inline edit with reason + proof (invoices only)
+  - **Copy number button**: One-click copy of receipt/PO number
+  - **Verification status**: Shows verified badge with verifier name and date
+  - All actions permission-gated via hasPerm()
+  - Connected to search: clicking invoice/PO in Find Transaction or Quick Search opens this modal
 - [x] **Branch Code Management**
   - `PUT /api/branches/{id}/code` — manually set branch code
   - `GET /api/branches/{id}/code` — get or auto-generate branch code

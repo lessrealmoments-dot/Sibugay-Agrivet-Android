@@ -140,12 +140,11 @@ export default function TransactionSearchPage() {
   };
 
   const handleResultClick = (item) => {
-    // Invoices/Sales: open the existing InvoiceDetailModal (has edit, void, history)
-    if (item.type === 'invoice' && item.number) {
+    // Invoices and POs: open via InvoiceDetailModal (by-number endpoint handles both)
+    if ((item.type === 'invoice' || item.type === 'purchase_order') && item.number) {
       setInvoiceModal({ open: true, number: item.number });
     }
-    // POs, expenses, etc: navigate to their native pages
-    else if (item.type === 'purchase_order') navigate('/purchase-orders');
+    // Others: navigate to their native pages
     else if (item.type === 'expense') navigate('/expenses');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');

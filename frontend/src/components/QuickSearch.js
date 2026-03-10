@@ -88,10 +88,9 @@ export default function QuickSearch() {
     setOpen(false);
     setQuery('');
     setResults([]);
-    if (item.type === 'invoice' && item.number) {
+    if ((item.type === 'invoice' || item.type === 'purchase_order') && item.number) {
       setInvoiceModal({ open: true, number: item.number });
-    } else if (item.type === 'purchase_order') navigate('/purchase-orders');
-    else if (item.type === 'expense') navigate('/expenses');
+    } else if (item.type === 'expense') navigate('/expenses');
     else if (item.type === 'internal_invoice') navigate('/internal-invoices');
     else if (item.type === 'fund_transfer') navigate('/fund-management');
   };

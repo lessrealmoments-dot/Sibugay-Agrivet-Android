@@ -185,6 +185,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const openDetailModal = (num) => { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); };
   const [analyticsPeriod, setAnalyticsPeriod] = useState('this_month');
   const [unclosedDays, setUnclosedDays] = useState(null);
   const { width: gridWidth, containerRef: gridRef, mounted: gridMounted } = useContainerWidth();
@@ -302,7 +303,7 @@ export default function DashboardPage() {
               <div className="space-y-1.5 text-xs">
                 {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
                   <div key={po.id || po.po_number} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
-                    <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => navigate('/purchase-orders')}>{po.po_number}</button></div>
+                    <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(po.po_number)}>{po.po_number}</button></div>
                     <p className="font-bold text-red-700">{formatPHP(po.balance)}</p>
                   </div>
                 ))}
@@ -483,7 +484,7 @@ export default function DashboardPage() {
           {(stats?.credit_customers_today || []).length === 0 ? <p className="text-xs text-slate-400">No new credit today</p>
             : <div className="space-y-1.5">{(stats?.credit_customers_today || []).map((c, i) => (
               <div key={i} className="flex items-center justify-between text-xs bg-amber-50 rounded px-3 py-2">
-                <div><p className="font-semibold">{c.customer_name}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => { setSelectedInvoiceNumber(c.invoice_number); setInvoiceModalOpen(true); }}>{c.invoice_number}</button></div>
+                <div><p className="font-semibold">{c.customer_name}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(c.invoice_number)}>{c.invoice_number}</button></div>
                 <div className="text-right"><p className="font-bold text-amber-700">{formatPHP(c.amount)}</p><p className="text-slate-400">bal {formatPHP(c.balance)}</p></div>
               </div>
             ))}</div>
@@ -503,7 +504,7 @@ export default function DashboardPage() {
           {(stats?.recent_ar_payments || []).length === 0 ? <p className="text-xs text-slate-400">No AR payments today</p>
             : <div className="space-y-1.5">{(stats?.recent_ar_payments || []).map((p, i) => (
               <div key={i} className="flex items-center justify-between text-xs bg-blue-50 rounded px-3 py-2">
-                <div><p className="font-semibold">{p.customer_name}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => { setSelectedInvoiceNumber(p.invoice_number); setInvoiceModalOpen(true); }}>{p.invoice_number}</button></div>
+                <div><p className="font-semibold">{p.customer_name}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(p.invoice_number)}>{p.invoice_number}</button></div>
                 <p className="font-bold text-blue-700">{formatPHP(p.amount)}</p>
               </div>
             ))}</div>
@@ -521,7 +522,7 @@ export default function DashboardPage() {
             <div className="space-y-1.5 text-xs">
               {[...(poSummary.overdue || []), ...(poSummary.due_soon || [])].slice(0, 5).map(po => (
                 <div key={po.id || po.po_number} className="flex justify-between py-1.5 border-b border-slate-50 last:border-0">
-                  <div><p className="font-semibold">{po.vendor}</p><p className="text-slate-400 font-mono">{po.po_number}</p></div>
+                  <div><p className="font-semibold">{po.vendor}</p><button className="text-blue-600 font-mono hover:underline" onClick={() => openDetailModal(po.po_number)}>{po.po_number}</button></div>
                   <p className="font-bold text-red-700">{formatPHP(po.balance)}</p>
                 </div>
               ))}
@@ -556,7 +557,7 @@ export default function DashboardPage() {
             : (stats?.recent_sales || []).slice(0, 5).map(sale => (
               <div key={sale.id} className="py-1.5 border-b border-slate-50 last:border-0">
                 <div className="flex justify-between items-start text-xs">
-                  <div><p className="font-semibold font-mono"><button className="text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(sale.invoice_number || sale.sale_number); setInvoiceModalOpen(true); }}>{sale.invoice_number || sale.sale_number}</button></p><p className="text-slate-500">{sale.customer_name || 'Walk-in'}</p></div>
+                  <div><p className="font-semibold font-mono"><button className="text-blue-600 hover:underline" onClick={() => openDetailModal(sale.invoice_number || sale.sale_number)}>{sale.invoice_number || sale.sale_number}</button></p><p className="text-slate-500">{sale.customer_name || 'Walk-in'}</p></div>
                   <div className="text-right">
                     <p className="font-bold">{formatPHP(sale.grand_total || sale.total)}</p>
                     <Badge className={`text-[9px] ${sale.payment_type === 'cash' ? 'bg-emerald-100 text-emerald-700' : sale.payment_type === 'digital' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>

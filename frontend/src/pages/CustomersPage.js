@@ -14,6 +14,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Users, Plus, Pencil, Trash2, Search, FileText, Eye, X, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import CustomerStatementModal from '../components/CustomerStatementModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const SALE_TYPE_LABELS = {
   farm_expense: { label: 'Farm Expense', cls: 'bg-green-100 text-green-700' },
@@ -45,6 +46,9 @@ export default function CustomersPage() {
   const [historyDialog, setHistoryDialog] = useState(false);
   const [statementDialog, setStatementDialog] = useState(false);
   const [statementCustomer, setStatementCustomer] = useState(null);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const openDetailModal = (num) => { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); };
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [transactions, setTransactions] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -329,7 +333,12 @@ export default function CustomersPage() {
                       <TableBody>
                         {transactions.invoices.map(inv => (
                           <TableRow key={inv.id}>
-                            <TableCell className="font-medium text-sm">{inv.invoice_number}</TableCell>
+                            <TableCell className="font-medium text-sm">
+                              <button className="font-mono text-blue-600 hover:underline" data-testid={`inv-link-${inv.id}`}
+                                onClick={(e) => { e.stopPropagation(); openDetailModal(inv.invoice_number); }}>
+                                {inv.invoice_number}
+                              </button>
+                            </TableCell>
                             <TableCell className="text-sm text-slate-500">{inv.order_date}</TableCell>
                             <TableCell className="text-sm text-right">{formatPHP(inv.grand_total)}</TableCell>
                             <TableCell className="text-sm text-right text-emerald-600">{formatPHP(inv.amount_paid)}</TableCell>
@@ -390,6 +399,11 @@ export default function CustomersPage() {
         open={statementDialog}
         onOpenChange={setStatementDialog}
         customer={statementCustomer}
+      />
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
       />
     </div>
   );

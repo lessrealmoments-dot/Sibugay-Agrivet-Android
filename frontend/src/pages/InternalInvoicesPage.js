@@ -13,6 +13,7 @@ import {
   Building2, ArrowRight, Banknote
 } from 'lucide-react';
 import { toast } from 'sonner';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const STATUS_COLORS = {
   prepared: 'bg-slate-100 text-slate-600',
@@ -27,6 +28,9 @@ export default function InternalInvoicesPage() {
 
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const openDetailModal = (num) => { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); };
   const [summary, setSummary] = useState(null);
   const [tab, setTab] = useState('all');
   const [payDialog, setPayDialog] = useState(null);
@@ -165,7 +169,11 @@ export default function InternalInvoicesPage() {
                   const dueSoon = isDueSoon(inv);
                   return (
                     <TableRow key={inv.id} className={`hover:bg-slate-50 ${overdue ? 'bg-red-50/30' : dueSoon ? 'bg-amber-50/30' : ''}`}>
-                      <TableCell className="font-mono text-sm text-blue-600" data-testid={`inv-${inv.id}`}>{inv.invoice_number}</TableCell>
+                      <TableCell className="font-mono text-sm text-blue-600" data-testid={`inv-${inv.id}`}>
+                        <button className="hover:underline font-semibold" onClick={() => openDetailModal(inv.invoice_number)}>
+                          {inv.invoice_number}
+                        </button>
+                      </TableCell>
                       <TableCell className="font-mono text-xs text-slate-500">{inv.transfer_number}</TableCell>
                       <TableCell className="text-sm">
                         <span className="flex items-center gap-1">
@@ -271,6 +279,11 @@ export default function InternalInvoicesPage() {
           </DialogContent>
         </Dialog>
       )}
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
     </div>
   );
 }

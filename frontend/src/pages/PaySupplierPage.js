@@ -9,13 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Separator } from '../components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   Search, AlertTriangle, Zap, Building2, FileText, CheckCircle2,
   Wallet, Shield, Info, ChevronRight, Clock, Package, Upload
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const METHODS = ['Cash', 'Check', 'Bank Transfer', 'GCash'];
 
@@ -42,6 +43,9 @@ export default function PaySupplierPage() {
   // PO detail dialog
   const [poDetailDialog, setPoDetailDialog] = useState(false);
   const [poDetail, setPoDetail] = useState(null);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const openDetailModal = (num) => { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); };
   const [psUploadQROpen, setPsUploadQROpen] = useState(false);
   const [psUploadPOId, setPsUploadPOId] = useState(null);
 
@@ -329,7 +333,7 @@ export default function PaySupplierPage() {
                         <tr key={po.id} className={`border-b border-slate-100 ${isApplied ? 'bg-emerald-50/40' : 'hover:bg-slate-50/50'} transition-colors`}>
                           <td className="px-3 py-2">
                             <button className="font-mono text-xs text-blue-600 hover:underline"
-                              onClick={() => { setPoDetail(po); setPoDetailDialog(true); }}>
+                              onClick={() => openDetailModal(po.po_number)}>
                               {po.po_number}
                             </button>
                           </td>
@@ -416,7 +420,7 @@ export default function PaySupplierPage() {
                       {selected.pos.filter(po => parseFloat(rowAmounts[po.id] || 0) > 0).map(po => (
                         <div key={po.id} className="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-2 py-1 text-xs">
                           <FileText size={10} className="text-slate-400" />
-                          <span className="font-mono text-slate-500">{po.po_number}</span>
+                          <span className="font-mono text-blue-600 hover:underline cursor-pointer" onClick={() => openDetailModal(po.po_number)}>{po.po_number}</span>
                           <span className="font-bold text-emerald-600">{formatPHP(parseFloat(rowAmounts[po.id]))}</span>
                         </div>
                       ))}
@@ -429,64 +433,12 @@ export default function PaySupplierPage() {
         </div>
       )}
 
-      {/* PO Detail Dialog */}
-      <Dialog open={poDetailDialog} onOpenChange={setPoDetailDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Manrope' }}>PO Details — {poDetail?.po_number}</DialogTitle>
-            <DialogDescription>{poDetail?.vendor} · {poDetail?.purchase_date}</DialogDescription>
-          </DialogHeader>
-          {poDetail && (
-            <div className="space-y-4">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="text-left px-2 py-1.5 text-xs text-slate-500">Product</th>
-                    <th className="text-right px-2 py-1.5 text-xs text-slate-500">Qty</th>
-                    <th className="text-right px-2 py-1.5 text-xs text-slate-500">Unit Price</th>
-                    <th className="text-right px-2 py-1.5 text-xs text-slate-500">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {poDetail.items?.map((item, i) => (
-                    <tr key={i} className="border-b border-slate-100">
-                      <td className="px-2 py-1.5 font-medium">{item.product_name}</td>
-                      <td className="px-2 py-1.5 text-right">{item.quantity}</td>
-                      <td className="px-2 py-1.5 text-right">{formatPHP(item.unit_price)}</td>
-                      <td className="px-2 py-1.5 text-right font-semibold">{formatPHP(item.total || item.quantity * item.unit_price)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-between font-bold text-lg border-t pt-2">
-                <span>Total</span>
-                <span>{formatPHP(poDetail.subtotal)}</span>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3 grid grid-cols-3 gap-3 text-sm">
-                <div><p className="text-xs text-slate-400">Paid</p><p className="font-bold text-emerald-600">{formatPHP(poDetail.amount_paid || 0)}</p></div>
-                <div><p className="text-xs text-slate-400">Balance</p><p className="font-bold text-red-600">{formatPHP(poDetail.balance ?? poDetail.subtotal)}</p></div>
-                <div><p className="text-xs text-slate-400">Status</p>
-                  <Badge className={`text-[10px] ${poDetail.status === 'received' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                    {poDetail.status}
-                  </Badge>
-                </div>
-              </div>
-              {poDetail.notes && <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">{poDetail.notes}</p>}
-              {(poDetail.payment_history || []).length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-2">Payment History</p>
-                  {poDetail.payment_history.map((p, i) => (
-                    <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100">
-                      <span>{p.date} — {p.method}{p.check_number ? ` #${p.check_number}` : ''}</span>
-                      <span className="font-medium">{formatPHP(p.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Unified PO Detail Modal */}
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
       <UploadQRDialog
         open={psUploadQROpen}
         onClose={(count) => { setPsUploadQROpen(false); if (count > 0) toast.success(`${count} payment proof photo(s) saved!`); }}

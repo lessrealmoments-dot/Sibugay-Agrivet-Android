@@ -48,6 +48,8 @@ export default function AccountingPage() {
   const [viewQRExpenseOpen, setViewQRExpenseOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState(null);
+  const openDetailModal = (num = null, expId = null) => { setSelectedInvoiceNumber(num); setSelectedExpenseId(expId); setInvoiceModalOpen(true); };
   
   // Dialog states
   const [expenseDialog, setExpenseDialog] = useState(false);
@@ -478,7 +480,7 @@ export default function AccountingPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
-                        <div>{e.description}</div>
+                        <div><button className="text-blue-600 hover:underline" onClick={() => openDetailModal(null, e.id)}>{e.description || e.category}</button></div>
                         {e.notes && <div className="text-xs text-slate-400">{e.notes}</div>}
                         {e.employee_name && (
                           <div className="text-xs text-violet-600">
@@ -492,7 +494,7 @@ export default function AccountingPage() {
                         )}
                         {e.linked_invoice_number && (
                           <div className="text-xs text-blue-600 flex items-center gap-1">
-                            <FileText size={10} /> Invoice: <button className="hover:underline" onClick={() => { setSelectedInvoiceNumber(e.linked_invoice_number); setInvoiceModalOpen(true); }}>{e.linked_invoice_number}</button>
+                            <FileText size={10} /> Invoice: <button className="hover:underline" onClick={() => openDetailModal(e.linked_invoice_number)}>{e.linked_invoice_number}</button>
                           </div>
                         )}
                       </TableCell>
@@ -569,7 +571,7 @@ export default function AccountingPage() {
                     }[r.sale_type] || { label: 'Invoice', cls: 'bg-slate-100 text-slate-700' };
                     return (
                       <TableRow key={r.id} className="table-row-hover">
-                        <TableCell><button className="font-mono text-xs text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(r.invoice_number); setInvoiceModalOpen(true); }}>{r.invoice_number || '—'}</button></TableCell>
+                        <TableCell><button className="font-mono text-xs text-blue-600 hover:underline" onClick={() => openDetailModal(r.invoice_number)}>{r.invoice_number || '—'}</button></TableCell>
                         <TableCell className="font-medium">{r.customer_name}</TableCell>
                         <TableCell><Badge className={`text-[9px] ${typeConfig.cls}`}>{typeConfig.label}</Badge></TableCell>
                         <TableCell className="text-sm text-slate-600">{r.description || '-'}</TableCell>
@@ -1148,8 +1150,10 @@ export default function AccountingPage() {
       />
       <InvoiceDetailModal
         open={invoiceModalOpen}
-        onOpenChange={setInvoiceModalOpen}
+        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) { setSelectedInvoiceNumber(null); setSelectedExpenseId(null); } }}
         invoiceNumber={selectedInvoiceNumber}
+        expenseId={selectedExpenseId}
+        onUpdated={() => loadExpenses()}
       />
     </div>
   );

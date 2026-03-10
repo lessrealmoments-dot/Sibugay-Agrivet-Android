@@ -254,6 +254,8 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
 - [x] **Expense detail in modal** — Expenses now open inline in InvoiceDetailModal (via expenseId prop) with category, amount, fund source, description, verify/delete actions, and receipt gallery.
 - [x] **Audit Center formula alignment with Closing Wizard** — Verified that audit.py `_compute_cash` uses the same formula as daily_operations.py: `Starting Float + Cash In + Net Fund Transfers - Cashier Expenses = Expected Cash`. Both correctly include fund transfers.
 - [x] **Interactive transaction references in Audit Center** — All transaction numbers (invoices, POs, expenses) in every Audit Center section are now clickable and open the InvoiceDetailModal inline. PO numbers use the `by-number` endpoint, expenses use `expenseId`. No more navigation away from the Audit Center. Added `reference_number` to expense audit data.
+- [x] **App-wide interactive transaction references** — Extended clickable InvoiceDetailModal to ALL pages: CustomersPage, SuppliersPage, InternalInvoicesPage, CloseWizardPage, PaySupplierPage, DashboardPage, AccountingPage, ExpensesPage. Removed custom basic PO dialogs from SuppliersPage and PaySupplierPage in favor of the unified modal with full edit/verify/void/receipt capabilities.
+- [x] **Audit Center Priority Actions card** — New summary card showing top 6 highest-risk items across all audit sections (missing receipts, overdue POs, cash discrepancies, security flags, etc.) displayed at the top of audit results for quick executive overview.
 
 ### P0 — Upcoming
 - [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)

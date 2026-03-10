@@ -46,6 +46,8 @@ export default function ExpensesPage() {
   const [viewQRExpenseOpen, setViewQRExpenseOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState(null);
+  const openDetailModal = (num = null, expId = null) => { setSelectedInvoiceNumber(num); setSelectedExpenseId(expId); setInvoiceModalOpen(true); };
 
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [farmExpenseDialog, setFarmExpenseDialog] = useState(false);
@@ -516,7 +518,7 @@ export default function ExpensesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <div>{e.description}</div>
+                    <div><button className="text-blue-600 hover:underline" onClick={() => openDetailModal(null, e.id)}>{e.description || e.category}</button></div>
                     {e.notes && <div className="text-xs text-slate-400">{e.notes}</div>}
                     {e.employee_name && (
                       <div className="text-xs text-violet-600">
@@ -530,7 +532,7 @@ export default function ExpensesPage() {
                     )}
                     {e.linked_invoice_number && (
                       <div className="text-xs text-blue-600 flex items-center gap-1">
-                        <FileText size={10} /> Invoice: <button className="hover:underline" onClick={() => { setSelectedInvoiceNumber(e.linked_invoice_number); setInvoiceModalOpen(true); }}>{e.linked_invoice_number}</button>
+                        <FileText size={10} /> Invoice: <button className="hover:underline" onClick={() => openDetailModal(e.linked_invoice_number)}>{e.linked_invoice_number}</button>
                       </div>
                     )}
                   </TableCell>
@@ -1052,8 +1054,9 @@ export default function ExpensesPage() {
       />
       <InvoiceDetailModal
         open={invoiceModalOpen}
-        onOpenChange={setInvoiceModalOpen}
+        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) { setSelectedInvoiceNumber(null); setSelectedExpenseId(null); } }}
         invoiceNumber={selectedInvoiceNumber}
+        expenseId={selectedExpenseId}
       />
     </div>
   );

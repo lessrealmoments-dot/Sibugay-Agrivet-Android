@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Search, Truck, FileText, DollarSign, ArrowRight, CheckCircle, AlertCircle, History, Plus, Edit2, Phone, Mail, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 export default function SuppliersPage() {
   const { currentBranch } = useAuth();
@@ -25,6 +26,9 @@ export default function SuppliersPage() {
   const [vendorStats, setVendorStats] = useState(null);
   const [detailPO, setDetailPO] = useState(null);
   const [detailDialog, setDetailDialog] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const openDetailModal = (num) => { setSelectedInvoiceNumber(num); setInvoiceModalOpen(true); };
   const [activeTab, setActiveTab] = useState('all');
   
   // New supplier dialog
@@ -344,7 +348,7 @@ export default function SuppliersPage() {
                             <TableRow
                               key={po.id}
                               className="table-row-hover cursor-pointer"
-                              onClick={() => { setDetailPO(po); setDetailDialog(true); }}
+                              onClick={() => openDetailModal(po.po_number)}
                               data-testid={`po-row-${po.id}`}
                             >
                               <TableCell className="font-mono text-xs text-blue-600 font-semibold">{po.po_number}</TableCell>
@@ -401,7 +405,7 @@ export default function SuppliersPage() {
                       <div key={pay.key} className="flex items-center justify-between py-2 px-3 bg-slate-50 rounded-lg text-sm">
                         <div className="flex items-center gap-3">
                           <ArrowRight size={12} className="text-emerald-500" />
-                          <span className="font-mono text-xs text-slate-500">{pay.po_number}</span>
+                          <span className="font-mono text-xs text-blue-600 hover:underline cursor-pointer" onClick={() => openDetailModal(pay.po_number)}>{pay.po_number}</span>
                           <span className="text-slate-600">{pay.date}</span>
                           {pay.check_number && (
                             <span className="text-xs text-slate-400">Check #{pay.check_number}</span>
@@ -428,82 +432,12 @@ export default function SuppliersPage() {
         </div>
       </div>
 
-      {/* PO Detail Dialog */}
-      <Dialog open={detailDialog} onOpenChange={setDetailDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: 'Manrope' }}>Purchase Order Detail</DialogTitle>
-          </DialogHeader>
-          {detailPO && (
-            <div className="space-y-4 mt-2">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-slate-500">PO #:</span> <span className="font-mono font-bold">{detailPO.po_number}</span></div>
-                <div><span className="text-slate-500">Vendor:</span> <b>{detailPO.vendor}</b></div>
-                <div><span className="text-slate-500">Delivery:</span> <Badge className={`${statusColor(detailPO.status)} text-[10px]`}>{detailPO.status}</Badge></div>
-                <div><span className="text-slate-500">Date:</span> {detailPO.purchase_date || detailPO.created_at?.slice(0, 10)}</div>
-                <div>
-                  <span className="text-slate-500">Payment:</span>{' '}
-                  <Badge className={`text-[10px] ${paymentColor(detailPO.payment_status || 'unpaid')}`}>
-                    {detailPO.payment_method === 'credit' ? 'Credit' : 'Cash'} · {detailPO.payment_status || 'unpaid'}
-                  </Badge>
-                </div>
-                {detailPO.payment_status !== 'paid' && (
-                  <div><span className="text-slate-500">Balance:</span> <b className="text-red-600">{formatPHP(detailPO.balance || detailPO.subtotal)}</b></div>
-                )}
-              </div>
-              
-              <Separator />
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Product</TableHead>
-                    <TableHead className="text-xs text-right">Qty</TableHead>
-                    <TableHead className="text-xs text-right">Price</TableHead>
-                    <TableHead className="text-xs text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailPO.items?.map((item, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="text-sm">{item.product_name}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right">{formatPHP(item.unit_price)}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatPHP(item.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                <span>Total</span>
-                <span>{formatPHP(detailPO.subtotal)}</span>
-              </div>
-
-              {detailPO.notes && (
-                <p className="text-sm text-slate-500 bg-slate-50 p-2 rounded">Notes: {detailPO.notes}</p>
-              )}
-
-              {/* Payment History for this PO */}
-              {detailPO.payment_history?.length > 0 && (
-                <div className="bg-emerald-50 rounded-lg p-3 space-y-2">
-                  <p className="text-xs font-semibold uppercase text-emerald-700">Payments Made</p>
-                  {detailPO.payment_history.map((pay, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <ArrowRight size={12} className="text-emerald-500" />
-                        <span>{pay.date}</span>
-                        {pay.check_number && <span className="text-slate-400 text-xs">Check #{pay.check_number}</span>}
-                      </div>
-                      <span className="font-bold text-emerald-600">{formatPHP(pay.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Unified PO Detail Modal (replaces custom dialog) */}
+      <InvoiceDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        invoiceNumber={selectedInvoiceNumber}
+      />
 
       {/* New/Edit Supplier Dialog */}
       <Dialog open={supplierDialog} onOpenChange={setSupplierDialog}>

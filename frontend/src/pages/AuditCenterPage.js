@@ -939,6 +939,58 @@ export default function AuditCenterPage() {
                 })}
               </div>
 
+              {/* Priority Action Summary — top risks across all sections */}
+              {(() => {
+                const actions = [];
+                const cash = auditData.cash;
+                const unv = auditData.unverified;
+                if (cash?.severity !== 'ok' && cash?.discrepancy !== 0)
+                  actions.push({ sev: cash.severity, text: `Cash ${cash.discrepancy > 0 ? 'over' : 'short'} by ${formatPHP(Math.abs(cash.discrepancy))}`, section: 'Cash' });
+                if (unv?.expenses_no_receipt > 0)
+                  actions.push({ sev: 'critical', text: `${unv.expenses_no_receipt} expense(s) have no receipt`, section: 'Unverified' });
+                if (unv?.po_no_receipt > 0)
+                  actions.push({ sev: 'critical', text: `${unv.po_no_receipt} PO(s) have no receipt`, section: 'Unverified' });
+                if (unv?.digital_no_ref > 0)
+                  actions.push({ sev: 'critical', text: `${unv.digital_no_ref} digital payment(s) missing ref#`, section: 'Digital' });
+                if (auditData.payables?.overdue_count > 0)
+                  actions.push({ sev: 'critical', text: `${auditData.payables.overdue_count} overdue PO(s) worth ${formatPHP(auditData.payables.overdue_value)}`, section: 'Payables' });
+                if (auditData.ar?.aging?.b90plus > 0)
+                  actions.push({ sev: 'critical', text: `${formatPHP(auditData.ar.aging.b90plus)} AR overdue 90+ days`, section: 'AR' });
+                if (auditData.transfers?.with_shortage > 0)
+                  actions.push({ sev: 'warning', text: `${auditData.transfers.with_shortage} transfer shortage(s)`, section: 'Transfers' });
+                if (auditData.sales?.voided_count > 0)
+                  actions.push({ sev: 'warning', text: `${auditData.sales.voided_count} voided transaction(s) need review`, section: 'Sales' });
+                if (auditData.activity?.off_hours_count > 0)
+                  actions.push({ sev: 'warning', text: `${auditData.activity.off_hours_count} off-hours transaction(s)`, section: 'Activity' });
+                if (auditData.security?.high_severity > 0)
+                  actions.push({ sev: 'critical', text: `${auditData.security.high_severity} high-severity security flag(s)`, section: 'Security' });
+                if (unv?.total_items > 0)
+                  actions.push({ sev: unv.severity === 'critical' ? 'critical' : 'warning', text: `${unv.total_items} unverified item(s) need attention`, section: 'Unverified' });
+                actions.sort((a, b) => (a.sev === 'critical' ? 0 : 1) - (b.sev === 'critical' ? 0 : 1));
+                const top = actions.slice(0, 6);
+                return top.length > 0 ? (
+                  <Card className="border-2 border-red-200 bg-gradient-to-r from-red-50/80 to-amber-50/50" data-testid="priority-actions-card">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center">
+                          <AlertTriangle size={14} className="text-red-600" />
+                        </div>
+                        <p className="font-bold text-sm text-slate-800" style={{ fontFamily: 'Manrope' }}>Priority Actions ({actions.length})</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                        {top.map((a, i) => (
+                          <div key={i} className={`flex items-center gap-2 text-xs p-2 rounded-lg border ${a.sev === 'critical' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                            {a.sev === 'critical' ? <AlertTriangle size={12} className="text-red-500 shrink-0" /> : <AlertTriangle size={12} className="text-amber-500 shrink-0" />}
+                            <span className="flex-1">{a.text}</span>
+                            <Badge className={`text-[9px] shrink-0 ${a.sev === 'critical' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>{a.section}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null;
+              })()}
+
               {/* Section 2: Cash */}
               <SectionCard title="Cash & Fund Reconciliation" icon={<Banknote size={16} className="text-emerald-700" />}
                 sev={auditData.cash?.severity} defaultOpen insight={getInsight('cash', auditData.cash)} data_testid="audit-cash-section">

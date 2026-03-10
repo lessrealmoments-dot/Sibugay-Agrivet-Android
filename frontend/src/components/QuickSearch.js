@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
 import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2 } from 'lucide-react';
+import TransactionDetailModal from './TransactionDetailModal';
 
 const TYPE_ICONS = {
   invoice: FileText,
@@ -32,6 +33,7 @@ export default function QuickSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedTx, setSelectedTx] = useState(null);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
   const navigate = useNavigate();
@@ -86,11 +88,7 @@ export default function QuickSearch() {
     setOpen(false);
     setQuery('');
     setResults([]);
-    if (item.type === 'invoice') navigate(`/sales`);
-    else if (item.type === 'purchase_order') navigate(`/purchase-orders`);
-    else if (item.type === 'expense') navigate(`/expenses`);
-    else if (item.type === 'internal_invoice') navigate(`/internal-invoices`);
-    else if (item.type === 'fund_transfer') navigate(`/fund-management`);
+    setSelectedTx(item);
   };
 
   const goToAdvanced = () => {
@@ -102,17 +100,24 @@ export default function QuickSearch() {
 
   if (!open) {
     return (
-      <button
-        data-testid="quick-search-trigger"
-        onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-sm text-slate-500"
-      >
-        <Search size={14} />
-        <span className="hidden sm:inline">Find...</span>
-        <kbd className="hidden md:inline text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-400 font-mono">
-          Ctrl+K
-        </kbd>
-      </button>
+      <>
+        <button
+          data-testid="quick-search-trigger"
+          onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-sm text-slate-500"
+        >
+          <Search size={14} />
+          <span className="hidden sm:inline">Find...</span>
+          <kbd className="hidden md:inline text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-400 font-mono">
+            Ctrl+K
+          </kbd>
+        </button>
+        <TransactionDetailModal
+          open={!!selectedTx}
+          onOpenChange={(o) => { if (!o) setSelectedTx(null); }}
+          transaction={selectedTx}
+        />
+      </>
     );
   }
 
@@ -178,6 +183,11 @@ export default function QuickSearch() {
           </button>
         </div>
       )}
+      <TransactionDetailModal
+        open={!!selectedTx}
+        onOpenChange={(o) => { if (!o) setSelectedTx(null); }}
+        transaction={selectedTx}
+      />
     </div>
   );
 }

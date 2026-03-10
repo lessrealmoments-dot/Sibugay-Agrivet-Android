@@ -461,6 +461,17 @@ async def get_expense_categories(user=Depends(get_current_user)):
     return EXPENSE_CATEGORIES
 
 
+
+@router.get("/expenses/{expense_id}")
+async def get_expense(expense_id: str, user=Depends(get_current_user)):
+    """Get a single expense by ID."""
+    expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    return expense
+
+
+
 @router.post("/expenses")
 async def create_expense(data: dict, user=Depends(get_current_user)):
     """Create a new expense. If category is 'Employee Advance', updates employee's advance balance."""

@@ -235,6 +235,9 @@ async def list_purchase_orders(
     return {"purchase_orders": items, "total": total}
 
 
+
+
+
 @router.post("")
 async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     """
@@ -1482,3 +1485,13 @@ async def get_vendor_pos(vendor: str, user=Depends(get_current_user)):
         {"vendor": vendor, "status": {"$ne": "cancelled"}}, {"_id": 0}
     ).sort("created_at", -1).to_list(500)
     return pos
+
+
+@router.get("/{po_id}")
+async def get_purchase_order(po_id: str, user=Depends(get_current_user)):
+    """Get a single purchase order by ID."""
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    return po
+

@@ -42,6 +42,8 @@ from routes.internal_invoices import router as internal_invoices_router
 from routes.incident_tickets import router as incident_tickets_router
 from routes.scanner import router as scanner_router, ws_desktop, ws_phone
 from routes.search import router as search_router
+from routes.zreport_pdf import router as zreport_pdf_router
+from routes.journal_entries import router as journal_entries_router
 
 # =============================================================================
 # APP SETUP
@@ -164,6 +166,12 @@ api_router.include_router(admin_auth_router)
 
 # Universal Transaction Search
 api_router.include_router(search_router)
+
+# Z-Report PDF
+api_router.include_router(zreport_pdf_router)
+
+# Journal Entries
+api_router.include_router(journal_entries_router)
 
 # =============================================================================
 # WEBSOCKET ROUTES (must be on app directly with /api prefix)

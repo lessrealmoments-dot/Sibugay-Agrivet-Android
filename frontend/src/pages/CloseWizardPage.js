@@ -14,7 +14,7 @@ import { Separator } from '../components/ui/separator';
 import {
   CheckCircle2, Circle, ChevronRight, ChevronLeft, Receipt, CreditCard,
   Banknote, ReceiptText, Calculator, Wallet, Lock, Sun, Plus, RefreshCw,
-  AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search, Upload
+  AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search, Upload, Download
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
@@ -1641,6 +1641,12 @@ export default function CloseWizardPage() {
                   )}
                   <div className="flex gap-3 justify-center mt-4">
                     <Button variant="outline" onClick={() => window.print()}>Print Z-Report</Button>
+                    <Button variant="outline" onClick={() => {
+                      const url = `${process.env.REACT_APP_BACKEND_URL}/api/reports/z-report-pdf?date=${batchMode ? selectedDays[0] : preview?.date || ''}&branch_id=${preview?.branch_id || ''}`;
+                      window.open(url, '_blank');
+                    }}>
+                      <Download size={14} className="mr-1.5" /> Download PDF
+                    </Button>
                     {unclosedDays.length > 1 ? (
                       <Button onClick={advanceToNextDay} className="bg-[#1A4D2E] text-white" data-testid="close-next-day-btn">
                         <Sun size={15} className="mr-1.5" /> Close Next Day

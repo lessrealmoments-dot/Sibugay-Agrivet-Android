@@ -10,7 +10,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode, Search
+  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode, Search, BookOpen
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 import NotificationBell from './NotificationBell';
@@ -73,6 +73,7 @@ const NAV_SECTIONS = [
       { path: '/audit',            label: 'Audit Center',     icon: ShieldCheck,  perm: 'reports.view',  featureFlag: 'audit_center' },
       { path: '/incident-tickets', label: 'Incident Tickets', icon: AlertTriangle, perm: 'reports.view' },
       { path: '/accounting',       label: 'Accounting',       icon: Calculator,   perm: 'accounting.view' },
+      { path: '/journal-entries',  label: 'Journal Entries',  icon: BookOpen,     perm: 'accounting.view' },
     ],
   },
   {

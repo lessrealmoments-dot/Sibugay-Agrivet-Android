@@ -256,9 +256,11 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
 - [x] **Interactive transaction references in Audit Center** — All transaction numbers (invoices, POs, expenses) in every Audit Center section are now clickable and open the InvoiceDetailModal inline. PO numbers use the `by-number` endpoint, expenses use `expenseId`. No more navigation away from the Audit Center. Added `reference_number` to expense audit data.
 - [x] **App-wide interactive transaction references** — Extended clickable InvoiceDetailModal to ALL pages: CustomersPage, SuppliersPage, InternalInvoicesPage, CloseWizardPage, PaySupplierPage, DashboardPage, AccountingPage, ExpensesPage. Removed custom basic PO dialogs from SuppliersPage and PaySupplierPage in favor of the unified modal with full edit/verify/void/receipt capabilities.
 - [x] **Audit Center Priority Actions card** — New summary card showing top 6 highest-risk items across all audit sections (missing receipts, overdue POs, cash discrepancies, security flags, etc.) displayed at the top of audit results for quick executive overview.
+- [x] **Z-Report PDF with detailed breakdowns** — New endpoint `GET /api/reports/z-report-pdf` generates a downloadable PDF matching the Closing Wizard UI: cash reconciliation formula, AR payments, fund transfers, expenses (cashier/safe), credit sales, digital payments, sales by category. Download button added to Close Wizard.
+- [x] **Journal Entries system** — Full double-entry adjustment system for post-close corrections. Backend: `journal_entries` collection with CRUD + void + by-product lookup. Frontend: beginner-friendly 3-step wizard (type selection → details with guided templates → review & PIN). 6 entry types (sale/expense/inventory/price/fund adjustment + general). Manager PIN required. Chart of accounts included. Accessible via sidebar under Accounting.
 
 ### P0 — Upcoming
-- [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)
+- [ ] Smart Count Sheets — cross-reference journal entries with inventory discrepancies to suggest explanations
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)
 - [ ] Quick-action menu on Sales History page (Re-send Receipt, Print Invoice)
 - [ ] Closing History page (view past Z-Reports with search by date/branch)

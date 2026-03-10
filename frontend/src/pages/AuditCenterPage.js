@@ -487,6 +487,14 @@ export default function AuditCenterPage() {
   const [actualCashCount, setActualCashCount] = useState('');
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceNumber, setSelectedInvoiceNumber] = useState(null);
+  const [selectedExpenseId, setSelectedExpenseId] = useState(null);
+
+  // Helper: open unified detail modal for any transaction type
+  const openDetailModal = (invoiceNumber = null, expenseId = null) => {
+    setSelectedInvoiceNumber(invoiceNumber);
+    setSelectedExpenseId(expenseId);
+    setInvoiceModalOpen(true);
+  };
   // Receipt gallery state
   const [receiptView, setReceiptView] = useState(null); // { recordType, recordId, label }
   // Bulk verify state
@@ -1023,7 +1031,7 @@ export default function AuditCenterPage() {
                           <div key={i} className={`text-xs p-2.5 rounded-lg border flex items-center justify-between gap-2 ${exp.verified ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-slate-700">{exp.category}</span>
+                                <button className="font-semibold text-blue-600 hover:underline" onClick={() => openDetailModal(null, exp.id)}>{exp.category}</button>
                                 <Badge className={`text-[9px] ${exp.fund_source === 'safe' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
                                   {exp.fund_source || 'cashier'}
                                 </Badge>
@@ -1044,7 +1052,7 @@ export default function AuditCenterPage() {
                                   <span className="text-[9px] text-red-500 flex items-center gap-0.5"><CircleAlert size={9} /> No receipt</span>
                                 )}
                               </div>
-                              <p className="text-slate-500 mt-0.5 truncate">{exp.description || '—'} {exp.employee_name && <span className="text-violet-600">· {exp.employee_name}</span>}</p>
+                              <p className="text-slate-500 mt-0.5 truncate">{exp.reference_number && <span className="font-mono text-slate-400">#{exp.reference_number} · </span>}{exp.description || '—'} {exp.employee_name && <span className="text-violet-600">· {exp.employee_name}</span>}</p>
                               <p className="text-[10px] text-slate-400">{exp.date} · by {exp.created_by_name}</p>
                             </div>
                             <span className={`font-bold font-mono shrink-0 ${exp.fund_source === 'safe' ? 'text-blue-700' : 'text-red-600'}`}>
@@ -1066,7 +1074,7 @@ export default function AuditCenterPage() {
                         {auditData.cash.ar_payments.map((ar, i) => (
                           <div key={i} className="text-xs p-2 rounded bg-purple-50 border border-purple-200 flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(ar.invoice_number); setInvoiceModalOpen(true); }}>
+                              <button className="font-mono text-blue-600 hover:underline" onClick={() => openDetailModal(ar.invoice_number)}>
                                 {ar.invoice_number}
                               </button>
                               <span className="text-slate-500 ml-2">{ar.customer_name}</span>
@@ -1119,7 +1127,7 @@ export default function AuditCenterPage() {
                         {auditData.cash.partial_invoices.map((inv, i) => (
                           <div key={i} className="text-xs p-2 bg-slate-50 rounded flex justify-between">
                             <span>
-                              <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(inv.invoice_number); setInvoiceModalOpen(true); }}>{inv.invoice_number}</button>
+                              <button className="font-mono text-blue-600 hover:underline" onClick={() => openDetailModal(inv.invoice_number)}>{inv.invoice_number}</button>
                               <span className="text-slate-400 ml-2">{inv.customer_name}</span>
                             </span>
                             <span className="font-mono">{formatPHP(inv.amount_paid)} / {formatPHP(inv.grand_total)}</span>
@@ -1137,7 +1145,7 @@ export default function AuditCenterPage() {
                         {auditData.cash.split_invoices.map((inv, i) => (
                           <div key={i} className="text-xs p-2 bg-slate-50 rounded flex justify-between">
                             <span>
-                              <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(inv.invoice_number); setInvoiceModalOpen(true); }}>{inv.invoice_number}</button>
+                              <button className="font-mono text-blue-600 hover:underline" onClick={() => openDetailModal(inv.invoice_number)}>{inv.invoice_number}</button>
                               <span className="text-slate-400 ml-2">{inv.customer_name}</span>
                             </span>
                             <span className="font-mono">Cash: {formatPHP(inv.cash_amount)} · Digital: {formatPHP(inv.digital_amount)}</span>
@@ -1169,7 +1177,7 @@ export default function AuditCenterPage() {
                       <div className="mt-2 space-y-1">
                         {auditData.sales.edited_invoices.map((e, i) => (
                           <div key={i} className="text-xs p-2 bg-amber-50 rounded">
-                            <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(e.invoice_number); setInvoiceModalOpen(true); }}>{e.invoice_number}</button>
+                            <button className="font-mono text-blue-600 hover:underline" onClick={() => openDetailModal(e.invoice_number)}>{e.invoice_number}</button>
                             <span className="text-slate-500 ml-2">{e.edited_by_name} · {e.edited_at?.slice(0, 10)}</span>
                           </div>
                         ))}
@@ -1218,7 +1226,7 @@ export default function AuditCenterPage() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <button
                                   className="font-mono text-blue-600 hover:underline font-semibold"
-                                  onClick={() => navigate('/purchase-orders')}
+                                  onClick={() => openDetailModal(po.po_number)}
                                   data-testid={`po-link-${po.po_number}`}>
                                   {po.po_number}
                                 </button>
@@ -1311,7 +1319,7 @@ export default function AuditCenterPage() {
                       <div className="mt-2 space-y-1">
                         {auditData.activity.off_hours_transactions.map((t, i) => (
                           <div key={i} className="text-xs p-2 bg-red-50 rounded flex justify-between">
-                            <span><button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(t.invoice_number); setInvoiceModalOpen(true); }}>{t.invoice_number}</button> · {t.cashier_name}</span>
+                            <span><button className="font-mono text-blue-600 hover:underline" onClick={() => openDetailModal(t.invoice_number)}>{t.invoice_number}</button> · {t.cashier_name}</span>
                             <span>{formatPHP(t.grand_total)} · {t.created_at?.slice(11, 16)}</span>
                           </div>
                         ))}
@@ -1373,7 +1381,7 @@ export default function AuditCenterPage() {
                           {auditData.digital.transactions.map((t, i) => (
                             <div key={i} className={`text-xs p-2 rounded flex items-center justify-between gap-2 ${t.has_ref ? 'bg-blue-50' : 'bg-red-50 border border-red-200'}`}>
                               <div className="min-w-0">
-                                <button className="font-mono text-blue-700 mr-1 hover:underline" onClick={() => { setSelectedInvoiceNumber(t.invoice_number); setInvoiceModalOpen(true); }}>{t.invoice_number}</button>
+                                <button className="font-mono text-blue-700 mr-1 hover:underline" onClick={() => openDetailModal(t.invoice_number)}>{t.invoice_number}</button>
                                 <span className="text-slate-500 truncate">{t.customer_name}</span>
                                 <div className="flex items-center gap-2 mt-0.5">
                                   <span className="text-[10px] text-blue-500">{t.platform}</span>
@@ -1507,7 +1515,7 @@ export default function AuditCenterPage() {
                               data-testid={`unverified-expense-${exp.id}`}>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-slate-700">{exp.category}</span>
+                                  <button className="font-semibold text-blue-600 hover:underline" onClick={() => openDetailModal(null, exp.id)}>{exp.category}</button>
                                   <Badge className={`text-[9px] ${exp.fund_source === 'safe' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
                                     {exp.fund_source || 'cashier'}
                                   </Badge>
@@ -1521,7 +1529,7 @@ export default function AuditCenterPage() {
                                   )}
                                 </div>
                                 <p className="text-slate-500 mt-0.5 truncate">
-                                  {exp.description || '—'}
+                                  {exp.reference_number && <span className="font-mono text-slate-400">#{exp.reference_number} · </span>}{exp.description || '—'}
                                   {exp.employee_name && <span className="text-violet-600"> · {exp.employee_name}</span>}
                                 </p>
                                 <p className="text-[10px] text-slate-400">{exp.date} · by {exp.created_by_name}</p>
@@ -1546,7 +1554,7 @@ export default function AuditCenterPage() {
                               data-testid={`unverified-po-${po.id}`}>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <button className="font-mono text-blue-600 hover:underline font-semibold" onClick={() => navigate('/purchase-orders')}>
+                                  <button className="font-mono text-blue-600 hover:underline font-semibold" onClick={() => openDetailModal(po.po_number)}>
                                     {po.po_number}
                                   </button>
                                   <span className="text-slate-500">{po.vendor}</span>
@@ -1581,7 +1589,7 @@ export default function AuditCenterPage() {
                               data-testid={`unverified-digital-${dp.id}`}>
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <button className="font-mono text-blue-600 hover:underline" onClick={() => { setSelectedInvoiceNumber(dp.invoice_number); setInvoiceModalOpen(true); }}>
+                                  <button className="font-mono text-blue-600 hover:underline" onClick={() => openDetailModal(dp.invoice_number)}>
                                     {dp.invoice_number}
                                   </button>
                                   <Badge className="text-[9px] bg-blue-100 text-blue-700">{dp.platform}</Badge>
@@ -2004,8 +2012,10 @@ export default function AuditCenterPage() {
       )}
       <InvoiceDetailModal
         open={invoiceModalOpen}
-        onOpenChange={setInvoiceModalOpen}
+        onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) { setSelectedInvoiceNumber(null); setSelectedExpenseId(null); } }}
         invoiceNumber={selectedInvoiceNumber}
+        expenseId={selectedExpenseId}
+        onUpdated={() => { if (auditData) runAudit(); }}
       />
 
       {/* Receipt Gallery Dialog */}

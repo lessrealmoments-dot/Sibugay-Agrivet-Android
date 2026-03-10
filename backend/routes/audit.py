@@ -637,6 +637,7 @@ async def _compute_cash(branch_id: str, date_from: str, date_to: str) -> dict:
             "id": e["id"],
             "category": e.get("category", ""),
             "description": e.get("description", ""),
+            "reference_number": e.get("reference_number", ""),
             "amount": float(e.get("amount", 0)),
             "fund_source": e.get("fund_source", "cashier"),
             "date": e.get("date", ""),
@@ -1165,7 +1166,8 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
         {"branch_id": branch_id, "date": {"$gte": date_from, "$lte": date_to},
          "voided": {"$ne": True}, "verified": {"$ne": True}},
         {"_id": 0, "id": 1, "category": 1, "description": 1, "amount": 1,
-         "fund_source": 1, "date": 1, "employee_name": 1, "created_by_name": 1}
+         "fund_source": 1, "date": 1, "employee_name": 1, "created_by_name": 1,
+         "reference_number": 1}
     ).sort("amount", -1).to_list(500)
 
     unverified_ids = [e["id"] for e in unverified_expenses]
@@ -1188,6 +1190,7 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
             "id": e["id"],
             "category": e.get("category", ""),
             "description": e.get("description", ""),
+            "reference_number": e.get("reference_number", ""),
             "amount": float(e.get("amount", 0)),
             "fund_source": e.get("fund_source", "cashier"),
             "date": e.get("date", ""),

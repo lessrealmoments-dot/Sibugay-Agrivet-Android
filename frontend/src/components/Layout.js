@@ -269,7 +269,7 @@ export default function Layout({ children }) {
     <div className="flex h-screen overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-[250px] flex-col bg-[#0F172A] sidebar-texture shrink-0">
-        <SidebarContent />
+        {SidebarContent()}
       </aside>
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
@@ -279,7 +279,7 @@ export default function Layout({ children }) {
             <button onClick={() => setSidebarOpen(false)} className="absolute top-4 right-4 text-white">
               <X size={20} />
             </button>
-            <SidebarContent />
+            {SidebarContent()}
           </aside>
         </div>
       )}

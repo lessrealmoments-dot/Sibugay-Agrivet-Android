@@ -10,7 +10,8 @@ from utils import (
     get_current_user, check_perm, now_iso, new_id,
     log_movement, log_sale_items, update_cashier_wallet,
     update_digital_wallet, is_digital_payment,
-    get_branch_filter, apply_branch_filter, ensure_branch_access
+    get_branch_filter, apply_branch_filter, ensure_branch_access,
+    generate_next_number, check_idempotency,
 )
 
 router = APIRouter(tags=["Invoices"])
@@ -48,13 +49,20 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
     """Create a new invoice/sales order."""
     check_perm(user, "pos", "sell")
     
+    # Idempotency check
+    idem_key = data.get("idempotency_key")
+    if idem_key:
+        existing = await check_idempotency("invoices", idem_key)
+        if existing:
+            return existing
+    
     # Get prefix settings
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = data.get("prefix", settings.get("value", {}).get("sales_invoice", "SI") if settings else "SI")
     
-    # Auto-generate number
-    count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    # Generate invoice number (atomic, branch-specific)
+    branch_id = data.get("branch_id", "")
+    inv_number = await generate_next_number(prefix, branch_id)
     
     # Compute due date
     terms_days = int(data.get("terms_days", 0))
@@ -187,6 +195,7 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
         "payments": [],
         "cashier_id": user["id"],
         "cashier_name": user.get("full_name", user["username"]),
+        "idempotency_key": idem_key,
         "created_at": now_iso(),
     }
     

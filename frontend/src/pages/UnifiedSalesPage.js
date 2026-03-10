@@ -24,6 +24,7 @@ import {
   cachePriceSchemes, getPriceSchemes, addPendingSale, getPendingSaleCount
 } from '../lib/offlineDB';
 import { syncPendingSales, startAutoSync, stopAutoSync, newEnvelopeId } from '../lib/syncManager';
+import ReferenceNumberPrompt from '../components/ReferenceNumberPrompt';
 
 const EMPTY_LINE = {
   product_id: '', product_name: '', description: '',
@@ -169,6 +170,9 @@ export default function UnifiedSalesPage() {
   const [amountTendered, setAmountTendered] = useState(0);
   const [partialPayment, setPartialPayment] = useState(0);
   const [saving, setSaving] = useState(false);
+  
+  // Reference number prompt
+  const [refPrompt, setRefPrompt] = useState({ open: false, number: '', title: '' });
   
   // Credit approval
   const [creditApprovalDialog, setCreditApprovalDialog] = useState(false);
@@ -999,6 +1003,7 @@ export default function UnifiedSalesPage() {
           ? `Invoice ${invoiceNum} created! Balance: ${formatPHP(balance)}`
           : `Sale ${invoiceNum} completed!`
         );
+        setRefPrompt({ open: true, number: invoiceNum, title: saleData.customer_name || 'Walk-in' });
         clearCart();
         setCheckoutDialog(false);
         setPendingCreditSale(null);
@@ -2503,6 +2508,14 @@ export default function UnifiedSalesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReferenceNumberPrompt
+        open={refPrompt.open}
+        onClose={() => setRefPrompt(p => ({ ...p, open: false }))}
+        referenceNumber={refPrompt.number}
+        type="sale"
+        title={refPrompt.title}
+      />
 
     </div>
   );

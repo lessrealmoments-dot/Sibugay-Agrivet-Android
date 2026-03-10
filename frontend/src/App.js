@@ -52,6 +52,7 @@ import BarcodePrintPage from './pages/BarcodePrintPage';
 import BarcodeManagePage from './pages/BarcodeManagePage';
 import MobileScannerPage from './pages/MobileScannerPage';
 import ExpensesPage from './pages/ExpensesPage';
+import TransactionSearchPage from './pages/TransactionSearchPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)
@@ -159,6 +160,7 @@ function AppRoutes() {
       <Route path="/backups" element={<ProtectedRoute><BackupManagementPage /></ProtectedRoute>} />
       <Route path="/barcode-print" element={<ProtectedRoute><BarcodePrintPage /></ProtectedRoute>} />
       <Route path="/barcode-manage" element={<ProtectedRoute><BarcodeManagePage /></ProtectedRoute>} />
+      <Route path="/find-transaction" element={<ProtectedRoute><TransactionSearchPage /></ProtectedRoute>} />
       <Route path="/scanner/:sessionId" element={<MobileScannerPage />} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />

@@ -3,7 +3,7 @@ Branch management routes.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from config import db, _raw_db
-from utils import get_current_user, check_perm, now_iso, new_id, provision_branch_wallets
+from utils import get_current_user, check_perm, now_iso, new_id, provision_branch_wallets, get_branch_code
 
 router = APIRouter(prefix="/branches", tags=["Branches"])
 
@@ -71,3 +71,29 @@ async def delete_branch(branch_id: str, user=Depends(get_current_user)):
     check_perm(user, "branches", "delete")
     await db.branches.update_one({"id": branch_id}, {"$set": {"active": False}})
     return {"message": "Branch deleted"}
+
+
+@router.put("/{branch_id}/code")
+async def update_branch_code(branch_id: str, data: dict, user=Depends(get_current_user)):
+    """Update branch code (2-char identifier used in receipt numbers)."""
+    check_perm(user, "branches", "edit")
+    code = (data.get("branch_code") or "").strip().upper()
+    if not code or len(code) > 3:
+        raise HTTPException(status_code=400, detail="Branch code must be 1-3 characters")
+    # Check uniqueness
+    org_id = user.get("organization_id")
+    existing = await db.branches.find_one(
+        {"branch_code": code, "id": {"$ne": branch_id}, **({"organization_id": org_id} if org_id else {})},
+        {"_id": 0, "id": 1}
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Branch code '{code}' is already in use")
+    await db.branches.update_one({"id": branch_id}, {"$set": {"branch_code": code}})
+    return {"message": f"Branch code updated to {code}", "branch_code": code}
+
+
+@router.get("/{branch_id}/code")
+async def get_branch_code_endpoint(branch_id: str, user=Depends(get_current_user)):
+    """Get branch code, auto-generating if needed."""
+    code = await get_branch_code(branch_id)
+    return {"branch_code": code}

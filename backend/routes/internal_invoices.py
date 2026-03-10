@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 from config import db
-from utils import get_current_user, now_iso, new_id
+from utils import get_current_user, now_iso, new_id, generate_next_number
 
 router = APIRouter(prefix="/internal-invoices", tags=["Internal Invoices"])
 
@@ -24,7 +24,9 @@ async def create_internal_invoice(transfer: dict, user: dict):
     due_date = (created_at + timedelta(days=terms_days)).isoformat()
 
     count = await db.internal_invoices.count_documents({})
-    invoice_number = f"INV-{created_at.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    # Generate internal invoice number (atomic, branch-specific)
+    to_branch_id = transfer.get("to_branch_id", "")
+    invoice_number = await generate_next_number("INV", to_branch_id) if to_branch_id else f"INV-{created_at.strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
 
     invoice = {
         "id": new_id(),

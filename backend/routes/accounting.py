@@ -8,7 +8,8 @@ from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id, update_cashier_wallet,
     update_digital_wallet, is_digital_payment, record_safe_movement,
-    get_branch_filter, apply_branch_filter, verify_password
+    get_branch_filter, apply_branch_filter, verify_password,
+    generate_next_number,
 )
 from utils.security import log_failed_pin_attempt
 
@@ -784,8 +785,7 @@ async def create_farm_expense_with_invoice(data: dict, user=Depends(get_current_
     # Auto-generate invoice
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("service_invoice", "SVC") if settings else "SVC"
-    count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    inv_number = await generate_next_number(prefix, branch_id)
     
     invoice = {
         "id": new_id(),
@@ -940,8 +940,7 @@ async def create_customer_cashout(data: dict, user=Depends(get_current_user)):
     # Create invoice for tracking
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("cash_advance", "CA") if settings else "CA"
-    count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    inv_number = await generate_next_number(prefix, branch_id)
     
     invoice = {
         "id": new_id(),
@@ -1432,8 +1431,7 @@ async def generate_interest_invoice(customer_id: str, data: dict, user=Depends(g
 
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("interest_charge", "INT") if settings else "INT"
-    count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    inv_number = await generate_next_number(prefix, branch_id)
 
     interest_invoice = {
         "id": new_id(), "invoice_number": inv_number, "prefix": prefix,
@@ -1501,8 +1499,7 @@ async def generate_penalty_invoice(customer_id: str, data: dict, user=Depends(ge
 
     settings = await db.settings.find_one({"key": "invoice_prefixes"}, {"_id": 0})
     prefix = settings.get("value", {}).get("penalty_charge", "PEN") if settings else "PEN"
-    count = await db.invoices.count_documents({"prefix": prefix})
-    inv_number = f"{prefix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
+    inv_number = await generate_next_number(prefix, branch_id)
 
     penalty_invoice = {
         "id": new_id(), "invoice_number": inv_number, "prefix": prefix,

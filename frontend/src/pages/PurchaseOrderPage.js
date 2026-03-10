@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import SmartProductSearch from '../components/SmartProductSearch';
 import ReceiptUploadInline from '../components/ReceiptUploadInline';
+import ReferenceNumberPrompt from '../components/ReferenceNumberPrompt';
 import {
   FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign,
   Search, History, ArrowRight, Receipt, UserPlus, Package,
@@ -147,6 +148,9 @@ export default function PurchaseOrderPage() {
 
   // ── Receipt upload inline (during creation) ─────────────────────────
   const [createReceiptData, setCreateReceiptData] = useState(null); // { sessionId, fileCount }
+
+  // ── Reference number prompt after successful creation ───────────────
+  const [refPrompt, setRefPrompt] = useState({ open: false, number: '', vendor: '' });
 
   // ── Supplier history dialog ────────────────────────────────────────────
   const [historyDialog, setHistoryDialog] = useState(false);
@@ -313,6 +317,7 @@ export default function PurchaseOrderPage() {
     try {
       const res = await api.post('/purchase-orders', buildPayload(valid, { po_type: 'draft' }));
       toast.success(`Draft PO ${res.data.po_number} saved`);
+      setRefPrompt({ open: true, number: res.data.po_number, vendor: header.vendor });
       resetForm(); fetchOrders(); setTab('list');
     } catch (e) {
       const detail = e.response?.data?.detail;
@@ -365,6 +370,7 @@ export default function PurchaseOrderPage() {
         check_number: cashForm.check_number,
       }));
       toast.success(`PO ${res.data.po_number} created — inventory updated, ₱${computed.grandTotal.toFixed(2)} deducted from ${cashForm.fund_source}`);
+      setRefPrompt({ open: true, number: res.data.po_number, vendor: header.vendor });
       setCashDialog(false); resetForm(); fetchOrders(); setTab('list');
     } catch (e) {
       const detail = e.response?.data?.detail;
@@ -407,6 +413,7 @@ export default function PurchaseOrderPage() {
         due_date: termsForm.due_date,
       }));
       toast.success(`PO ${res.data.po_number} created — inventory updated, payable created (due ${termsForm.due_date || 'on receipt'})`);
+      setRefPrompt({ open: true, number: res.data.po_number, vendor: header.vendor });
       setTermsDialog(false); resetForm(); fetchOrders(); setTab('list');
     } catch (e) {
       const detail = e.response?.data?.detail;
@@ -1922,6 +1929,14 @@ export default function PurchaseOrderPage() {
         </DialogContent>
       </Dialog>
     )}
+
+    <ReferenceNumberPrompt
+      open={refPrompt.open}
+      onClose={() => setRefPrompt(p => ({ ...p, open: false }))}
+      referenceNumber={refPrompt.number}
+      type="po"
+      title={refPrompt.vendor}
+    />
   </div>
   );
 }

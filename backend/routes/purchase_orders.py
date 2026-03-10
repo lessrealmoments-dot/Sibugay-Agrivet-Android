@@ -12,7 +12,8 @@ from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id, 
     log_movement, update_cashier_wallet, record_safe_movement,
-    get_branch_filter, apply_branch_filter, ensure_branch_access
+    get_branch_filter, apply_branch_filter, ensure_branch_access,
+    generate_next_number, check_idempotency,
 )
 
 logger = logging.getLogger("purchase_orders")
@@ -247,6 +248,14 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     check_perm(user, "inventory", "adjust")
 
     branch_id = data.get("branch_id", "")
+    
+    # Idempotency check — prevent duplicate POs from offline sync
+    idem_key = data.get("idempotency_key")
+    if idem_key:
+        existing = await check_idempotency("purchase_orders", idem_key)
+        if existing:
+            return existing
+
     po_type = data.get("po_type", None)
 
     # Backward-compat: map old payment_method to po_type
@@ -325,7 +334,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
 
     po = {
         "id": new_id(),
-        "po_number": data.get("po_number", "").strip() or f"PO-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:4].upper()}",
+        "po_number": data.get("po_number", "").strip() or await generate_next_number("PO", branch_id),
         "vendor": data["vendor"],
         "dr_number": data.get("dr_number", ""),
         "branch_id": branch_id,
@@ -357,6 +366,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         "show_retail": data.get("show_retail", True),           # whether to show retail price suggestion
         "created_by": user["id"],
         "created_by_name": user.get("full_name", user["username"]),
+        "idempotency_key": idem_key,
         "created_at": now_iso(),
     }
 

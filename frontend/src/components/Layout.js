@@ -10,10 +10,11 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode
+  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode, Search
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 import NotificationBell from './NotificationBell';
+import QuickSearch from './QuickSearch';
 import { toast } from 'sonner';
 
 // offlineOk: 'full' = works offline | 'readonly' = view cached only | false/omit = requires internet
@@ -23,6 +24,7 @@ const NAV_SECTIONS = [
     label: null,
     items: [
       { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null, offlineOk: 'readonly' },
+      { path: '/find-transaction', label: 'Find Transaction', icon: Search, perm: null },
     ],
   },
   {
@@ -302,6 +304,7 @@ export default function Layout({ children }) {
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
+            <QuickSearch />
             <NotificationBell />
             <span className="hidden sm:inline">{user?.full_name || user?.username}</span>
             <span className="capitalize bg-slate-100 px-2 py-0.5 rounded text-[11px]">{user?.role}</span>

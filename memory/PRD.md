@@ -246,6 +246,13 @@ expected_counter = starting_float + total_cash_in - cashier_expenses_only
   - `GET /api/branches/{id}/code` — get or auto-generate branch code
   - `branch_code` field added to branch documents
 
+### P0 — Completed (Mar 2026 — Z-Report Formula Fixes)
+- [x] **BUG FIX: close_day missing fund transfers in expected_counter** — Preview formula had `net_fund_transfers` but actual close didn't query fund_transfers at all. Fixed: added fund_transfers query + net calculation to close_day. Would cause over/short discrepancy if any capital injection, safe→cashier, or cashier→safe transfer was done during the day.
+- [x] **BUG FIX: batch_close same missing fund transfers** — Same issue in batch close mode. Fixed with identical logic.
+- [x] **BUG FIX: close record not saving fund transfer data** — Fund transfers data (capital_to_cashier, safe_to_cashier, cashier_to_safe, net_fund_transfers, fund_transfers_today list) now persisted in both single and batch close records for audit trail.
+- [x] **Added Returns, Branch Transfers, Payables to Universal Search** — All 8 transaction types now searchable with proper type badges, icons, and navigation routing.
+- [x] **Expense detail in modal** — Expenses now open inline in InvoiceDetailModal (via expenseId prop) with category, amount, fund source, description, verify/delete actions, and receipt gallery.
+
 ### P0 — Upcoming
 - [ ] Z-Report PDF: Include detailed breakdowns matching Closing Wizard UI (AR payments, fund transfers, expenses, etc.)
 - [ ] Fix broken PO data (admin tool to reprocess failed POs)

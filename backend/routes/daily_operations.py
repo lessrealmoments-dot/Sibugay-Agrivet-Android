@@ -1037,8 +1037,28 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     ).to_list(500)
     total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_close), 2)
 
+    # ── Fund transfers affecting cashier drawer today ─────────────────────
+    ft_query = {"branch_id": branch_id, "$or": [
+        {"date": date},
+        {"date": {"$exists": False}, "created_at": {"$gte": f"{date}T00:00:00", "$lt": f"{date}T23:59:59"}}
+    ]}
+    fund_transfers_today = await db.fund_transfers.find(ft_query, {"_id": 0}).to_list(200)
+    capital_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_today
+        if ft.get("transfer_type") == "capital_add" and ft.get("target_wallet", "cashier") == "cashier"
+    ), 2)
+    safe_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_today
+        if ft.get("transfer_type") == "safe_to_cashier"
+    ), 2)
+    cashier_to_safe = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_today
+        if ft.get("transfer_type") == "cashier_to_safe"
+    ), 2)
+    net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe, 2)
+
     total_cash_in = total_cash_sales + partial_total + total_cash_ar + total_split_cash
-    expected_counter = round(starting_float + total_cash_in - total_cashier_expenses, 2)
+    expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
 
     actual_cash = float(data.get("actual_cash", 0))
     cash_to_safe = float(data.get("cash_to_safe", 0))
@@ -1108,6 +1128,19 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "variance_notes": variance_notes,
         "cash_to_safe": cash_to_safe,
         "cash_to_drawer": cash_to_drawer,
+        # Fund transfers affecting cashier
+        "fund_transfers_today": [
+            {"type": ft["transfer_type"], "amount": float(ft.get("amount", 0)),
+             "note": ft.get("note", ""), "authorized_by": ft.get("authorized_by", ""),
+             "target_wallet": ft.get("target_wallet", ""),
+             "time": ft.get("created_at", "")}
+            for ft in fund_transfers_today
+            if ft.get("transfer_type") in ("capital_add", "safe_to_cashier", "cashier_to_safe")
+        ],
+        "capital_to_cashier": capital_to_cashier,
+        "safe_to_cashier": safe_to_cashier,
+        "cashier_to_safe": cashier_to_safe,
+        "net_fund_transfers": net_fund_transfers,
         # Digital payments today (separate from cashier reconciliation)
         "total_digital_today": total_digital_today,
         "digital_by_platform": digital_by_platform,
@@ -1319,8 +1352,28 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
     ).to_list(500)
     total_split_cash = round(sum(float(inv.get("cash_amount", 0)) for inv in split_invs_bc), 2)
 
+    # ── Fund transfers affecting cashier across all dates ─────────────────
+    ft_query = {"branch_id": branch_id, "$or": [
+        {"date": date_filter},
+        {"date": {"$exists": False}, "created_at": {"$gte": f"{first_date}T00:00:00", "$lt": f"{last_date}T23:59:59"}}
+    ]}
+    fund_transfers_batch = await db.fund_transfers.find(ft_query, {"_id": 0}).to_list(500)
+    capital_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_batch
+        if ft.get("transfer_type") == "capital_add" and ft.get("target_wallet", "cashier") == "cashier"
+    ), 2)
+    safe_to_cashier = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_batch
+        if ft.get("transfer_type") == "safe_to_cashier"
+    ), 2)
+    cashier_to_safe_ft = round(sum(
+        float(ft.get("amount", 0)) for ft in fund_transfers_batch
+        if ft.get("transfer_type") == "cashier_to_safe"
+    ), 2)
+    net_fund_transfers = round(capital_to_cashier + safe_to_cashier - cashier_to_safe_ft, 2)
+
     total_cash_in = total_cash_sales + partial_total + total_cash_ar + total_split_cash
-    expected_counter = round(starting_float + total_cash_in - total_cashier_expenses, 2)
+    expected_counter = round(starting_float + total_cash_in + net_fund_transfers - total_cashier_expenses, 2)
     over_short = round(actual_cash - expected_counter, 2)
 
     # Credit sales across all dates
@@ -1392,6 +1445,19 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
         "variance_notes": variance_notes,
         "cash_to_safe": cash_to_safe,
         "cash_to_drawer": cash_to_drawer,
+        # Fund transfers affecting cashier
+        "fund_transfers_today": [
+            {"type": ft["transfer_type"], "amount": float(ft.get("amount", 0)),
+             "note": ft.get("note", ""), "authorized_by": ft.get("authorized_by", ""),
+             "target_wallet": ft.get("target_wallet", ""),
+             "time": ft.get("created_at", "")}
+            for ft in fund_transfers_batch
+            if ft.get("transfer_type") in ("capital_add", "safe_to_cashier", "cashier_to_safe")
+        ],
+        "capital_to_cashier": capital_to_cashier,
+        "safe_to_cashier": safe_to_cashier,
+        "cashier_to_safe": cashier_to_safe_ft,
+        "net_fund_transfers": net_fund_transfers,
         "total_digital_today": total_digital,
         "digital_by_platform": digital_by_platform,
         "digital_transactions": [

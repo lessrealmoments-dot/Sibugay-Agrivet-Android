@@ -438,7 +438,7 @@ export default function PaySupplierPage() {
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         poNumber={selectedInvoiceNumber}
-        onUpdated={loadPOs}
+        onUpdated={loadSuppliers}
       />
       <UploadQRDialog
         open={psUploadQROpen}

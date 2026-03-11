@@ -181,3 +181,20 @@ Two-layer authorization for users without section permissions:
 - Frontend: `AuthContext` manages delegation state with `requestSectionOverride()`
 - Frontend: `SectionOverrideDialog` component, `Layout.js` shows locked items
 - Audit Log: All overrides logged to `audit_log` collection
+
+---
+
+## Bug Fixes — March 11, 2026
+
+### Checkout Payment Type Tabs Fix
+- **Problem**: Split, Partial, and Credit payment type tabs were disabled in checkout dialog (only Cash and Digital worked)
+- **Root Cause**: All three tabs had `disabled={!selectedCustomer}` — preventing use without a customer
+- **Fix**: 
+  - **Split**: Enabled without customer (cash+digital, no AR involved)
+  - **Partial/Credit**: Tabs now clickable (user sees why customer is needed) but confirm button stays disabled without a customer
+  - Warning messages guide user to select a customer for Partial/Credit
+  - Credit panel conditionally shows customer name or "select a customer" prompt
+
+### Receipt Upload QR Code Visibility Fix
+- **Problem**: QR code for phone upload was hidden behind a `<details>` toggle, requiring user to click to expand
+- **Fix**: QR code is now always visible alongside the direct PC upload button, with a visual divider "or upload from phone"

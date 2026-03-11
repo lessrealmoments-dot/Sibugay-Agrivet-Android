@@ -199,7 +199,27 @@ Two-layer authorization for users without section permissions:
 - **Problem**: QR code for phone upload was hidden behind a `<details>` toggle, requiring user to click to expand
 - **Fix**: QR code is now always visible alongside the direct PC upload button, with a visual divider "or upload from phone"
 
-### Credit/Partial Sale PIN Policy Fix
+### Security Audit — Full PIN & autoComplete Scan (March 11, 2026)
+
+**autoComplete Fix:**
+- Changed 48 instances of `autoComplete="off"` → `autoComplete="new-password"` across 24 files
+- LoginPage intentionally left untouched (browser should save login credentials)
+- Prevents browser "save password" prompt on all PIN/TOTP inputs throughout the app
+
+**PIN Verification Audit — All Endpoints Connected:**
+| Action Key | Backend File | Frontend File | Status |
+|---|---|---|---|
+| credit_sale_approval | auth.py → verify.py | UnifiedSalesPage.js | ✅ Fixed (cartItems bug) |
+| void_invoice | invoices.py | UnifiedSalesPage.js | ✅ |
+| cancel_po | purchase_orders.py | PurchaseOrderPage.js | ✅ |
+| reopen_po | purchase_orders.py | PurchaseOrderPage.js | ✅ |
+| daily_close | daily_operations.py | CloseWizardPage.js, DailyLogPage.js | ✅ |
+| daily_close_batch | daily_operations.py | CloseWizardPage.js | ✅ |
+| fund_transfer_cashier_safe | accounting.py | FundManagementPage.js | ✅ |
+| fund_transfer_safe_bank | accounting.py | FundManagementPage.js | ✅ |
+| fund_transfer_capital_add | accounting.py | FundManagementPage.js | ✅ |
+| reverse_employee_advance | auth.py → verify.py | ExpensesPage.js, AccountingPage.js, CloseWizardPage.js | ✅ |
+| transaction_verify | verify.py | JournalEntriesPage.js, AuditCenterPage.js | ✅ |
 - **Problem**: Credit approval dialog hardcoded "Manager PIN" with `maxLength={6}`, ignoring Admin PIN and TOTP as valid authorization methods. Did not reflect configured PIN policies from Settings > Security. **CRITICAL**: The `verifyManagerPin()` function referenced an undefined variable `cartItems` which caused a JavaScript crash before the API call was ever sent — users saw "Verification failed" for ALL PIN types.
 - **Root Cause**: `cartItems` does not exist in the component scope; the correct variable is `grandTotal` (already computed). The ReferenceError was caught by the try/catch and displayed as a generic connection error.
 - **Fix**: 

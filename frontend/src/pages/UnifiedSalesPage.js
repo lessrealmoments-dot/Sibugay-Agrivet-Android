@@ -1667,17 +1667,72 @@ export default function UnifiedSalesPage() {
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Customer display */}
-            <div className="bg-slate-50 rounded-lg p-3">
-              <p className="text-sm text-slate-500">Customer</p>
-              <p className="font-medium">{selectedCustomer?.name || custSearch || 'Walk-in'}</p>
-              {selectedCustomer && (
+            {/* Customer display / quick picker */}
+            {selectedCustomer ? (
+              <div className="bg-slate-50 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500">Customer</p>
+                    <p className="font-medium">{selectedCustomer.name}</p>
+                  </div>
+                  <button
+                    onClick={() => { setSelectedCustomer(null); setCustSearch(''); }}
+                    className="text-xs text-slate-400 hover:text-red-500 transition-colors px-2 py-1 rounded"
+                    data-testid="clear-customer-btn"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
                 <div className="flex gap-4 mt-1 text-xs text-slate-500">
                   <span>Balance: <span className={selectedCustomer.balance > 0 ? 'text-red-600 font-medium' : ''}>{formatPHP(selectedCustomer.balance || 0)}</span></span>
                   <span>Limit: {formatPHP(selectedCustomer.credit_limit || 0)}</span>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 rounded-lg p-3">
+                <p className="text-sm text-slate-500 mb-1.5">Customer</p>
+                <div className="relative" data-testid="checkout-customer-picker">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    data-testid="checkout-customer-search"
+                    value={custSearch}
+                    onChange={e => {
+                      setCustSearch(e.target.value);
+                      const match = customers.find(c => c.name.toLowerCase() === e.target.value.toLowerCase());
+                      if (match) setSelectedCustomer(match);
+                      else setSelectedCustomer(null);
+                    }}
+                    placeholder="Search customer or type Walk-in..."
+                    className="pl-8 h-9 text-sm"
+                  />
+                  {custSearch && !selectedCustomer && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-36 overflow-y-auto">
+                      {customers
+                        .filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase()))
+                        .slice(0, 6)
+                        .map(c => (
+                          <button
+                            key={c.id}
+                            onClick={() => { setSelectedCustomer(c); setCustSearch(c.name); }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex justify-between items-center"
+                            data-testid={`checkout-cust-${c.id}`}
+                          >
+                            <span className="font-medium truncate">{c.name}</span>
+                            <span className="text-[10px] text-slate-400 shrink-0 ml-2">
+                              {c.balance > 0 ? `AR: ${formatPHP(c.balance)}` : ''}
+                            </span>
+                          </button>
+                        ))
+                      }
+                      {customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase())).length === 0 && (
+                        <p className="px-3 py-2 text-xs text-slate-400">No matching customers</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {!custSearch && <p className="text-xs text-slate-400 mt-1">Walk-in customer (no AR)</p>}
+              </div>
+            )}
 
             {/* Total */}
             <div className="text-center py-4">
@@ -1893,15 +1948,15 @@ export default function UnifiedSalesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Credit Approval Dialog */}
+      {/* Credit Approval Dialog — Respects PIN Policies */}
       <Dialog open={creditApprovalDialog} onOpenChange={setCreditApprovalDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-              <Shield className="text-amber-500" /> Manager Approval Required
+              <Shield className="text-amber-500" /> Authorization Required
             </DialogTitle>
             <DialogDescription>
-              Credit sales require manager authorization
+              Credit/Partial sales require PIN or TOTP authorization
             </DialogDescription>
           </DialogHeader>
           
@@ -1928,24 +1983,31 @@ export default function UnifiedSalesPage() {
             {creditCheckResult?.allowed && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-700">
-                  This credit sale of <strong>{formatPHP(balanceDue)}</strong> requires manager approval.
+                  This credit sale of <strong>{formatPHP(balanceDue)}</strong> requires authorization.
                 </p>
               </div>
             )}
 
-            {/* Manager PIN */}
+            {/* PIN / TOTP Input — supports all configured methods */}
             <div>
-              <Label>Manager PIN</Label>
+              <Label>Authorization Code</Label>
+              <p className="text-[10px] text-slate-400 mb-2">
+                Enter Admin PIN, Manager PIN, or TOTP code from Authenticator app
+              </p>
               <Input
                 data-testid="manager-pin"
-                type="password" autoComplete="off"
+                type="password" autoComplete="new-password"
                 value={managerPin}
                 onChange={e => setManagerPin(e.target.value)}
-                placeholder="Enter 4-digit PIN"
+                placeholder="PIN or 6-digit TOTP code"
                 className="text-center text-2xl tracking-widest h-14"
-                maxLength={6}
+                onKeyDown={e => e.key === 'Enter' && managerPin && verifyManagerPin()}
               />
-              <p className="text-xs text-slate-500 mt-1">Ask a manager or admin to enter their PIN</p>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-medium">Admin PIN</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-medium">Manager PIN</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-700 font-medium">TOTP (Authenticator)</span>
+              </div>
             </div>
 
             <div className="flex gap-2">
@@ -1958,7 +2020,7 @@ export default function UnifiedSalesPage() {
                 onClick={verifyManagerPin}
                 disabled={!managerPin || saving}
               >
-                <CheckCircle2 size={16} className="mr-2" /> Approve Sale
+                <CheckCircle2 size={16} className="mr-2" /> Authorize Sale
               </Button>
             </div>
           </div>

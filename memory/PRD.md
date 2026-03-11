@@ -243,3 +243,15 @@ Two-layer authorization for users without section permissions:
 - When no customer is selected, a search input appears with live dropdown results
 - Users can pick a customer without leaving the checkout flow (especially useful for Partial/Credit)
 - Selected customer shows balance and credit limit, with an X button to clear
+
+
+### Digital Payment Separation in Closing Formula (Mar 2026)
+- **Problem**: In the Close Wizard Sales Log (Step 1) and Daily Log page, digital payments (GCash, Maya, and all other platforms) were incorrectly being added to the "Walk-in Sales" cash running total. This inflated the cash total and created confusion because digital payments go to the digital wallet, not the physical cash drawer.
+- **Root Cause**: The frontend running total calculation only had special cases for `partial` and `split` payments. All other payment methods (including digital ones like GCash, Maya, etc.) fell into the `else` branch and used `e.line_total` as if they were cash.
+- **Fix**:
+  - Added `CASH_METHODS` set (`cash, check, cheque, credit, partial, split`) and `isDigital()` helper in both `CloseWizardPage.js` and `DailyLogPage.js`
+  - Digital entries now contribute `0` to the cash running total and are tracked in a separate `digitalTotal`
+  - The "Walk-in Sales" label was changed to "Cash Sales" with a separate "Digital" total shown when digital payments exist
+  - In the sales log table, digital entries show "e-wallet" in the Running Total column instead of a cash amount
+  - The Z-Report cash drawer reconciliation correctly excludes digital payments (this was already correct on the backend)
+- **Files Changed**: `CloseWizardPage.js`, `DailyLogPage.js`

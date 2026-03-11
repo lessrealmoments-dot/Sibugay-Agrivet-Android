@@ -756,16 +756,25 @@ export default function CloseWizardPage() {
           {step === 1 && (
             <div className="space-y-3">
               {(() => {
-                // Filter out credit entries — they're shown in Step 2 (Customer Credits)
+                // Filter out full-credit entries — they're shown in Step 2 (Customer Credits)
                 const nonCreditEntries = (dailyLog?.entries || []).filter(e => {
                   const pm = (e.payment_method || 'cash').toLowerCase();
                   return pm !== 'credit';
                 });
-                // Compute running total for non-credit entries
+                // Compute running total — for partial entries, only count the cash portion
                 let runTotal = 0;
                 const entriesWithTotal = nonCreditEntries.map(e => {
-                  runTotal += parseFloat(e.line_total || 0);
-                  return { ...e, _running: Math.round(runTotal * 100) / 100 };
+                  const pm = (e.payment_method || 'cash').toLowerCase();
+                  let cashAmt;
+                  if (pm === 'partial') {
+                    cashAmt = parseFloat(e._partial_cash_portion || 0);
+                  } else if (pm === 'split') {
+                    cashAmt = parseFloat(e._split_cash_portion || e.line_total || 0);
+                  } else {
+                    cashAmt = parseFloat(e.line_total || 0);
+                  }
+                  runTotal += cashAmt;
+                  return { ...e, _running: Math.round(runTotal * 100) / 100, _cash_amount: cashAmt };
                 });
                 const totalNonCredit = Math.round(runTotal * 100) / 100;
                 return (
@@ -840,7 +849,11 @@ export default function CloseWizardPage() {
                                       </div>
                                     )}
                                   </td>
-                                  <td className="px-3 py-1.5 text-right font-mono">{formatPHP(e.line_total)}</td>
+                                  <td className="px-3 py-1.5 text-right font-mono">
+                                    {pm === 'partial' ? (
+                                      <span title={`Full: ${formatPHP(e.line_total)}`}>{formatPHP(e._cash_amount || e.line_total)}</span>
+                                    ) : formatPHP(e.line_total)}
+                                  </td>
                                   <td className="px-3 py-1.5 text-right font-mono text-emerald-700">{formatPHP(e._running)}</td>
                                 </tr>
                               );

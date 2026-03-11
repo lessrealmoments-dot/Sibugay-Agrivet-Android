@@ -391,3 +391,130 @@ async def list_payment_submissions(
             s["subscription_status"] = org.get("subscription_status", "")
 
     return {"submissions": subs, "total": len(subs)}
+
+
+
+# ---------------------------------------------------------------------------
+# Data Migration: Fix Partial Invoices with Wrong fund_source
+# ---------------------------------------------------------------------------
+@router.post("/migrations/fix-partial-fund-source")
+async def fix_partial_fund_source(data: dict = None, user=Depends(require_super_admin)):
+    """
+    One-time migration: fix partial invoices that were incorrectly assigned
+    fund_source='digital' due to is_digital_payment('Partial') returning True.
+
+    For each corrupted invoice:
+    1. Set fund_source → 'cashier'
+    2. Remove incorrect digital_platform and receipt_status fields
+    3. Move cash (amount_paid) from digital wallet → cashier wallet
+    4. Log every change for audit trail
+
+    Safe to run multiple times (idempotent).
+    """
+    dry_run = (data or {}).get("dry_run", False)
+    fixes = []
+
+    # Find all corrupted partial invoices across the entire database
+    corrupted = await _raw_db.invoices.find(
+        {
+            "payment_type": "partial",
+            "fund_source": "digital",
+            "digital_platform": "Partial",
+        },
+        {"_id": 0}
+    ).to_list(1000)
+
+    if not corrupted:
+        return {"message": "No corrupted partial invoices found. Nothing to fix.", "fixed": 0}
+
+    for inv in corrupted:
+        inv_id = inv.get("id", "")
+        inv_num = inv.get("invoice_number", "")
+        branch_id = inv.get("branch_id", "")
+        amount_paid = float(inv.get("amount_paid", 0))
+        org_id = inv.get("_org_id", "unknown")
+
+        fix_record = {
+            "invoice_id": inv_id,
+            "invoice_number": inv_num,
+            "branch_id": branch_id,
+            "org_id": org_id,
+            "amount_paid": amount_paid,
+            "action": "dry_run" if dry_run else "fixed",
+        }
+
+        if not dry_run:
+            # 1. Fix the invoice record
+            await _raw_db.invoices.update_one(
+                {"id": inv_id},
+                {
+                    "$set": {"fund_source": "cashier"},
+                    "$unset": {"digital_platform": "", "receipt_status": ""},
+                }
+            )
+
+            # 2. Fix the payment records inside the invoice
+            await _raw_db.invoices.update_one(
+                {"id": inv_id},
+                {"$set": {"payments.$[elem].fund_source": "cashier"}},
+                array_filters=[{"elem.fund_source": "digital"}],
+            )
+
+            # 3. Move cash from digital wallet → cashier wallet
+            if amount_paid > 0 and branch_id:
+                ref_text = f"Migration fix: partial invoice {inv_num} — cash moved from digital to cashier"
+
+                # Deduct from digital wallet
+                digital_wallet = await _raw_db.fund_wallets.find_one(
+                    {"branch_id": branch_id, "type": "digital", "active": True, "_org_id": org_id},
+                    {"_id": 0}
+                )
+                if digital_wallet:
+                    await _raw_db.fund_wallets.update_one(
+                        {"id": digital_wallet["id"]},
+                        {"$inc": {"balance": -round(amount_paid, 2)}}
+                    )
+                    await _raw_db.wallet_movements.insert_one({
+                        "id": new_id(),
+                        "_org_id": org_id,
+                        "wallet_id": digital_wallet["id"],
+                        "branch_id": branch_id,
+                        "type": "migration_correction",
+                        "amount": -round(amount_paid, 2),
+                        "reference": ref_text,
+                        "created_at": now_iso(),
+                    })
+
+                # Add to cashier wallet
+                cashier_wallet = await _raw_db.fund_wallets.find_one(
+                    {"branch_id": branch_id, "type": "cashier", "active": True, "_org_id": org_id},
+                    {"_id": 0}
+                )
+                if cashier_wallet:
+                    await _raw_db.fund_wallets.update_one(
+                        {"id": cashier_wallet["id"]},
+                        {"$inc": {"balance": round(amount_paid, 2)}}
+                    )
+                    await _raw_db.wallet_movements.insert_one({
+                        "id": new_id(),
+                        "_org_id": org_id,
+                        "wallet_id": cashier_wallet["id"],
+                        "branch_id": branch_id,
+                        "type": "migration_correction",
+                        "amount": round(amount_paid, 2),
+                        "reference": ref_text,
+                        "created_at": now_iso(),
+                    })
+
+                fix_record["wallet_moved"] = True
+                fix_record["digital_wallet_found"] = bool(digital_wallet)
+                fix_record["cashier_wallet_found"] = bool(cashier_wallet)
+
+        fixes.append(fix_record)
+
+    return {
+        "message": f"{'DRY RUN — ' if dry_run else ''}Fixed {len(fixes)} corrupted partial invoice(s)",
+        "dry_run": dry_run,
+        "fixed": len(fixes),
+        "details": fixes,
+    }

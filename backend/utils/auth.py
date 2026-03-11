@@ -33,7 +33,7 @@ def create_token(user_id: str, role: str, org_id: str = None, is_super_admin: bo
 
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Dependency: decode JWT, set org context, return user."""
+    """Dependency: decode JWT, set org context, return user. Also checks for delegation tokens."""
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
@@ -53,6 +53,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     if not user or not user.get("active", True):
         raise HTTPException(status_code=401, detail="User not found or inactive")
 
+    # Check for delegated module access from JWT payload
+    if payload.get("delegations"):
+        user["_delegations"] = payload["delegations"]
+
     return user
 
 
@@ -69,6 +73,10 @@ def check_perm(user: dict, module: str, action: str):
         actual_module, action = action_map[(module, action)]
     perms = user.get("permissions", {})
     if not perms.get(actual_module, {}).get(action, False):
+        # Check if user has a delegation override for this module
+        delegations = user.get("_delegations", {})
+        if actual_module in delegations:
+            return  # Delegated access granted
         raise HTTPException(status_code=403, detail=f"No permission: {actual_module}.{action}")
 
 

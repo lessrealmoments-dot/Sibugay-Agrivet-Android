@@ -15,6 +15,7 @@ import {
 import OfflineIndicator from './OfflineIndicator';
 import NotificationBell from './NotificationBell';
 import QuickSearch from './QuickSearch';
+import SectionOverrideDialog from './SectionOverrideDialog';
 import { toast } from 'sonner';
 
 // offlineOk: 'full' = works offline | 'readonly' = view cached only | false/omit = requires internet
@@ -94,7 +95,7 @@ const NAV_ITEMS = NAV_SECTIONS.flatMap(s => s.items);
 
 export default function Layout({ children }) {
   const { 
-    user, logout, branches, switchBranch, hasPerm,
+    user, logout, branches, switchBranch, hasPerm, delegations,
     selectedBranchId, canViewAllBranches, viewingBranchName, isConsolidatedView
   } = useAuth();
   const location = useLocation();
@@ -102,32 +103,48 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
-  const filterItem = (item) => {
-    if (item.perm) {
-      const [mod, act] = item.perm.split('.');
-      if (!hasPerm(mod, act)) return false;
-    }
+  // Section override dialog state
+  const [overrideDialog, setOverrideDialog] = useState({ open: false, module: '', label: '', path: '' });
+
+  const getItemPermStatus = (item) => {
+    // Check subscription feature flag first
     if (item.featureFlag && user && !user.is_super_admin) {
       const features = user?.subscription?.features;
-      if (features && features[item.featureFlag] === false) return false;
+      if (features && features[item.featureFlag] === false) return 'feature_locked';
     }
-    return true;
+    // Check permission
+    if (item.perm) {
+      const [mod, act] = item.perm.split('.');
+      if (!hasPerm(mod, act)) return 'perm_locked';
+    }
+    return 'allowed';
   };
 
-  const filteredSections = NAV_SECTIONS.map(section => ({
+  // Show ALL items, but mark locked ones
+  const allSections = NAV_SECTIONS.map(section => ({
     ...section,
-    items: section.items.filter(filterItem),
+    items: section.items.map(item => ({
+      ...item,
+      _status: getItemPermStatus(item),
+    })).filter(item => item._status !== 'feature_locked'), // Only hide subscription-locked items
   })).filter(section => section.items.length > 0);
 
   const NavLink = ({ item }) => {
     const active = location.pathname === item.path;
-    const locked = !isOnline && !item.offlineOk;
+    const offlineLocked = !isOnline && !item.offlineOk;
     const readOnly = !isOnline && item.offlineOk === 'readonly';
+    const permLocked = item._status === 'perm_locked';
 
     const handleClick = (e) => {
-      if (locked) {
+      if (offlineLocked) {
         e.preventDefault();
         toast.error('You\'re offline — this area requires internet', { duration: 2500 });
+        return;
+      }
+      if (permLocked) {
+        e.preventDefault();
+        const [mod] = (item.perm || '').split('.');
+        setOverrideDialog({ open: true, module: mod, label: item.label, path: item.path });
         return;
       }
       setSidebarOpen(false);
@@ -135,12 +152,14 @@ export default function Layout({ children }) {
 
     return (
       <Link
-        to={item.path}
+        to={permLocked ? '#' : item.path}
         data-testid={`nav-${item.path.slice(1)}`}
         onClick={handleClick}
         className={`relative flex items-center gap-3 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
-          locked
+          offlineLocked
             ? 'text-slate-600 opacity-50 cursor-not-allowed'
+            : permLocked
+            ? 'text-slate-500 hover:text-slate-300 hover:bg-white/5 cursor-pointer'
             : active
             ? 'bg-[#1A4D2E] text-white shadow-sm'
             : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -148,7 +167,8 @@ export default function Layout({ children }) {
       >
         <item.icon size={18} strokeWidth={1.5} />
         <span className="flex-1">{item.label}</span>
-        {locked && <WifiOff size={11} className="text-slate-500 shrink-0" />}
+        {offlineLocked && <WifiOff size={11} className="text-slate-500 shrink-0" />}
+        {permLocked && <Lock size={11} className="text-amber-500/70 shrink-0" />}
         {readOnly && !active && <span className="text-[9px] text-slate-500 shrink-0">cached</span>}
       </Link>
     );
@@ -205,7 +225,7 @@ export default function Layout({ children }) {
       </div>
       <ScrollArea className="flex-1 px-3">
         <nav className="py-2">
-          {filteredSections.map((section, si) => (
+          {allSections.map((section, si) => (
             <div key={section.label || 'top'} className={si > 0 ? 'mt-1' : ''}>
               {section.label && (
                 <div className={`flex items-center gap-2 px-2 ${si > 0 ? 'pt-4' : 'pt-2'} pb-1.5`}>
@@ -391,6 +411,18 @@ export default function Layout({ children }) {
           {children}
         </div>
       </main>
+
+      {/* Section Override Dialog */}
+      <SectionOverrideDialog
+        open={overrideDialog.open}
+        onOpenChange={(open) => setOverrideDialog(prev => ({ ...prev, open }))}
+        module={overrideDialog.module}
+        moduleLabel={overrideDialog.label}
+        onGranted={() => {
+          navigate(overrideDialog.path);
+          setSidebarOpen(false);
+        }}
+      />
     </div>
   );
 }

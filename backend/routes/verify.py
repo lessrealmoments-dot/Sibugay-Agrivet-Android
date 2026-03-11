@@ -145,6 +145,7 @@ PIN_POLICY_ACTIONS = [
     {"key": "receipt_mark_reviewed",  "label": "Expense/Transfer Receipt Review", "module": "Audit",             "defaults": ["admin_pin", "manager_pin", "totp", "auditor_pin"]},
     {"key": "public_receipt_verify",  "label": "Public Receipt Verification",    "module": "Audit",             "defaults": ["admin_pin", "manager_pin", "totp", "auditor_pin"]},
     # System
+    {"key": "section_override",       "label": "Section Access Override",         "module": "System",            "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "admin_action",           "label": "Admin Action (Bulk Ops)",         "module": "System",            "defaults": ["admin_pin", "totp"]},
     {"key": "backup_restore",         "label": "Restore Backup",                  "module": "System",            "defaults": ["admin_pin", "totp"]},
 ]

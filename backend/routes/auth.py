@@ -3,7 +3,9 @@ Authentication routes: login (email or username), register, password management,
 """
 from fastapi import APIRouter, Depends, HTTPException
 import pyotp
-from config import db, _raw_db
+import jwt
+from datetime import datetime, timezone
+from config import db, _raw_db, JWT_SECRET
 from utils import (
     hash_password, verify_password, create_token,
     get_current_user, check_perm, now_iso, new_id
@@ -191,6 +193,82 @@ async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
         }
 
     return {"valid": False}
+
+
+@router.post("/section-override")
+async def section_override(data: dict, user=Depends(get_current_user)):
+    """
+    Grant temporary delegated access to a module for the current user.
+    Requires TOTP or admin PIN verification.
+    Returns a new JWT token with the delegation embedded.
+    """
+    module = data.get("module", "")
+    pin = data.get("pin", "")
+
+    if not module or not pin:
+        raise HTTPException(status_code=400, detail="Module and PIN/TOTP required")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "section_override")
+    if not verifier:
+        return {"valid": False, "error": "Invalid PIN or TOTP code"}
+
+    # Build delegation dict: merge existing + new module
+    existing_delegations = {}
+    # Decode existing token to carry over any prior delegations
+    try:
+        old_payload = jwt.decode(
+            data.get("current_token", ""), JWT_SECRET, algorithms=["HS256"],
+            options={"verify_exp": False}
+        )
+        existing_delegations = old_payload.get("delegations", {})
+    except Exception:
+        pass
+
+    existing_delegations[module] = {
+        "granted_by": verifier["verifier_name"],
+        "granted_by_id": verifier["verifier_id"],
+        "method": verifier["method"],
+        "granted_at": now_iso(),
+    }
+
+    # Issue a new token with delegations embedded (same expiry as original)
+    org_id = user.get("organization_id")
+    is_super = user.get("is_super_admin", False)
+    payload = {
+        "user_id": user["id"],
+        "role": user["role"],
+        "exp": datetime.now(timezone.utc).timestamp() + 86400,
+        "delegations": existing_delegations,
+    }
+    if org_id:
+        payload["org_id"] = org_id
+    if is_super:
+        payload["is_super_admin"] = True
+    new_token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+
+    # Log the delegation
+    await db.audit_log.insert_one({
+        "id": new_id(),
+        "type": "section_override",
+        "module": module,
+        "user_id": user["id"],
+        "user_name": user.get("full_name", user.get("username", "")),
+        "granted_by_id": verifier["verifier_id"],
+        "granted_by_name": verifier["verifier_name"],
+        "method": verifier["method"],
+        "created_at": now_iso(),
+        "branch_id": user.get("branch_id", ""),
+    })
+
+    return {
+        "valid": True,
+        "token": new_token,
+        "module": module,
+        "granted_by": verifier["verifier_name"],
+        "method": verifier["method"],
+        "delegations": existing_delegations,
+    }
 
 
 @router.put("/set-manager-pin")

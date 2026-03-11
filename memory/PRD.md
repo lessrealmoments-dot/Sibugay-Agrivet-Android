@@ -158,3 +158,26 @@ All destructive financial actions are protected by PIN verification through the 
 - **Backend**: FastAPI, Motor (async MongoDB), uvicorn
 - **Database**: MongoDB
 - **Deployment**: VPS with Nginx + supervisor
+
+## TOTP-Delegated Access System (March 2026)
+
+### Concept
+Two-layer authorization for users without section permissions:
+
+**Layer 1 — Section Access Override:**
+- Sidebar shows ALL navigation items — locked ones display a lock icon
+- Clicking a locked item opens a TOTP/PIN dialog
+- Admin reads code from phone, user enters it, access granted for that session
+- Delegation is embedded in the JWT token (survives page refreshes within same login)
+- Subscription-locked features (FeatureGate) remain hidden (plan upgrade required)
+
+**Layer 2 — Critical Action Authorization:**
+- Critical actions (receive PO, pay cash, void, etc.) already require PIN/TOTP verification
+- Creates audit trail: "Created by Cashier, Approved by Admin"
+
+### Architecture
+- Backend: `/api/auth/section-override` endpoint verifies TOTP/PIN, issues new JWT with `delegations`
+- Backend: `check_perm()` checks `user._delegations` for module overrides
+- Frontend: `AuthContext` manages delegation state with `requestSectionOverride()`
+- Frontend: `SectionOverrideDialog` component, `Layout.js` shows locked items
+- Audit Log: All overrides logged to `audit_log` collection

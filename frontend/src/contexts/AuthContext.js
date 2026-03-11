@@ -276,8 +276,43 @@ export function AuthProvider({ children }) {
   const hasPerm = (module, action) => {
     if (!user) return false;
     if (user.role === 'admin') return true;
-    return user.permissions?.[module]?.[action] || false;
+    if (user.permissions?.[module]?.[action]) return true;
+    // Check delegated access
+    if (delegations[module]) return true;
+    return false;
   };
+
+  // Delegation system — temporary section access via TOTP/PIN
+  const [delegations, setDelegations] = useState({});
+
+  const requestSectionOverride = async (module, pin) => {
+    const res = await api.post('/auth/section-override', {
+      module,
+      pin,
+      current_token: token,
+    });
+    if (res.data.valid) {
+      // Update token with delegation embedded
+      const newToken = res.data.token;
+      localStorage.setItem('agripos_token', newToken);
+      setToken(newToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+      setDelegations(res.data.delegations || {});
+      return res.data;
+    }
+    throw new Error(res.data.error || 'Invalid PIN/TOTP');
+  };
+
+  // On login, extract delegations from token if present
+  const extractDelegations = useCallback((tkn) => {
+    if (!tkn) return;
+    try {
+      const payload = JSON.parse(atob(tkn.split('.')[1]));
+      if (payload.delegations) setDelegations(payload.delegations);
+    } catch {}
+  }, []);
+
+  useEffect(() => { extractDelegations(token); }, [token, extractDelegations]);
 
   // View mode helpers
   const isConsolidatedView = selectedBranchId === 'all' && canViewAllBranches;
@@ -300,7 +335,10 @@ export function AuthProvider({ children }) {
       viewingBranchName,       // Display name for current view
       switchBranch,
       // Permissions
-      hasPerm, 
+      hasPerm,
+      // Delegation
+      delegations,
+      requestSectionOverride,
       refreshUser: fetchUser 
     }}>
       {children}

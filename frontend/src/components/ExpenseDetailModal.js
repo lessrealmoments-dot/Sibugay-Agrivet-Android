@@ -40,6 +40,7 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
   // Delete / Void
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [voidPin, setVoidPin] = useState('');
 
   // QR/Receipt
   const [uploadQROpen, setUploadQROpen] = useState(false);
@@ -97,11 +98,13 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
 
   // ── Delete / Void ──
   const handleDelete = async () => {
+    if (!voidPin) { toast.error('PIN is required'); return; }
     setDeleting(true);
     try {
-      await api.delete(`/expenses/${expense.id}`);
+      await api.delete(`/expenses/${expense.id}`, { data: { pin: voidPin } });
       toast.success('Expense voided — funds returned');
       setDeleteConfirm(false);
+      setVoidPin('');
       onOpenChange(false);
       onUpdated?.();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to delete'); }
@@ -277,15 +280,18 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
                   {canEdit && !isVoided && (
                     <div className="border-t pt-3">
                       {!deleteConfirm ? (
-                        <Button variant="destructive" className="w-full" onClick={() => setDeleteConfirm(true)} data-testid="expense-delete-btn">
+                        <Button variant="destructive" className="w-full" onClick={() => { setDeleteConfirm(true); setVoidPin(''); }} data-testid="expense-delete-btn">
                           <Trash2 size={14} className="mr-2" /> Void Expense
                         </Button>
                       ) : (
                         <div className="space-y-2">
-                          <p className="text-sm text-red-600 text-center font-medium">Are you sure? Funds will be returned to {expense.fund_source || 'cashier'}.</p>
+                          <p className="text-sm text-red-600 text-center font-medium">Funds will be returned to {expense.fund_source || 'cashier'}.</p>
+                          <Input type="password" placeholder="Enter PIN to confirm" value={voidPin}
+                            onChange={e => setVoidPin(e.target.value)} data-testid="expense-void-pin"
+                            onKeyDown={e => { if (e.key === 'Enter' && voidPin) handleDelete(); }} />
                           <div className="flex gap-2">
-                            <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
-                            <Button variant="destructive" className="flex-1" onClick={handleDelete} disabled={deleting} data-testid="expense-confirm-delete-btn">
+                            <Button variant="outline" className="flex-1" onClick={() => { setDeleteConfirm(false); setVoidPin(''); }}>Cancel</Button>
+                            <Button variant="destructive" className="flex-1" onClick={handleDelete} disabled={deleting || !voidPin} data-testid="expense-confirm-delete-btn">
                               {deleting ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Trash2 size={13} className="mr-1.5" />}
                               Confirm Void
                             </Button>

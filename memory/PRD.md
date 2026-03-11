@@ -108,6 +108,9 @@ const [detailType, setDetailType] = useState('sale'); // 'sale' | 'po' | 'expens
 - (P2) Corrupted Purchase Orders admin tool
 - (P2) SuperAdminPage refactoring (>1000 lines)
 - (P2) AdminLoginPage useNavigate fix
+- (P2) Merge duplicate expense dialogs (ExpensesPage ↔ AccountingPage)
+- (P2) Merge duplicate create product dialogs (PurchaseOrderPage ↔ SalesOrderPage)
+- (P2) Clean dead state in SuppliersPage and PaySupplierPage
 
 ---
 
@@ -119,6 +122,34 @@ const [detailType, setDetailType] = useState('sale'); // 'sale' | 'po' | 'expens
 - python-barcode
 - jsbarcode
 - html5-qrcode
+
+---
+
+## PIN Safety Net System
+
+All destructive financial actions are protected by PIN verification through the `verify_pin_for_action()` system. The admin can configure which PIN methods (admin_pin, manager_pin, totp, auditor_pin) are allowed per action in **Settings > Security > PIN Policies**.
+
+### Protected Actions (PIN_POLICY_ACTIONS in verify.py)
+| Action Key | Label | Default Methods |
+|------------|-------|----------------|
+| `void_invoice` | Void Invoice | admin_pin, manager_pin, totp |
+| `cancel_po` | Cancel Purchase Order | admin_pin, manager_pin, totp |
+| `void_expense` | Void / Delete Expense | admin_pin, manager_pin, totp |
+| `reopen_po` | Reopen Purchase Order | admin_pin, manager_pin, totp |
+| `void_payment` | Void Payment on Invoice | admin_pin, manager_pin, totp |
+| `void_return` | Void Return | admin_pin, manager_pin, totp |
+| `invoice_edit` | Edit Posted Invoice | admin_pin, manager_pin, totp |
+| `daily_close` | Close Day (Z-Report) | admin_pin, manager_pin, totp |
+| `inventory_adjust` | Direct Inventory Correction | admin_pin, manager_pin, totp |
+| `product_delete` | Delete Product | admin_pin, totp |
+| `admin_action` | Admin Action (Bulk Ops) | admin_pin, totp |
+| `backup_restore` | Restore Backup | admin_pin, totp |
+
+### Frontend Safety Net Implementation
+- **SaleDetailModal**: Void requires reason + PIN dialog
+- **ExpenseDetailModal**: Void requires PIN input (2-step confirm + PIN)
+- **PurchaseOrderPage**: Cancel PO → PIN dialog; Reopen PO → PIN dialog
+- **Inline delete buttons**: Route through modal for proper PIN verification
 
 ---
 

@@ -680,12 +680,22 @@ async def update_expense(expense_id: str, data: dict, user=Depends(get_current_u
 
 
 @router.delete("/expenses/{expense_id}")
-async def delete_expense(expense_id: str, user=Depends(get_current_user)):
+async def delete_expense(expense_id: str, data: dict = None, user=Depends(get_current_user)):
     """
     Void an expense and return the funds to the ORIGINAL fund source.
-    FIX: uses the expense's own fund_source, not always cashier.
+    Requires PIN verification.
     """
     check_perm(user, "accounting", "edit_expense")
+
+    # PIN verification
+    pin = (data or {}).get("pin", "")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required to void an expense")
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "void_expense")
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
     expense = await db.expenses.find_one({"id": expense_id}, {"_id": 0})
     if not expense:
         raise HTTPException(status_code=404, detail="Expense not found")

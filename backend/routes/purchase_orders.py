@@ -1100,9 +1100,19 @@ async def generate_branch_transfer_from_request(po_id: str, user=Depends(get_cur
 
 
 @router.delete("/{po_id}")
-async def cancel_purchase_order(po_id: str, user=Depends(get_current_user)):
-    """Cancel a purchase order. Cannot cancel received POs — use Reopen instead."""
+async def cancel_purchase_order(po_id: str, data: dict = None, user=Depends(get_current_user)):
+    """Cancel a purchase order. Requires PIN verification. Cannot cancel received POs — use Reopen instead."""
     check_perm(user, "inventory", "adjust")
+
+    # PIN verification
+    pin = (data or {}).get("pin", "")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required to cancel a PO")
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "cancel_po")
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")
@@ -1360,12 +1370,14 @@ async def reopen_purchase_order(po_id: str, data: dict = None, user=Depends(get_
     """
     check_perm(user, "inventory", "adjust")
 
-    # PIN enforcement for PO reopen
-    if data and data.get("pin"):
-        from routes.verify import verify_pin_for_action
-        verifier = await verify_pin_for_action(data["pin"], "reopen_po")
-        if not verifier:
-            raise HTTPException(status_code=403, detail="Invalid PIN")
+    # PIN enforcement for PO reopen (mandatory)
+    pin = (data or {}).get("pin", "")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required to reopen a PO")
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "reopen_po")
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
 
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:

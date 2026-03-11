@@ -115,7 +115,7 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
     if (!voidReason || !voidPin) { toast.error('Reason and PIN required'); return; }
     setActionLoading(true);
     try {
-      await api.post(`/invoices/${sale.id}/void`, { reason: voidReason, pin: voidPin });
+      await api.post(`/invoices/${sale.id}/void`, { reason: voidReason, manager_pin: voidPin });
       toast.success('Sale voided');
       setVoidOpen(false);
       setVoidReason('');

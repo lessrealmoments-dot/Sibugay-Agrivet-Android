@@ -837,7 +837,7 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
     check_perm(user, "sales", "void")
 
     # 1. Verify manager PIN
-    manager_pin = data.get("manager_pin", "")
+    manager_pin = data.get("manager_pin", "") or data.get("pin", "")
     if not manager_pin:
         raise HTTPException(status_code=400, detail="Manager PIN is required")
 

@@ -128,6 +128,14 @@ export default function PurchaseOrderPage() {
   const [reviewPinDialog, setReviewPinDialog] = useState(false);
   const [reviewPin, setReviewPin] = useState('');
   const [reviewSaving, setReviewSaving] = useState(false);
+  const [cancelPinDialog, setCancelPinDialog] = useState(false);
+  const [cancelPinTarget, setCancelPinTarget] = useState(null);
+  const [cancelPin, setCancelPin] = useState('');
+  const [cancelSaving, setCancelSaving] = useState(false);
+  const [reopenPinDialog, setReopenPinDialog] = useState(false);
+  const [reopenPinTarget, setReopenPinTarget] = useState(null);
+  const [reopenPin, setReopenPin] = useState('');
+  const [reopenSaving, setReopenSaving] = useState(false);
   const [payAdjDialog, setPayAdjDialog] = useState(false);
   const [payAdjData, setPayAdjData] = useState(null); // { po, delta, oldTotal, newTotal }
   const [payAdjFundSource, setPayAdjFundSource] = useState('cashier');
@@ -478,19 +486,43 @@ export default function PurchaseOrderPage() {
   };
 
   const cancelPO = async (poId) => {
-    if (!window.confirm('Cancel this PO?')) return;
+    setCancelPinTarget(poId);
+    setCancelPin('');
+    setCancelPinDialog(true);
+  };
+
+  const confirmCancelPO = async () => {
+    if (!cancelPin) { toast.error('PIN is required'); return; }
+    setCancelSaving(true);
     try {
-      await api.delete(`/purchase-orders/${poId}`);
-      toast.success('PO cancelled'); fetchOrders();
+      await api.delete(`/purchase-orders/${cancelPinTarget}`, { data: { pin: cancelPin } });
+      toast.success('PO cancelled');
+      setCancelPinDialog(false);
+      setCancelPin('');
+      setCancelPinTarget(null);
+      fetchOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+    setCancelSaving(false);
   };
 
   const reopenPO = async (po) => {
-    if (!window.confirm(`Reopen PO ${po.po_number}? This reverses inventory. Continue?`)) return;
+    setReopenPinTarget(po);
+    setReopenPin('');
+    setReopenPinDialog(true);
+  };
+
+  const confirmReopenPO = async () => {
+    if (!reopenPin) { toast.error('PIN is required'); return; }
+    setReopenSaving(true);
     try {
-      const res = await api.post(`/purchase-orders/${po.id}/reopen`);
-      toast.success(res.data.message); fetchOrders();
+      const res = await api.post(`/purchase-orders/${reopenPinTarget.id}/reopen`, { pin: reopenPin });
+      toast.success(res.data.message);
+      setReopenPinDialog(false);
+      setReopenPin('');
+      setReopenPinTarget(null);
+      fetchOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+    setReopenSaving(false);
   };
 
   const handleMarkReviewed = async () => {
@@ -1628,6 +1660,55 @@ export default function PurchaseOrderPage() {
               {reviewSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <ShieldCheck size={13} className="mr-1.5" />}
               Confirm Review
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+      {/* ── CANCEL PO PIN DIALOG ─────────────────────────────────────── */}
+      <Dialog open={cancelPinDialog} onOpenChange={v => { if (!v) { setCancelPinDialog(false); setCancelPin(''); } }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600" style={{ fontFamily: 'Manrope' }}>
+              <X size={18} /> Cancel Purchase Order
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <p className="text-sm text-slate-500">Enter your PIN to confirm cancellation.</p>
+            <Input type="password" value={cancelPin} onChange={e => setCancelPin(e.target.value)}
+              placeholder="Enter PIN..." onKeyDown={e => { if (e.key === 'Enter') confirmCancelPO(); }}
+              data-testid="cancel-po-pin-input" />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setCancelPinDialog(false); setCancelPin(''); }}>Back</Button>
+              <Button variant="destructive" className="flex-1" onClick={confirmCancelPO} disabled={cancelSaving || !cancelPin} data-testid="confirm-cancel-po-btn">
+                {cancelSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <X size={13} className="mr-1.5" />}
+                Cancel PO
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── REOPEN PO PIN DIALOG ─────────────────────────────────────── */}
+      <Dialog open={reopenPinDialog} onOpenChange={v => { if (!v) { setReopenPinDialog(false); setReopenPin(''); } }}>
+        <DialogContent className="sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600" style={{ fontFamily: 'Manrope' }}>
+              <AlertTriangle size={18} /> Reopen Purchase Order
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <p className="text-sm text-amber-700">This will reverse inventory and payments for <b>{reopenPinTarget?.po_number}</b>.</p>
+            <Input type="password" value={reopenPin} onChange={e => setReopenPin(e.target.value)}
+              placeholder="Enter PIN..." onKeyDown={e => { if (e.key === 'Enter') confirmReopenPO(); }}
+              data-testid="reopen-po-pin-input" />
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => { setReopenPinDialog(false); setReopenPin(''); }}>Back</Button>
+              <Button className="flex-1 bg-amber-600 hover:bg-amber-700 text-white" onClick={confirmReopenPO} disabled={reopenSaving || !reopenPin} data-testid="confirm-reopen-po-btn">
+                {reopenSaving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <AlertTriangle size={13} className="mr-1.5" />}
+                Reopen PO
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

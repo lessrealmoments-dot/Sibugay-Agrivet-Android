@@ -366,12 +366,9 @@ export default function ExpensesPage() {
   };
 
   const deleteExpense = async (id) => {
-    if (!window.confirm('Delete this expense? This will refund the amount to cashier wallet.')) return;
-    try {
-      await api.delete(`/expenses/${id}`);
-      toast.success('Expense deleted');
-      fetchAll();
-    } catch { toast.error('Failed to delete'); }
+    // Route through ExpenseDetailModal for proper PIN verification
+    setSelectedExpenseId(id);
+    setExpenseModalOpen(true);
   };
 
   const clearFilters = () => {

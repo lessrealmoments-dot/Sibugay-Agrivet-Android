@@ -43,7 +43,11 @@ def _read_file(content: bytes, filename: str) -> list[dict]:
         for row in rows[1:]:
             if all(v is None for v in row):
                 continue
-            result.append({headers[i]: (row[i] if row[i] is not None else "") for i in range(len(headers))})
+            d = {}
+            for i in range(len(headers)):
+                if headers[i]:  # Skip columns with empty headers
+                    d[headers[i]] = row[i] if row[i] is not None else ""
+            result.append(d)
         wb.close()
         return result
 
@@ -56,7 +60,10 @@ def _read_file(content: bytes, filename: str) -> list[dict]:
         headers = [str(ws.cell_value(0, c)).strip() for c in range(ws.ncols)]
         result = []
         for r in range(1, ws.nrows):
-            row = {headers[c]: ws.cell_value(r, c) for c in range(ws.ncols)}
+            row = {}
+            for c in range(ws.ncols):
+                if headers[c]:  # Skip columns with empty headers
+                    row[headers[c]] = ws.cell_value(r, c)
             if all(str(v).strip() == "" for v in row.values()):
                 continue
             result.append(row)
@@ -199,19 +206,27 @@ async def import_products(
 
     for i, row in enumerate(rows, start=2):  # Row 2 = first data row (row 1 = headers)
         try:
-            name = _safe_str(row.get(col_map.get("name", ""), ""))
+            name_col = col_map.get("name")
+            name = _safe_str(row.get(name_col, "")) if name_col else ""
             if not name:
                 continue  # Skip blank rows
 
             # Build product dict from mapping
-            sku_raw = _safe_str(row.get(col_map.get("sku", ""), ""))
-            unit = _safe_str(row.get(col_map.get("unit", ""), "Piece")) or "Piece"
-            category = _safe_str(row.get(col_map.get("category", ""), "")) or "General"
-            description = _safe_str(row.get(col_map.get("description", ""), ""))
-            cost_price = _safe_float(row.get(col_map.get("cost_price", ""), 0))
-            reorder_point = _safe_float(row.get(col_map.get("reorder_point", ""), 0))
+            sku_col = col_map.get("sku")
+            sku_raw = _safe_str(row.get(sku_col, "")) if sku_col else ""
+            unit_col = col_map.get("unit")
+            unit = (_safe_str(row.get(unit_col, "")) if unit_col else "") or "Piece"
+            cat_col = col_map.get("category")
+            category = (_safe_str(row.get(cat_col, "")) if cat_col else "") or "General"
+            desc_col = col_map.get("description")
+            description = _safe_str(row.get(desc_col, "")) if desc_col else ""
+            cost_col = col_map.get("cost_price")
+            cost_price = _safe_float(row.get(cost_col, 0)) if cost_col else 0.0
+            reorder_col = col_map.get("reorder_point")
+            reorder_point = _safe_float(row.get(reorder_col, 0)) if reorder_col else 0.0
 
-            raw_type = _safe_str(row.get(col_map.get("product_type", ""), "")).lower()
+            type_col = col_map.get("product_type")
+            raw_type = (_safe_str(row.get(type_col, "")) if type_col else "").lower()
             if "service" in raw_type:
                 product_type = "service"
             else:

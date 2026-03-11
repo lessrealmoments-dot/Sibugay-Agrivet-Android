@@ -576,17 +576,17 @@ export default function TeamPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">{editingUser ? 'New Password (optional)' : 'Password *'}</Label>
-                <Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min. 6 characters" className="h-9" data-testid="user-password" />
+                <Input type="password" autoComplete="off" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Min. 6 characters" className="h-9" data-testid="user-password" />
               </div>
               <div>
                 <Label className="text-xs">Confirm Password</Label>
-                <Input type="password" value={form.confirm_password} onChange={e => setForm({ ...form, confirm_password: e.target.value })} placeholder="Repeat password" className="h-9" />
+                <Input type="password" autoComplete="off" value={form.confirm_password} onChange={e => setForm({ ...form, confirm_password: e.target.value })} placeholder="Repeat password" className="h-9" />
               </div>
             </div>
             {(form.role === 'admin' || form.role === 'manager') && (
               <div>
                 <Label className="text-xs flex items-center gap-1"><KeyRound size={11} /> Manager PIN (4-8 digits, optional)</Label>
-                <Input type="password" value={form.manager_pin} onChange={e => setForm({ ...form, manager_pin: e.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="Used for approvals" className="h-9 tracking-widest text-center" data-testid="user-pin" />
+                <Input type="password" autoComplete="off" value={form.manager_pin} onChange={e => setForm({ ...form, manager_pin: e.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="Used for approvals" className="h-9 tracking-widest text-center" data-testid="user-pin" />
               </div>
             )}
             <div className="flex gap-2 pt-2">
@@ -609,12 +609,12 @@ export default function TeamPage() {
           <div className="space-y-4">
             <div>
               <Label className="text-xs">New PIN (4-8 digits)</Label>
-              <Input type="password" value={pinForm.pin} onChange={e => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="Leave blank to clear" className="h-10 text-center text-2xl tracking-widest" data-testid="pin-input" />
+              <Input type="password" autoComplete="off" value={pinForm.pin} onChange={e => setPinForm({ ...pinForm, pin: e.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="Leave blank to clear" className="h-10 text-center text-2xl tracking-widest" data-testid="pin-input" />
             </div>
             {pinForm.pin && (
               <div>
                 <Label className="text-xs">Confirm PIN</Label>
-                <Input type="password" value={pinForm.confirm} onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="Repeat PIN" className="h-10 text-center text-2xl tracking-widest" />
+                <Input type="password" autoComplete="off" value={pinForm.confirm} onChange={e => setPinForm({ ...pinForm, confirm: e.target.value.replace(/\D/g, '').slice(0, 8) })} placeholder="Repeat PIN" className="h-10 text-center text-2xl tracking-widest" />
               </div>
             )}
             <div className="flex gap-2">

@@ -447,7 +447,7 @@ export default function PODetailModal({ open, onOpenChange, poId, poNumber, onUp
           <div className="space-y-3 mt-2">
             <div>
               <Label className="text-xs">Admin PIN or TOTP</Label>
-              <Input type="password" value={reviewPin} onChange={e => setReviewPin(e.target.value)}
+              <Input type="password" autoComplete="off" value={reviewPin} onChange={e => setReviewPin(e.target.value)}
                 placeholder="Enter PIN..." className="mt-1" onKeyDown={e => { if (e.key === 'Enter') handleMarkReviewed(); }}
                 data-testid="review-pin-input" />
             </div>

@@ -456,7 +456,7 @@ export default function JournalEntriesPage() {
 
               <div>
                 <Label className="text-xs text-slate-500">Manager PIN (required to authorize)</Label>
-                <Input type="password" value={pin} onChange={e => setPin(e.target.value)}
+                <Input type="password" autoComplete="off" value={pin} onChange={e => setPin(e.target.value)}
                   placeholder="Enter manager PIN" className="mt-1" autoFocus
                   onKeyDown={e => e.key === 'Enter' && handleCreate()}
                   data-testid="je-pin" />
@@ -550,7 +550,7 @@ export default function JournalEntriesPage() {
               </div>
               <div>
                 <Label className="text-xs">Manager PIN</Label>
-                <Input type="password" value={voidPin} onChange={e => setVoidPin(e.target.value)} className="mt-1" placeholder="PIN"
+                <Input type="password" autoComplete="off" value={voidPin} onChange={e => setVoidPin(e.target.value)} className="mt-1" placeholder="PIN"
                   onKeyDown={e => e.key === 'Enter' && handleVoid()} />
               </div>
               <div className="flex gap-2">

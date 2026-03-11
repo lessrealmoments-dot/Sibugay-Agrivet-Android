@@ -377,7 +377,7 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Input placeholder="Reason for voiding" value={voidReason} onChange={e => setVoidReason(e.target.value)} data-testid="void-reason-input" />
-            <Input type="password" placeholder="Manager/Admin PIN" value={voidPin} onChange={e => setVoidPin(e.target.value)}
+            <Input type="password" autoComplete="off" placeholder="Manager/Admin PIN" value={voidPin} onChange={e => setVoidPin(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && voidReason && voidPin) handleVoid(); }} data-testid="void-pin-input" />
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => { setVoidOpen(false); setVoidReason(''); setVoidPin(''); }}>Cancel</Button>

@@ -720,7 +720,7 @@ export default function ExpensesPage() {
             </div>
             <div>
               <Label>Manager PIN</Label>
-              <Input type="password" value={caManagerPin} onChange={e => setCaManagerPin(e.target.value)}
+              <Input type="password" autoComplete="off" value={caManagerPin} onChange={e => setCaManagerPin(e.target.value)}
                 placeholder="Enter 4-digit PIN" className="text-center text-2xl tracking-widest h-14" maxLength={6} />
             </div>
             <div className="flex gap-2">
@@ -1019,7 +1019,7 @@ export default function ExpensesPage() {
             </div>
             <div>
               <Label>Manager PIN</Label>
-              <Input type="password" value={eaManagerPin} onChange={e => setEaManagerPin(e.target.value)}
+              <Input type="password" autoComplete="off" value={eaManagerPin} onChange={e => setEaManagerPin(e.target.value)}
                 placeholder="Enter 4-digit PIN" className="text-center text-2xl tracking-widest h-14" maxLength={6} />
             </div>
             <div className="flex gap-2">

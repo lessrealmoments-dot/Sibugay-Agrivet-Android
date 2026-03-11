@@ -409,7 +409,7 @@ export default function FundManagementPage() {
                   <Label className="text-xs text-slate-600 flex items-center gap-1">
                     <Shield size={11} /> Manager PIN *
                   </Label>
-                  <Input type="password" value={managerPin} onChange={e => setManagerPin(e.target.value)}
+                  <Input type="password" autoComplete="off" value={managerPin} onChange={e => setManagerPin(e.target.value)}
                     placeholder="Enter manager PIN" className="mt-1 h-9"
                     onKeyDown={e => e.key === 'Enter' && executeTransfer()} />
                 </div>
@@ -419,7 +419,7 @@ export default function FundManagementPage() {
                   <Label className="text-xs text-slate-600 flex items-center gap-1">
                     <Shield size={11} /> Admin TOTP Code *
                   </Label>
-                  <Input type="password" value={totpCode} onChange={e => setTotpCode(e.target.value)}
+                  <Input type="password" autoComplete="off" value={totpCode} onChange={e => setTotpCode(e.target.value)}
                     placeholder="6-digit authenticator code" className="mt-1 h-9 font-mono text-lg text-center"
                     maxLength={6}
                     onKeyDown={e => e.key === 'Enter' && executeTransfer()} />
@@ -444,7 +444,7 @@ export default function FundManagementPage() {
                       <Shield size={11} /> Owner PIN or TOTP Code *
                     </Label>
                     <Input
-                      type="password"
+                      type="password" autoComplete="off"
                       value={ownerPin}
                       onChange={e => setOwnerPin(e.target.value)}
                       placeholder="Enter PIN or 6-digit TOTP"

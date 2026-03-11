@@ -46,7 +46,7 @@ export default function SectionOverrideDialog({ open, onOpenChange, module, modu
           </div>
           <div>
             <Input
-              type="password"
+              type="password" autoComplete="off"
               placeholder="Enter Admin PIN or 6-digit TOTP code"
               value={pin}
               onChange={e => setPin(e.target.value)}

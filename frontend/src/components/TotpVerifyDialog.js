@@ -99,7 +99,7 @@ export function TotpVerifyDialog({
                 <Label>Owner PIN</Label>
                 <Input
                   data-testid="owner-pin-input"
-                  type="password"
+                  type="password" autoComplete="off"
                   inputMode="numeric"
                   value={code}
                   onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
@@ -149,7 +149,7 @@ export function TotpVerifyDialog({
                 <Label>Admin Password</Label>
                 <Input
                   data-testid="totp-password-input"
-                  type="password"
+                  type="password" autoComplete="off"
                   value={code}
                   onChange={e => setCode(e.target.value)}
                   placeholder="Admin login password"

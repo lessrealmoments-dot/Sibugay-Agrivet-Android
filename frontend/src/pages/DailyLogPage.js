@@ -1135,7 +1135,7 @@ export default function DailyLogPage() {
                       <Separator />
                       <div>
                         <Label className="mb-1.5 block">Admin PIN to Confirm Close <span className="text-red-500">*</span></Label>
-                        <Input type="password" value={adminPin} onChange={e => setAdminPin(e.target.value)}
+                        <Input type="password" autoComplete="off" value={adminPin} onChange={e => setAdminPin(e.target.value)}
                           placeholder="Enter admin PIN" maxLength={6} className="max-w-xs"
                           data-testid="admin-pin-close" />
                       </div>

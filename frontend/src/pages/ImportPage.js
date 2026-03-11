@@ -432,7 +432,7 @@ export default function ImportPage() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Admin PIN <span className="text-red-500">*</span></label>
-                <Input type="password" value={pin} onChange={e => setPin(e.target.value)}
+                <Input type="password" autoComplete="off" value={pin} onChange={e => setPin(e.target.value)}
                   placeholder="Enter admin PIN" className="h-9" maxLength={6} />
               </div>
             </div>

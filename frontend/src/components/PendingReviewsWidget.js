@@ -301,7 +301,7 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
                 Admin PIN or TOTP Code <span className="text-red-500">*</span>
               </label>
               <Input
-                type="password"
+                type="password" autoComplete="off"
                 value={reviewPin}
                 onChange={e => setReviewPin(e.target.value)}
                 placeholder="Enter PIN or authenticator code"

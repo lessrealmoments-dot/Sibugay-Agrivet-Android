@@ -15,7 +15,7 @@ Flow:
 import io
 import csv
 import re
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from config import db
 from utils import get_current_user, check_perm, now_iso, new_id, verify_password
@@ -164,8 +164,8 @@ async def parse_file(file: UploadFile = File(...), user=Depends(get_current_user
 @router.post("/products")
 async def import_products(
     file: UploadFile = File(...),
-    mapping: str = "",        # JSON string: {"name":"Product/Service Name", ...}
-    branch_id: str = "",      # Optional: branch for branch-specific prices
+    mapping: str = Form(""),        # JSON string: {"name":"Product/Service Name", ...}
+    branch_id: str = Form(""),      # Optional: branch for branch-specific prices
     user=Depends(get_current_user)
 ):
     """
@@ -323,9 +323,9 @@ async def overwrite_products(data: dict, user=Depends(get_current_user)):
 @router.post("/inventory-seed")
 async def import_inventory_seed(
     file: UploadFile = File(...),
-    mapping: str = "",
-    branch_id: str = "",
-    pin: str = "",
+    mapping: str = Form(""),
+    branch_id: str = Form(""),
+    pin: str = Form(""),
     user=Depends(get_current_user)
 ):
     """

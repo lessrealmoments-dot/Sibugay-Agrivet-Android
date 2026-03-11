@@ -1221,6 +1221,16 @@ export default function AuditCenterPage() {
                   {Object.entries(auditData.sales.by_payment_type || {}).map(([type, v]) => (
                     <StatRow key={type} label={`  → ${type}`} value={formatPHP(v.total)} sub={`${v.count} txns`} />
                   ))}
+                  {(auditData.sales.partial_cash_received > 0 || auditData.sales.partial_credit_balance > 0) && (
+                    <div className="ml-6 text-xs text-slate-400 space-y-0.5 -mt-0.5 mb-1">
+                      {auditData.sales.partial_cash_received > 0 && (
+                        <div className="flex justify-between"><span className="text-emerald-600">Cash received (partial)</span><span className="font-mono text-emerald-600">{formatPHP(auditData.sales.partial_cash_received)}</span></div>
+                      )}
+                      {auditData.sales.partial_credit_balance > 0 && (
+                        <div className="flex justify-between"><span className="text-amber-600">Credit/AR balance (partial)</span><span className="font-mono text-amber-600">{formatPHP(auditData.sales.partial_credit_balance)}</span></div>
+                      )}
+                    </div>
+                  )}
                   <Separator className="my-2" />
                   <StatRow label="Voided Transactions" value={auditData.sales.voided_count}
                     highlight={auditData.sales.voided_count > 0 ? 'text-amber-600 font-bold' : ''} />

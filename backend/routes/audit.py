@@ -745,12 +745,22 @@ async def _compute_sales(branch_id: str, date_from: str, date_to: str) -> dict:
         {"$group": {
             "_id": "$payment_type",
             "total": {"$sum": "$grand_total"},
-            "count": {"$sum": 1}
+            "count": {"$sum": 1},
+            "total_paid": {"$sum": "$amount_paid"},
+            "total_balance": {"$sum": "$balance"},
         }}
     ]).to_list(10)
 
     by_type = {r["_id"] or "cash": {"total": round(r["total"], 2), "count": r["count"]} for r in inv_r}
     grand_total_sales = round(sum(v["total"] for v in by_type.values()), 2)
+
+    # Decompose partial into cash_received + credit_balance for clarity
+    partial_cash_received = 0
+    partial_credit_balance = 0
+    for r in inv_r:
+        if r["_id"] == "partial":
+            partial_cash_received = round(r.get("total_paid", 0), 2)
+            partial_credit_balance = round(r.get("total_balance", 0), 2)
 
     # Voided transactions
     voided = await db.invoices.count_documents({
@@ -774,6 +784,8 @@ async def _compute_sales(branch_id: str, date_from: str, date_to: str) -> dict:
         "grand_total_sales": grand_total_sales,
         "total_transactions": total_txns,
         "by_payment_type": by_type,
+        "partial_cash_received": partial_cash_received,
+        "partial_credit_balance": partial_credit_balance,
         "voided_count": voided,
         "edited_invoices": edited_r[:20],
         "edited_count": len(edited_r),

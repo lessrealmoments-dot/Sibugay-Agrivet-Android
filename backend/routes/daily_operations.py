@@ -432,6 +432,12 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
 
     all_entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
 
+    # Credit/partial invoices with full item details (fetch early for backward compat lookup)
+    inv_query = {"order_date": date, "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}}
+    if branch_id:
+        inv_query["branch_id"] = branch_id
+    credit_invoices = await db.invoices.find(inv_query, {"_id": 0}).sort("created_at", 1).to_list(500)
+
     # Build invoice lookup for backward compat — old partial entries without metadata
     partial_invoice_lookup = {}
     for inv in credit_invoices:
@@ -496,12 +502,6 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
             amt = float(e.get("line_total", 0))
         cash_by_category[cat] = round(cash_by_category.get(cat, 0.0) + amt, 2)
     cash_by_category = dict(sorted(cash_by_category.items(), key=lambda x: -x[1]))
-
-    # Credit/partial invoices with full item details
-    inv_query = {"order_date": date, "payment_type": {"$in": ["credit", "partial"]}, "status": {"$ne": "voided"}}
-    if branch_id:
-        inv_query["branch_id"] = branch_id
-    credit_invoices = await db.invoices.find(inv_query, {"_id": 0}).sort("created_at", 1).to_list(500)
 
     # For partial invoices: split amount_paid (cash) and balance (credit)
     total_partial_cash = round(sum(

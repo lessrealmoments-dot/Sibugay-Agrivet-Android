@@ -365,11 +365,21 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
             "grand_total": grand_total,
         }
 
+    # For partial sales, pass partial metadata so daily log can decompose into cash + credit
+    partial_meta = None
+    if payment_type == "partial":
+        partial_meta = {
+            "cash_amount": amount_paid,
+            "credit_amount": balance,
+            "grand_total": grand_total,
+        }
+
     await log_sale_items(
         branch_id, log_date, sale_items, inv_number,
         customer_name, "split" if is_split else data.get("payment_method", "Cash"),
         user.get("full_name", user["username"]),
         split_meta=split_meta,
+        partial_meta=partial_meta,
     )
     
     return invoice

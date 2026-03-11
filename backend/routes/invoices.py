@@ -300,11 +300,30 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
             prod = await db.products.find_one({"id": item["product_id"]}, {"_id": 0, "category": 1})
             item["category"] = prod.get("category", "General") if prod else "General"
     
+    # Build metadata for split/partial decomposition in daily log
+    split_meta_arg = None
+    partial_meta_arg = None
+    if is_split:
+        split_meta_arg = {
+            "cash_amount": cash_amount,
+            "digital_amount": digital_amount,
+            "digital_platform": digital_meta.get("digital_platform", ""),
+            "grand_total": grand_total,
+        }
+    elif payment_type == "partial":
+        partial_meta_arg = {
+            "cash_amount": amount_paid,
+            "credit_amount": balance,
+            "grand_total": grand_total,
+        }
+
     await log_sale_items(
         branch_id, log_date, items, inv_number,
         data.get("customer_name", "Walk-in"),
         data.get("payment_method", "Cash"),
-        user.get("full_name", user["username"])
+        user.get("full_name", user["username"]),
+        split_meta=split_meta_arg,
+        partial_meta=partial_meta_arg,
     )
     
     return invoice

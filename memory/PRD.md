@@ -199,7 +199,14 @@ Two-layer authorization for users without section permissions:
 - **Problem**: QR code for phone upload was hidden behind a `<details>` toggle, requiring user to click to expand
 - **Fix**: QR code is now always visible alongside the direct PC upload button, with a visual divider "or upload from phone"
 
-### Security Audit — Full PIN & autoComplete Scan (March 11, 2026)
+### Partial Payment Closing Wizard Fix (March 11, 2026)
+- **Problem**: Partial payments (e.g., ₱5,000 cash + ₱7,700 credit on ₱12,700 invoice) showed as a single "partial: ₱12,700" lump in the closing wizard sales log. The ₱5,000 cash wasn't counted in cash totals, and the ₱7,700 credit wasn't in the credit section.
+- **Root Cause**: The `by_payment_method` breakdown in the daily-log endpoint decomposed "split" (cash+digital) but NOT "partial" (cash+credit). Partial entries were grouped as a single category.
+- **Fix**:
+  - Backend `log_sale_items()`: Now accepts `partial_meta` (cash_amount, credit_amount, grand_total) and stores it on sales_log entries
+  - Backend `unified-sale` and `invoices` routes: Pass partial metadata when creating partial invoices
+  - Backend `daily-log`: Decomposes "partial" into cash + credit in `by_payment_method`, includes partial cash in `cash_entries`, backward-compatible with old entries (falls back to invoice lookup)
+  - Frontend CloseWizardPage: Shows cash/credit breakdown on partial entries in sales log table
 
 **autoComplete Fix:**
 - Changed 48 instances of `autoComplete="off"` → `autoComplete="new-password"` across 24 files

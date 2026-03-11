@@ -432,7 +432,17 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
 
     all_entries = await db.sales_log.find(query, {"_id": 0}).sort("sequence", 1).to_list(10000)
 
-    # Separate cash vs credit entries (split cash portion counts as cash)
+    # Build invoice lookup for backward compat — old partial entries without metadata
+    partial_invoice_lookup = {}
+    for inv in credit_invoices:
+        if inv.get("payment_type") == "partial":
+            partial_invoice_lookup[inv.get("invoice_number", "")] = {
+                "amount_paid": float(inv.get("amount_paid", 0)),
+                "grand_total": float(inv.get("grand_total", 0)),
+                "balance": float(inv.get("balance", 0)),
+            }
+
+    # Separate cash vs credit entries (split cash portion counts as cash, partial cash portion counts as cash)
     cash_entries = []
     for e in all_entries:
         pm = (e.get("payment_method") or "cash").lower()
@@ -445,6 +455,21 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
             cash_portion = round(float(e.get("line_total", 0)) * cash_ratio, 2)
             e["_split_cash_portion"] = cash_portion
             cash_entries.append(e)
+        elif pm == "partial":
+            # Partial: compute cash portion of this item (rest goes to credit/AR)
+            gt = float(e.get("partial_grand_total", 0))
+            cash_amt = float(e.get("partial_cash_amount", 0))
+            if gt <= 0:
+                # Backward compat: look up from invoice data
+                inv_data = partial_invoice_lookup.get(e.get("invoice_number", ""))
+                if inv_data and inv_data["grand_total"] > 0:
+                    gt = inv_data["grand_total"]
+                    cash_amt = inv_data["amount_paid"]
+            cash_ratio = cash_amt / gt if gt > 0 else 0
+            cash_portion = round(float(e.get("line_total", 0)) * cash_ratio, 2)
+            e["_partial_cash_portion"] = cash_portion
+            e["_partial_credit_portion"] = round(float(e.get("line_total", 0)) - cash_portion, 2)
+            cash_entries.append(e)
 
     # Compute cash-only running total
     cash_running = 0.0
@@ -452,6 +477,8 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
         pm = (e.get("payment_method") or "cash").lower()
         if pm == "split":
             cash_running += float(e.get("_split_cash_portion", 0))
+        elif pm == "partial":
+            cash_running += float(e.get("_partial_cash_portion", 0))
         else:
             cash_running += float(e.get("line_total", 0))
         e["cash_running_total"] = round(cash_running, 2)
@@ -461,7 +488,12 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
     for e in cash_entries:
         cat = e.get("category") or "General"
         pm = (e.get("payment_method") or "cash").lower()
-        amt = float(e.get("_split_cash_portion", 0)) if pm == "split" else float(e.get("line_total", 0))
+        if pm == "split":
+            amt = float(e.get("_split_cash_portion", 0))
+        elif pm == "partial":
+            amt = float(e.get("_partial_cash_portion", 0))
+        else:
+            amt = float(e.get("line_total", 0))
         cash_by_category[cat] = round(cash_by_category.get(cat, 0.0) + amt, 2)
     cash_by_category = dict(sorted(cash_by_category.items(), key=lambda x: -x[1]))
 
@@ -483,13 +515,14 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
 
     total_cash = round(sum(
         float(e.get("_split_cash_portion", 0)) if (e.get("payment_method") or "cash").lower() == "split"
+        else float(e.get("_partial_cash_portion", 0)) if (e.get("payment_method") or "cash").lower() == "partial"
         else float(e.get("line_total", 0))
         for e in cash_entries
     ), 2)
     total_credit = round(sum(float(inv.get("balance", 0)) for inv in credit_invoices), 2)
     total_all = round(sum(float(e.get("line_total", 0)) for e in all_entries), 2)
 
-    # Payment method breakdown — decompose "split" into cash + digital
+    # Payment method breakdown — decompose "split" into cash + digital, "partial" into cash + credit
     by_payment_method = {}
     for e in all_entries:
         pm = (e.get("payment_method") or "cash").lower()
@@ -511,6 +544,31 @@ async def get_daily_log(user=Depends(get_current_user), branch_id: Optional[str]
                 by_payment_method[dp] = {"total": 0.0, "count": 0}
             by_payment_method[dp]["total"] = round(by_payment_method[dp]["total"] + digital_portion, 2)
             by_payment_method[dp]["count"] += 1
+        elif pm == "partial":
+            # Decompose into cash and credit portions
+            gt = float(e.get("partial_grand_total", 0))
+            cash_amt = float(e.get("partial_cash_amount", 0))
+            if gt <= 0:
+                # Backward compat: look up from invoice data
+                inv_data = partial_invoice_lookup.get(e.get("invoice_number", ""))
+                if inv_data and inv_data["grand_total"] > 0:
+                    gt = inv_data["grand_total"]
+                    cash_amt = inv_data["amount_paid"]
+            cash_ratio = cash_amt / gt if gt > 0 else 0
+            cash_portion = round(lt * cash_ratio, 2)
+            credit_portion = round(lt - cash_portion, 2)
+            # Cash portion → counted as cash
+            if cash_portion > 0:
+                if "cash" not in by_payment_method:
+                    by_payment_method["cash"] = {"total": 0.0, "count": 0}
+                by_payment_method["cash"]["total"] = round(by_payment_method["cash"]["total"] + cash_portion, 2)
+                by_payment_method["cash"]["count"] += 1
+            # Credit portion → counted as credit
+            if credit_portion > 0:
+                if "credit" not in by_payment_method:
+                    by_payment_method["credit"] = {"total": 0.0, "count": 0}
+                by_payment_method["credit"]["total"] = round(by_payment_method["credit"]["total"] + credit_portion, 2)
+                by_payment_method["credit"]["count"] += 1
         else:
             if pm not in by_payment_method:
                 by_payment_method[pm] = {"total": 0.0, "count": 0}

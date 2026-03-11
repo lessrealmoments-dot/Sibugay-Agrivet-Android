@@ -815,6 +815,11 @@ export default function CloseWizardPage() {
                                 pmLabel = `Cash+${e.split_digital_platform || 'Digital'}`;
                                 pmColor = 'bg-indigo-100 text-indigo-700';
                               }
+                              if (pm === 'partial') {
+                                const cashP = e._partial_cash_portion || 0;
+                                const creditP = e._partial_credit_portion || 0;
+                                pmLabel = cashP > 0 ? `Partial` : 'Credit';
+                              }
                               return (
                                 <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
                                   <td className="px-3 py-1.5 text-xs text-slate-400">{e.sequence || i+1}</td>
@@ -827,6 +832,13 @@ export default function CloseWizardPage() {
                                   <td className="px-3 py-1.5 text-center text-slate-500">{e.quantity} {e.unit || ''}</td>
                                   <td className="px-3 py-1.5 text-center">
                                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${pmColor}`}>{pmLabel}</span>
+                                    {pm === 'partial' && (e._partial_cash_portion > 0 || e._partial_credit_portion > 0) && (
+                                      <div className="text-[9px] text-slate-400 mt-0.5">
+                                        {e._partial_cash_portion > 0 && <span className="text-emerald-600">{formatPHP(e._partial_cash_portion)} cash</span>}
+                                        {e._partial_cash_portion > 0 && e._partial_credit_portion > 0 && <span> · </span>}
+                                        {e._partial_credit_portion > 0 && <span className="text-amber-600">{formatPHP(e._partial_credit_portion)} AR</span>}
+                                      </div>
+                                    )}
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-mono">{formatPHP(e.line_total)}</td>
                                   <td className="px-3 py-1.5 text-right font-mono text-emerald-700">{formatPHP(e._running)}</td>

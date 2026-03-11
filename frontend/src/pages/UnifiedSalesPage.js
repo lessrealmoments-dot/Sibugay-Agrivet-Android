@@ -880,13 +880,13 @@ export default function UnifiedSalesPage() {
 
   // Verify manager PIN
   const verifyManagerPin = async () => {
-    if (!managerPin) { toast.error('Enter manager PIN'); return; }
+    if (!managerPin) { toast.error('Enter authorization code'); return; }
     
     try {
       const total = cartItems.reduce((s, i) => s + i.quantity * i.price, 0);
       const customerName = selectedCustomer?.name || 'Walk-in';
       const res = await api.post('/auth/verify-manager-pin', {
-        pin: managerPin,
+        pin: managerPin.trim(),
         action_key: 'credit_sale_approval',
         context: {
           type: 'credit_sale',
@@ -904,10 +904,10 @@ export default function UnifiedSalesPage() {
         setManagerPin('');
         await processSale(res.data.manager_name);
       } else {
-        toast.error('Invalid PIN');
+        toast.error(res.data.detail || 'Invalid PIN / TOTP — check Settings > Security for accepted methods');
       }
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Verification failed');
+      toast.error(e.response?.data?.detail || 'Verification failed — check your connection');
     }
   };
 

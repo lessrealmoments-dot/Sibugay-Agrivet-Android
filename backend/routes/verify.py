@@ -14,10 +14,13 @@ at the end of the audit via "Apply Correction" or "Dismiss".
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone
+import logging
 import pyotp
 from config import db
 from utils import get_current_user, now_iso, new_id, hash_password, verify_password
 from utils.security import log_failed_pin_attempt
+
+logger = logging.getLogger("pin_verify")
 
 router = APIRouter(prefix="/verify", tags=["Verification"])
 
@@ -47,8 +50,10 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
     if not pin:
         return None
 
+    pin = str(pin).strip()  # Ensure string and strip whitespace
     check_all = allowed_methods is None
     methods = set(allowed_methods or [])
+    logger.info(f"PIN verify: len={len(pin)}, methods={methods or 'ALL'}")
 
     # 1. System Admin PIN (hashed in system_settings)
     if check_all or "admin_pin" in methods:
@@ -56,17 +61,24 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
         if admin_pin_doc:
             stored = admin_pin_doc.get("pin_hash", "")
             if stored and verify_password(pin, stored):
+                logger.info("PIN matched: admin_pin (system_settings)")
                 return {"verifier_id": "system_admin", "verifier_name": "Admin", "method": "admin_pin"}
+            else:
+                logger.info(f"Admin PIN check: hash_exists={bool(stored)}, match=False")
+        else:
+            logger.info("Admin PIN check: no admin_pin doc in system_settings")
 
-    # 2. Manager/Admin PIN (plain text on user documents)
+    # 2. Manager/Admin PIN (on user documents)
     managers = None
     if check_all or "manager_pin" in methods:
         managers = await db.users.find(
             {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
         ).to_list(50)
+        logger.info(f"Manager PIN check: found {len(managers)} admin/manager/owner users")
         for mgr in managers:
-            mgr_pin = mgr.get("manager_pin", "") or mgr.get("owner_pin", "")
+            mgr_pin = str(mgr.get("manager_pin", "") or mgr.get("owner_pin", "") or "").strip()
             if mgr_pin and pin == mgr_pin:
+                logger.info(f"PIN matched: manager_pin for user {mgr.get('full_name', mgr.get('username', '?'))}")
                 return {
                     "verifier_id": mgr["id"],
                     "verifier_name": mgr.get("full_name", mgr["username"]),
@@ -79,16 +91,20 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
             managers = await db.users.find(
                 {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
             ).to_list(50)
-        for mgr in managers:
+        totp_users = [m for m in managers if m.get("totp_secret") and m.get("totp_enabled")]
+        logger.info(f"TOTP check: {len(totp_users)} users have TOTP enabled")
+        for mgr in totp_users:
             secret = mgr.get("totp_secret")
-            if secret and mgr.get("totp_enabled"):
-                totp = pyotp.TOTP(secret)
-                if totp.verify(pin, valid_window=1):
-                    return {
-                        "verifier_id": mgr["id"],
-                        "verifier_name": mgr.get("full_name", mgr["username"]),
-                        "method": "totp",
-                    }
+            totp = pyotp.TOTP(secret)
+            if totp.verify(pin, valid_window=1):
+                logger.info(f"PIN matched: totp for user {mgr.get('full_name', mgr.get('username', '?'))}")
+                return {
+                    "verifier_id": mgr["id"],
+                    "verifier_name": mgr.get("full_name", mgr["username"]),
+                    "method": "totp",
+                }
+    elif (check_all or "totp" in methods):
+        logger.info(f"TOTP skipped: len={len(pin)}, isdigit={pin.isdigit()}")
 
     # 4. Auditor PIN
     if check_all or "auditor_pin" in methods:
@@ -96,7 +112,7 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
             {"is_auditor": True, "active": True}, {"_id": 0}
         ).to_list(50)
         for auditor in auditors:
-            auditor_pin = auditor.get("auditor_pin", "")
+            auditor_pin = str(auditor.get("auditor_pin", "") or "").strip()
             if auditor_pin and pin == auditor_pin:
                 return {
                     "verifier_id": auditor["id"],
@@ -104,6 +120,7 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
                     "method": "auditor_pin",
                 }
 
+    logger.warning(f"PIN verify FAILED: no match found (pin_len={len(pin)}, checked_methods={methods or 'ALL'})")
     return None
 
 

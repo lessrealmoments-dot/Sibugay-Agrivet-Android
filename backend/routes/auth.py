@@ -175,11 +175,16 @@ async def update_profile(data: dict, user=Depends(get_current_user)):
 async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
     from routes.notifications import create_pin_notification
     from routes.verify import verify_pin_for_action
+    import logging
+    logger = logging.getLogger("pin_verify")
+
     pin = data.get("pin", "")
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
 
     action_key = data.get("action_key", "credit_sale_approval")
+    logger.info(f"verify-manager-pin called: action={action_key}, user={user.get('full_name', user.get('username', '?'))}, org={user.get('organization_id', 'none')}")
+
     verifier = await verify_pin_for_action(pin, action_key)
     if verifier:
         context = data.get("context")
@@ -192,7 +197,7 @@ async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
             "role": verifier.get("method", "admin"),
         }
 
-    return {"valid": False}
+    return {"valid": False, "detail": "No matching PIN/TOTP found. Check Settings > Security for accepted methods."}
 
 
 @router.post("/section-override")

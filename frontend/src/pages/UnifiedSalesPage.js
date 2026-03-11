@@ -1692,14 +1692,14 @@ export default function UnifiedSalesPage() {
                 <TabsList className="grid grid-cols-5 w-full">
                   <TabsTrigger value="cash" data-testid="pay-cash">Cash</TabsTrigger>
                   <TabsTrigger value="digital" data-testid="pay-digital">Digital</TabsTrigger>
-                  <TabsTrigger value="split" data-testid="pay-split" disabled={!selectedCustomer}>Split</TabsTrigger>
-                  <TabsTrigger value="partial" data-testid="pay-partial" disabled={!selectedCustomer}>Partial</TabsTrigger>
-                  <TabsTrigger value="credit" data-testid="pay-credit" disabled={!selectedCustomer}>Credit</TabsTrigger>
+                  <TabsTrigger value="split" data-testid="pay-split">Split</TabsTrigger>
+                  <TabsTrigger value="partial" data-testid="pay-partial">Partial</TabsTrigger>
+                  <TabsTrigger value="credit" data-testid="pay-credit">Credit</TabsTrigger>
                 </TabsList>
               </Tabs>
-              {!selectedCustomer && paymentType !== 'cash' && paymentType !== 'digital' && (
+              {!selectedCustomer && (paymentType === 'partial' || paymentType === 'credit') && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle size={12} /> Select a customer for split/partial/credit payment
+                  <AlertTriangle size={12} /> Select a customer first — {paymentType === 'credit' ? 'credit' : 'partial'} balance goes to Accounts Receivable
                 </p>
               )}
             </div>
@@ -1821,27 +1821,42 @@ export default function UnifiedSalesPage() {
             )}
             {paymentType === 'partial' && (
               <div>
-                <Label>Amount Paid Now</Label>
-                <Input
-                  data-testid="partial-amount"
-                  type="number"
-                  value={partialPayment}
-                  onChange={e => setPartialPayment(Math.min(parseFloat(e.target.value) || 0, grandTotal))}
-                  className="text-lg h-12"
-                />
-                <div className="flex justify-between mt-2 p-2 bg-amber-50 rounded-lg">
-                  <span className="text-sm text-amber-700">Balance (to AR)</span>
-                  <span className="font-bold text-amber-700">{formatPHP(grandTotal - partialPayment)}</span>
-                </div>
+                {selectedCustomer ? (
+                  <>
+                    <Label>Amount Paid Now</Label>
+                    <Input
+                      data-testid="partial-amount"
+                      type="number"
+                      value={partialPayment}
+                      onChange={e => setPartialPayment(Math.min(parseFloat(e.target.value) || 0, grandTotal))}
+                      className="text-lg h-12"
+                    />
+                    <div className="flex justify-between mt-2 p-2 bg-amber-50 rounded-lg">
+                      <span className="text-sm text-amber-700">Balance (to AR)</span>
+                      <span className="font-bold text-amber-700">{formatPHP(grandTotal - partialPayment)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-3 bg-amber-50 rounded-lg">
+                    <p className="text-sm text-amber-700 font-medium">Select a customer above</p>
+                    <p className="text-xs text-amber-600 mt-1">Partial payment balance goes to Accounts Receivable and must be assigned to a customer</p>
+                  </div>
+                )}
               </div>
             )}
 
             {paymentType === 'credit' && (
               <div className="p-3 bg-red-50 rounded-lg">
                 <p className="text-sm text-red-700 font-medium">Full Credit Sale</p>
-                <p className="text-xs text-red-600 mt-1">
-                  {formatPHP(grandTotal)} will be added to {selectedCustomer?.name}'s receivables
-                </p>
+                {selectedCustomer ? (
+                  <p className="text-xs text-red-600 mt-1">
+                    {formatPHP(grandTotal)} will be added to {selectedCustomer.name}'s receivables
+                  </p>
+                ) : (
+                  <p className="text-xs text-red-600 mt-1">
+                    Select a customer above — credit balance must be assigned to an account
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
                   <Shield size={12} /> Requires manager approval
                 </p>
@@ -1862,7 +1877,8 @@ export default function UnifiedSalesPage() {
                   (paymentType === 'split' && (
                     !digitalRefNumber.trim() ||
                     Math.abs((parseFloat(splitCash||0) + parseFloat(splitDigital||0)) - grandTotal) > 0.01
-                  ))
+                  )) ||
+                  ((paymentType === 'partial' || paymentType === 'credit') && !selectedCustomer)
                 }
               >
                 {saving ? 'Processing...' : (
@@ -2424,11 +2440,15 @@ export default function UnifiedSalesPage() {
               )}
             </div>
 
-            {/* QR option */}
+            {/* QR option — always visible alongside direct upload */}
             {digitalReceiptQR.token && (
-              <details className="mb-3">
-                <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 text-center">Or scan QR with phone</summary>
-                <div className="flex justify-center mt-2">
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">or upload from phone</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+                <div className="flex justify-center">
                   <div style={{ border: '2px solid #93c5fd', borderRadius: '10px', padding: '6px', background: '#fff' }}>
                     <img
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(`${window.location.origin}/upload/${digitalReceiptQR.token}`)}`}
@@ -2438,7 +2458,8 @@ export default function UnifiedSalesPage() {
                     />
                   </div>
                 </div>
-              </details>
+                <p className="text-[10px] text-slate-400 text-center mt-1.5">Scan QR with phone camera to upload screenshot</p>
+              </div>
             )}
 
             <button

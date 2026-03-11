@@ -1,0 +1,78 @@
+{
+  "summary": "Frontend testing of payment type tabs and QR code visibility fixes in UnifiedSalesPage checkout dialog. All 5 payment tabs (Cash, Digital, Split, Partial, Credit) are clickable without disabled attribute. Warning messages appear correctly for Partial/Credit without customer. QR code in receipt upload dialog is now always visible (verified in code - <details> replaced with always-visible <div>).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "bugs_verified_as_fixed": [
+      {
+        "bug": "Split, Partial, Credit payment tabs were disabled",
+        "fix_verified": "All 5 tabs (Cash, Digital, Split, Partial, Credit) are now clickable - disabled attribute is None for all tabs",
+        "status": "VERIFIED FIXED"
+      },
+      {
+        "bug": "QR code hidden behind toggle in receipt upload dialog",
+        "fix_verified": "Code confirms QR section uses always-visible <div> with comment 'QR option — always visible alongside direct upload' (lines 2443-2463)",
+        "status": "VERIFIED FIXED (code inspection)"
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_98.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "React duplicate key warnings in console: 'retail', 'wholesale', 'special' keys used multiple times - should add unique index to keys",
+    "HTML structure warnings: <span> cannot be child of <option> and <select> - hydration errors"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only test)",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "N/A - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Payment tab bug verified fixed. All 5 payment types (Cash, Digital, Split, Partial, Credit) are clickable in checkout dialog at /sales-new. Warning messages show correctly when no customer selected for Partial/Credit. QR code visibility fix verified in code - the <details> toggle was replaced with always-visible <div>. To fully test QR visibility, complete a digital sale and verify the receipt upload dialog shows QR alongside direct upload button.",
+  "test_details": {
+    "features_tested": [
+      {
+        "feature": "Payment Tab Clickability",
+        "test_method": "Playwright automation - clicked each tab and checked disabled attribute",
+        "results": {
+          "pay-cash": {"disabled": "None", "clickable": true},
+          "pay-digital": {"disabled": "None", "clickable": true},
+          "pay-split": {"disabled": "None", "clickable": true},
+          "pay-partial": {"disabled": "None", "clickable": true},
+          "pay-credit": {"disabled": "None", "clickable": true}
+        }
+      },
+      {
+        "feature": "Partial/Credit Warning Messages",
+        "test_method": "Playwright automation - verified warning text visible",
+        "results": {
+          "partial_warning_visible": true,
+          "credit_warning_visible": true,
+          "warning_text": "Select a customer first — partial/credit balance goes to Accounts Receivable"
+        }
+      },
+      {
+        "feature": "QR Code Visibility in Receipt Upload",
+        "test_method": "Code review of UnifiedSalesPage.js lines 2443-2463",
+        "results": {
+          "implementation": "Always-visible <div> with QR code image",
+          "comment_in_code": "QR option — always visible alongside direct upload",
+          "toggle_element_removed": true
+        }
+      }
+    ],
+    "test_credentials_used": {
+      "email": "janmarkeahig@gmail.com",
+      "password": "Aa@58798546521325",
+      "role": "Super Admin"
+    },
+    "test_url": "https://secure-detail-modals.preview.emergentagent.com/sales-new"
+  }
+}

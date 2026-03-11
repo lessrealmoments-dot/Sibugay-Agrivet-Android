@@ -164,10 +164,11 @@ def is_digital_payment(method: str) -> bool:
     if not method:
         return False
     m = method.lower().strip()
-    # Cash and Check stay in cashier
-    if m in ("cash", "check", "cheque"):
+    # These are payment types or non-digital methods — NOT digital wallet targets
+    NON_DIGITAL = {"cash", "check", "cheque", "credit", "partial", "split", ""}
+    if m in NON_DIGITAL:
         return False
-    return m in DIGITAL_PAYMENT_METHODS or m not in ("cash", "check", "cheque", "credit", "")
+    return True  # Everything else (GCash, Maya, Bank Transfer, etc.) is digital
 
 
 

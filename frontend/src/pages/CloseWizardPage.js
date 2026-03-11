@@ -765,40 +765,40 @@ export default function CloseWizardPage() {
                   const pm = (e.payment_method || 'cash').toLowerCase();
                   return pm !== 'credit';
                 });
-                // Compute running total — digital entries contribute 0 to cash (they go to digital wallet)
+                // Compute running total — includes ALL non-credit sales (cash + digital)
+                // For partial entries, only count the cash portion
                 let runTotal = 0;
+                let cashTotal = 0;
                 let digitalTotal = 0;
                 const entriesWithTotal = nonCreditEntries.map(e => {
                   const pm = (e.payment_method || 'cash').toLowerCase();
                   const lt = parseFloat(e.line_total || 0);
                   let cashAmt;
-                  if (isDigital(pm)) {
-                    // Digital platform (GCash, Maya, etc.) — money goes to digital wallet, not cash drawer
-                    cashAmt = 0;
-                    digitalTotal += lt;
-                  } else if (pm === 'partial') {
+                  if (pm === 'partial') {
                     cashAmt = parseFloat(e._partial_cash_portion || 0);
+                    cashTotal += cashAmt;
                   } else if (pm === 'split') {
                     cashAmt = parseFloat(e._split_cash_portion || lt);
+                    cashTotal += cashAmt;
+                  } else if (isDigital(pm)) {
+                    cashAmt = lt;
+                    digitalTotal += lt;
                   } else {
                     cashAmt = lt;
+                    cashTotal += lt;
                   }
                   runTotal += cashAmt;
                   return { ...e, _running: Math.round(runTotal * 100) / 100, _cash_amount: cashAmt, _is_digital: isDigital(pm) };
                 });
-                const totalCash = Math.round(runTotal * 100) / 100;
+                const totalNonCredit = Math.round(runTotal * 100) / 100;
                 const totalDigital = Math.round(digitalTotal * 100) / 100;
-                const totalAll = Math.round((runTotal + digitalTotal) * 100) / 100;
                 return (
                   <>
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex gap-3 text-sm flex-wrap">
-                        <span className="text-slate-500">Cash Sales: <strong className="text-emerald-700">{formatPHP(totalCash)}</strong></span>
+                        <span className="text-slate-500">Total Sales: <strong className="text-emerald-700">{formatPHP(totalNonCredit)}</strong></span>
                         {totalDigital > 0 && (
-                          <span className="text-slate-500">Digital: <strong className="text-violet-700">{formatPHP(totalDigital)}</strong></span>
-                        )}
-                        {totalDigital > 0 && (
-                          <span className="text-slate-400">Total: <strong className="text-slate-600">{formatPHP(totalAll)}</strong></span>
+                          <span className="text-violet-500 text-xs">(includes {formatPHP(totalDigital)} digital)</span>
                         )}
                         {dailyLog?.summary?.by_payment_method && Object.entries(dailyLog.summary.by_payment_method)
                           .filter(([method]) => method.toLowerCase() !== 'credit')
@@ -868,14 +868,14 @@ export default function CloseWizardPage() {
                                     )}
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-mono">
-                                    {e._is_digital ? (
-                                      <span className="text-violet-600" title="Goes to digital wallet">{formatPHP(e.line_total)}</span>
-                                    ) : pm === 'partial' ? (
+                                    {pm === 'partial' ? (
                                       <span title={`Full: ${formatPHP(e.line_total)}`}>{formatPHP(e._cash_amount || e.line_total)}</span>
+                                    ) : e._is_digital ? (
+                                      <span className="text-violet-600">{formatPHP(e.line_total)}</span>
                                     ) : formatPHP(e.line_total)}
                                   </td>
                                   <td className="px-3 py-1.5 text-right font-mono text-emerald-700">
-                                    {e._is_digital ? <span className="text-violet-400 text-[10px]">e-wallet</span> : formatPHP(e._running)}
+                                    {formatPHP(e._running)}
                                   </td>
                                 </tr>
                               );

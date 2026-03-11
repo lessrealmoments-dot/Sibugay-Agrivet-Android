@@ -200,13 +200,16 @@ Two-layer authorization for users without section permissions:
 - **Fix**: QR code is now always visible alongside the direct PC upload button, with a visual divider "or upload from phone"
 
 ### Credit/Partial Sale PIN Policy Fix
-- **Problem**: Credit approval dialog hardcoded "Manager PIN" with `maxLength={6}`, ignoring Admin PIN and TOTP as valid authorization methods. Did not reflect configured PIN policies from Settings > Security.
+- **Problem**: Credit approval dialog hardcoded "Manager PIN" with `maxLength={6}`, ignoring Admin PIN and TOTP as valid authorization methods. Did not reflect configured PIN policies from Settings > Security. **CRITICAL**: The `verifyManagerPin()` function referenced an undefined variable `cartItems` which caused a JavaScript crash before the API call was ever sent — users saw "Verification failed" for ALL PIN types.
+- **Root Cause**: `cartItems` does not exist in the component scope; the correct variable is `grandTotal` (already computed). The ReferenceError was caught by the try/catch and displayed as a generic connection error.
 - **Fix**: 
+  - Replaced `cartItems.reduce(...)` with `grandTotal` (already computed)
   - Removed `maxLength={6}` (admin PINs can be any length)
   - Title changed to "Authorization Required"
   - Shows all accepted methods: Admin PIN, Manager PIN, TOTP (with color-coded badges)
   - Input placeholder: "PIN or 6-digit TOTP code"
-  - Supports Enter key to submit
+  - Added debug logging to backend for future troubleshooting
+  - Better error messages on both frontend and backend
 
 ### Quick Customer Picker in Checkout Dialog
 - **Enhancement**: Added inline customer search directly in the checkout payment dialog

@@ -883,15 +883,14 @@ export default function UnifiedSalesPage() {
     if (!managerPin) { toast.error('Enter authorization code'); return; }
     
     try {
-      const total = cartItems.reduce((s, i) => s + i.quantity * i.price, 0);
       const customerName = selectedCustomer?.name || 'Walk-in';
       const res = await api.post('/auth/verify-manager-pin', {
         pin: managerPin.trim(),
         action_key: 'credit_sale_approval',
         context: {
           type: 'credit_sale',
-          description: `₱${total.toFixed(2)} ${paymentType} sale to ${customerName}`,
-          amount: total,
+          description: `₱${grandTotal.toFixed(2)} ${paymentType} sale to ${customerName}`,
+          amount: grandTotal,
           customer_name: customerName,
           payment_type: paymentType,
           branch_id: currentBranch?.id,

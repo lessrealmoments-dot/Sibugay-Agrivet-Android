@@ -298,16 +298,28 @@ export default function DailyLogPage() {
   }, [date, currentBranch]);
 
   // Walk-in sales = all non-credit entries with sequential running total
+  // Digital payments (GCash, Maya, etc.) are tracked separately — they go to digital wallet, not cash drawer
+  const CASH_METHODS = React.useMemo(() => new Set(['cash', 'check', 'cheque', 'credit', 'partial', 'split']), []);
   const walkinEntries = React.useMemo(() => {
     const filtered = logEntries.filter(e => (e.payment_method || 'cash').toLowerCase() !== 'credit');
     let running = 0;
+    let digitalRunning = 0;
     return filtered.map(e => {
-      running += parseFloat(e.line_total || 0);
-      return { ...e, walkin_running_total: Math.round(running * 100) / 100 };
+      const pm = (e.payment_method || 'cash').toLowerCase();
+      const lt = parseFloat(e.line_total || 0);
+      const isDigital = !CASH_METHODS.has(pm);
+      if (isDigital) {
+        digitalRunning += lt;
+      } else {
+        running += lt;
+      }
+      return { ...e, walkin_running_total: Math.round(running * 100) / 100, _is_digital: isDigital, _digital_running: Math.round(digitalRunning * 100) / 100 };
     });
-  }, [logEntries]);
+  }, [logEntries, CASH_METHODS]);
   const totalWalkinSales = walkinEntries.length > 0
     ? walkinEntries[walkinEntries.length - 1].walkin_running_total : 0;
+  const totalDigitalSales = walkinEntries.length > 0
+    ? walkinEntries[walkinEntries.length - 1]._digital_running : 0;
 
   const fetchReport = useCallback(async () => {
     if (!currentBranch) return;
@@ -502,7 +514,7 @@ export default function DailyLogPage() {
                       <td className="px-3 py-2 text-right font-mono">{formatPHP(e.unit_price)}</td>
                       <td className="px-3 py-2 text-right text-slate-400 text-xs">{e.discount > 0 ? formatPHP(e.discount) : '—'}</td>
                       <td className="px-3 py-2 text-right font-semibold font-mono">{formatPHP(e.line_total)}</td>
-                      <td className="px-3 py-2 text-right font-bold font-mono text-[#1A4D2E]">{formatPHP(e.walkin_running_total)}</td>
+                      <td className="px-3 py-2 text-right font-bold font-mono text-[#1A4D2E]">{e._is_digital ? <span className="text-violet-400 text-[10px]">e-wallet</span> : formatPHP(e.walkin_running_total)}</td>
                     </tr>
                   );
                 })}
@@ -551,9 +563,15 @@ export default function DailyLogPage() {
                   })()}
                 </div>
                 <div className="flex justify-between items-center border-t border-slate-200 pt-2">
-                  <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Total Walk-in Sales</span>
+                  <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">Cash Sales</span>
                   <span className="font-mono font-bold text-lg text-[#1A4D2E]">{formatPHP(totalWalkinSales)}</span>
                 </div>
+                {totalDigitalSales > 0 && (
+                  <div className="flex justify-between items-center pt-1">
+                    <span className="text-sm font-bold text-violet-600 uppercase tracking-wide">Digital Sales</span>
+                    <span className="font-mono font-bold text-lg text-violet-700">{formatPHP(totalDigitalSales)}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -655,9 +673,15 @@ export default function DailyLogPage() {
             <div className="mt-4 bg-slate-800 text-white rounded-xl px-5 py-4 flex flex-wrap gap-6 items-center justify-between print:bg-black">
               <div className="flex gap-6">
                 <div>
-                  <div className="text-xs text-slate-400 uppercase tracking-wide">Walk-in Sales</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wide">Cash Sales</div>
                   <div className="font-mono font-bold text-emerald-400">{formatPHP(totalWalkinSales)}</div>
                 </div>
+                {totalDigitalSales > 0 && (
+                  <div>
+                    <div className="text-xs text-slate-400 uppercase tracking-wide">Digital Sales</div>
+                    <div className="font-mono font-bold text-violet-400">{formatPHP(totalDigitalSales)}</div>
+                  </div>
+                )}
                 {logSummary.total_credit > 0 && (
                   <div>
                     <div className="text-xs text-slate-400 uppercase tracking-wide">New Credit</div>
@@ -898,7 +922,7 @@ export default function DailyLogPage() {
                   </SectionCard>
 
                   {/* ── CASH SALES BY CATEGORY ──────────────────── */}
-                  <SectionCard title={`Walk-in Sales Today — ${formatPHP(totalWalkinSales)}`} accent="emerald">
+                  <SectionCard title={`Cash Sales Today — ${formatPHP(totalWalkinSales)}${totalDigitalSales > 0 ? ` | Digital: ${formatPHP(totalDigitalSales)}` : ''}`} accent="emerald">
                     {walkinEntries.length > 0 ? (
                       <div className="space-y-1">
                         {(() => {
@@ -929,9 +953,15 @@ export default function DailyLogPage() {
                           })()}
                         </div>
                         <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
-                          <span>Total Walk-in Sales</span>
+                          <span>Cash Sales</span>
                           <span className="text-emerald-700">{formatPHP(totalWalkinSales)}</span>
                         </div>
+                        {totalDigitalSales > 0 && (
+                          <div className="flex justify-between font-bold text-sm pt-1">
+                            <span>Digital Sales</span>
+                            <span className="text-violet-700">{formatPHP(totalDigitalSales)}</span>
+                          </div>
+                        )}
                       </div>
                     ) : <p className="text-sm text-slate-400">No walk-in sales today</p>}
                   </SectionCard>

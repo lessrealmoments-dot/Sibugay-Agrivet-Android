@@ -2131,7 +2131,7 @@ export default function AuditCenterPage() {
               <div>
                 <Label className="text-xs text-slate-500">Enter Admin/Auditor PIN or TOTP</Label>
                 <Input
-                  type="password" autoComplete="off"
+                  type="password" autoComplete="new-password"
                   value={bulkVerifyPin}
                   onChange={e => setBulkVerifyPin(e.target.value)}
                   placeholder="PIN or TOTP code"

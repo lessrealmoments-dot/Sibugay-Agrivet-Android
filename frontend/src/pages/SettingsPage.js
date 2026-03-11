@@ -46,7 +46,7 @@ function MyPinForm({ hasExistingPin }) {
       {hasExistingPin && (
         <div>
           <Label className="text-xs text-slate-500">Current PIN</Label>
-          <Input data-testid="my-current-pin" type="password" autoComplete="off" value={currentPin}
+          <Input data-testid="my-current-pin" type="password" autoComplete="new-password" value={currentPin}
             onChange={e => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
             placeholder="Enter current PIN" className="mt-1" />
         </div>
@@ -64,7 +64,7 @@ function MyPinForm({ hasExistingPin }) {
       </div>
       <div>
         <Label className="text-xs text-slate-500">Confirm PIN</Label>
-        <Input data-testid="my-confirm-pin" type="password" autoComplete="off" value={confirmPin}
+        <Input data-testid="my-confirm-pin" type="password" autoComplete="new-password" value={confirmPin}
           onChange={e => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
           placeholder="Re-enter PIN" className="mt-1" />
       </div>
@@ -104,17 +104,17 @@ function ChangePasswordForm() {
     <div className="max-w-sm space-y-3">
       <div>
         <Label className="text-xs text-slate-500">Current Password</Label>
-        <Input data-testid="current-password" type="password" autoComplete="off" value={currentPw}
+        <Input data-testid="current-password" type="password" autoComplete="new-password" value={currentPw}
           onChange={e => setCurrentPw(e.target.value)} placeholder="Enter current password" className="mt-1" />
       </div>
       <div>
         <Label className="text-xs text-slate-500">New Password</Label>
-        <Input data-testid="new-password" type="password" autoComplete="off" value={newPw}
+        <Input data-testid="new-password" type="password" autoComplete="new-password" value={newPw}
           onChange={e => setNewPw(e.target.value)} placeholder="Min. 6 characters" className="mt-1" />
       </div>
       <div>
         <Label className="text-xs text-slate-500">Confirm Password</Label>
-        <Input data-testid="confirm-password" type="password" autoComplete="off" value={confirmPw}
+        <Input data-testid="confirm-password" type="password" autoComplete="new-password" value={confirmPw}
           onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter password" className="mt-1" />
       </div>
       {newPw && confirmPw && newPw !== confirmPw && <p className="text-xs text-red-500">Passwords do not match</p>}
@@ -441,7 +441,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <Label className="text-xs text-slate-500">Confirm PIN</Label>
-                    <Input data-testid="audit-pin-confirm" type="password" autoComplete="off" value={confirmAuditPin}
+                    <Input data-testid="audit-pin-confirm" type="password" autoComplete="new-password" value={confirmAuditPin}
                       onChange={e => setConfirmAuditPin(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Re-enter PIN" className="mt-1" />
                   </div>
                   {newAuditPin && confirmAuditPin && newAuditPin !== confirmAuditPin && <p className="text-xs text-red-500">PINs do not match</p>}
@@ -658,7 +658,7 @@ export default function SettingsPage() {
                           </TableCell>
                           <TableCell>
                             {state.is_auditor && (
-                              <Input type="password" autoComplete="off" value={state.auditor_pin}
+                              <Input type="password" autoComplete="new-password" value={state.auditor_pin}
                                 onChange={e => updateAuditorEdit(u.id, 'auditor_pin', e.target.value.replace(/\D/g, '').slice(0, 8))}
                                 placeholder="4-8 digits" className="h-8 w-28 text-sm" />
                             )}

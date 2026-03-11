@@ -1576,7 +1576,7 @@ export default function CloseWizardPage() {
                   <div className="flex gap-2 mt-1">
                     <Input
                       data-testid="manager-pin-input"
-                      type="password" autoComplete="off"
+                      type="password" autoComplete="new-password"
                       value={managerPin}
                       onChange={e => setManagerPin(e.target.value)}
                       placeholder="Enter manager PIN"
@@ -1871,7 +1871,7 @@ export default function CloseWizardPage() {
                   ⚠ Monthly CA limit exceeded — manager PIN required
                 </p>
                 <div className="flex gap-2">
-                  <Input type="password" autoComplete="off" value={expCaPin} onChange={e => setExpCaPin(e.target.value)}
+                  <Input type="password" autoComplete="new-password" value={expCaPin} onChange={e => setExpCaPin(e.target.value)}
                     placeholder="Manager PIN" className="h-8 text-sm flex-1" maxLength={6}
                     onKeyDown={e => e.key === 'Enter' && verifyExpCaPin()} />
                   <Button size="sm" onClick={verifyExpCaPin} className="h-8 bg-red-700 text-white">Verify</Button>

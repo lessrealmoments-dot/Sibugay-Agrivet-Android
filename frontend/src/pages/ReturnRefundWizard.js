@@ -358,7 +358,7 @@ export default function ReturnRefundWizard() {
                     onKeyDown={handleSearchKeyDown}
                     onBlur={() => setTimeout(() => { setProductMatches([]); setActiveSearchIdx(-1); }, 150)}
                     placeholder="Type product name or SKU..."
-                    autoFocus autoComplete="off"
+                    autoFocus autoComplete="new-password"
                   />
                 </div>
                 {productMatches.length > 0 && (

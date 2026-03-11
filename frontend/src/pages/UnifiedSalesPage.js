@@ -2388,7 +2388,7 @@ export default function UnifiedSalesPage() {
               <div>
                 <label className="text-xs font-medium text-slate-600 block mb-1">Manager PIN *</label>
                 <Input
-                  type="password" autoComplete="off"
+                  type="password" autoComplete="new-password"
                   value={voidPin}
                   onChange={e => setVoidPin(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleVoidInvoice()}

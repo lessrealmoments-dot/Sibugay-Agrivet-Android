@@ -721,7 +721,7 @@ export default function PurchaseOrderPage() {
                         onChange={e => { setSupplierSearch(e.target.value); setHeader(h => ({ ...h, vendor: e.target.value })); }}
                         onFocus={() => supplierSearch && setShowSupplierDd(true)}
                         placeholder="Type or search supplier..."
-                        autoComplete="off"
+                        autoComplete="new-password"
                       />
                   </div>
                   {showSupplierDd && (
@@ -1642,7 +1642,7 @@ export default function PurchaseOrderPage() {
             <div>
               <Label className="text-xs">Admin PIN or TOTP</Label>
               <Input
-                type="password" autoComplete="off"
+                type="password" autoComplete="new-password"
                 value={reviewPin}
                 onChange={e => setReviewPin(e.target.value)}
                 placeholder="Enter PIN..."
@@ -1675,7 +1675,7 @@ export default function PurchaseOrderPage() {
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <p className="text-sm text-slate-500">Enter your PIN to confirm cancellation.</p>
-            <Input type="password" autoComplete="off" value={cancelPin} onChange={e => setCancelPin(e.target.value)}
+            <Input type="password" autoComplete="new-password" value={cancelPin} onChange={e => setCancelPin(e.target.value)}
               placeholder="Enter PIN..." onKeyDown={e => { if (e.key === 'Enter') confirmCancelPO(); }}
               data-testid="cancel-po-pin-input" />
             <div className="flex gap-2">
@@ -1699,7 +1699,7 @@ export default function PurchaseOrderPage() {
           </DialogHeader>
           <div className="space-y-3 mt-2">
             <p className="text-sm text-amber-700">This will reverse inventory and payments for <b>{reopenPinTarget?.po_number}</b>.</p>
-            <Input type="password" autoComplete="off" value={reopenPin} onChange={e => setReopenPin(e.target.value)}
+            <Input type="password" autoComplete="new-password" value={reopenPin} onChange={e => setReopenPin(e.target.value)}
               placeholder="Enter PIN..." onKeyDown={e => { if (e.key === 'Enter') confirmReopenPO(); }}
               data-testid="reopen-po-pin-input" />
             <div className="flex gap-2">

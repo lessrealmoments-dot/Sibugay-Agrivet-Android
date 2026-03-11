@@ -999,7 +999,7 @@ export default function ProductsPage() {
                                   className={`h-8 pl-7 text-sm ${hasErr ? 'border-red-400 bg-red-50/50' : ''}`}
                                   data-testid={`qr-parent-${row.id}`}
                                   ref={el => { dropdownRefs.current[row.id] = el; }}
-                                  autoComplete="off"
+                                  autoComplete="new-password"
                                 />
                                 {row.parentMatches.length > 0 && (() => {
                                   const inputEl = dropdownRefs.current[row.id];

@@ -99,7 +99,7 @@ export default function SmartProductSearch({ onSelect, branchId, onCreateNew }) 
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           placeholder="Type product name or scan barcode..."
           className="w-full h-9 pl-8 pr-3 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#1A4D2E]/30 focus:border-[#1A4D2E] bg-white"
-          autoComplete="off"
+          autoComplete="new-password"
         />
       </div>
 

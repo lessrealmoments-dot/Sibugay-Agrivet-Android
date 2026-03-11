@@ -262,7 +262,7 @@ export default function ViewReceiptsPage() {
             )}
 
             <input
-              type="password" autoComplete="off"
+              type="password" autoComplete="new-password"
               value={pin}
               onChange={e => setPin(e.target.value)}
               placeholder="Enter PIN…"

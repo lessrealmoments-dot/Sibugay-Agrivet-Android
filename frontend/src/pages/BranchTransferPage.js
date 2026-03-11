@@ -1034,7 +1034,7 @@ export default function BranchTransferPage() {
                                     className="h-8 pl-7 text-sm"
                                     data-testid={`product-search-${row.id}`}
                                     ref={el => { dropdownRefs.current[row.id] = el; }}
-                                    autoComplete="off"
+                                    autoComplete="new-password"
                                   />
                                   {row.productMatches?.length > 0 && (() => {
                                     const el = dropdownRefs.current[row.id];

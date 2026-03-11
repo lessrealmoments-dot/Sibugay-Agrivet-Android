@@ -323,12 +323,12 @@ export default function AccountsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">{editingUser ? 'New Password (leave blank to keep)' : 'Password *'}</Label>
-                <Input type="password" autoComplete="off" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
+                <Input type="password" autoComplete="new-password" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
                   placeholder="Min. 6 characters" className="h-9" data-testid="user-password" />
               </div>
               <div>
                 <Label className="text-xs">Confirm Password</Label>
-                <Input type="password" autoComplete="off" value={form.confirm_password} onChange={e => setForm({...form, confirm_password: e.target.value})}
+                <Input type="password" autoComplete="new-password" value={form.confirm_password} onChange={e => setForm({...form, confirm_password: e.target.value})}
                   placeholder="Repeat password" className="h-9" />
               </div>
             </div>
@@ -337,7 +337,7 @@ export default function AccountsPage() {
                 <Label className="text-xs flex items-center gap-1">
                   <KeyRound size={11} /> Manager PIN (4-6 digits, optional)
                 </Label>
-                <Input type="password" autoComplete="off" value={form.manager_pin} onChange={e => setForm({...form, manager_pin: e.target.value})}
+                <Input type="password" autoComplete="new-password" value={form.manager_pin} onChange={e => setForm({...form, manager_pin: e.target.value})}
                   placeholder="Used for credit sale approvals" className="h-9 tracking-widest text-center"
                   maxLength={6} data-testid="user-pin" />
                 <p className="text-[10px] text-slate-400 mt-1">Admins auto-approve credit sales. PINs are for when they hand control to a cashier.</p>
@@ -373,14 +373,14 @@ export default function AccountsPage() {
             </div>
             <div>
               <Label className="text-xs">New PIN (4-6 digits)</Label>
-              <Input type="password" autoComplete="off" value={pinForm.pin} onChange={e => setPinForm({...pinForm, pin: e.target.value})}
+              <Input type="password" autoComplete="new-password" value={pinForm.pin} onChange={e => setPinForm({...pinForm, pin: e.target.value})}
                 placeholder="Leave blank to clear PIN" className="h-10 text-center text-2xl tracking-widest"
                 maxLength={6} data-testid="pin-input" />
             </div>
             {pinForm.pin && (
               <div>
                 <Label className="text-xs">Confirm PIN</Label>
-                <Input type="password" autoComplete="off" value={pinForm.confirm} onChange={e => setPinForm({...pinForm, confirm: e.target.value})}
+                <Input type="password" autoComplete="new-password" value={pinForm.confirm} onChange={e => setPinForm({...pinForm, confirm: e.target.value})}
                   placeholder="Repeat PIN" className="h-10 text-center text-2xl tracking-widest" maxLength={6} />
               </div>
             )}

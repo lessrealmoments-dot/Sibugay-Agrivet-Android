@@ -286,7 +286,7 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
                       ) : (
                         <div className="space-y-2">
                           <p className="text-sm text-red-600 text-center font-medium">Funds will be returned to {expense.fund_source || 'cashier'}.</p>
-                          <Input type="password" autoComplete="off" placeholder="Enter PIN to confirm" value={voidPin}
+                          <Input type="password" autoComplete="new-password" placeholder="Enter PIN to confirm" value={voidPin}
                             onChange={e => setVoidPin(e.target.value)} data-testid="expense-void-pin"
                             onKeyDown={e => { if (e.key === 'Enter' && voidPin) handleDelete(); }} />
                           <div className="flex gap-2">

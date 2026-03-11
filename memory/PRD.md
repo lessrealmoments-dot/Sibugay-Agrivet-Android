@@ -198,3 +198,18 @@ Two-layer authorization for users without section permissions:
 ### Receipt Upload QR Code Visibility Fix
 - **Problem**: QR code for phone upload was hidden behind a `<details>` toggle, requiring user to click to expand
 - **Fix**: QR code is now always visible alongside the direct PC upload button, with a visual divider "or upload from phone"
+
+### Credit/Partial Sale PIN Policy Fix
+- **Problem**: Credit approval dialog hardcoded "Manager PIN" with `maxLength={6}`, ignoring Admin PIN and TOTP as valid authorization methods. Did not reflect configured PIN policies from Settings > Security.
+- **Fix**: 
+  - Removed `maxLength={6}` (admin PINs can be any length)
+  - Title changed to "Authorization Required"
+  - Shows all accepted methods: Admin PIN, Manager PIN, TOTP (with color-coded badges)
+  - Input placeholder: "PIN or 6-digit TOTP code"
+  - Supports Enter key to submit
+
+### Quick Customer Picker in Checkout Dialog
+- **Enhancement**: Added inline customer search directly in the checkout payment dialog
+- When no customer is selected, a search input appears with live dropdown results
+- Users can pick a customer without leaving the checkout flow (especially useful for Partial/Credit)
+- Selected customer shows balance and credit limit, with an X button to clear

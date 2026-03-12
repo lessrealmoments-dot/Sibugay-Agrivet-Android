@@ -1370,9 +1370,9 @@ export default function CloseWizardPage() {
                 <span>Total Expenses</span>
                 <span className="text-red-600">{formatPHP(preview?.total_expenses || 0)}</span>
               </div>
-              {(preview?.total_safe_expenses || 0) > 0 && (
+              {((preview?.total_safe_expenses || 0) > 0 || (preview?.total_digital_expenses || 0) > 0) && (
                 <div className="flex justify-between text-xs px-1 text-slate-500">
-                  <span>Drawer: {formatPHP(preview?.total_cashier_expenses || 0)} | Safe: {formatPHP(preview?.total_safe_expenses || 0)}</span>
+                  <span>Drawer: {formatPHP(preview?.total_cashier_expenses || 0)}{(preview?.total_safe_expenses || 0) > 0 ? ` | Safe: ${formatPHP(preview?.total_safe_expenses || 0)}` : ''}{(preview?.total_digital_expenses || 0) > 0 ? ` | Digital: ${formatPHP(preview?.total_digital_expenses || 0)}` : ''}</span>
                 </div>
               )}
             </div>
@@ -1579,6 +1579,9 @@ export default function CloseWizardPage() {
                   <div className="flex justify-between"><span className="text-red-600">- Cashier Expenses</span><span className="font-mono font-semibold text-red-600">{formatPHP(preview?.total_cashier_expenses ?? preview?.total_expenses ?? 0)}</span></div>
                   {(preview?.total_safe_expenses || 0) > 0 && (
                     <div className="flex justify-between text-xs"><span className="text-red-400 pl-3">Safe expenses (not from drawer)</span><span className="font-mono text-red-400">{formatPHP(preview?.total_safe_expenses || 0)}</span></div>
+                  )}
+                  {(preview?.total_digital_expenses || 0) > 0 && (
+                    <div className="flex justify-between text-xs"><span className="text-cyan-500 pl-3">Digital expenses (not from drawer)</span><span className="font-mono text-cyan-500">{formatPHP(preview?.total_digital_expenses || 0)}</span></div>
                   )}
                   <Separator />
                   <div className="flex justify-between font-bold text-base"><span>Expected in Drawer</span><span className="font-mono">{formatPHP(expectedCash)}</span></div>

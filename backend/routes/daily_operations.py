@@ -267,12 +267,16 @@ async def get_daily_close_preview(
         expenses.append(exp)
 
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
-    # Only cashier-sourced expenses affect the drawer; safe-paid expenses don't
+    # Only cashier-sourced expenses affect the drawer; safe and digital don't
     total_cashier_expenses = round(sum(
         float(e.get("amount", 0)) for e in expenses
-        if e.get("fund_source", "cashier") != "safe"
+        if e.get("fund_source", "cashier") == "cashier"
     ), 2)
-    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
+    total_safe_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source") == "safe"
+    ), 2)
+    total_digital_expenses = round(total_expenses - total_cashier_expenses - total_safe_expenses, 2)
 
     # ── Digital payments today (GCash, Maya, etc.) ───────────────────────────
     digital_invoices = await db.invoices.find(
@@ -404,7 +408,7 @@ async def get_daily_close_preview(
         "total_expenses": total_expenses,
         "total_cashier_expenses": total_cashier_expenses,
         "total_safe_expenses": total_safe_expenses,
-        # Summary
+        "total_digital_expenses": total_digital_expenses,
         "total_cash_in": round(total_cash_in, 2),
         "expected_counter": expected_counter,
         # Fund transfers affecting cashier
@@ -864,11 +868,13 @@ async def batch_close_preview(
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
     total_cashier_expenses = round(sum(
         float(e.get("amount", 0)) for e in expenses
-        if e.get("fund_source", "cashier") != "safe"
+        if e.get("fund_source", "cashier") == "cashier"
     ), 2)
-    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
-
-    # Split payments: cash portion goes to cashier
+    total_safe_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source") == "safe"
+    ), 2)
+    total_digital_expenses = round(total_expenses - total_cashier_expenses - total_safe_expenses, 2)
     split_invs_batch = await db.invoices.find(
         {"branch_id": branch_id, "order_date": date_filter,
          "fund_source": "split", "status": {"$ne": "voided"}},
@@ -967,8 +973,8 @@ async def batch_close_preview(
         "total_expenses": total_expenses,
         "total_cashier_expenses": total_cashier_expenses,
         "total_safe_expenses": total_safe_expenses,
+        "total_digital_expenses": total_digital_expenses,
         "total_cash_in": round(total_cash_in, 2),
-        "expected_counter": expected_counter,
         "capital_to_cashier": capital_to_cashier,
         "safe_to_cashier": safe_to_cashier,
         "cashier_to_safe": cashier_to_safe,
@@ -1091,9 +1097,13 @@ async def close_day(data: dict, user=Depends(get_current_user)):
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
     total_cashier_expenses = round(sum(
         float(e.get("amount", 0)) for e in expenses
-        if e.get("fund_source", "cashier") != "safe"
+        if e.get("fund_source", "cashier") == "cashier"
     ), 2)
-    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
+    total_safe_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source") == "safe"
+    ), 2)
+    total_digital_expenses = round(total_expenses - total_cashier_expenses - total_safe_expenses, 2)
 
     # Split payment cash portions
     split_close = await db.invoices.find(
@@ -1186,6 +1196,7 @@ async def close_day(data: dict, user=Depends(get_current_user)):
         "total_expenses": total_expenses,
         "total_cashier_expenses": total_cashier_expenses,
         "total_safe_expenses": total_safe_expenses,
+        "total_digital_expenses": total_digital_expenses,
         "expenses": expenses,
         "total_cash_in": round(total_cash_in, 2),
         "expected_counter": expected_counter,
@@ -1399,11 +1410,13 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
     total_expenses = round(sum(float(e.get("amount", 0)) for e in expenses), 2)
     total_cashier_expenses = round(sum(
         float(e.get("amount", 0)) for e in expenses
-        if e.get("fund_source", "cashier") != "safe"
+        if e.get("fund_source", "cashier") == "cashier"
     ), 2)
-    total_safe_expenses = round(total_expenses - total_cashier_expenses, 2)
-
-    # Per-day expense breakdown
+    total_safe_expenses = round(sum(
+        float(e.get("amount", 0)) for e in expenses
+        if e.get("fund_source") == "safe"
+    ), 2)
+    total_digital_expenses = round(total_expenses - total_cashier_expenses - total_safe_expenses, 2)
     for d in dates:
         if d not in daily_breakdown:
             daily_breakdown[d] = {"sales_by_method": {}, "total": 0}
@@ -1503,6 +1516,7 @@ async def batch_close_days(data: dict, user=Depends(get_current_user)):
         "total_expenses": total_expenses,
         "total_cashier_expenses": total_cashier_expenses,
         "total_safe_expenses": total_safe_expenses,
+        "total_digital_expenses": total_digital_expenses,
         "expenses": expenses,
         "total_cash_in": round(total_cash_in, 2),
         "expected_counter": expected_counter,

@@ -28,7 +28,7 @@ const EXPENSE_CATEGORIES = [
   "Equipment", "Miscellaneous"
 ];
 
-const PAYMENT_METHODS = ["Cash", "Check", "Bank Transfer", "GCash", "Maya", "Credit Card"];
+const PAYMENT_METHODS = ["Cash", "Cash (from Safe)", "GCash", "Maya", "Bank Transfer", "Check", "Credit Card"];
 
 export default function ExpensesPage() {
   const { currentBranch } = useAuth();
@@ -540,6 +540,11 @@ export default function ExpensesPage() {
                   </TableCell>
                   <TableCell>
                     <Badge className={`text-[10px] ${paymentMethodBadge(e.payment_method)}`}>{e.payment_method || 'Cash'}</Badge>
+                    {e.fund_source && e.fund_source !== 'cashier' && (
+                      <div className={`text-[9px] mt-0.5 font-medium ${e.fund_source === 'safe' ? 'text-orange-600' : 'text-cyan-600'}`}>
+                        {e.fund_source === 'safe' ? 'from Safe' : 'from Digital'}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-xs text-slate-500 font-mono">{e.reference_number || '-'}</TableCell>
                   <TableCell className="text-right font-semibold text-red-600">{formatPHP(e.amount)}</TableCell>

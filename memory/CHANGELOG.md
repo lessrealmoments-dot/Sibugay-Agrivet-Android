@@ -1,5 +1,17 @@
 # AgriBooks Changelog
 
+## Mar 12, 2026 — QB-Style Receive Payments Redesign + Discount Feature
+- **Redesigned** PaymentsPage.js to match QuickBooks "Customer Payment" layout:
+  - Inline customer search with balance display on top-right
+  - Payment method as icon buttons (Cash, Check, Bank, GCash, Maya)
+  - Invoice table with QB columns: Date, Number, Type, Orig. Amt, Amt. Due, Discount, Payment + Totals row
+  - "Amounts for Selected Invoices" summary panel (Amount Due, Applied, Discount, Remaining)
+  - Memo + Save & Apply / Clear at bottom
+- **Added Discount on Interest/Penalty**: Per-invoice discount input with % and fixed amount toggle
+  - Backend records discounts as `method: "Discount"` payment entries (no wallet impact, audit trail)
+  - Only available on interest_charge and penalty_charge invoice types
+- Testing: 32/32 frontend + 9/10 backend tests passed
+
 ## Mar 12, 2026 — Close Wizard "Find & Pay" Panel Fix + Enhancement
 - **Fixed 3 bugs** in CloseWizardPage.js Step 3 "Receive payment for a customer (not listed above)" panel:
   1. `overflow-hidden` CSS on container clipped the customer search dropdown

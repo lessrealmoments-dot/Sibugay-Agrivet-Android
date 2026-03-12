@@ -277,3 +277,9 @@ Two-layer authorization for users without section permissions:
 - **Enhancement**: Rebuilt the panel as a mini-PaymentsPage with: multi-invoice per-row allocation, interest generation, penalty generation with configurable %, auto-apply with quick total input, proper use of `/customers/{id}/receive-payment` endpoint for multi-allocation. After payment, wizard data auto-refreshes so the AR payments table updates immediately.
 - **Files Changed**: `CloseWizardPage.js`
 
+
+### QuickBooks-Style Receive Payments Page Redesign (Mar 12, 2026)
+- **Change**: Complete layout rearrangement of `PaymentsPage.js` to match QuickBooks "Customer Payment" screen.
+- **Layout**: (1) Inline customer search at top with "RECEIVED FROM" label and Customer Balance on right, (2) Payment method as icon buttons (Cash, Check, Bank, GCash, Maya), (3) QB-style invoice table with Date, Number, Type, Orig. Amt, Amt. Due, Discount, Payment columns + Totals row, (4) "Amounts for Selected Invoices" summary panel at bottom-right, (5) Memo field at bottom-left.
+- **New Feature — Discount on Interest/Penalty**: Added discount input column for interest_charge and penalty_charge invoice types only. Supports both fixed amount and percentage toggle. Backend records discounts as separate payment entries with `method: "Discount"` and `fund_source: "discount"` (no wallet impact) for proper audit trail.
+- **Files Changed**: `PaymentsPage.js`, `routes/accounting.py`

@@ -283,3 +283,11 @@ Two-layer authorization for users without section permissions:
 - **Layout**: (1) Inline customer search at top with "RECEIVED FROM" label and Customer Balance on right, (2) Payment method as icon buttons (Cash, Check, Bank, GCash, Maya), (3) QB-style invoice table with Date, Number, Type, Orig. Amt, Amt. Due, Discount, Payment columns + Totals row, (4) "Amounts for Selected Invoices" summary panel at bottom-right, (5) Memo field at bottom-left.
 - **New Feature — Discount on Interest/Penalty**: Added discount input column for interest_charge and penalty_charge invoice types only. Supports both fixed amount and percentage toggle. Backend records discounts as separate payment entries with `method: "Discount"` and `fund_source: "discount"` (no wallet impact) for proper audit trail.
 - **Files Changed**: `PaymentsPage.js`, `routes/accounting.py`
+
+### Inline Interest Rate Override + Save to Customer (Mar 12, 2026)
+- **Problem**: Users couldn't generate interest for customers without a pre-configured rate — they had to leave the Receive Payments page and go to Customers → Edit to set the rate first.
+- **Fix**: Added editable interest rate input directly in the charges section. Pre-fills with customer's saved rate (if any), or allows entering a new one. Preview updates in real-time (debounced).
+- **"Save to profile" option**: When the entered rate differs from the saved rate, a checkbox appears: "Save X%/mo to this customer's profile." If checked, rate is persisted when generating interest.
+- **Backend**: `generate-interest` and `charges-preview` endpoints accept `rate_override` parameter. `generate-interest` also accepts `save_rate` boolean.
+- **Interest formula**: `principal × (rate/100/30) × days`. Computes from `last_interest_date` (not due date) to prevent double-charging.
+- **Files Changed**: `PaymentsPage.js`, `routes/accounting.py`

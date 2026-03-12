@@ -1,5 +1,13 @@
 # AgriBooks Changelog
 
+## Mar 12, 2026 — Inline Interest Rate Override
+- Added editable interest rate input in Receive Payments charges section
+- Pre-fills with customer's saved rate; allows override for customers with no rate
+- "Save to customer profile" checkbox when rate differs from saved
+- Backend `generate-interest` + `charges-preview` accept `rate_override` param
+- Interest formula: `principal × (rate/100/30) × days from last_interest_date` (prevents double-charging)
+- Testing: 9/9 backend + all frontend UI tests passed
+
 ## Mar 12, 2026 — QB-Style Receive Payments Redesign + Discount Feature
 - **Redesigned** PaymentsPage.js to match QuickBooks "Customer Payment" layout:
   - Inline customer search with balance display on top-right

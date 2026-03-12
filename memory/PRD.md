@@ -27,16 +27,33 @@ Full-stack POS, Inventory, and Accounting platform for Philippine retail busines
 - Expected counter formula only subtracts cashier expenses from drawer balance
 - Frontend shows fund source indicator on expense rows
 
-## Prioritized Backlog
+### Sales History Enhancement (2026-03-12)
+- **Removed date dependency** — shows ALL sales with proper pagination (25/page)
+- **Sortable columns:** Sale #, Customer, Total, Date (click to toggle asc/desc)
+- **Search:** by invoice number or customer name
+- **Filter chips:** All, Paid, Partial, Credit, Voided
+- **Pagination:** First/Prev/Next/Last with page counter
+- **Matches PO page pattern** — consistent UX across the app
 
-### P0 (Immediate)
-- User verification of expense fund routing changes
+### PIN Security Fixes (2026-03-12)
+- **SalesOrderPage credit PIN enforcement:** Credit saves now require manager PIN dialog
+- **Manager PIN branch restriction:** Manager PINs now only work on their assigned branch. Admin PIN, TOTP, and Auditor PIN still work across all branches.
+- **Backend `verify_pin_for_action`** accepts optional `branch_id` for branch-aware verification
+
+### Date Editing for PO & SO (2026-03-12)
+- **Invoice/SO edits** now support `order_date` and `invoice_date` changes
+- **PO edits** now support `purchase_date` changes
+- **Closed-day validation:** Cannot change a date to one that's already been closed
+- **Closed-day edits:** Editing a transaction from a closed day requires manager PIN; financial changes auto-create a journal entry
+- **SaleDetailModal** shows date input in edit mode with closed-day warnings
+- **PO Detail** shows date input in edit mode
+
+## Prioritized Backlog
 
 ### P1 (Upcoming)
 - Visual "trail" indicator for partial invoices receiving same-day payments
 - Implement "Smart Journal Entries"
 - Research over-limit Cash Advances logic
-- "Quick-action menu" on Sales History page
 - Investigate "Closing History" page need
 - Convert app to PWA
 - Weight-embedded EAN-13 barcode recognition
@@ -49,24 +66,23 @@ Full-stack POS, Inventory, and Accounting platform for Philippine retail busines
 - Create admin tool to fix broken Purchase Orders in DB
 - "Weigh & send" mode for phone scanner
 - Kiosk Mode for POS
-- Advanced barcode scan reporting
+- Advanced Reporting on barcode scan history
 - User Roles & Presets
 - "Pack & Ship" Workflow
 - Smarter Price Suggestions
+- Refactor SuperAdminPage.jsx (>1000 lines monolith)
+- Fix AdminLoginPage.jsx window.location.href → useNavigate
 
-### Refactoring
-- SuperAdminPage.jsx: Monolithic (>1000 lines), needs breakdown
-- AdminLoginPage.jsx: Uses `window.location.href` instead of `useNavigate`
+## Key Files Modified This Session
+- `frontend/src/pages/SalesPage.js` — Full rewrite
+- `frontend/src/pages/SalesOrderPage.js` — Added PIN dialog
+- `frontend/src/components/SaleDetailModal.js` — Added date editing
+- `frontend/src/pages/PurchaseOrderPage.js` — Added date editing
+- `backend/routes/invoices.py` — Enhanced list, date editing, journal entry
+- `backend/routes/verify.py` — Branch-aware PIN verification
+- `backend/routes/auth.py` — Pass branch_id to PIN verification
+- `backend/routes/purchase_orders.py` — Date editing with closed-day check
 
-## Key Files
-- `backend/routes/accounting.py` - Expense creation, AR, fund routing
-- `backend/routes/daily_operations.py` - Daily close preview, expected counter
-- `backend/utils/helpers.py` - Wallet update helpers
-- `frontend/src/pages/ExpensesPage.js` - Expense UI
-- `frontend/src/pages/CloseWizardPage.js` - Close wizard
-- `frontend/src/pages/PaymentsPage.jsx` - AR payments
-
-## Credentials
-- Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
-- Company Admin: jovelyneahig@gmail.com / Aa@050772
-- Manager PIN: 521325
+## Test Reports
+- `/app/test_reports/iteration_7.json` — Expense fund source (prev session)
+- `/app/test_reports/iteration_106.json` — Sales History + PIN fixes (100% pass)

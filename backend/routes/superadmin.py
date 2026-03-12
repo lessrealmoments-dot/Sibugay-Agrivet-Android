@@ -464,9 +464,9 @@ async def fix_partial_fund_source(data: dict = None, user=Depends(require_super_
             if amount_paid > 0 and branch_id:
                 ref_text = f"Migration fix: partial invoice {inv_num} — cash moved from digital to cashier"
 
-                # Deduct from digital wallet
+                # Deduct from digital wallet (search by branch_id only)
                 digital_wallet = await _raw_db.fund_wallets.find_one(
-                    {"branch_id": branch_id, "type": "digital", "active": True, "_org_id": org_id},
+                    {"branch_id": branch_id, "type": "digital", "active": True},
                     {"_id": 0}
                 )
                 if digital_wallet:
@@ -476,7 +476,6 @@ async def fix_partial_fund_source(data: dict = None, user=Depends(require_super_
                     )
                     await _raw_db.wallet_movements.insert_one({
                         "id": new_id(),
-                        "_org_id": org_id,
                         "wallet_id": digital_wallet["id"],
                         "branch_id": branch_id,
                         "type": "migration_correction",
@@ -485,9 +484,9 @@ async def fix_partial_fund_source(data: dict = None, user=Depends(require_super_
                         "created_at": now_iso(),
                     })
 
-                # Add to cashier wallet
+                # Add to cashier wallet (search by branch_id only)
                 cashier_wallet = await _raw_db.fund_wallets.find_one(
-                    {"branch_id": branch_id, "type": "cashier", "active": True, "_org_id": org_id},
+                    {"branch_id": branch_id, "type": "cashier", "active": True},
                     {"_id": 0}
                 )
                 if cashier_wallet:
@@ -497,7 +496,6 @@ async def fix_partial_fund_source(data: dict = None, user=Depends(require_super_
                     )
                     await _raw_db.wallet_movements.insert_one({
                         "id": new_id(),
-                        "_org_id": org_id,
                         "wallet_id": cashier_wallet["id"],
                         "branch_id": branch_id,
                         "type": "migration_correction",
@@ -518,3 +516,56 @@ async def fix_partial_fund_source(data: dict = None, user=Depends(require_super_
         "fixed": len(fixes),
         "details": fixes,
     }
+
+
+@router.post("/migrations/fix-partial-wallets")
+async def fix_partial_wallets(data: dict, user=Depends(require_super_admin)):
+    """
+    Fix wallet balances for a specific invoice that was already corrected
+    but whose wallet transfer failed (e.g., due to _org_id mismatch).
+    Requires: invoice_id and amount.
+    """
+    invoice_id = data.get("invoice_id", "")
+    amount = float(data.get("amount", 0))
+    branch_id = data.get("branch_id", "")
+
+    if not invoice_id or not amount or not branch_id:
+        raise HTTPException(status_code=400, detail="invoice_id, amount, and branch_id are required")
+
+    ref_text = f"Wallet correction: partial invoice {invoice_id} — ₱{amount:,.2f} digital→cashier"
+    results = {"invoice_id": invoice_id, "amount": amount, "branch_id": branch_id}
+
+    # Deduct from digital wallet
+    dw = await _raw_db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "digital", "active": True}, {"_id": 0}
+    )
+    if dw:
+        await _raw_db.fund_wallets.update_one({"id": dw["id"]}, {"$inc": {"balance": -round(amount, 2)}})
+        await _raw_db.wallet_movements.insert_one({
+            "id": new_id(), "wallet_id": dw["id"], "branch_id": branch_id,
+            "type": "migration_correction", "amount": -round(amount, 2),
+            "reference": ref_text, "created_at": now_iso(),
+        })
+        results["digital_deducted"] = True
+        results["digital_old_balance"] = dw.get("balance", 0)
+    else:
+        results["digital_deducted"] = False
+        results["note"] = "No digital wallet found — cash may not have been deposited there"
+
+    # Add to cashier wallet
+    cw = await _raw_db.fund_wallets.find_one(
+        {"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0}
+    )
+    if cw:
+        await _raw_db.fund_wallets.update_one({"id": cw["id"]}, {"$inc": {"balance": round(amount, 2)}})
+        await _raw_db.wallet_movements.insert_one({
+            "id": new_id(), "wallet_id": cw["id"], "branch_id": branch_id,
+            "type": "migration_correction", "amount": round(amount, 2),
+            "reference": ref_text, "created_at": now_iso(),
+        })
+        results["cashier_added"] = True
+        results["cashier_old_balance"] = cw.get("balance", 0)
+    else:
+        results["cashier_added"] = False
+
+    return {"message": "Wallet correction complete", "results": results}

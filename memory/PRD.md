@@ -271,3 +271,9 @@ Two-layer authorization for users without section permissions:
 - **Fix**: Now reverses today's cash movements to compute the true opening balance: `starting_float = current_balance - cash_in - fund_transfers + expenses`. The formula then correctly shows: Opening Float + Cash In + Transfers - Expenses = Expected.
 - **Files Changed**: `routes/daily_operations.py`
 
+### Close Wizard "Find & Pay" Panel Fix + Enhancement (Mar 12, 2026)
+- **Problem**: The "Receive payment for a customer (not listed above)" panel in Step 3 of the Closing Wizard was completely non-functional.
+- **Root Causes**: (1) `overflow-hidden` CSS on the container clipped the search dropdown, (2) Used wrong API endpoint `/invoices?status=open` instead of `/customers/{id}/invoices`, missing "partial" status invoices, (3) Field name mismatch (`remaining_balance` vs `balance`).
+- **Enhancement**: Rebuilt the panel as a mini-PaymentsPage with: multi-invoice per-row allocation, interest generation, penalty generation with configurable %, auto-apply with quick total input, proper use of `/customers/{id}/receive-payment` endpoint for multi-allocation. After payment, wizard data auto-refreshes so the AR payments table updates immediately.
+- **Files Changed**: `CloseWizardPage.js`
+

@@ -14,7 +14,8 @@ import { Separator } from '../components/ui/separator';
 import {
   CheckCircle2, Circle, ChevronRight, ChevronLeft, Receipt, CreditCard,
   Banknote, ReceiptText, Calculator, Wallet, Lock, Sun, Plus, RefreshCw,
-  AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search, Upload, Download
+  AlertTriangle, Package, Truck, ExternalLink, Check, XCircle, Search, Upload, Download,
+  Percent, Zap, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
@@ -140,6 +141,11 @@ export default function CloseWizardPage() {
   const [findPayInvoices, setFindPayInvoices] = useState([]);
   const [findPayShowPanel, setFindPayShowPanel] = useState(false);
   const findPayTimerRef = useRef(null);
+  const [findPayRowAmounts, setFindPayRowAmounts] = useState({});
+  const [findPayChargesPreview, setFindPayChargesPreview] = useState(null);
+  const [findPayPenaltyRate, setFindPayPenaltyRate] = useState(5);
+  const [findPayGenerating, setFindPayGenerating] = useState(null);
+  const [findPayProcessing, setFindPayProcessing] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -526,10 +532,100 @@ export default function CloseWizardPage() {
     setFindPaySelected(customer);
     setFindPayCustomer(customer.name);
     setFindPayMatches([]);
+    setFindPayRowAmounts({});
+    setFindPayChargesPreview(null);
     try {
-      const res = await api.get('/invoices', { params: { customer_id: customer.id, status: 'open', limit: 10 } });
-      setFindPayInvoices((res.data.invoices || res.data || []).filter(inv => (inv.balance || 0) > 0));
+      const res = await api.get(`/customers/${customer.id}/invoices`);
+      const invoices = (Array.isArray(res.data) ? res.data : res.data.invoices || []).filter(inv => (inv.balance || 0) > 0);
+      setFindPayInvoices(invoices);
+    } catch { setFindPayInvoices([]); }
+    // Load charges preview
+    try {
+      const cp = await api.get(`/customers/${customer.id}/charges-preview`, { params: { as_of_date: date } });
+      setFindPayChargesPreview(cp.data);
+    } catch { setFindPayChargesPreview(null); }
+  };
+
+  // ── Find-Pay: helpers for multi-invoice allocation, interest, penalty ──────
+  const findPayTotalApplied = findPayInvoices.reduce((s, inv) => {
+    const v = parseFloat(findPayRowAmounts[inv.id] || 0);
+    return s + (isNaN(v) ? 0 : v);
+  }, 0);
+  const findPayTotalOpen = findPayInvoices.reduce((s, i) => s + (i.balance || 0), 0);
+
+  const findPayAutoApply = (totalAmt) => {
+    const amt = parseFloat(totalAmt) || 0;
+    if (amt <= 0) { setFindPayRowAmounts({}); return; }
+    let remaining = amt;
+    const newAmts = {};
+    for (const inv of findPayInvoices) {
+      if (remaining <= 0) break;
+      const apply = Math.min(remaining, inv.balance);
+      if (apply > 0) { newAmts[inv.id] = apply.toFixed(2); remaining = Math.round((remaining - apply) * 100) / 100; }
+    }
+    setFindPayRowAmounts(newAmts);
+  };
+
+  const reloadFindPayData = async (custId) => {
+    try {
+      const res = await api.get(`/customers/${custId}/invoices`);
+      const invoices = (Array.isArray(res.data) ? res.data : res.data.invoices || []).filter(inv => (inv.balance || 0) > 0);
+      setFindPayInvoices(invoices);
     } catch {}
+    try {
+      const cp = await api.get(`/customers/${custId}/charges-preview`, { params: { as_of_date: date } });
+      setFindPayChargesPreview(cp.data);
+    } catch {}
+  };
+
+  const handleFindPayGenerateInterest = async () => {
+    if (!findPaySelected) return;
+    setFindPayGenerating('interest');
+    try {
+      const res = await api.post(`/customers/${findPaySelected.id}/generate-interest`, { as_of_date: date });
+      if (res.data.total_interest > 0) {
+        toast.success(`Interest invoice ${res.data.invoice_number} created — ${formatPHP(res.data.total_interest)}`);
+        await reloadFindPayData(findPaySelected.id);
+        setFindPayRowAmounts({});
+      } else {
+        toast(`No interest to generate — ${res.data.message}`, { description: `Grace: ${res.data.grace_period} days` });
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to generate interest'); }
+    setFindPayGenerating(null);
+  };
+
+  const handleFindPayGeneratePenalty = async () => {
+    if (!findPaySelected) return;
+    setFindPayGenerating('penalty');
+    try {
+      const res = await api.post(`/customers/${findPaySelected.id}/generate-penalty`, { penalty_rate: findPayPenaltyRate, as_of_date: date });
+      if (res.data.total_penalty > 0) {
+        toast.success(`Penalty invoice ${res.data.invoice_number} created — ${formatPHP(res.data.total_penalty)}`);
+        await reloadFindPayData(findPaySelected.id);
+        setFindPayRowAmounts({});
+      } else {
+        toast(`No penalty applicable — ${res.data.message}`);
+      }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to generate penalty'); }
+    setFindPayGenerating(null);
+  };
+
+  const handleFindPayApplyPayment = async () => {
+    const allocations = findPayInvoices
+      .map(inv => ({ invoice_id: inv.id, amount: parseFloat(findPayRowAmounts[inv.id] || 0) }))
+      .filter(a => a.amount > 0);
+    if (allocations.length === 0) { toast.error('Enter payment amounts for at least one invoice'); return; }
+    setFindPayProcessing(true);
+    try {
+      const res = await api.post(`/customers/${findPaySelected.id}/receive-payment`, {
+        allocations, method: 'Cash', date, branch_id: currentBranch?.id,
+      });
+      toast.success(`${formatPHP(res.data.total_applied)} applied to ${res.data.applied_invoices.length} invoice(s)`);
+      setFindPayRowAmounts({});
+      await reloadFindPayData(findPaySelected.id);
+      loadWizardData(date); // refresh closing wizard totals
+    } catch (e) { toast.error(e.response?.data?.detail || 'Payment failed'); }
+    setFindPayProcessing(false);
   };
 
   // ── Load 1-click reports ────────────────────────────────────────────────────
@@ -1016,17 +1112,19 @@ export default function CloseWizardPage() {
               </ScrollArea>
 
               {/* Find & Record Payment for ANY customer */}
-              <div className="border border-dashed border-blue-300 rounded-lg overflow-hidden">
+              <div className="border border-dashed border-blue-300 rounded-lg">
                 <button
                   type="button"
                   onClick={() => setFindPayShowPanel(v => !v)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-sm font-medium text-blue-700"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors text-sm font-medium text-blue-700 rounded-t-lg"
                   data-testid="find-pay-toggle-btn"
                 >
                   <Plus size={14} /> Receive Payment for a Customer (not listed above)
+                  {findPayShowPanel ? <ChevronUp size={14} className="ml-auto" /> : <ChevronDown size={14} className="ml-auto" />}
                 </button>
                 {findPayShowPanel && (
-                  <div className="p-4 space-y-3">
+                  <div className="p-4 space-y-3 border-t border-blue-200">
+                    {/* Customer Search */}
                     <div className="relative">
                       <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <Input
@@ -1048,25 +1146,136 @@ export default function CloseWizardPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* Selected Customer */}
                     {findPaySelected && (
-                      <div className="space-y-2">
-                        <div className="p-2 bg-blue-50 rounded text-xs text-blue-700">
-                          {findPaySelected.name} — Outstanding AR: <strong>{formatPHP(findPaySelected.balance)}</strong>
+                      <div className="space-y-3">
+                        {/* Customer header */}
+                        <div className="flex items-center justify-between p-2.5 bg-blue-50 rounded-lg border border-blue-200">
+                          <div>
+                            <p className="text-sm font-semibold text-blue-800">{findPaySelected.name}</p>
+                            <p className="text-[11px] text-blue-600">
+                              {findPaySelected.interest_rate > 0 ? `${findPaySelected.interest_rate}%/mo interest` : 'No interest rate'}
+                              {' · '}Grace: {findPaySelected.grace_period || 7} days
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-blue-500 uppercase">Total AR</p>
+                            <p className="text-lg font-bold text-red-600" style={{ fontFamily: 'Manrope' }}>{formatPHP(findPayTotalOpen)}</p>
+                          </div>
                         </div>
-                        {findPayInvoices.length === 0
-                          ? <p className="text-xs text-slate-400">No open invoices found</p>
-                          : findPayInvoices.map(inv => (
-                            <div key={inv.id} className="flex items-center justify-between text-xs bg-slate-50 rounded px-3 py-2">
-                              <div>
-                                <p className="font-mono text-blue-600"><button className="hover:underline" onClick={() => openDetailModal(inv.invoice_number)}>{inv.invoice_number}</button></p>
-                                <p className="text-slate-400">{inv.order_date} · Balance: {formatPHP(inv.balance)}</p>
+
+                        {/* Interest / Penalty generation */}
+                        <div className="border border-slate-200 rounded-lg">
+                          <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-slate-50 rounded-t-lg border-b border-slate-200">
+                            <Calculator size={13} className="text-amber-500" />
+                            <span className="text-xs font-medium text-slate-600">Charges</span>
+                            {findPayChargesPreview?.total_interest > 0 && (
+                              <Badge className="text-[9px] bg-amber-100 text-amber-700 border-amber-200">
+                                ~{formatPHP(findPayChargesPreview.total_interest)} accrued
+                              </Badge>
+                            )}
+                            <div className="ml-auto flex items-center gap-2 flex-wrap">
+                              <Button size="sm" variant="outline" onClick={handleFindPayGenerateInterest}
+                                disabled={!!findPayGenerating || !findPaySelected.interest_rate}
+                                className="h-7 text-[11px] text-amber-600 border-amber-200 hover:bg-amber-50 gap-1" data-testid="find-pay-gen-interest-btn">
+                                <Percent size={11} /> {findPayGenerating === 'interest' ? 'Working...' : 'Interest'}
+                              </Button>
+                              <div className="flex items-center gap-0.5 bg-white border border-slate-200 rounded px-1.5 py-1">
+                                <Input type="number" value={findPayPenaltyRate} onChange={e => setFindPayPenaltyRate(parseFloat(e.target.value) || 0)}
+                                  className="w-10 h-5 text-[11px] text-center border-0 bg-transparent p-0" />
+                                <span className="text-[11px] text-slate-500">%</span>
                               </div>
-                              <Button size="sm" className="h-7 bg-blue-600 text-white"
-                                onClick={() => { setPmtDialog({ open: true, invoice: { ...inv, customer_name: findPaySelected.name, invoice_id: inv.id } }); setPmtAmount(''); }}>
-                                Receive
+                              <Button size="sm" variant="outline" onClick={handleFindPayGeneratePenalty}
+                                disabled={!!findPayGenerating}
+                                className="h-7 text-[11px] text-red-600 border-red-200 hover:bg-red-50 gap-1" data-testid="find-pay-gen-penalty-btn">
+                                <AlertTriangle size={11} /> {findPayGenerating === 'penalty' ? 'Working...' : 'Penalty'}
                               </Button>
                             </div>
-                          ))}
+                          </div>
+                          {/* Interest preview details */}
+                          {findPayChargesPreview?.interest_preview?.length > 0 && (
+                            <div className="px-3 py-2 space-y-0.5">
+                              {findPayChargesPreview.interest_preview.map((item, i) => (
+                                <div key={i} className="flex items-center justify-between text-[11px] text-amber-700">
+                                  <span className="font-mono">{item.invoice_number}</span>
+                                  <span>{item.days_for_interest}d × {item.rate}%/mo</span>
+                                  <span className="font-medium">{formatPHP(item.interest_amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Invoice table with per-row amounts */}
+                        {findPayInvoices.length === 0
+                          ? <p className="text-xs text-slate-400 text-center py-4">No open invoices found</p>
+                          : (<div className="space-y-2">
+                              <table className="w-full text-xs" data-testid="find-pay-invoices-table">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                  <tr>
+                                    <th className="text-left px-2 py-1.5 text-[10px] font-semibold text-slate-500 uppercase">Invoice</th>
+                                    <th className="text-left px-2 py-1.5 text-[10px] font-semibold text-slate-500 uppercase">Type</th>
+                                    <th className="text-right px-2 py-1.5 text-[10px] font-semibold text-slate-500 uppercase">Balance</th>
+                                    <th className="text-right px-2 py-1.5 text-[10px] font-semibold text-slate-500 uppercase w-28">Payment</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {findPayInvoices.map(inv => {
+                                    const rowAmt = findPayRowAmounts[inv.id] || '';
+                                    const isApplied = parseFloat(rowAmt) > 0;
+                                    const saleType = inv.sale_type || 'regular';
+                                    const typeLabel = saleType === 'penalty_charge' ? 'Penalty' : saleType === 'interest_charge' ? 'Interest' : 'Invoice';
+                                    const typeCls = saleType === 'penalty_charge' ? 'bg-red-100 text-red-700' : saleType === 'interest_charge' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700';
+                                    return (
+                                      <tr key={inv.id} className={`border-b border-slate-100 ${isApplied ? 'bg-emerald-50/40' : ''}`}>
+                                        <td className="px-2 py-1.5">
+                                          <button className="font-mono text-blue-600 hover:underline text-[11px]" onClick={() => openDetailModal(inv.invoice_number)}>{inv.invoice_number}</button>
+                                          <p className="text-[10px] text-slate-400">{inv.order_date}{inv.due_date ? ` · Due: ${inv.due_date}` : ''}</p>
+                                        </td>
+                                        <td className="px-2 py-1.5">
+                                          <Badge variant="outline" className={`text-[9px] ${typeCls}`}>{typeLabel}</Badge>
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right font-mono font-semibold">{formatPHP(inv.balance)}</td>
+                                        <td className="px-2 py-1.5 text-right">
+                                          <Input type="number" min="0" max={inv.balance} step="0.01" value={rowAmt} placeholder="0.00"
+                                            className={`h-7 w-24 text-right text-xs ml-auto ${isApplied ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}
+                                            onChange={e => setFindPayRowAmounts(prev => ({ ...prev, [inv.id]: e.target.value }))}
+                                            onFocus={e => e.target.select()}
+                                            data-testid={`find-pay-row-${inv.id}`}
+                                          />
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+
+                              {/* Footer: total + auto-apply + submit */}
+                              <div className="flex flex-wrap items-center gap-2 pt-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[11px] text-slate-500">Quick:</span>
+                                  <Input type="number" placeholder="Total amount" className="h-7 w-24 text-xs"
+                                    onChange={e => findPayAutoApply(e.target.value)} data-testid="find-pay-total-input" />
+                                  <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1" onClick={() => findPayAutoApply(findPayTotalOpen)}>
+                                    <Zap size={11} /> All
+                                  </Button>
+                                </div>
+                                <div className="ml-auto flex items-center gap-3">
+                                  <span className="text-xs text-slate-500">
+                                    Applying: <strong className="text-emerald-600">{formatPHP(findPayTotalApplied)}</strong>
+                                  </span>
+                                  <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white gap-1"
+                                    onClick={handleFindPayApplyPayment}
+                                    disabled={findPayProcessing || findPayTotalApplied <= 0}
+                                    data-testid="find-pay-apply-btn">
+                                    {findPayProcessing ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />}
+                                    {findPayProcessing ? 'Processing...' : 'Record Payment'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                       </div>
                     )}
                   </div>

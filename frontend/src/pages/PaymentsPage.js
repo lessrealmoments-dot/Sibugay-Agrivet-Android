@@ -62,6 +62,9 @@ export default function PaymentsPage() {
   const [penaltyRate, setPenaltyRate] = useState(5);
   const [chargesPreview, setChargesPreview] = useState(null);
   const [generatingCharge, setGeneratingCharge] = useState(null);
+  const [interestRateInput, setInterestRateInput] = useState('');
+  const [saveRateToCustomer, setSaveRateToCustomer] = useState(false);
+  const interestPreviewTimer = useRef(null);
 
   // Dialogs
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -87,9 +90,11 @@ export default function PaymentsPage() {
     } catch { setInvoices([]); }
   }, []);
 
-  const loadChargesPreview = useCallback(async (custId) => {
+  const loadChargesPreview = useCallback(async (custId, rateOverride) => {
     try {
-      const res = await api.get(`/customers/${custId}/charges-preview`, { params: { as_of_date: payDate } });
+      const params = { as_of_date: payDate };
+      if (rateOverride !== undefined && rateOverride > 0) params.rate_override = rateOverride;
+      const res = await api.get(`/customers/${custId}/charges-preview`, { params });
       setChargesPreview(res.data);
     } catch { setChargesPreview(null); }
   }, [payDate]);
@@ -103,6 +108,8 @@ export default function PaymentsPage() {
     setDiscountModes({});
     setPayRef('');
     setPayMemo('');
+    setInterestRateInput(c.interest_rate > 0 ? String(c.interest_rate) : '');
+    setSaveRateToCustomer(false);
     loadInvoices(c.id);
     loadChargesPreview(c.id);
   };
@@ -119,8 +126,23 @@ export default function PaymentsPage() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (selectedCustomer) loadChargesPreview(selectedCustomer.id);
+    if (selectedCustomer) {
+      const rate = parseFloat(interestRateInput) || 0;
+      loadChargesPreview(selectedCustomer.id, rate > 0 ? rate : undefined);
+    }
   }, [payDate, selectedCustomer]);
+
+  // Debounce interest rate changes to update preview
+  useEffect(() => {
+    if (!selectedCustomer) return;
+    if (interestPreviewTimer.current) clearTimeout(interestPreviewTimer.current);
+    interestPreviewTimer.current = setTimeout(() => {
+      const rate = parseFloat(interestRateInput) || 0;
+      loadChargesPreview(selectedCustomer.id, rate > 0 ? rate : undefined);
+    }, 400);
+    return () => { if (interestPreviewTimer.current) clearTimeout(interestPreviewTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interestRateInput]);
 
   // ---- Calculations ----
   const getDiscountAmount = (inv) => {
@@ -160,13 +182,22 @@ export default function PaymentsPage() {
 
   // ---- Generate Interest ----
   const handleGenerateInterest = async () => {
+    const rate = parseFloat(interestRateInput) || 0;
+    if (rate <= 0) { toast.error('Enter an interest rate (% per month) first'); return; }
     setGeneratingCharge('interest');
     try {
-      const res = await api.post(`/customers/${selectedCustomer.id}/generate-interest`, { as_of_date: payDate });
+      const payload = { as_of_date: payDate, rate_override: rate };
+      if (saveRateToCustomer) payload.save_rate = true;
+      const res = await api.post(`/customers/${selectedCustomer.id}/generate-interest`, payload);
       if (res.data.total_interest > 0) {
         toast.success(`Interest invoice ${res.data.invoice_number} created — ${formatPHP(res.data.total_interest)}`);
+        if (saveRateToCustomer) {
+          setSelectedCustomer(prev => ({ ...prev, interest_rate: rate }));
+          toast(`Interest rate ${rate}%/mo saved to ${selectedCustomer.name}'s profile`);
+          setSaveRateToCustomer(false);
+        }
         await loadInvoices(selectedCustomer.id);
-        await loadChargesPreview(selectedCustomer.id);
+        await loadChargesPreview(selectedCustomer.id, rate);
       } else {
         toast(`No interest to generate — ${res.data.message}`, { description: `Grace: ${res.data.grace_period} days` });
       }
@@ -395,19 +426,40 @@ export default function PaymentsPage() {
                   </div>
                 )}
                 <div className="flex flex-wrap gap-3 items-end">
-                  <div className="flex-1 min-w-[200px]">
-                    <p className="text-xs text-slate-500 mb-1">Grace period: <strong>{selectedCustomer.grace_period || 7} days</strong></p>
-                    {selectedCustomer.interest_rate > 0 ? (
-                      <p className="text-xs text-slate-500">Rate: <strong className="text-amber-600">{selectedCustomer.interest_rate}%/month</strong></p>
-                    ) : (
-                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 flex items-center gap-1">
-                        <AlertTriangle size={11} /> No interest rate configured for this customer.
-                      </p>
+                  <div className="flex-1 min-w-[220px] space-y-2">
+                    <p className="text-xs text-slate-500">Grace period: <strong>{selectedCustomer.grace_period || 7} days</strong></p>
+                    {/* Inline interest rate input */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Label className="text-xs text-slate-600 shrink-0">Interest Rate:</Label>
+                      <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                        <Input type="number" min="0" step="0.5" value={interestRateInput}
+                          onChange={e => setInterestRateInput(e.target.value)}
+                          placeholder="e.g. 3"
+                          className="w-14 h-6 text-xs text-center border-0 bg-transparent p-0 font-bold text-amber-700"
+                          data-testid="interest-rate-input" />
+                        <span className="text-xs text-amber-600 font-medium">%/mo</span>
+                      </div>
+                      {selectedCustomer.interest_rate > 0 && (
+                        <span className="text-[10px] text-slate-400">(saved: {selectedCustomer.interest_rate}%)</span>
+                      )}
+                    </div>
+                    {/* Save to customer option */}
+                    {interestRateInput && parseFloat(interestRateInput) > 0 && parseFloat(interestRateInput) !== selectedCustomer.interest_rate && (
+                      <label className="flex items-center gap-1.5 cursor-pointer" data-testid="save-rate-checkbox">
+                        <input type="checkbox" checked={saveRateToCustomer} onChange={e => setSaveRateToCustomer(e.target.checked)}
+                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5" />
+                        <span className="text-[11px] text-amber-700">Save {interestRateInput}%/mo to this customer's profile</span>
+                      </label>
                     )}
+                    {/* Interest formula explanation */}
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      Formula: principal × (rate ÷ 30) × days since last computation.
+                      {' '}Computed from last interest date (not due date) to prevent double-charging.
+                    </p>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Button size="sm" variant="outline" onClick={handleGenerateInterest}
-                      disabled={!!generatingCharge || !selectedCustomer.interest_rate}
+                      disabled={!!generatingCharge || !(parseFloat(interestRateInput) > 0)}
                       className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 disabled:opacity-40" data-testid="generate-interest-btn">
                       <Percent size={12} /> {generatingCharge === 'interest' ? 'Generating...' : 'Generate Interest'}
                     </Button>

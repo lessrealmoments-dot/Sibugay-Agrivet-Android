@@ -1397,7 +1397,8 @@ async def get_customer_open_invoices(customer_id: str, user=Depends(get_current_
 
 @router.post("/customers/{customer_id}/generate-interest")
 async def generate_interest_invoice(customer_id: str, data: dict, user=Depends(get_current_user)):
-    """Calculate accrued interest for all overdue invoices and create one consolidated interest invoice."""
+    """Calculate accrued interest for all overdue invoices and create one consolidated interest invoice.
+    Accepts optional rate_override to use instead of customer default, and save_rate to persist it."""
     check_perm(user, "accounting", "create_expense")
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer:
@@ -1406,10 +1407,18 @@ async def generate_interest_invoice(customer_id: str, data: dict, user=Depends(g
     as_of_str = data.get("as_of_date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     comp_date = datetime.strptime(as_of_str, "%Y-%m-%d")
     grace_period = int(customer.get("grace_period", 7))
-    default_rate = float(customer.get("interest_rate", 0))
+    rate_override = data.get("rate_override")
+    save_rate = data.get("save_rate", False)
 
-    if not default_rate:
-        return {"message": "Customer has no interest rate configured", "total_interest": 0, "grace_period": grace_period}
+    # Use override if provided, else customer default
+    default_rate = float(rate_override) if rate_override is not None else float(customer.get("interest_rate", 0))
+
+    if not default_rate or default_rate <= 0:
+        return {"message": "No interest rate provided. Enter a rate to compute interest.", "total_interest": 0, "grace_period": grace_period}
+
+    # Save rate to customer profile if requested
+    if save_rate and rate_override is not None:
+        await db.customers.update_one({"id": customer_id}, {"$set": {"interest_rate": float(rate_override)}})
 
     open_invoices = await db.invoices.find(
         {"customer_id": customer_id, "balance": {"$gt": 0},
@@ -1662,7 +1671,7 @@ async def get_customer_payment_history(customer_id: str, user=Depends(get_curren
 
 # ==================== CUSTOMER INTEREST/PENALTY GENERATION ====================
 @router.get("/customers/{customer_id}/charges-preview")
-async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] = None, user=Depends(get_current_user)):
+async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] = None, rate_override: Optional[float] = None, user=Depends(get_current_user)):
     """Preview interest for a customer WITHOUT creating invoices. Used for display only."""
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer:
@@ -1671,7 +1680,7 @@ async def preview_customer_charges(customer_id: str, as_of_date: Optional[str] =
     comp_date_str = as_of_date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
     comp_date = datetime.strptime(comp_date_str, "%Y-%m-%d")
     grace_period = int(customer.get("grace_period", 7))
-    default_rate = float(customer.get("interest_rate", 0))
+    default_rate = float(rate_override) if rate_override is not None else float(customer.get("interest_rate", 0))
 
     invoices = await db.invoices.find(
         {"customer_id": customer_id, "balance": {"$gt": 0}, "status": {"$nin": ["voided", "paid"]}},

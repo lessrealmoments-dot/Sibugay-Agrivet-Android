@@ -185,7 +185,11 @@ async def verify_manager_pin(data: dict, user=Depends(get_current_user)):
     action_key = data.get("action_key", "credit_sale_approval")
     logger.info(f"verify-manager-pin called: action={action_key}, user={user.get('full_name', user.get('username', '?'))}, org={user.get('organization_id', 'none')}")
 
-    verifier = await verify_pin_for_action(pin, action_key)
+    # Extract branch_id from context for branch-aware PIN checks
+    context = data.get("context") or {}
+    branch_id = context.get("branch_id") or data.get("branch_id") or user.get("branch_id")
+
+    verifier = await verify_pin_for_action(pin, action_key, branch_id=branch_id)
     if verifier:
         context = data.get("context")
         if context:

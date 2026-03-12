@@ -32,6 +32,8 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
   const [editItems, setEditItems] = useState([]);
   const [editNotes, setEditNotes] = useState('');
   const [editReason, setEditReason] = useState('');
+  const [editOrderDate, setEditOrderDate] = useState('');
+  const [editDateClosed, setEditDateClosed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Actions
@@ -78,6 +80,14 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
     setEditItems(sale.items?.map(i => ({ ...i })) || []);
     setEditNotes(sale.notes || '');
     setEditReason('');
+    setEditOrderDate(sale.order_date || sale.created_at?.slice(0, 10) || '');
+    // Check if sale's original date is closed
+    const branchId = sale.branch_id || currentBranch?.id;
+    if (branchId && sale.order_date) {
+      api.get('/invoices/check-date-closed', { params: { date: sale.order_date, branch_id: branchId } })
+        .then(r => setEditDateClosed(r.data.closed))
+        .catch(() => setEditDateClosed(false));
+    }
     setEditMode(true);
   };
 
@@ -98,10 +108,17 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
     if (!editReason.trim()) { toast.error('Please provide a reason for the edit'); return; }
     setSaving(true);
     try {
-      await api.put(`/invoices/${sale.id}/edit`, {
+      const payload = {
         items: editItems, notes: editNotes, reason: editReason,
         customer_name: sale.customer_name, freight: sale.freight || 0, overall_discount: sale.overall_discount || 0,
-      });
+        branch_id: sale.branch_id || currentBranch?.id,
+      };
+      // Include date change if modified
+      if (editOrderDate && editOrderDate !== (sale.order_date || sale.created_at?.slice(0, 10))) {
+        payload.order_date = editOrderDate;
+        payload.invoice_date = editOrderDate;
+      }
+      await api.put(`/invoices/${sale.id}/edit`, payload);
       toast.success('Sale updated');
       setEditMode(false);
       loadSale();
@@ -229,11 +246,22 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
                       </div>
                     </div>
                   ))}
-                  <div className="mt-2">
-                    <Label className="text-xs text-slate-500">Reason for Edit <span className="text-red-500">*</span></Label>
-                    <Input value={editReason} onChange={e => setEditReason(e.target.value)}
-                      placeholder="e.g. Customer correction, wrong item scanned..."
-                      className="mt-1 h-9 text-sm" />
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-slate-500">Sale Date</Label>
+                      <Input type="date" value={editOrderDate}
+                        onChange={e => setEditOrderDate(e.target.value)}
+                        className="mt-1 h-9 text-sm" />
+                      {editDateClosed && editOrderDate === (sale.order_date || sale.created_at?.slice(0, 10)) && (
+                        <p className="text-[9px] text-amber-600 mt-0.5">This date is closed. PIN required to save changes.</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-slate-500">Reason for Edit <span className="text-red-500">*</span></Label>
+                      <Input value={editReason} onChange={e => setEditReason(e.target.value)}
+                        placeholder="e.g. Customer correction, wrong item..."
+                        className="mt-1 h-9 text-sm" />
+                    </div>
                   </div>
                   <div className="flex gap-2 pt-2 border-t">
                     <Button variant="outline" onClick={() => setEditMode(false)} className="flex-1">Cancel</Button>

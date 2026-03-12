@@ -24,24 +24,66 @@ async def list_invoices(
     status: Optional[str] = None,
     customer_id: Optional[str] = None,
     branch_id: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = "created_at",
+    sort_dir: Optional[str] = "desc",
+    include_voided: bool = False,
     skip: int = 0,
     limit: int = 50
 ):
-    """List invoices with optional filters. Respects branch isolation."""
-    query = {"status": {"$ne": "voided"}}
+    """List invoices with optional filters, search, and sorting. Respects branch isolation."""
+    query = {}
+    if not include_voided:
+        query["status"] = {"$ne": "voided"}
     
     # Apply branch filter for data isolation
     branch_filter = await get_branch_filter(user, branch_id)
     query = apply_branch_filter(query, branch_filter)
     
     if status:
-        query["status"] = status
+        if status == "voided":
+            query["status"] = "voided"
+        else:
+            query["status"] = status
     if customer_id:
         query["customer_id"] = customer_id
     
+    # Search by invoice number or customer name
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"invoice_number": search_regex},
+            {"customer_name": search_regex},
+        ]
+    
+    # Sorting
+    sort_field_map = {
+        "created_at": "created_at",
+        "date": "order_date",
+        "customer": "customer_name",
+        "amount": "grand_total",
+        "number": "invoice_number",
+        "status": "status",
+    }
+    sort_field = sort_field_map.get(sort_by, "created_at")
+    sort_direction = -1 if sort_dir == "desc" else 1
+    
     total = await db.invoices.count_documents(query)
-    items = await db.invoices.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    items = await db.invoices.find(query, {"_id": 0}).sort(sort_field, sort_direction).skip(skip).limit(limit).to_list(limit)
     return {"invoices": items, "total": total}
+
+
+@router.get("/invoices/check-date-closed")
+async def check_date_closed(
+    date: str,
+    branch_id: str,
+    user=Depends(get_current_user),
+):
+    """Check if a specific date has been closed for a branch."""
+    doc = await db.daily_closings.find_one(
+        {"branch_id": branch_id, "date": date, "status": "closed"}, {"_id": 0, "date": 1}
+    )
+    return {"closed": bool(doc), "date": date}
 
 
 @router.post("/invoices")
@@ -502,9 +544,10 @@ async def edit_invoice(invoice_id: str, data: dict, user=Depends(get_current_use
 
     # PIN enforcement for invoice edit
     pin = data.get("pin", "")
+    branch_id_for_pin = data.get("branch_id") or ""
     if pin:
         from routes.verify import verify_pin_for_action
-        verifier = await verify_pin_for_action(pin, "invoice_edit")
+        verifier = await verify_pin_for_action(pin, "invoice_edit", branch_id=branch_id_for_pin)
         if not verifier:
             raise HTTPException(status_code=403, detail="Invalid PIN")
 
@@ -660,6 +703,46 @@ async def edit_invoice(invoice_id: str, data: dict, user=Depends(get_current_use
                 update_data[field] = new_val
                 changes_made.append(f"{field}: '{old_val}' → '{new_val}'")
     
+    # Date editing — only allowed if target date is not closed
+    date_fields = ["order_date", "invoice_date"]
+    for df in date_fields:
+        if df in data and data[df] != invoice.get(df):
+            new_date = data[df]
+            inv_branch = invoice.get("branch_id", "")
+            # Check if the NEW date is closed
+            closed_check = await db.daily_closings.find_one(
+                {"branch_id": inv_branch, "date": new_date, "status": "closed"}, {"_id": 0}
+            )
+            if closed_check:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot change {df} to {new_date} — that date is already closed. Use a journal entry instead."
+                )
+            changes_made.append(f"{df}: '{invoice.get(df)}' → '{new_date}'")
+            update_data[df] = new_date
+            # Also update due_date if order_date changed and terms exist
+            if df == "order_date" and invoice.get("terms_days", 0) > 0:
+                od = datetime.strptime(new_date, "%Y-%m-%d")
+                new_due = (od + timedelta(days=invoice["terms_days"])).strftime("%Y-%m-%d")
+                update_data["due_date"] = new_due
+                changes_made.append(f"due_date recalculated: '{invoice.get('due_date')}' → '{new_due}'")
+    
+    # Check if this invoice belongs to a closed day (requires manager PIN for any edit)
+    inv_date = invoice.get("order_date") or invoice.get("invoice_date", "")
+    inv_branch = invoice.get("branch_id", "")
+    is_on_closed_day = False
+    if inv_date and inv_branch:
+        closed_day = await db.daily_closings.find_one(
+            {"branch_id": inv_branch, "date": inv_date, "status": "closed"}, {"_id": 0}
+        )
+        if closed_day:
+            is_on_closed_day = True
+            if not pin:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This transaction belongs to a closed day. Manager PIN is required to edit."
+                )
+    
     # Update items if provided
     if new_items is not None:
         subtotal = 0
@@ -729,6 +812,35 @@ async def edit_invoice(invoice_id: str, data: dict, user=Depends(get_current_use
         "inventory_adjustments": inventory_adjustments,
     }
     await db.invoice_edits.insert_one(edit_record)
+    
+    # Auto-create journal entry if editing a closed-day transaction with financial changes
+    if is_on_closed_day and update_data.get("grand_total") is not None:
+        old_total = invoice.get("grand_total", 0)
+        new_total = update_data["grand_total"]
+        diff = round(new_total - old_total, 2)
+        if abs(diff) > 0.01:
+            journal_entry = {
+                "id": new_id(),
+                "branch_id": inv_branch,
+                "date": now_iso()[:10],
+                "description": f"Adjustment for edited {invoice.get(id_field, '')} (closed day {inv_date}): {reason}",
+                "entries": [
+                    {"account": "Sales Adjustment", "debit": max(0, diff), "credit": max(0, -diff)},
+                    {"account": "Accounts Receivable" if invoice.get("balance", 0) > 0 else "Cash", "debit": max(0, -diff), "credit": max(0, diff)},
+                ],
+                "reference_type": collection_name,
+                "reference_id": invoice_id,
+                "reference_number": invoice.get(id_field, ""),
+                "total": abs(diff),
+                "auto_generated": True,
+                "source": "closed_day_edit",
+                "created_by_id": user["id"],
+                "created_by_name": user.get("full_name", user["username"]),
+                "created_at": now_iso(),
+            }
+            await db.journal_entries.insert_one(journal_entry)
+            del journal_entry["_id"]
+            changes_made.append(f"Auto journal entry created: ₱{abs(diff):.2f} adjustment")
     
     updated_invoice = await collection.find_one({"id": invoice_id}, {"_id": 0})
     

@@ -678,6 +678,26 @@ async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current
         "updated_by": user.get("full_name", user["username"]),
     }
 
+    # Date editing — only if target date is not closed
+    new_purchase_date = data.get("purchase_date")
+    if new_purchase_date and new_purchase_date != po.get("purchase_date"):
+        po_branch = po.get("branch_id", "")
+        closed_check = await db.daily_closings.find_one(
+            {"branch_id": po_branch, "date": new_purchase_date, "status": "closed"}, {"_id": 0}
+        )
+        if closed_check:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot change purchase date to {new_purchase_date} — that date is already closed."
+            )
+        update["purchase_date"] = new_purchase_date
+        if change_log is None:
+            change_log = {"changed_at": now_iso(), "changed_by": user.get("full_name", user["username"]),
+                          "reason": data.get("edit_reason", "Date change"),
+                          "changes": [{"field": "purchase_date", "old": po.get("purchase_date", ""), "new": new_purchase_date,
+                                       "display": f"Date: {po.get('purchase_date', '')} → {new_purchase_date}"}],
+                          "change_summary": f"Date changed: {po.get('purchase_date', '')} → {new_purchase_date}"}
+
     if change_log:
         await db.purchase_orders.update_one({"id": po_id}, {"$set": update, "$push": {"edit_history": change_log}})
     else:

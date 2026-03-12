@@ -119,6 +119,7 @@ export default function PurchaseOrderPage() {
   const [detailEditItems, setDetailEditItems] = useState([]);
   const [detailEditReason, setDetailEditReason] = useState('');
   const [detailEditDR, setDetailEditDR] = useState('');
+  const [detailEditDate, setDetailEditDate] = useState('');
   const [detailSaving, setDetailSaving] = useState(false);
   const [uploadQROpen, setUploadQROpen] = useState(false);
   const [uploadRecordId, setUploadRecordId] = useState(null);
@@ -550,6 +551,7 @@ export default function PurchaseOrderPage() {
     setDetailPO(po);
     setDetailEditItems(po.items?.map(i => ({ ...i })) || []);
     setDetailEditDR(po.dr_number || '');
+    setDetailEditDate(po.purchase_date || '');
     setDetailEditReason('');
     setDetailEditMode(true);
     setDetailDialog(true);
@@ -559,12 +561,17 @@ export default function PurchaseOrderPage() {
     if (!detailEditReason.trim()) { toast.error('Please enter a reason for the edit'); return; }
     setDetailSaving(true);
     try {
-      const res = await api.put(`/purchase-orders/${detailPO.id}`, {
+      const payload = {
         items: detailEditItems,
         dr_number: detailEditDR,
         notes: detailPO.notes,
         edit_reason: detailEditReason,
-      });
+      };
+      // Include date change if modified
+      if (detailEditDate && detailEditDate !== detailPO.purchase_date) {
+        payload.purchase_date = detailEditDate;
+      }
+      const res = await api.put(`/purchase-orders/${detailPO.id}`, payload);
       const updatedPO = res.data;
       setDetailPO(updatedPO);
       setDetailEditMode(false);
@@ -1445,7 +1452,13 @@ export default function PurchaseOrderPage() {
               {/* Header info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-slate-500">Vendor:</span> <b>{detailPO.vendor}</b></div>
-                <div><span className="text-slate-500">Date:</span> {detailPO.purchase_date}</div>
+                <div>
+                  <span className="text-slate-500">Date:</span>{' '}
+                  {detailEditMode ? (
+                    <Input type="date" value={detailEditDate} onChange={e => setDetailEditDate(e.target.value)}
+                      className="h-7 text-sm mt-0.5 w-full" />
+                  ) : detailPO.purchase_date}
+                </div>
                 <div>
                   <span className="text-slate-500">DR #:</span>{' '}
                   {detailEditMode ? (

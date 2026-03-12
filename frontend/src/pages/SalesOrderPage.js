@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import SmartProductSearch from '../components/SmartProductSearch';
-import { FileText, Plus, Trash2, Save, AlertTriangle, CreditCard } from 'lucide-react';
+import { FileText, Plus, Trash2, Save, AlertTriangle, CreditCard, Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMPTY_LINE = { product_id: '', product_name: '', description: '', quantity: 1, rate: 0, original_rate: 0, cost_price: 0, discount_type: 'amount', discount_value: 0, is_repack: false, price_scheme: '' };
@@ -43,6 +43,12 @@ export default function SalesOrderPage() {
   const [saveCustomerDialog, setSaveCustomerDialog] = useState(false);
   const [newCustForm, setNewCustForm] = useState({ name: '', phone: '', address: '', price_scheme: 'retail', interest_rate: 0 });
   const qtyRefs = useRef([]);
+
+  // PIN approval for credit sales
+  const [creditPinDialog, setCreditPinDialog] = useState(false);
+  const [managerPin, setManagerPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [pinVerifying, setPinVerifying] = useState(false);
 
   useEffect(() => {
     api.get('/customers', { params: { limit: 500 } }).then(r => setCustomers(r.data.customers)).catch(() => {});
@@ -198,10 +204,19 @@ export default function SalesOrderPage() {
   const grandTotal = subtotal + freight - overallDiscount;
   const balance = grandTotal - amountPaid;
 
-  const handleSaveAs = async (type) => {
+  const handleSaveAs = async (type, approvedBy = null) => {
     const validLines = lines.filter(l => l.product_id);
     if (!validLines.length) { toast.error('Add at least one product'); return; }
     if (!currentBranch) { toast.error('Select a branch'); return; }
+    
+    // Credit sales (type='credit') require manager PIN
+    if (type === 'credit' && !approvedBy) {
+      setManagerPin('');
+      setShowPin(false);
+      setCreditPinDialog(true);
+      return;
+    }
+    
     setSaving(true);
     try {
       const paid = type === 'paid' ? grandTotal : amountPaid;
@@ -209,6 +224,7 @@ export default function SalesOrderPage() {
         ...header, branch_id: currentBranch.id, items: validLines, freight, overall_discount: overallDiscount,
         amount_paid: paid, due_date: dueDate,
         payment_method: type === 'paid' ? (header.payment_method || 'Cash') : 'Credit',
+        approved_by: approvedBy || undefined,
       };
       const res = await api.post('/invoices', data);
       toast.success(type === 'paid'
@@ -222,6 +238,37 @@ export default function SalesOrderPage() {
       setIsNewCustomer(false);
     } catch (e) { toast.error(e.response?.data?.detail || 'Error creating invoice'); }
     setSaving(false);
+  };
+
+  const verifyCreditPin = async () => {
+    if (!managerPin) { toast.error('Enter authorization PIN'); return; }
+    setPinVerifying(true);
+    try {
+      const res = await api.post('/auth/verify-manager-pin', {
+        pin: managerPin.trim(),
+        action_key: 'credit_sale_approval',
+        context: {
+          type: 'credit_sale',
+          description: `Credit invoice for ${header.customer_name || 'Walk-in'}`,
+          amount: grandTotal,
+          customer_name: header.customer_name || 'Walk-in',
+          payment_type: 'credit',
+          branch_id: currentBranch?.id,
+          branch_name: currentBranch?.name,
+        }
+      });
+      if (res.data.valid) {
+        toast.success(`Approved by ${res.data.manager_name}`);
+        setCreditPinDialog(false);
+        setManagerPin('');
+        await handleSaveAs('credit', res.data.manager_name);
+      } else {
+        toast.error(res.data.detail || 'Invalid PIN / TOTP');
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Verification failed');
+    }
+    setPinVerifying(false);
   };
 
   return (
@@ -500,6 +547,57 @@ export default function SalesOrderPage() {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSaveCustomerDialog(false)}>Cancel</Button>
               <Button onClick={handleSaveCustomer} className="bg-[#1A4D2E] hover:bg-[#14532d] text-white">Save Customer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credit Sale PIN Approval Dialog */}
+      <Dialog open={creditPinDialog} onOpenChange={setCreditPinDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+              <Lock size={18} className="text-[#1A4D2E]" /> Credit Sale Authorization
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-1">
+            <p className="text-sm text-slate-600">
+              Credit sales require manager or admin authorization.
+            </p>
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+              <p className="text-xs text-slate-500">Amount</p>
+              <p className="text-lg font-bold font-mono text-[#1A4D2E]">{formatPHP(grandTotal)}</p>
+              <p className="text-xs text-slate-500 mt-1">Customer: {header.customer_name || 'Walk-in'}</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-600 mb-1 block">Authorization PIN</label>
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  value={managerPin}
+                  onChange={e => setManagerPin(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && verifyCreditPin()}
+                  placeholder="Manager PIN or TOTP code..."
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-[#1A4D2E]/30"
+                  data-testid="credit-pin-input"
+                  autoFocus
+                />
+                <button onClick={() => setShowPin(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showPin ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setCreditPinDialog(false)} className="flex-1">Cancel</Button>
+              <Button
+                onClick={verifyCreditPin}
+                disabled={pinVerifying || !managerPin}
+                className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                data-testid="credit-pin-submit"
+              >
+                {pinVerifying ? 'Verifying...' : 'Authorize & Save'}
+              </Button>
             </div>
           </div>
         </DialogContent>

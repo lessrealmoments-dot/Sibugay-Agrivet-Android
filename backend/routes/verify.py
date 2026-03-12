@@ -41,11 +41,14 @@ COLLECTION_MAP = {
 #  PIN Verification helper
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]:
+async def _resolve_pin(pin: str, allowed_methods: list = None, branch_id: str = None) -> Optional[dict]:
     """
     Returns verifier info dict if pin matches any of the allowed methods.
     Methods: admin_pin, manager_pin, totp, auditor_pin
     If allowed_methods is None, all methods are checked (backward compatible).
+
+    branch_id: When provided, manager PINs are restricted to managers
+    assigned to that branch. Admin PIN, TOTP, and Auditor PIN work on all branches.
     """
     if not pin:
         return None
@@ -53,9 +56,9 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
     pin = str(pin).strip()  # Ensure string and strip whitespace
     check_all = allowed_methods is None
     methods = set(allowed_methods or [])
-    logger.info(f"PIN verify: len={len(pin)}, methods={methods or 'ALL'}")
+    logger.info(f"PIN verify: len={len(pin)}, methods={methods or 'ALL'}, branch={branch_id or 'any'}")
 
-    # 1. System Admin PIN (hashed in system_settings)
+    # 1. System Admin PIN (hashed in system_settings) — works on ALL branches
     if check_all or "admin_pin" in methods:
         admin_pin_doc = await db.system_settings.find_one({"key": "admin_pin"}, {"_id": 0})
         if admin_pin_doc:
@@ -69,6 +72,7 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
             logger.info("Admin PIN check: no admin_pin doc in system_settings")
 
     # 2. Manager/Admin PIN (on user documents)
+    # Admin/Owner PINs work on ALL branches. Manager PINs only on assigned branch.
     managers = None
     if check_all or "manager_pin" in methods:
         managers = await db.users.find(
@@ -78,6 +82,12 @@ async def _resolve_pin(pin: str, allowed_methods: list = None) -> Optional[dict]
         for mgr in managers:
             mgr_pin = str(mgr.get("manager_pin", "") or mgr.get("owner_pin", "") or "").strip()
             if mgr_pin and pin == mgr_pin:
+                # Branch restriction: manager role PINs only work on their assigned branch
+                if branch_id and mgr.get("role") == "manager":
+                    mgr_branch = mgr.get("branch_id", "")
+                    if mgr_branch and mgr_branch != branch_id:
+                        logger.info(f"Manager PIN matched but branch mismatch: mgr_branch={mgr_branch}, requested={branch_id}")
+                        continue  # Skip — manager not assigned to this branch
                 logger.info(f"PIN matched: manager_pin for user {mgr.get('full_name', mgr.get('username', '?'))}")
                 return {
                     "verifier_id": mgr["id"],
@@ -177,11 +187,14 @@ async def _get_pin_policy() -> dict:
     return doc.get("policies", {}) if doc else {}
 
 
-async def verify_pin_for_action(pin: str, action_key: str) -> Optional[dict]:
+async def verify_pin_for_action(pin: str, action_key: str, branch_id: str = None) -> Optional[dict]:
     """
     Verify a PIN against the configured policy for a specific action.
     Loads the policy from DB (or uses defaults) and calls _resolve_pin
     with only the allowed methods for that action.
+
+    branch_id: When provided, manager PINs are restricted to managers
+    assigned to that branch (admin/owner/TOTP/auditor still work on all branches).
     """
     if not pin:
         return None
@@ -189,7 +202,7 @@ async def verify_pin_for_action(pin: str, action_key: str) -> Optional[dict]:
     allowed = custom.get(action_key, _ACTION_DEFAULTS.get(action_key))
     if not allowed:
         allowed = ["admin_pin", "manager_pin", "totp"]
-    return await _resolve_pin(pin, allowed_methods=allowed)
+    return await _resolve_pin(pin, allowed_methods=allowed, branch_id=branch_id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

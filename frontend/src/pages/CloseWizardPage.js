@@ -778,8 +778,9 @@ export default function CloseWizardPage() {
                     cashAmt = parseFloat(e._partial_cash_portion || 0);
                     cashTotal += cashAmt;
                   } else if (pm === 'split') {
-                    cashAmt = parseFloat(e._split_cash_portion || lt);
-                    cashTotal += cashAmt;
+                    cashAmt = lt;
+                    cashTotal += parseFloat(e._split_cash_portion || lt);
+                    digitalTotal += (lt - parseFloat(e._split_cash_portion || lt));
                   } else if (isDigital(pm)) {
                     cashAmt = lt;
                     digitalTotal += lt;

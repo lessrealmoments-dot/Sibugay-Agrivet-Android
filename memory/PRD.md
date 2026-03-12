@@ -9,6 +9,15 @@ Build a comprehensive Accounting, Inventory, and Point of Sale (POS) web applica
 
 ---
 
+## CRITICAL AGENT RULES (CARRY TO ALL FORKS)
+
+1. **Explain before coding** — Before making ANY code change, explain what you will change, show the formula/logic, and wait for user approval. No exceptions.
+2. **Ask before creating new modules** — Always check if an existing module already handles it. Improve existing modules instead of creating new ones. Ask the user to confirm.
+3. **Minimal changes** — Only touch what needs to be touched. If something is already fixed, don't re-change it.
+4. **No back-and-forth** — Get it right the first time. Think through the formula and edge cases before proposing.
+
+---
+
 ## CRITICAL AGENT NOTE — VPS DEPLOYMENT
 **EVERY TIME code is ready to deploy to agri-books.com, ALWAYS include these 3 commands:**
 

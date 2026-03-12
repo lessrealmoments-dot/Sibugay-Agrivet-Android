@@ -1542,16 +1542,18 @@ async def generate_penalty_invoice(customer_id: str, data: dict, user=Depends(ge
 
 @router.post("/customers/{customer_id}/receive-payment")
 async def receive_customer_payment(customer_id: str, data: dict, user=Depends(get_current_user)):
-    """QuickBooks-style: apply payment across multiple invoices with per-row allocation."""
+    """QuickBooks-style: apply payment across multiple invoices with per-row allocation.
+    Supports optional discount on interest/penalty invoices."""
     check_perm(user, "accounting", "receive_payment")
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    allocations = data.get("allocations", [])  # [{invoice_id, amount}]
+    allocations = data.get("allocations", [])  # [{invoice_id, amount, discount?}]
     total_amount = round(sum(float(a.get("amount", 0)) for a in allocations if float(a.get("amount", 0)) > 0), 2)
-    if total_amount <= 0:
-        raise HTTPException(status_code=400, detail="Payment amount must be > 0")
+    total_discount = round(sum(float(a.get("discount", 0)) for a in allocations if float(a.get("discount", 0)) > 0), 2)
+    if total_amount <= 0 and total_discount <= 0:
+        raise HTTPException(status_code=400, detail="Payment or discount amount must be > 0")
 
     method = data.get("method", "Cash")
     digital = is_digital_payment(method)
@@ -1559,40 +1561,71 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
     reference = data.get("reference", "")
     pay_date = data.get("date", now_iso()[:10])
     branch_id = data.get("branch_id", "")
-    total_applied, applied_invoices = 0, []
+    total_applied, total_discounted, applied_invoices = 0, 0, []
 
     for alloc in allocations:
         apply = round(float(alloc.get("amount", 0)), 2)
-        if apply <= 0:
+        discount = round(float(alloc.get("discount", 0)), 2)
+        if apply <= 0 and discount <= 0:
             continue
         inv = await db.invoices.find_one({"id": alloc["invoice_id"], "customer_id": customer_id}, {"_id": 0})
         if not inv or inv.get("balance", 0) <= 0:
             continue
-        apply = min(apply, inv["balance"])
-        new_balance = max(0, round(inv["balance"] - apply, 2))
-        new_paid = round(inv.get("amount_paid", 0) + apply, 2)
+
+        # Only allow discounts on interest/penalty invoices
+        if discount > 0 and inv.get("sale_type") not in ("interest_charge", "penalty_charge"):
+            discount = 0
+
+        actual_discount = min(discount, inv["balance"])
+        actual_apply = min(apply, inv["balance"] - actual_discount)
+        total_reduction = round(actual_apply + actual_discount, 2)
+
+        new_balance = max(0, round(inv["balance"] - total_reduction, 2))
+        new_paid = round(inv.get("amount_paid", 0) + total_reduction, 2)
         new_status = "paid" if new_balance <= 0 else "partial"
-        payment_record = {
-            "id": new_id(), "amount": apply, "date": pay_date, "method": method,
-            "reference": reference, "fund_source": fund_source,
-            "applied_to_interest": 0, "applied_to_principal": apply,
-            "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
-        }
-        await db.invoices.update_one({"id": inv["id"]}, {
-            "$set": {"balance": new_balance, "amount_paid": new_paid, "status": new_status},
-            "$push": {"payments": payment_record}
-        })
+
+        payments_to_push = []
+
+        # Record discount first (no wallet impact)
+        if actual_discount > 0:
+            discount_record = {
+                "id": new_id(), "amount": actual_discount, "date": pay_date, "method": "Discount",
+                "reference": f"Discount on {inv.get('sale_type', 'charge')}",
+                "fund_source": "discount",
+                "applied_to_interest": 0, "applied_to_principal": actual_discount,
+                "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+            }
+            payments_to_push.append(discount_record)
+            total_discounted = round(total_discounted + actual_discount, 2)
+
+        # Record actual payment (goes to wallet)
+        if actual_apply > 0:
+            payment_record = {
+                "id": new_id(), "amount": actual_apply, "date": pay_date, "method": method,
+                "reference": reference, "fund_source": fund_source,
+                "applied_to_interest": 0, "applied_to_principal": actual_apply,
+                "recorded_by": user.get("full_name", user["username"]), "recorded_at": now_iso(),
+            }
+            payments_to_push.append(payment_record)
+            total_applied = round(total_applied + actual_apply, 2)
+
         if not branch_id and inv.get("branch_id"):
             branch_id = inv["branch_id"]
-        total_applied = round(total_applied + apply, 2)
-        applied_invoices.append({"invoice_id": inv["id"], "invoice_number": inv.get("invoice_number"),
-                                  "applied": apply, "new_balance": new_balance})
 
-    if total_applied <= 0:
+        await db.invoices.update_one({"id": inv["id"]}, {
+            "$set": {"balance": new_balance, "amount_paid": new_paid, "status": new_status},
+            "$push": {"payments": {"$each": payments_to_push}}
+        })
+        applied_invoices.append({"invoice_id": inv["id"], "invoice_number": inv.get("invoice_number"),
+                                  "applied": actual_apply, "discount": actual_discount, "new_balance": new_balance})
+
+    if total_applied <= 0 and total_discounted <= 0:
         raise HTTPException(status_code=400, detail="No payment could be applied")
 
-    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": -total_applied}})
-    if branch_id:
+    # Update customer balance (both payment + discount reduce AR)
+    total_balance_reduction = round(total_applied + total_discounted, 2)
+    await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": -total_balance_reduction}})
+    if branch_id and total_applied > 0:
         ref_text = f"Payment — {customer.get('name','')} {reference or method}"
         if digital:
             await update_digital_wallet(
@@ -1603,8 +1636,8 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
             await update_cashier_wallet(branch_id, total_applied, ref_text)
 
     deposited_to = "Digital / E-Wallet" if digital else "Cashier Drawer"
-    return {"message": "Payment applied", "total_applied": total_applied, "applied_invoices": applied_invoices,
-            "deposited_to": deposited_to}
+    return {"message": "Payment applied", "total_applied": total_applied, "total_discounted": total_discounted,
+            "applied_invoices": applied_invoices, "deposited_to": deposited_to}
 
 
 @router.get("/customers/{customer_id}/payment-history")

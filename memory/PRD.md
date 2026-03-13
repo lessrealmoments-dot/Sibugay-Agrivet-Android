@@ -24,87 +24,67 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Mobile barcode scanner, returns/refunds
 
 ### Budget Checker Kiosk Mode (Complete — Feb 2026)
-- F1 to lock, Ctrl+Shift+U to unlock with PIN
-- Product search, price display, budget calculation
-- Offline-capable with cached PIN hash (SHA-256)
 
-### AgriSmart Terminal — Phase 1 Foundation (Complete — Mar 2026)
-- YouTube TV-style device pairing (6-char code)
-- Terminal Shell at /terminal with bottom nav (Sales | PO Check | Transfers)
-- Sales Module with camera/hardware barcode scanning, cart, checkout
-- Offline support via IndexedDB + sync manager
-- KS- prefix for terminal receipts
-
-### AgriSmart Terminal — Phase 2 WebSocket + PO Locking (Complete — Mar 2026)
-- Real-time WebSocket for instant pairing and PO/transfer push notifications
-- PO "Send to Terminal" with locking mechanism (423 on PC edit)
-- Terminal PO verification with quantity adjustment and finalize
-- Variance recording with terminal_verified badge on PC
-
-### AgriSmart Terminal — Phase 3 Branch Transfer Integration (Complete — Mar 2026)
-- "Send to Terminal" on Branch Transfer page for sent status transfers
-- Transfer locking: sent_to_terminal status blocks PC receive (423), cancel
-- Terminal receive flow with pricing display, variance handling
-- All match → received (inventory moves), Variance → received_pending (source notified)
-- WebSocket notification + red dot badges on Transfers tab
+### AgriSmart Terminal — Phase 1-3 (Complete — Mar 2026)
+- Device pairing (6-char code + QR auto-pair)
+- Terminal Shell with floating mode selector (Sales | PO Check | Transfers | Settings)
+- Sales with barcode scanner (debounced), full checkout (Cash/Digital/Credit/Split), print order slip
+- PO verification + Transfer receive with variance handling
+- WebSocket real-time notifications
+- Branch restriction: managers/cashiers locked to their branch
+- Terminal Pull: self-serve PO/Transfer pull with PIN verification
+- Settings panel with Unlink Terminal
 
 ### Branch Transfer UX Redesign (Complete — Mar 2026)
-- Replaced old "Incoming/Outgoing/Requests" sub-tabs with unified status-based filter pills
-- Status categories: All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes
-- Card-based transfer display replacing flat table rows
-- Each card shows: order number, branch route, status badge, date, inline timeline, financials, action buttons
-- Colored left borders per status (slate=draft, blue=in-transit, amber=terminal, orange=pending, emerald=completed, red=disputed)
-- "Needs Review" pill auto-highlighted in orange when transfers need attention
-- Stock Requests displayed as separate card layout with product tags
-- All existing dialogs (View, Receive, Accept/Dispute) preserved and functional
+- Status-based filter pills (All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes)
+- Card-based layout with timelines, action buttons, colored borders
 
-### QR Code Terminal Login (Complete — Mar 2026)
-- PC Settings > Connect Terminal shows "Quick Pair — Scan QR Code" with branch selector
-- Generates a time-limited QR token (10 min expiry) tied to a branch
-- QR code encodes terminal URL with pair token for one-scan mobile pairing
-- Terminal auto-detects `?pair=TOKEN` URL param and auto-pairs without code screen
-- URL cleaned after pairing for security
-- Manual 6-digit code pairing preserved as fallback below QR section
+### Terminal Sales Fixes (Complete — Mar 2026)
+- Scanner debounce (2s cooldown), full checkout flow, online API error handling
+- Sales History sidebar link at /sales with search, filters, sorting, pagination
 
-### Terminal Pull Data — Self-Serve with PIN (Complete — Mar 2026)
-- Terminal PO Check and Transfers tabs show "Pull" button
-- Browsing available POs (draft/ordered) and Transfers (sent) for the terminal's branch
-- PIN verification required before pulling — uses same PIN policies from Settings (admin PIN, manager PIN, TOTP)
-- After pulling, status changes to sent_to_terminal and item appears in terminal checking flow
-- Invalid PIN returns clear error message
-- Terminal operator can self-serve without waiting for PC to push
+## NEXT SESSION — Priority Tasks (User Confirmed)
 
-### Terminal UX Improvements (Complete — Mar 2026)
-- Branch restriction: managers/cashiers can only pair terminal to their assigned branch, admins can pair to any
-- Camera scanner fix: resolved race condition where scanner div wasn't rendered before Html5Qrcode initialization
-- Navigation redesign: replaced bottom tab bar with floating mode selector icon (lower-left)
-- Floating menu shows: Sales, PO Check, Transfers, Settings
-- Settings panel shows branch info, paired-by user, online status, Sync Now, and Unlink Terminal button
-- Unlink Terminal clears session and returns to pairing screen
+### Task 1: Branch Process Isolation Fix (P0 — CRITICAL LOGIC BUG)
+**Problem:** `isSourceBranch` and `isDestBranch` in BranchTransferPage.js use `isAdmin ||` which makes admins see ALL actions for ALL transfers regardless of branch context. This breaks branch isolation.
 
-### Terminal Sales & UX Fixes (Complete — Mar 2026)
-- Scanner debounce: 2-second cooldown prevents duplicate scans of same barcode
-- Full checkout flow: Cash (amount tendered + change), Digital (screenshot upload required), Credit (customer + 15/30/60 day terms), Split (cash+digital with auto-calculation)
-- Online sales: shows real API errors instead of silently saving offline
-- Sales History: added sidebar link under Transactions, shows all sales newest-first with search, filters (All/Paid/Partial/Credit/Voided), sorting, pagination (50/page)
-
-## Pricing Model (Branch Transfer — Must Preserve)
-- **Branch Capital:** Source branch's cost (read-only)
-- **Transfer Capital:** Price "sold" to destination (editable, with category markup)
-- **Branch Retail:** Retail price at destination (admin-only editing)
-- **Min Margin:** Transfer_capital to branch_retail
-- **Repack pricing:** New retail prices for repacks at destination
-
-## Branch Transfer Status Flow
-```
-draft → sent → sent_to_terminal → received (all match)
-                                 → received_pending (variance) → accepted → received
-                                                                → disputed → received_pending (re-count)
+**Current (broken):**
+```javascript
+const isSourceBranch = isAdmin || o.from_branch_id === effectiveBranchId;
+const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
 ```
 
-## NEXT SESSION — Priority Tasks
+**Fix:** Remove admin override — actions should be strictly branch-context:
+```javascript
+const isSourceBranch = o.from_branch_id === effectiveBranchId;
+const isDestBranch = o.to_branch_id === effectiveBranchId;
+```
 
-### Prioritized Backlog
+**Correct flow:**
+- Branch A requests stock from Branch B
+- Branch B prepares and sends → only Branch B sees Send/Cancel
+- Branch A receives and counts → only Branch A sees Receive
+- If variance: status = received_pending → only Branch B sees Accept/Dispute
+- Branch A should NEVER see Branch B's accept/dispute buttons and vice versa
+
+Also check the backend endpoints for the same admin bypass issue.
+
+### Task 2: Move Stock Requests from Purchase Orders to Branch Transfers (P0)
+**Current:** Stock requests between branches are in Purchase Orders section
+**Should be:** Under Branch Transfers since they're inter-branch operations
+- Move the "Requests" tab/functionality from PurchaseOrdersPage to BranchTransferPage
+- Update the request creation flow to live under Branch Transfers
+- Update sidebar navigation if needed
+- Keep the "Generate Transfer from Request" flow working
+
+### Task 3: Backend Branch Isolation Audit
+- Audit all transfer endpoints: `/receive`, `/accept-receipt`, `/dispute-receipt`
+- Ensure each endpoint validates that the requesting user belongs to the correct branch for the action
+- Source branch actions: send, cancel, accept-receipt, dispute-receipt
+- Dest branch actions: receive, re-count after dispute
+- Admin in consolidated view should see everything but actions restricted to branch context
+
+## Prioritized Backlog
 
 ### P1 (High Priority)
 - Partial invoice payment trail
@@ -115,38 +95,34 @@ draft → sent → sent_to_terminal → received (all match)
 - Admin tool for corrupted POs in production DB
 - Refactor SuperAdminPage.jsx (1000+ lines)
 - Fix react-hooks/exhaustive-deps warnings
-- Over-limit Cash Advances logic
 
 ### P3 (Future)
 - Capacitor APK wrap (thermal printer + Newland scanner SDK)
 - Weight-embedded EAN-13 barcode recognition
 - Automated Payment Gateway & Demo Login
-- "Weigh & Send" mode, advanced reporting, "Pack & Ship"
+- Advanced reporting, "Pack & Ship"
 
 ## Key Files
-- `/app/backend/routes/terminal.py` — Terminal pairing, WebSocket endpoints
-- `/app/backend/routes/terminal_ws.py` — WebSocket connection manager
-- `/app/backend/routes/purchase_orders.py` — send-to-terminal, terminal-finalize
-- `/app/backend/routes/branch_transfers.py` — send-to-terminal, terminal-receive, locking
+- `/app/backend/routes/terminal.py` — Terminal pairing, QR, pull, WebSocket
+- `/app/backend/routes/branch_transfers.py` — Transfer CRUD, receive, accept/dispute
+- `/app/backend/routes/purchase_orders.py` — PO CRUD, stock requests
+- `/app/frontend/src/pages/BranchTransferPage.js` — **Lines 1516-1517 are the bug**
 - `/app/frontend/src/pages/terminal/` — All terminal components
-- `/app/frontend/src/pages/PurchaseOrderPage.js` — Send to Terminal button
-- `/app/frontend/src/pages/BranchTransferPage.js` — Redesigned status-based view
-- `/app/frontend/src/pages/SettingsPage.js` — Connect Terminal tab
+- `/app/frontend/src/pages/SalesPage.js` — Sales history
+- `/app/frontend/src/components/Layout.js` — Sidebar navigation
 
 ## Test Reports
-- `/app/test_reports/iteration_110.json` — Phase 1 (100%)
-- `/app/test_reports/iteration_111.json` — Phase 2 (100%)
-- `/app/test_reports/iteration_112.json` — Phase 3 (100%)
-- `/app/test_reports/iteration_113.json` — Branch Transfer UX Redesign (100%)
-- `/app/test_reports/iteration_114.json` — QR Code Terminal Login (100%)
-- `/app/test_reports/iteration_115.json` — Terminal Pull Data (100%)
-- `/app/test_reports/iteration_116.json` — Branch Restriction + Nav Redesign (100%)
-- `/app/test_reports/iteration_117.json` — Terminal Sales Fixes + Sales History (100%)
+- `/app/test_reports/iteration_113.json` — Branch Transfer UX (100%)
+- `/app/test_reports/iteration_114.json` — QR Login (100%)
+- `/app/test_reports/iteration_115.json` — Terminal Pull (100%)
+- `/app/test_reports/iteration_116.json` — Branch Restriction + Nav (100%)
+- `/app/test_reports/iteration_117.json` — Sales Fixes (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
 - Test Admin: testadmin@test.com / Test@123
+- Test Manager: testmanager@test.com / Test@123 (Branch 1 only)
 - Manager PIN: 521325
 
 ## 3rd Party Integrations
-- Cloudflare R2, Resend, Google Authenticator, fpdf2, python-barcode, jsbarcode, html5-qrcode
+- Cloudflare R2, Resend, Google Authenticator, fpdf2, python-barcode, jsbarcode, html5-qrcode, qrcode.react

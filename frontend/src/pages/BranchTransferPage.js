@@ -81,7 +81,7 @@ export default function BranchTransferPage() {
 
   // ── Lists / history ────────────────────────────────────────────────────────
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'new');
-  const [historyTab, setHistoryTab] = useState(() => searchParams.get('subtab') || 'outgoing');
+  const [historyTab, setHistoryTab] = useState(() => searchParams.get('subtab') || 'all');
   const [stockRequests, setStockRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [generatingTransfer, setGeneratingTransfer] = useState(null); // request id being processed
@@ -91,8 +91,11 @@ export default function BranchTransferPage() {
     const urlTab = searchParams.get('tab');
     const urlSubtab = searchParams.get('subtab');
     if (urlTab && urlTab !== tab) setTab(urlTab);
-    if (urlSubtab && urlSubtab !== historyTab) setHistoryTab(urlSubtab);
-    // Clean up search params after applying
+    if (urlSubtab && urlSubtab !== historyTab) {
+      // Map legacy subtab values to new status-based keys
+      const subtabMap = { outgoing: 'all', incoming: 'all' };
+      setHistoryTab(subtabMap[urlSubtab] || urlSubtab);
+    }
     if (urlTab || urlSubtab) {
       setSearchParams({}, { replace: true });
     }
@@ -193,7 +196,7 @@ export default function BranchTransferPage() {
     setRequestsLoading(false);
   }, [currentBranch?.id, user?.branch_id]);
 
-  useEffect(() => { if (tab === 'history' && historyTab === 'requests') loadRequests(); }, [tab, historyTab, loadRequests]);
+  useEffect(() => { if (tab === 'history') loadRequests(); }, [tab, loadRequests]);
 
   // Generate a branch transfer from a stock request
   const handleGenerateTransfer = async (request) => {
@@ -842,7 +845,7 @@ export default function BranchTransferPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="new"><Plus size={14} className="mr-1" /> New Transfer</TabsTrigger>
-          <TabsTrigger value="history" data-testid="transfer-history-tab"><Clock size={14} className="mr-1" /> History</TabsTrigger>
+          <TabsTrigger value="history" data-testid="transfer-history-tab"><Clock size={14} className="mr-1" /> Transfers</TabsTrigger>
         </TabsList>
 
         {/* ── NEW TRANSFER TAB ── */}
@@ -1325,298 +1328,341 @@ export default function BranchTransferPage() {
           )}
         </TabsContent>
 
-        {/* ── HISTORY TAB ── */}
-        <TabsContent value="history" className="mt-4">
-          {/* Outgoing / Incoming / Requests sub-tabs */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+
+        {/* ── TRANSFERS TAB ── */}
+        <TabsContent value="history" className="mt-4 space-y-4">
+          {/* Status filter pills */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
               {[
-                { key: 'outgoing', label: 'Outgoing' },
-                { key: 'incoming', label: 'Incoming' },
-                { key: 'requests', label: 'Stock Requests', badge: stockRequests.filter(r => r.status === 'requested').length },
-              ].map(ht => {
-                const effectiveBranchId2 = currentBranch?.id || user?.branch_id || '';
-                const count = ht.key === 'requests'
-                  ? stockRequests.length
-                  : isConsolidatedView
-                  ? orders.length
-                  : orders.filter(o => ht.key === 'outgoing' ? o.from_branch_id === effectiveBranchId2 : o.to_branch_id === effectiveBranchId2).length;
+                { key: 'all', label: 'All', dot: 'bg-slate-400' },
+                { key: 'requests', label: 'Requests', dot: 'bg-violet-500' },
+                { key: 'draft', label: 'Drafts', dot: 'bg-slate-400' },
+                { key: 'in_transit', label: 'In Transit', dot: 'bg-blue-500' },
+                { key: 'checking', label: 'Terminal', dot: 'bg-amber-500' },
+                { key: 'pending', label: 'Needs Review', dot: 'bg-orange-500' },
+                { key: 'completed', label: 'Completed', dot: 'bg-emerald-500' },
+                { key: 'disputes', label: 'Disputes', dot: 'bg-red-500' },
+              ].map(st => {
+                const count = st.key === 'all' ? orders.length
+                  : st.key === 'requests' ? stockRequests.length
+                  : st.key === 'draft' ? orders.filter(o => o.status === 'draft').length
+                  : st.key === 'in_transit' ? orders.filter(o => o.status === 'sent').length
+                  : st.key === 'checking' ? orders.filter(o => o.status === 'sent_to_terminal').length
+                  : st.key === 'pending' ? orders.filter(o => o.status === 'received_pending').length
+                  : st.key === 'completed' ? orders.filter(o => o.status === 'received').length
+                  : st.key === 'disputes' ? orders.filter(o => o.status === 'disputed').length
+                  : 0;
+                const isActive = historyTab === st.key;
+                const needsAttention = (st.key === 'pending' || st.key === 'disputes') && count > 0;
                 return (
-                  <button key={ht.key}
-                    onClick={() => { setHistoryTab(ht.key); if (ht.key === 'requests') loadRequests(); }}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors capitalize flex items-center gap-1.5 ${historyTab === ht.key ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-                    data-testid={`history-${ht.key}-tab`}
+                  <button key={st.key}
+                    onClick={() => { setHistoryTab(st.key); if (st.key === 'requests') loadRequests(); }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                      isActive
+                        ? 'bg-[#1A4D2E] text-white shadow-md'
+                        : needsAttention
+                        ? 'bg-white text-orange-700 border border-orange-300 hover:border-orange-400 shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                    }`}
+                    data-testid={`filter-${st.key}`}
                   >
-                    {ht.label}
-                    <span className="text-xs text-slate-400">({count})</span>
-                    {ht.badge > 0 && <span className="w-4 h-4 bg-blue-500 text-white text-[9px] rounded-full flex items-center justify-center">{ht.badge}</span>}
+                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white' : st.dot}`} />
+                    {st.label}
+                    {count > 0 && (
+                      <span className={`text-[10px] min-w-[18px] text-center px-1 rounded-full ${
+                        isActive ? 'bg-white/20' : needsAttention ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'
+                      }`}>{count}</span>
+                    )}
                   </button>
                 );
               })}
             </div>
-            <Button variant="outline" size="sm" onClick={loadOrders} disabled={ordersLoading}>
+            <Button variant="outline" size="sm" onClick={() => { loadOrders(); loadRequests(); }} disabled={ordersLoading} className="shrink-0">
               <RefreshCw size={13} className={`mr-1.5 ${ordersLoading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
           </div>
 
+          {/* Content area */}
           {(() => {
             const effectiveBranchId = currentBranch?.id || user?.branch_id || '';
 
-            // Stock Requests tab
+            // ── Stock Requests ──
             if (historyTab === 'requests') {
               return (
-                <Card className="border-slate-200">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-slate-50">
-                        <TableHead className="text-xs uppercase text-slate-500">Request #</TableHead>
-                        <TableHead className="text-xs uppercase text-slate-500">From Branch</TableHead>
-                        <TableHead className="text-xs uppercase text-slate-500">Items</TableHead>
-                        <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
-                        <TableHead className="text-xs uppercase text-slate-500">Notes</TableHead>
-                        <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
-                        <TableHead className="w-40"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {requestsLoading && (
-                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">Loading requests...</TableCell></TableRow>
-                      )}
-                      {!requestsLoading && stockRequests.length === 0 && (
-                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-slate-400">No stock requests pending for this branch.</TableCell></TableRow>
-                      )}
-                      {stockRequests.map(req => {
-                        const reqBranch = branches.find(b => b.id === req.branch_id);
-                        const statusColors = {
-                          requested: 'bg-blue-100 text-blue-700',
-                          draft: 'bg-slate-100 text-slate-600',
-                          in_progress: 'bg-amber-100 text-amber-700',
-                          fulfilled: 'bg-emerald-100 text-emerald-700',
-                          partially_fulfilled: 'bg-yellow-100 text-yellow-700',
-                          cancelled: 'bg-red-100 text-red-600',
-                        };
-                        return (
-                          <TableRow key={req.id} className="hover:bg-slate-50">
-                            <TableCell className="font-mono text-xs text-blue-600">{req.po_number}</TableCell>
-                            <TableCell className="font-medium text-sm">{reqBranch?.name || req.branch_id?.slice(0,8)}</TableCell>
-                            <TableCell>
-                              <div className="space-y-0.5">
-                                {(req.items || []).slice(0,3).map((item, i) => (
-                                  <p key={i} className="text-xs text-slate-600">{item.product_name} <span className="text-slate-400">×{item.quantity} {item.unit}</span></p>
-                                ))}
-                                {req.items?.length > 3 && <p className="text-[10px] text-slate-400">+{req.items.length - 3} more...</p>}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-xs text-slate-400">{req.purchase_date}</TableCell>
-                            <TableCell className="text-xs text-slate-500 max-w-[120px] truncate">{req.notes || '—'}</TableCell>
-                            <TableCell>
-                              <Badge className={`text-[10px] ${statusColors[req.status] || 'bg-slate-100 text-slate-600'}`}>
-                                {req.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {(req.status === 'requested' || req.status === 'draft') && (
-                                <Button size="sm"
-                                  onClick={() => handleGenerateTransfer(req)}
-                                  disabled={generatingTransfer === req.id}
-                                  className="h-8 bg-[#1A4D2E] hover:bg-[#14532d] text-white text-xs"
-                                  data-testid={`gen-transfer-${req.id}`}>
-                                  {generatingTransfer === req.id
-                                    ? <RefreshCw size={12} className="animate-spin mr-1.5" />
-                                    : <ArrowRight size={12} className="mr-1.5" />}
-                                  Generate Transfer
-                                </Button>
-                              )}
-                              {req.status === 'in_progress' && (
-                                <Badge className="text-[10px] bg-amber-100 text-amber-700">Transfer In Progress</Badge>
-                              )}
-                              {req.status === 'fulfilled' && (
-                                <div className="flex items-center gap-1.5">
-                                  <CheckCircle2 size={13} className="text-emerald-600" />
-                                  <span className="text-xs text-emerald-700 font-medium">Fulfilled</span>
-                                  {req.fulfilled_transfer_number && (
-                                    <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>
-                                  )}
-                                </div>
-                              )}
-                              {req.status === 'partially_fulfilled' && (
-                                <div className="flex items-center gap-1.5">
-                                  <AlertTriangle size={13} className="text-yellow-600" />
-                                  <span className="text-xs text-yellow-700 font-medium">Partial</span>
-                                  {req.fulfilled_transfer_number && (
-                                    <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>
-                                  )}
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </Card>
+                <div className="space-y-3" data-testid="requests-list">
+                  {requestsLoading && <div className="text-center py-12 text-slate-400"><RefreshCw size={18} className="animate-spin mx-auto mb-2" />Loading requests...</div>}
+                  {!requestsLoading && stockRequests.length === 0 && (
+                    <div className="text-center py-16 text-slate-400">
+                      <Package size={36} className="mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">No stock requests for this branch.</p>
+                    </div>
+                  )}
+                  {stockRequests.map(req => {
+                    const reqBranch = branches.find(b => b.id === req.branch_id);
+                    return (
+                      <div key={req.id} className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-violet-400 p-4 hover:shadow-md transition-all" data-testid={`request-card-${req.id}`}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-bold text-violet-700">{req.po_number}</span>
+                              <Badge className={`text-[10px] ${
+                                req.status === 'requested' ? 'bg-blue-100 text-blue-700'
+                                : req.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700'
+                                : req.status === 'partially_fulfilled' ? 'bg-yellow-100 text-yellow-700'
+                                : req.status === 'in_progress' ? 'bg-amber-100 text-amber-700'
+                                : 'bg-slate-100 text-slate-600'
+                              }`}>{req.status?.replace('_',' ')}</Badge>
+                            </div>
+                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
+                              <Building2 size={12} className="text-slate-400" />
+                              <span className="font-medium text-slate-700">{reqBranch?.name || 'Unknown'}</span>
+                              <span className="text-slate-300">requested stock</span>
+                            </p>
+                          </div>
+                          <span className="text-xs text-slate-400">{req.purchase_date}</span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {(req.items || []).slice(0, 4).map((item, i) => (
+                            <span key={i} className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600">
+                              {item.product_name} <span className="text-slate-400 font-mono">x{item.quantity}</span>
+                            </span>
+                          ))}
+                          {req.items?.length > 4 && <span className="text-xs text-slate-400 self-center">+{req.items.length - 4} more</span>}
+                        </div>
+                        {req.notes && <p className="text-xs text-slate-500 mt-2 italic">"{req.notes}"</p>}
+                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                          {(req.status === 'requested' || req.status === 'draft') && (
+                            <Button size="sm" onClick={() => handleGenerateTransfer(req)} disabled={generatingTransfer === req.id}
+                              className="h-8 bg-[#1A4D2E] hover:bg-[#14532d] text-white text-xs" data-testid={`gen-transfer-${req.id}`}>
+                              {generatingTransfer === req.id ? <RefreshCw size={12} className="animate-spin mr-1.5" /> : <ArrowRight size={12} className="mr-1.5" />}
+                              Generate Transfer
+                            </Button>
+                          )}
+                          {req.status === 'fulfilled' && (
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle2 size={13} className="text-emerald-600" />
+                              <span className="text-xs text-emerald-700 font-medium">Fulfilled</span>
+                              {req.fulfilled_transfer_number && <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>}
+                            </div>
+                          )}
+                          {req.status === 'partially_fulfilled' && (
+                            <div className="flex items-center gap-1.5">
+                              <AlertTriangle size={13} className="text-yellow-600" />
+                              <span className="text-xs text-yellow-700 font-medium">Partial</span>
+                              {req.fulfilled_transfer_number && <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>}
+                            </div>
+                          )}
+                          {req.status === 'in_progress' && <Badge className="text-[10px] bg-amber-100 text-amber-700">Transfer In Progress</Badge>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               );
             }
 
-            const filteredOrders = isConsolidatedView
-              ? orders
-              : orders.filter(o => historyTab === 'outgoing'
-                  ? o.from_branch_id === effectiveBranchId
-                  : o.to_branch_id === effectiveBranchId);
+            // ── Transfer Cards ──
+            const statusFilter = {
+              all: () => true,
+              draft: o => o.status === 'draft',
+              in_transit: o => o.status === 'sent',
+              checking: o => o.status === 'sent_to_terminal',
+              pending: o => o.status === 'received_pending',
+              completed: o => o.status === 'received',
+              disputes: o => o.status === 'disputed',
+            };
+            const filterFn = statusFilter[historyTab] || statusFilter.all;
+            const filteredOrders = orders.filter(filterFn).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+            const borderColorMap = {
+              draft: 'border-l-slate-300',
+              sent: 'border-l-blue-500',
+              sent_to_terminal: 'border-l-amber-500',
+              received_pending: 'border-l-orange-500',
+              received: 'border-l-emerald-500',
+              disputed: 'border-l-red-500',
+              cancelled: 'border-l-red-300',
+            };
+            const statusLabel = {
+              draft: 'Draft',
+              sent: 'In Transit',
+              sent_to_terminal: 'On Terminal',
+              received_pending: 'Pending Review',
+              received: 'Completed',
+              disputed: 'Disputed',
+              cancelled: 'Cancelled',
+            };
+
+            if (ordersLoading) return (
+              <div className="text-center py-16 text-slate-400">
+                <RefreshCw size={20} className="animate-spin mx-auto mb-3" />
+                <p className="text-sm">Loading transfers...</p>
+              </div>
+            );
+
+            if (filteredOrders.length === 0) return (
+              <div className="text-center py-16 text-slate-400">
+                <Building2 size={36} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No transfers{historyTab !== 'all' ? ` in "${[...Object.entries(statusLabel)].find(([,v]) => v === (statusLabel[historyTab === 'in_transit' ? 'sent' : historyTab]))?.[1] || historyTab}"` : ''} found.</p>
+              </div>
+            );
 
             return (
-              <Card className="border-slate-200">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-50">
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Order #</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium">From</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium">To</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Items</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Transfer Value</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium text-right">Retail Value</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Status</TableHead>
-                      <TableHead className="text-xs uppercase text-slate-500 font-medium">Date</TableHead>
-                      <TableHead className="w-36"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredOrders.length === 0 ? (
-                      <TableRow><TableCell colSpan={9} className="text-center py-8 text-slate-400">
-                        No {historyTab} transfers{!isConsolidatedView ? ' for this branch' : ''}.
-                      </TableCell></TableRow>
-                    ) : filteredOrders.map(o => {
-                      const toBranch = branches.find(b => b.id === o.to_branch_id);
-                      const fromBranchObj = branches.find(b => b.id === o.from_branch_id);
-                      const isSourceBranch = historyTab === 'incoming' ? false : (isAdmin || o.from_branch_id === effectiveBranchId);
-                      const isDestBranch = historyTab === 'outgoing' ? false : (isAdmin || o.to_branch_id === effectiveBranchId);
-                      return (
-                        <TableRow key={o.id} className="hover:bg-slate-50">
-                          <TableCell className="font-mono text-sm text-blue-600">
-                            {o.order_number}
-                            {o.request_po_number && (
-                              <span className="block text-[9px] text-blue-400 font-sans font-normal">from {o.request_po_number}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm text-slate-500">{fromBranchObj?.name || o.from_branch_id?.slice(0,8) || '—'}</TableCell>
-                          <TableCell className="font-medium">{toBranch?.name || o.to_branch_id}</TableCell>
-                          <TableCell className="text-slate-500">{o.items?.length || 0} products</TableCell>
-                          <TableCell className="text-right font-mono">{formatPHP(o.total_at_transfer_capital)}</TableCell>
-                          <TableCell className="text-right font-mono text-emerald-700">{formatPHP(o.total_at_branch_retail)}</TableCell>
-                          <TableCell>
+              <div className="space-y-3" data-testid="transfers-list">
+                {filteredOrders.map(o => {
+                  const fromBr = branches.find(b => b.id === o.from_branch_id);
+                  const toBr = branches.find(b => b.id === o.to_branch_id);
+                  const isSourceBranch = isAdmin || o.from_branch_id === effectiveBranchId;
+                  const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
+
+                  // Timeline
+                  const timelineSteps = [
+                    { label: 'Created', done: true },
+                    { label: 'Sent', done: ['sent','sent_to_terminal','received_pending','received','disputed'].includes(o.status) },
+                    { label: o.status === 'sent_to_terminal' ? 'Terminal' : 'Checked',
+                      done: ['sent_to_terminal','received_pending','received','disputed'].includes(o.status),
+                      variant: o.status === 'sent_to_terminal' ? 'amber' : o.status === 'disputed' ? 'red' : o.status === 'received_pending' ? 'orange' : null },
+                    { label: 'Complete', done: o.status === 'received' },
+                  ];
+
+                  return (
+                    <div key={o.id}
+                      className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderColorMap[o.status] || 'border-l-slate-300'} overflow-hidden hover:shadow-lg transition-all duration-200`}
+                      data-testid={`transfer-card-${o.id}`}
+                    >
+                      {/* Header */}
+                      <div className="px-4 pt-3.5 pb-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-sm font-bold text-slate-800 cursor-pointer hover:text-blue-700"
+                              onClick={() => { setViewOrder(o); setReceiveDialog(false); }}>{o.order_number}</span>
                             <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>
-                              {o.status === 'sent_to_terminal' ? 'On Terminal' : o.status}
+                              {statusLabel[o.status] || o.status}
                             </Badge>
-                            {o.has_shortage && <Badge className="ml-1 text-[10px] bg-red-100 text-red-700">Short</Badge>}
-                            {o.incident_ticket_number && <Badge className="ml-1 text-[10px] bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-400">{o.created_at?.slice(0, 10)}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-0.5">
-                              {/* View — always */}
-                              <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
-                                title="View" className="h-7 px-2" data-testid={`view-btn-${o.id}`}>
-                                <Eye size={13} />
+                            {o.has_shortage && <Badge className="text-[10px] bg-red-100 text-red-700">Shortage</Badge>}
+                            {o.incident_ticket_number && <Badge className="text-[10px] bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
+                            {o.terminal_id && o.status === 'received' && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
+                                <Smartphone size={9} /> Terminal verified
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className="text-sm font-medium text-slate-700">{fromBr?.name || '?'}</span>
+                            <ArrowRight size={12} className="text-slate-300 shrink-0" />
+                            <span className="text-sm font-medium text-slate-700">{toBr?.name || '?'}</span>
+                          </div>
+                          {o.request_po_number && (
+                            <p className="text-[10px] text-blue-500 mt-0.5 flex items-center gap-1">
+                              <Package size={10} /> From request {o.request_po_number}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-xs text-slate-400 whitespace-nowrap shrink-0">{o.created_at?.slice(0, 10)}</span>
+                      </div>
+
+                      {/* Timeline */}
+                      <div className="px-4 py-2 border-t border-slate-50">
+                        <div className="flex items-center">
+                          {timelineSteps.map((step, i) => {
+                            const dotColor = step.done
+                              ? (step.variant === 'amber' ? 'bg-amber-500' : step.variant === 'red' ? 'bg-red-500' : step.variant === 'orange' ? 'bg-orange-500' : 'bg-emerald-500')
+                              : 'bg-slate-200';
+                            return (
+                              <React.Fragment key={i}>
+                                <div className="flex flex-col items-center min-w-0">
+                                  <div className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} />
+                                  <span className={`text-[9px] mt-0.5 truncate ${step.done ? 'text-slate-600 font-medium' : 'text-slate-300'}`}>{step.label}</span>
+                                </div>
+                                {i < timelineSteps.length - 1 && (
+                                  <div className={`flex-1 h-px mx-1 ${step.done && timelineSteps[i+1]?.done ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Footer: financials + actions */}
+                      <div className="px-4 py-2.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 text-xs min-w-0">
+                          <span className="text-slate-500 shrink-0">{o.items?.length || 0} items</span>
+                          <Separator orientation="vertical" className="h-3" />
+                          <span className="font-mono text-slate-600 shrink-0">{formatPHP(o.total_at_transfer_capital)}</span>
+                          <Separator orientation="vertical" className="h-3" />
+                          <span className="font-mono text-emerald-600 font-medium shrink-0">{formatPHP(o.total_at_branch_retail)} retail</span>
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
+                            className="h-7 px-2 text-slate-500 hover:text-slate-800" title="View" data-testid={`view-btn-${o.id}`}>
+                            <Eye size={13} />
+                          </Button>
+                          {['draft', 'sent', 'received', 'received_pending'].includes(o.status) && isSourceBranch && (
+                            <Button variant="ghost" size="sm" onClick={() => printTransferOrder(o)}
+                              className="h-7 px-2 text-slate-500" title="Print Invoice" data-testid={`print-btn-${o.id}`}>
+                              <FileText size={13} />
+                            </Button>
+                          )}
+                          {o.status === 'draft' && (isSourceBranch || isAdmin) && (
+                            <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}
+                              className="h-7 px-2 text-amber-600" title="Edit Draft" data-testid={`edit-btn-${o.id}`}>
+                              <Pencil size={13} />
+                            </Button>
+                          )}
+                          {o.status === 'draft' && isSourceBranch && (
+                            <Button size="sm" onClick={() => handleSend(o.id)}
+                              className="h-7 px-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs" data-testid={`send-btn-${o.id}`}>
+                              <Send size={11} className="mr-1" /> Send
+                            </Button>
+                          )}
+                          {o.status === 'sent' && isDestBranch && (
+                            <Button size="sm" onClick={() => openReceive(o)}
+                              className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs" data-testid={`receive-btn-${o.id}`}>
+                              <CheckCircle2 size={11} className="mr-1" /> Receive
+                            </Button>
+                          )}
+                          {o.status === 'sent' && (isDestBranch || isAdmin) && (
+                            <Button variant="ghost" size="sm" onClick={() => sendTransferToTerminal(o.id)}
+                              className="h-7 px-2 text-amber-600" title="Send to Terminal" data-testid={`send-terminal-btn-${o.id}`}>
+                              <Smartphone size={13} />
+                            </Button>
+                          )}
+                          {o.status === 'sent_to_terminal' && (
+                            <Badge className="text-[10px] bg-amber-100 text-amber-700 flex items-center gap-1">
+                              <Lock size={10} /> Terminal
+                            </Badge>
+                          )}
+                          {o.status === 'disputed' && isDestBranch && (
+                            <Button size="sm" onClick={() => openReceive(o)}
+                              className="h-7 px-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs" data-testid={`resubmit-btn-${o.id}`}>
+                              <RefreshCw size={11} className="mr-1" /> Re-count
+                            </Button>
+                          )}
+                          {o.status === 'received_pending' && isSourceBranch && (
+                            <>
+                              <Button size="sm" onClick={() => setAcceptDialog(o)}
+                                className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs" data-testid={`accept-btn-${o.id}`}>
+                                <CheckCircle2 size={11} className="mr-1" /> Accept
                               </Button>
-                              {/* Print invoice — on outgoing for sent/received */}
-                              {historyTab === 'outgoing' && ['draft', 'sent', 'received', 'received_pending'].includes(o.status) && (
-                                <Button variant="ghost" size="sm" onClick={() => printTransferOrder(o)}
-                                  title="Print Invoice" className="h-7 px-2 text-slate-500"
-                                  data-testid={`print-btn-${o.id}`}>
-                                  <FileText size={13} />
-                                </Button>
-                              )}
-                              {/* Edit draft — source branch only */}
-                              {o.status === 'draft' && isSourceBranch && !isDestBranch && (
-                                <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}
-                                  className="h-7 px-2 text-amber-600" title="Edit Draft"
-                                  data-testid={`edit-btn-${o.id}`}>
-                                  <Pencil size={13} />
-                                </Button>
-                              )}
-                              {/* Admin can always edit draft */}
-                              {o.status === 'draft' && isAdmin && (
-                                <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}
-                                  className="h-7 px-2 text-amber-600" title="Edit Draft"
-                                  data-testid={`edit-btn-admin-${o.id}`}>
-                                  <Pencil size={13} />
-                                </Button>
-                              )}
-                              {/* Send — source branch only */}
-                              {o.status === 'draft' && isSourceBranch && (
-                                <Button variant="ghost" size="sm" onClick={() => handleSend(o.id)}
-                                  className="h-7 px-2 text-blue-500" title="Mark as Sent"
-                                  data-testid={`send-btn-${o.id}`}>
-                                  <Send size={13} />
-                                </Button>
-                              )}
-                              {/* Receive — destination branch only (not source unless admin) */}
-                              {o.status === 'sent' && (isDestBranch) && (
-                                <Button variant="ghost" size="sm" onClick={() => openReceive(o)}
-                                  className="h-7 px-2 text-emerald-600" title="Confirm Receipt"
-                                  data-testid={`receive-btn-${o.id}`}>
-                                  <CheckCircle2 size={13} />
-                                </Button>
-                              )}
-                              {/* Send to Terminal — destination branch can send for terminal checking */}
-                              {o.status === 'sent' && (isDestBranch || isAdmin) && (
-                                <Button variant="ghost" size="sm" onClick={() => sendTransferToTerminal(o.id)}
-                                  className="h-7 px-2 text-amber-600" title="Send to Terminal"
-                                  data-testid={`send-terminal-btn-${o.id}`}>
-                                  <Smartphone size={13} />
-                                </Button>
-                              )}
-                              {/* Locked on Terminal badge */}
-                              {o.status === 'sent_to_terminal' && (
-                                <Badge className="text-[10px] bg-amber-100 text-amber-700 flex items-center gap-1">
-                                  <Lock size={10} /> On Terminal
-                                </Badge>
-                              )}
-                              {/* Terminal verified badge */}
-                              {o.terminal_id && o.status === 'received' && (
-                                <Badge className="text-[10px] bg-emerald-100 text-emerald-700 flex items-center gap-1">
-                                  <Smartphone size={10} /> Terminal
-                                </Badge>
-                              )}
-                              {/* Disputed: destination can re-submit */}
-                              {o.status === 'disputed' && isDestBranch && (
-                                <Button variant="ghost" size="sm" onClick={() => openReceive(o)}
-                                  className="h-7 px-2 text-amber-600" title="Re-submit Receipt"
-                                  data-testid={`resubmit-btn-${o.id}`}>
-                                  <RefreshCw size={13} />
-                                </Button>
-                              )}
-                              {/* Accept / Dispute pending receipt — source branch only */}
-                              {o.status === 'received_pending' && isSourceBranch && (
-                                <>
-                                  <Button variant="ghost" size="sm" onClick={() => setAcceptDialog(o)}
-                                    className="h-7 px-2 text-emerald-600" title="Accept Receipt"
-                                    data-testid={`accept-btn-${o.id}`}>
-                                    <CheckCircle2 size={13} />
-                                  </Button>
-                                  <Button variant="ghost" size="sm" onClick={() => { setDisputeDialog(o); setDisputeNote(''); }}
-                                    className="h-7 px-2 text-red-500" title="Dispute Receipt"
-                                    data-testid={`dispute-btn-${o.id}`}>
-                                    <XCircle size={13} />
-                                  </Button>
-                                </>
-                              )}
-                              {/* Cancel — source branch only */}
-                              {(o.status === 'draft' || o.status === 'sent') && isSourceBranch && (
-                                <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
-                                  className="h-7 px-2 text-red-400" title="Cancel"
-                                  data-testid={`cancel-btn-${o.id}`}>
-                                  <XCircle size={13} />
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </Card>
+                              <Button size="sm" variant="outline" onClick={() => { setDisputeDialog(o); setDisputeNote(''); }}
+                                className="h-7 px-2 text-red-600 border-red-200 hover:bg-red-50 text-xs" data-testid={`dispute-btn-${o.id}`}>
+                                <XCircle size={11} className="mr-1" /> Dispute
+                              </Button>
+                            </>
+                          )}
+                          {(o.status === 'draft' || o.status === 'sent') && isSourceBranch && (
+                            <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
+                              className="h-7 px-2 text-red-400 hover:text-red-600" title="Cancel" data-testid={`cancel-btn-${o.id}`}>
+                              <XCircle size={13} />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             );
           })()}
         </TabsContent>

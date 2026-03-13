@@ -17,72 +17,73 @@ Full-stack POS, Inventory, and Accounting platform for Philippine retail busines
 - Inline interest rate configuration (set on-the-fly, save to profile)
 
 ### Expense Fund Source Routing (2026-03-12)
-- **Fixed:** Payment method now correctly routes to the right wallet
-  - Cash/Check → Cashier Drawer (fund_source: "cashier")
-  - GCash/Maya/Bank Transfer/Credit Card → Digital Wallet (fund_source: "digital")
-  - Cash (from Safe) → Safe (fund_source: "safe")
-- Updated all 4 expense endpoints: regular, farm, customer cashout, employee advance
-- Helper functions: `derive_fund_source()`, `deduct_from_fund_source()` in accounting.py
-- Daily close preview now correctly separates expenses by fund source (cashier, safe, digital)
-- Expected counter formula only subtracts cashier expenses from drawer balance
-- Frontend shows fund source indicator on expense rows
+- Payment method correctly routes to the right wallet (cashier/digital/safe)
+- Updated all 4 expense endpoints
+- Daily close preview correctly separates expenses by fund source
 
 ### Sales History Enhancement (2026-03-12)
-- **Removed date dependency** — shows ALL sales with proper pagination (25/page)
-- **Sortable columns:** Sale #, Customer, Total, Date (click to toggle asc/desc)
-- **Search:** by invoice number or customer name
-- **Filter chips:** All, Paid, Partial, Credit, Voided
-- **Pagination:** First/Prev/Next/Last with page counter
-- **Matches PO page pattern** — consistent UX across the app
+- Removed date dependency — shows ALL sales with pagination (25/page)
+- Sortable columns: Sale #, Customer, Total, Date
+- Search by invoice number or customer name
+- Filter chips: All, Paid, Partial, Credit, Voided
+- **Quick Action menu** on every row: View Details, Print Receipt (58mm), Print Full Page (8.5x11), Add Payment
 
 ### PIN Security Fixes (2026-03-12)
-- **SalesOrderPage credit PIN enforcement:** Credit saves now require manager PIN dialog
-- **Manager PIN branch restriction:** Manager PINs now only work on their assigned branch. Admin PIN, TOTP, and Auditor PIN still work across all branches.
-- **Backend `verify_pin_for_action`** accepts optional `branch_id` for branch-aware verification
+- SalesOrderPage credit saves now require manager PIN dialog
+- Manager PINs restricted to assigned branch only
+- Backend `verify_pin_for_action` accepts optional `branch_id`
 
 ### Date Editing for PO & SO (2026-03-12)
-- **Invoice/SO edits** now support `order_date` and `invoice_date` changes
-- **PO edits** now support `purchase_date` changes
-- **Closed-day validation:** Cannot change a date to one that's already been closed
-- **Closed-day edits:** Editing a transaction from a closed day requires manager PIN; financial changes auto-create a journal entry
-- **SaleDetailModal** shows date input in edit mode with closed-day warnings
-- **PO Detail** shows date input in edit mode
+- Invoice/SO and PO edits support date changes
+- Closed-day validation prevents changing to closed dates
+- Closed-day edits require PIN + auto-create journal entries
+
+### Print System — Phase 1 (2026-03-13)
+- **Business Info Settings** (Settings > Business Info tab): Business Name (required), Address, Phone, TIN, Receipt Footer, Trust Receipt Terms — all editable
+- **Print Engine** (`lib/PrintEngine.js`): Shared utility generating print-ready HTML
+  - 2 formats: Thermal (58mm) and Full Page (8.5x11)
+  - 2 document types: **Order Slip** (cash sales) and **Trust Receipt** (credit/partial sales with legal clause)
+- **Quick Action Menu** on Sales History rows: contextual print/view/payment actions
+- **Trust Receipt** includes legally binding PD 115 terms and conditions with {business_name} placeholder
+
+### Print Document Types
+| Document | Thermal | Full Page | Auto-determined by |
+|----------|:-------:|:---------:|-------------------|
+| Order Slip | Yes | Yes | Cash/digital/split sales (balance = 0) |
+| Trust Receipt | Yes | Yes | Credit/partial sales (balance > 0) |
 
 ## Prioritized Backlog
 
+### P0 (Phase 2 Print — Next)
+- Wire print into Sale Detail Modal (print button)
+- Wire print into POS checkout (auto-prompt or button)
+- Add print to PO detail, Z-Report, Returns
+- Full-page templates for: Purchase Order, Stock Transfer Slip, Expense Voucher, Return Slip, Statement of Account
+
 ### P1 (Upcoming)
-- Visual "trail" indicator for partial invoices receiving same-day payments
-- Implement "Smart Journal Entries"
-- Research over-limit Cash Advances logic
-- Investigate "Closing History" page need
-- Convert app to PWA
-- Weight-embedded EAN-13 barcode recognition
-- Automated Payment Gateway
-- "Demo Login" System
+- Visual "trail" indicator for partial invoices with same-day payments
+- Smart Journal Entries
+- Over-limit Cash Advances logic
+- Closing History page
+- Portable Android POS prep (stripped-down UI: PO + Sales only)
 
 ### P2 (Future)
-- Unify and refactor remaining subpar UI modules
-- Fix 3 remaining `react-hooks/exhaustive-deps` eslint warnings
-- Create admin tool to fix broken Purchase Orders in DB
-- "Weigh & send" mode for phone scanner
-- Kiosk Mode for POS
-- Advanced Reporting on barcode scan history
-- User Roles & Presets
-- "Pack & Ship" Workflow
-- Smarter Price Suggestions
-- Refactor SuperAdminPage.jsx (>1000 lines monolith)
-- Fix AdminLoginPage.jsx window.location.href → useNavigate
+- PWA conversion
+- Weight-embedded EAN-13 barcodes
+- Automated Payment Gateway
+- Demo Login System
+- SuperAdminPage refactoring
+- eslint warnings cleanup
+- Admin PO fix tool
 
-## Key Files Modified This Session
-- `frontend/src/pages/SalesPage.js` — Full rewrite
-- `frontend/src/pages/SalesOrderPage.js` — Added PIN dialog
-- `frontend/src/components/SaleDetailModal.js` — Added date editing
-- `frontend/src/pages/PurchaseOrderPage.js` — Added date editing
-- `backend/routes/invoices.py` — Enhanced list, date editing, journal entry
+## Key Files
+- `frontend/src/lib/PrintEngine.js` — Print engine
+- `frontend/src/pages/SalesPage.js` — Sales History with Quick Action
+- `frontend/src/pages/SettingsPage.js` — Business Info tab
+- `backend/routes/settings.py` — Business info API
 - `backend/routes/verify.py` — Branch-aware PIN verification
-- `backend/routes/auth.py` — Pass branch_id to PIN verification
-- `backend/routes/purchase_orders.py` — Date editing with closed-day check
+- `backend/routes/invoices.py` — Enhanced list + date editing
 
 ## Test Reports
-- `/app/test_reports/iteration_7.json` — Expense fund source (prev session)
-- `/app/test_reports/iteration_106.json` — Sales History + PIN fixes (100% pass)
+- `/app/test_reports/iteration_106.json` — Sales History + PIN fixes (100%)
+- `/app/test_reports/iteration_107.json` — Print System Phase 1 (100%)

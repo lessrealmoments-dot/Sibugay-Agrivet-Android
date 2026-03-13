@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, Camera, X, Check, CreditCard, Banknote, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, Camera, X, Check, CreditCard, Banknote, ChevronUp, ChevronDown, Wallet, Upload, Loader2, Clock } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { toast } from 'sonner';
 import { formatPHP } from '../../lib/utils';
@@ -29,6 +30,8 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
   const searchRef = useRef(null);
   const scannerRef = useRef(null);
   const scannerContainerRef = useRef(null);
+  const lastScanRef = useRef({ barcode: '', time: 0 });
+  const SCAN_COOLDOWN = 2000; // 2 seconds between same barcode
 
   // Load cached data
   useEffect(() => {
@@ -103,9 +106,13 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
 
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 100 }, aspectRatio: 1.777 },
+        { fps: 5, qrbox: { width: 250, height: 100 }, aspectRatio: 1.777 },
         (decodedText) => {
-          // Barcode detected
+          // Debounce: skip if same barcode within cooldown
+          const now = Date.now();
+          if (decodedText === lastScanRef.current.barcode && now - lastScanRef.current.time < SCAN_COOLDOWN) return;
+          lastScanRef.current = { barcode: decodedText, time: now };
+
           const product = products.find(p => p.barcode === decodedText);
           if (product) {
             addToCart(product);
@@ -114,7 +121,7 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
             toast.error(`No product for barcode: ${decodedText}`);
           }
         },
-        () => {} // ignore errors
+        () => {}
       );
     } catch (e) {
       console.error('Scanner error:', e);
@@ -163,13 +170,55 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
   }, [products, addToCart]);
 
   // Process sale
-  const processSale = async (paymentType = 'cash') => {
+  // ── Checkout state ──
+  const [paymentType, setPaymentType] = useState(''); // cash, digital, credit, split
+  const [amountTendered, setAmountTendered] = useState('');
+  const [digitalScreenshot, setDigitalScreenshot] = useState(null);
+  const [digitalRef, setDigitalRef] = useState('');
+  const [creditDays, setCreditDays] = useState(15);
+  const [splitCash, setSplitCash] = useState('');
+  const [splitDigital, setSplitDigital] = useState('');
+  const [splitScreenshot, setSplitScreenshot] = useState(null);
+  const fileInputRef = useRef(null);
+  const splitFileInputRef = useRef(null);
+
+  const resetCheckout = () => {
+    setPaymentType(''); setAmountTendered(''); setDigitalScreenshot(null); setDigitalRef('');
+    setCreditDays(15); setSplitCash(''); setSplitDigital(''); setSplitScreenshot(null);
+  };
+
+  const changeAmount = paymentType === 'cash' && amountTendered
+    ? Math.max(0, parseFloat(amountTendered) - grandTotal) : 0;
+
+  const processSale = async () => {
     if (cart.length === 0) { toast.error('Cart is empty'); return; }
+    if (!paymentType) { toast.error('Select a payment type'); return; }
+    if (paymentType === 'cash' && (!amountTendered || parseFloat(amountTendered) < grandTotal)) {
+      toast.error('Amount tendered must be at least the total'); return;
+    }
+    if (paymentType === 'digital' && !digitalScreenshot) {
+      toast.error('Upload a screenshot of the digital payment'); return;
+    }
+    if (paymentType === 'split') {
+      const cashAmt = parseFloat(splitCash) || 0;
+      const digAmt = parseFloat(splitDigital) || 0;
+      if (cashAmt + digAmt < grandTotal) { toast.error('Cash + Digital must cover the total'); return; }
+      if (digAmt > 0 && !splitScreenshot) { toast.error('Upload screenshot for the digital portion'); return; }
+    }
     setSaving(true);
 
     const saleId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const envelopeId = newEnvelopeId();
     const today = new Date().toISOString().slice(0, 10);
+
+    const paymentMethod = paymentType === 'cash' ? 'Cash'
+      : paymentType === 'digital' ? 'Digital'
+      : paymentType === 'credit' ? 'Credit'
+      : paymentType === 'split' ? 'Split' : 'Cash';
+
+    const amountPaid = paymentType === 'credit' ? 0
+      : paymentType === 'split' ? parseFloat(splitCash) || 0
+      : grandTotal;
 
     const saleItems = cart.map(c => ({
       product_id: c.product_id, product_name: c.product_name, sku: c.sku,
@@ -179,56 +228,46 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
     }));
 
     const saleData = {
-      id: saleId,
-      envelope_id: envelopeId,
-      branch_id: session.branchId,
+      id: saleId, envelope_id: envelopeId, branch_id: session.branchId,
       customer_id: selectedCustomer?.id || null,
       customer_name: selectedCustomer?.name || 'Walk-in',
-      items: saleItems,
-      subtotal: grandTotal,
-      freight: 0,
-      overall_discount: 0,
-      grand_total: grandTotal,
-      amount_paid: grandTotal,
-      balance: 0,
-      terms: 'COD',
-      terms_days: 0,
-      prefix: 'KS', // Kiosk Sale prefix
-      order_date: today,
-      invoice_date: today,
-      payment_method: 'Cash',
-      payment_type: paymentType,
-      fund_source: 'cashier',
-      sale_type: 'walk_in',
-      mode: 'quick',
-      source: 'agrismart_terminal',
-      terminal_id: session.terminalId,
-      status: 'paid',
+      items: saleItems, subtotal: grandTotal, freight: 0, overall_discount: 0,
+      grand_total: grandTotal, amount_paid: amountPaid,
+      balance: paymentType === 'credit' ? grandTotal : 0,
+      terms: paymentType === 'credit' ? 'Credit' : 'COD',
+      terms_days: paymentType === 'credit' ? creditDays : 0,
+      prefix: 'KS', order_date: today, invoice_date: today,
+      payment_method: paymentMethod, payment_type: paymentType,
+      fund_source: 'cashier', sale_type: selectedCustomer ? 'credit' : 'walk_in',
+      mode: 'quick', source: 'agrismart_terminal', terminal_id: session.terminalId,
+      status: paymentType === 'credit' ? 'unpaid' : 'paid',
       created_at: new Date().toISOString(),
+      digital_reference: digitalRef || undefined,
     };
+
+    if (paymentType === 'split') {
+      saleData.split_cash = parseFloat(splitCash) || 0;
+      saleData.split_digital = parseFloat(splitDigital) || 0;
+    }
 
     if (isOnline) {
       try {
         const res = await api.post('/unified-sale', saleData);
         const invoiceNum = res.data.invoice_number || res.data.sale_number;
         toast.success(`Sale ${invoiceNum} completed!`);
-        clearCart();
-        setCheckoutOpen(false);
-      } catch {
-        await addPendingSale(saleData);
-        const count = await getPendingSaleCount();
-        setPendingCount(count);
-        toast.success('Saved offline — will sync later');
-        clearCart();
-        setCheckoutOpen(false);
+        clearCart(); setCheckoutOpen(false); resetCheckout();
+      } catch (e) {
+        const detail = e.response?.data?.detail || 'Sale failed';
+        toast.error(detail);
+        setSaving(false);
+        return; // Don't silently save offline — show the error
       }
     } else {
       await addPendingSale(saleData);
       const count = await getPendingSaleCount();
       setPendingCount(count);
-      toast.success('Sale saved offline');
-      clearCart();
-      setCheckoutOpen(false);
+      toast.success('Sale saved offline — will sync when connected');
+      clearCart(); setCheckoutOpen(false); resetCheckout();
     }
     setSaving(false);
   };
@@ -369,10 +408,12 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
       )}
 
       {/* Checkout Dialog */}
-      <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
-        <DialogContent className="max-w-sm mx-auto">
+      <Dialog open={checkoutOpen} onOpenChange={v => { setCheckoutOpen(v); if (!v) resetCheckout(); }}>
+        <DialogContent className="max-w-md mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Checkout</DialogTitle>
+            <DialogTitle className="text-base font-bold" style={{ fontFamily: 'Manrope' }}>
+              {!paymentType ? 'Checkout' : paymentType === 'cash' ? 'Cash Payment' : paymentType === 'digital' ? 'Digital Payment' : paymentType === 'credit' ? 'Credit Sale' : 'Split Payment'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Customer selection */}
@@ -411,18 +452,179 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
               </div>
             </div>
 
-            {/* Payment buttons */}
-            <div className="grid grid-cols-1 gap-2">
-              <Button
-                onClick={() => processSale('cash')}
-                disabled={saving}
-                className="bg-[#1A4D2E] hover:bg-[#15412a] text-white h-12"
-                data-testid="pay-cash-btn"
-              >
-                <Banknote size={18} className="mr-2" />
-                {saving ? 'Processing...' : `Cash — ${formatPHP(grandTotal)}`}
-              </Button>
-            </div>
+            {/* Payment Type Selection */}
+            {!paymentType && (
+              <div className="space-y-2" data-testid="payment-type-selection">
+                <label className="text-xs text-slate-500 font-medium block">Payment Method</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setPaymentType('cash')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
+                    data-testid="pay-type-cash">
+                    <Banknote size={22} className="text-emerald-600" />
+                    <span className="text-sm font-medium text-slate-700">Cash</span>
+                  </button>
+                  <button onClick={() => setPaymentType('digital')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                    data-testid="pay-type-digital">
+                    <Wallet size={22} className="text-blue-600" />
+                    <span className="text-sm font-medium text-slate-700">Digital</span>
+                  </button>
+                  <button onClick={() => setPaymentType('split')}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50 transition-colors"
+                    data-testid="pay-type-split">
+                    <CreditCard size={22} className="text-amber-600" />
+                    <span className="text-sm font-medium text-slate-700">Split</span>
+                  </button>
+                  <button onClick={() => { if (!selectedCustomer) { toast.error('Select a customer for credit sales'); return; } setPaymentType('credit'); }}
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 hover:border-red-400 hover:bg-red-50 transition-colors"
+                    data-testid="pay-type-credit">
+                    <Clock size={22} className="text-red-600" />
+                    <span className="text-sm font-medium text-slate-700">Credit</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Cash Payment ── */}
+            {paymentType === 'cash' && (
+              <div className="space-y-3" data-testid="cash-payment-form">
+                <div>
+                  <label className="text-xs text-slate-500 font-medium mb-1 block">Amount Tendered</label>
+                  <Input type="number" inputMode="decimal" min={0} step="0.01"
+                    value={amountTendered} onChange={e => setAmountTendered(e.target.value)}
+                    placeholder={formatPHP(grandTotal)} className="h-12 text-xl font-mono text-center font-bold"
+                    data-testid="amount-tendered-input" autoFocus />
+                </div>
+                {amountTendered && parseFloat(amountTendered) >= grandTotal && (
+                  <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <span className="text-sm text-emerald-700 font-medium">Change</span>
+                    <span className="text-xl font-bold font-mono text-emerald-700" data-testid="change-amount">{formatPHP(changeAmount)}</span>
+                  </div>
+                )}
+                {/* Quick amount buttons */}
+                <div className="flex gap-2 flex-wrap">
+                  {[grandTotal, Math.ceil(grandTotal / 100) * 100, Math.ceil(grandTotal / 500) * 500, 1000, 2000].filter((v, i, a) => a.indexOf(v) === i && v >= grandTotal).slice(0, 4).map(amt => (
+                    <button key={amt} onClick={() => setAmountTendered(String(amt))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors ${
+                        parseFloat(amountTendered) === amt ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300'
+                      }`}>{formatPHP(amt)}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Digital Payment ── */}
+            {paymentType === 'digital' && (
+              <div className="space-y-3" data-testid="digital-payment-form">
+                <div>
+                  <label className="text-xs text-slate-500 font-medium mb-1 block">Reference # (optional)</label>
+                  <Input value={digitalRef} onChange={e => setDigitalRef(e.target.value)} placeholder="e.g. GCash ref number" className="h-9" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-medium mb-1.5 block">Payment Screenshot <span className="text-red-500">*</span></label>
+                  {digitalScreenshot ? (
+                    <div className="relative rounded-xl overflow-hidden border border-emerald-300 bg-emerald-50">
+                      <img src={URL.createObjectURL(digitalScreenshot)} alt="proof" className="w-full max-h-40 object-contain" />
+                      <button onClick={() => setDigitalScreenshot(null)}
+                        className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="w-full p-6 border-2 border-dashed border-slate-300 rounded-xl text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                      data-testid="upload-digital-proof">
+                      <Upload size={24} className="mx-auto text-slate-400 mb-2" />
+                      <p className="text-sm text-slate-600 font-medium">Tap to upload screenshot</p>
+                      <p className="text-xs text-slate-400 mt-0.5">GCash, Maya, bank transfer, etc.</p>
+                    </button>
+                  )}
+                  <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={e => { if (e.target.files?.[0]) setDigitalScreenshot(e.target.files[0]); }} />
+                </div>
+              </div>
+            )}
+
+            {/* ── Credit Sale ── */}
+            {paymentType === 'credit' && (
+              <div className="space-y-3" data-testid="credit-payment-form">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-xs text-amber-700 font-medium">Credit sale for: <b>{selectedCustomer?.name || 'Walk-in'}</b></p>
+                  <p className="text-xs text-amber-600 mt-0.5">Customer will owe {formatPHP(grandTotal)}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500 font-medium mb-1 block">Payment Terms</label>
+                  <div className="flex gap-2">
+                    {[15, 30, 60].map(d => (
+                      <button key={d} onClick={() => setCreditDays(d)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                          creditDays === d ? 'bg-[#1A4D2E] text-white border-[#1A4D2E]' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300'
+                        }`}>{d} days</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Split Payment ── */}
+            {paymentType === 'split' && (
+              <div className="space-y-3" data-testid="split-payment-form">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-500 font-medium mb-1 block">Cash Amount</label>
+                    <Input type="number" inputMode="decimal" value={splitCash}
+                      onChange={e => { setSplitCash(e.target.value); setSplitDigital(String(Math.max(0, grandTotal - (parseFloat(e.target.value) || 0)))); }}
+                      placeholder="0.00" className="h-10 font-mono" data-testid="split-cash-input" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 font-medium mb-1 block">Digital Amount</label>
+                    <Input type="number" inputMode="decimal" value={splitDigital}
+                      onChange={e => { setSplitDigital(e.target.value); setSplitCash(String(Math.max(0, grandTotal - (parseFloat(e.target.value) || 0)))); }}
+                      placeholder="0.00" className="h-10 font-mono" data-testid="split-digital-input" />
+                  </div>
+                </div>
+                {parseFloat(splitDigital) > 0 && (
+                  <div>
+                    <label className="text-xs text-slate-500 font-medium mb-1.5 block">Digital Payment Screenshot <span className="text-red-500">*</span></label>
+                    {splitScreenshot ? (
+                      <div className="relative rounded-xl overflow-hidden border border-emerald-300 bg-emerald-50">
+                        <img src={URL.createObjectURL(splitScreenshot)} alt="proof" className="w-full max-h-32 object-contain" />
+                        <button onClick={() => setSplitScreenshot(null)}
+                          className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => splitFileInputRef.current?.click()}
+                        className="w-full p-4 border-2 border-dashed border-slate-300 rounded-xl text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                        data-testid="upload-split-proof">
+                        <Upload size={20} className="mx-auto text-slate-400 mb-1" />
+                        <p className="text-xs text-slate-600 font-medium">Upload digital payment proof</p>
+                      </button>
+                    )}
+                    <input ref={splitFileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={e => { if (e.target.files?.[0]) setSplitScreenshot(e.target.files[0]); }} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            {paymentType && (
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" onClick={resetCheckout} className="flex-1">Back</Button>
+                <Button onClick={processSale} disabled={saving}
+                  className="flex-1 bg-[#1A4D2E] hover:bg-[#15412a] text-white h-12"
+                  data-testid="confirm-payment-btn">
+                  {saving ? <Loader2 size={16} className="animate-spin mr-2" /> : <Check size={16} className="mr-2" />}
+                  {saving ? 'Processing...' : paymentType === 'credit' ? 'Confirm Credit Sale' : `Pay ${formatPHP(grandTotal)}`}
+                </Button>
+              </div>
+            )}
+
+            {!isOnline && (
+              <p className="text-[10px] text-amber-600 text-center">You are offline. Sale will be saved and synced when connected.</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

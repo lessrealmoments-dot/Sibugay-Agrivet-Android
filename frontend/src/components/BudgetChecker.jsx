@@ -261,10 +261,14 @@ export default function BudgetChecker({ onUnlock, branchId }) {
                 <span className="hidden sm:inline">See Cost</span>
               </button>
             ) : (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/20 text-amber-300 text-sm font-medium border border-amber-400/30">
+              <button
+                data-testid="kiosk-hide-cost-btn"
+                onClick={() => setCostRevealed(false)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-sm font-medium border border-amber-400/30 transition-all cursor-pointer"
+              >
                 <Eye size={16} />
-                <span className="hidden sm:inline">Cost Visible</span>
-              </div>
+                <span className="hidden sm:inline">Hide Cost</span>
+              </button>
             )}
             {/* kiosk indicator removed */}
           </div>

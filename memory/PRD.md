@@ -66,6 +66,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - URL cleaned after pairing for security
 - Manual 6-digit code pairing preserved as fallback below QR section
 
+### Terminal Pull Data — Self-Serve with PIN (Complete — Mar 2026)
+- Terminal PO Check and Transfers tabs show "Pull" button
+- Browsing available POs (draft/ordered) and Transfers (sent) for the terminal's branch
+- PIN verification required before pulling — uses same PIN policies from Settings (admin PIN, manager PIN, TOTP)
+- After pulling, status changes to sent_to_terminal and item appears in terminal checking flow
+- Invalid PIN returns clear error message
+- Terminal operator can self-serve without waiting for PC to push
+
 ## Pricing Model (Branch Transfer — Must Preserve)
 - **Branch Capital:** Source branch's cost (read-only)
 - **Transfer Capital:** Price "sold" to destination (editable, with category markup)
@@ -82,16 +90,7 @@ draft → sent → sent_to_terminal → received (all match)
 
 ## NEXT SESSION — Priority Tasks
 
-### Task 1: Terminal Pull Data (Self-Serve with PIN) (P1)
-**Terminal can pull POs and Transfers from PC directly:**
-- Terminal browses available POs/Transfers (not yet sent to terminal)
-- Selects one to check → requires PIN verification
-- PIN rules: admin PIN, manager PIN, or time-based PIN
-- Must follow the same PIN policies configured in Settings
-- Auto-changes status to sent_to_terminal (locks on PC)
-- Terminal operator can self-serve without waiting for PC to push
-
-## Prioritized Backlog
+### Prioritized Backlog
 
 ### P1 (High Priority)
 - Partial invoice payment trail
@@ -126,6 +125,7 @@ draft → sent → sent_to_terminal → received (all match)
 - `/app/test_reports/iteration_112.json` — Phase 3 (100%)
 - `/app/test_reports/iteration_113.json` — Branch Transfer UX Redesign (100%)
 - `/app/test_reports/iteration_114.json` — QR Code Terminal Login (100%)
+- `/app/test_reports/iteration_115.json` — Terminal Pull Data (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

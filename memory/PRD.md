@@ -56,37 +56,56 @@ Full-stack POS, Inventory, and Accounting platform for Philippine retail busines
 | **Return Slip** | Yes | Yes | Returns |
 | **Statement of Account** | — | Yes | Customer statement modal |
 
+### Budget Checker / Kiosk Lock Mode (2026-03-13)
+- **F1 to lock** — Full-screen green overlay with "Price & Budget Checker"
+- **Product search** by name or barcode (reuses `/api/products/search-detail`)
+- **Search results** show: product name, SKU, retail price, stock available
+- **Add to Order List** — qty controls (+/-), per-item subtotals
+- **Grand Total** — real-time calculation
+- **Budget Input** — remaining/over-budget indicator (green/red)
+- **See Cost** — PIN-protected (Manager/Admin/TOTP) to reveal capital prices
+- **Persistent Lock** — survives page refresh (localStorage)
+- **Ctrl+Shift+U to unlock** — requires Manager PIN, Admin PIN, or TOTP
+- **Clear List** — resets order and budget
+- **Quick Add (Enter)** — barcode scan or first result auto-added
+- Backend: 2 new PIN policy actions (`kiosk_unlock`, `kiosk_cost_reveal`)
+
 ## Prioritized Backlog
 
 ### P1 (Upcoming)
 - Visual "trail" indicator for partial invoices with same-day payments
-- Smart Journal Entries
+- Smart Journal Entries / Forgotten Sales on Closed Days workflow
 - Over-limit Cash Advances logic
 - Closing History page
-- Portable Android POS prep (stripped-down UI: PO + Sales only, with SDK integration)
 
 ### P2 (Future)
+- Portable Android POS prep (stripped-down UI: PO + Sales only, with SDK integration)
 - PWA conversion
 - Weight-embedded EAN-13 barcodes
 - Automated Payment Gateway
 - Demo Login System
-- SuperAdminPage refactoring
+- SuperAdminPage refactoring (1000+ lines)
 - eslint warnings cleanup
-- Admin PO fix tool
+- AdminLoginPage useNavigate refactor
+- Admin PO fix tool for corrupted production data
 
 ## Key Files
-- `frontend/src/lib/PrintEngine.js` — Print engine (7 doc types)
+- `frontend/src/components/BudgetChecker.jsx` — Kiosk / Budget Checker full-screen component
+- `frontend/src/utils/PrintEngine.js` — Print engine (7 doc types)
 - `frontend/src/pages/SalesPage.js` — Sales History + Quick Action
-- `frontend/src/pages/SettingsPage.js` — Business Info tab
-- `frontend/src/components/SaleDetailModal.js` — Print buttons
-- `frontend/src/components/ExpenseDetailModal.js` — Print button
-- `frontend/src/components/CustomerStatementModal.js` — Print via PrintEngine
-- `frontend/src/pages/PurchaseOrderPage.js` — PO print button
-- `backend/routes/settings.py` — Business info API
-- `backend/routes/verify.py` — Branch-aware PIN verification
-- `backend/routes/invoices.py` — Enhanced list + date editing
+- `frontend/src/pages/SettingsPage.jsx` — Business Info tab
+- `frontend/src/pages/PurchaseOrderPage.jsx` — PO print button
+- `frontend/src/pages/SuperAdminPage.jsx` — Expense print button
+- `frontend/src/pages/PaymentsPage.jsx` — Customer Statement print
+- `frontend/src/App.js` — Kiosk state management + F1/Ctrl+Shift+U listeners
+- `backend/routes/verify.py` — PIN policies (incl. kiosk_unlock, kiosk_cost_reveal)
+- `backend/routes/settings_routes.py` — Business info API
+- `backend/routes/auth.py` — verify-manager-pin endpoint
+- `backend/routes/products.py` — search-detail, barcode-lookup endpoints
+- `backend/routes/invoice_routes.py` — Enhanced list + date editing
 
 ## Test Reports
 - `/app/test_reports/iteration_106.json` — Sales History + PIN fixes (100%)
 - `/app/test_reports/iteration_107.json` — Print Phase 1 (100%)
 - `/app/test_reports/iteration_108.json` — Print Phase 2 (100%)
+- `/app/test_reports/iteration_109.json` — Budget Checker / Kiosk Mode (100%)

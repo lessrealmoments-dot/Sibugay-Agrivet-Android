@@ -379,6 +379,95 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
     return {"message": "Transfer sent", "status": "sent"}
 
 
+# ── Terminal Integration ──────────────────────────────────────────────────────
+
+@router.post("/{transfer_id}/send-to-terminal")
+async def send_transfer_to_terminal(transfer_id: str, user=Depends(get_current_user)):
+    """
+    Mark a sent transfer for terminal checking. Locks it on PC.
+    Terminal will verify quantities and submit receipt.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    if order["status"] != "sent":
+        raise HTTPException(status_code=400, detail=f"Only 'sent' transfers can be sent to terminal (current: {order['status']})")
+
+    await db.branch_transfer_orders.update_one(
+        {"id": transfer_id},
+        {"$set": {
+            "status": "sent_to_terminal",
+            "sent_to_terminal_at": now_iso(),
+            "sent_to_terminal_by": user.get("full_name", user.get("username", "")),
+        }}
+    )
+
+    # Notify terminals for the destination branch via WebSocket
+    to_branch_id = order.get("to_branch_id")
+    from_branch = await db.branches.find_one({"id": order["from_branch_id"]}, {"_id": 0, "name": 1})
+    from_name = from_branch.get("name", "") if from_branch else ""
+
+    if to_branch_id:
+        try:
+            from routes.terminal_ws import terminal_ws_manager
+            from config import _raw_db
+            terminals = await _raw_db.terminal_sessions.find(
+                {"branch_id": to_branch_id, "status": "active"}, {"_id": 0, "terminal_id": 1}
+            ).to_list(20)
+            for t in terminals:
+                await terminal_ws_manager.notify_terminal(t["terminal_id"], "transfer_assigned", {
+                    "transfer_id": transfer_id,
+                    "order_number": order.get("order_number", ""),
+                    "from_branch": from_name,
+                    "item_count": len(order.get("items", [])),
+                })
+        except Exception:
+            pass
+
+    return {"message": f"Transfer {order.get('order_number', '')} sent to terminal for checking"}
+
+
+@router.post("/{transfer_id}/terminal-receive")
+async def terminal_receive_transfer(transfer_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Terminal submits received quantities. Uses the same receive logic but:
+    - Skips receipt upload requirement (terminal can't upload photos yet)
+    - Records terminal_id for audit trail
+    - If all quantities match: immediate inventory update (received)
+    - If variance: status becomes received_pending, source branch notified
+    """
+    order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    if order["status"] not in ["sent", "sent_to_terminal"]:
+        raise HTTPException(status_code=400, detail="Transfer is not in a receivable state")
+
+    terminal_id = data.get("terminal_id", "")
+    items = data.get("items", [])
+    notes = data.get("notes", "")
+
+    # Add terminal metadata
+    await db.branch_transfer_orders.update_one(
+        {"id": transfer_id},
+        {"$set": {
+            "terminal_id": terminal_id,
+            "terminal_receive_started_at": now_iso(),
+        }}
+    )
+
+    # Delegate to the existing receive logic with skip_receipt_check
+    receive_data = {
+        "items": items,
+        "notes": notes,
+        "skip_receipt_check": True,
+    }
+
+    return await receive_transfer(transfer_id, receive_data, user)
+
+
 @router.get("/{transfer_id}/capital-preview")
 async def get_transfer_capital_preview(transfer_id: str, user=Depends(get_current_user)):
     """
@@ -449,7 +538,12 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Transfer not found")
-    if order["status"] not in ["sent", "draft"]:
+    if order["status"] == "sent_to_terminal" and not data.get("skip_receipt_check"):
+        raise HTTPException(
+            status_code=423,
+            detail="Transfer is locked — currently being checked on a terminal. Finalize it on the terminal first."
+        )
+    if order["status"] not in ["sent", "draft", "sent_to_terminal"]:
         raise HTTPException(status_code=400, detail="Transfer is not in a receivable state")
 
     # ── Mandatory receipt check for final receiving ──────────────────────
@@ -1133,14 +1227,11 @@ async def cancel_transfer(transfer_id: str, user=Depends(get_current_user)):
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Transfer not found")
-    if order["status"] in ["received", "received_pending", "disputed"]:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Cannot cancel — inventory has already been partially or fully received. "
-                "Use Accept/Dispute flow to resolve discrepancies."
-            )
-        )
+    if order["status"] in ["received", "received_pending", "disputed", "sent_to_terminal"]:
+        detail = "Cannot cancel — inventory has already been partially or fully received. Use Accept/Dispute flow to resolve discrepancies."
+        if order["status"] == "sent_to_terminal":
+            detail = "Cannot cancel — transfer is being checked on a terminal."
+        raise HTTPException(status_code=400, detail=detail)
     await db.branch_transfer_orders.update_one(
         {"id": transfer_id}, {"$set": {"status": "cancelled", "cancelled_at": now_iso()}}
     )

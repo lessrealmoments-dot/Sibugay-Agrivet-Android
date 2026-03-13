@@ -23,13 +23,14 @@ import {
   Plus, Trash2, Send, CheckCircle2, Search, RefreshCw, Settings2,
   AlertTriangle, ChevronDown, ChevronUp, Building2, Package, X,
   TrendingUp, TrendingDown, Clock, ArrowRight, Eye, XCircle, Pencil, Upload, Check,
-  ClipboardCheck, FileText
+  ClipboardCheck, FileText, Smartphone, Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_COLORS = {
   draft: 'bg-slate-100 text-slate-600',
   sent: 'bg-blue-100 text-blue-700',
+  sent_to_terminal: 'bg-amber-100 text-amber-700',
   received_pending: 'bg-yellow-100 text-yellow-700',
   received: 'bg-emerald-100 text-emerald-700',
   disputed: 'bg-red-100 text-red-700',
@@ -627,6 +628,15 @@ export default function BranchTransferPage() {
       toast.success('Transfer marked as sent');
       loadOrders();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+  };
+
+  const sendTransferToTerminal = async (orderId) => {
+    if (!window.confirm('Send this transfer to the terminal for receiving? It will be locked here until the terminal processes it.')) return;
+    try {
+      await api.post(`/branch-transfers/${orderId}/send-to-terminal`);
+      toast.success('Transfer sent to terminal for checking');
+      loadOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to send to terminal'); }
   };
 
   // ── Print Internal Invoice (enhanced from Transfer Order) ──────────────────
@@ -1494,7 +1504,9 @@ export default function BranchTransferPage() {
                           <TableCell className="text-right font-mono">{formatPHP(o.total_at_transfer_capital)}</TableCell>
                           <TableCell className="text-right font-mono text-emerald-700">{formatPHP(o.total_at_branch_retail)}</TableCell>
                           <TableCell>
-                            <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>{o.status}</Badge>
+                            <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>
+                              {o.status === 'sent_to_terminal' ? 'On Terminal' : o.status}
+                            </Badge>
                             {o.has_shortage && <Badge className="ml-1 text-[10px] bg-red-100 text-red-700">Short</Badge>}
                             {o.incident_ticket_number && <Badge className="ml-1 text-[10px] bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
                           </TableCell>
@@ -1545,6 +1557,26 @@ export default function BranchTransferPage() {
                                   data-testid={`receive-btn-${o.id}`}>
                                   <CheckCircle2 size={13} />
                                 </Button>
+                              )}
+                              {/* Send to Terminal — destination branch can send for terminal checking */}
+                              {o.status === 'sent' && (isDestBranch || isAdmin) && (
+                                <Button variant="ghost" size="sm" onClick={() => sendTransferToTerminal(o.id)}
+                                  className="h-7 px-2 text-amber-600" title="Send to Terminal"
+                                  data-testid={`send-terminal-btn-${o.id}`}>
+                                  <Smartphone size={13} />
+                                </Button>
+                              )}
+                              {/* Locked on Terminal badge */}
+                              {o.status === 'sent_to_terminal' && (
+                                <Badge className="text-[10px] bg-amber-100 text-amber-700 flex items-center gap-1">
+                                  <Lock size={10} /> On Terminal
+                                </Badge>
+                              )}
+                              {/* Terminal verified badge */}
+                              {o.terminal_id && o.status === 'received' && (
+                                <Badge className="text-[10px] bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                                  <Smartphone size={10} /> Terminal
+                                </Badge>
                               )}
                               {/* Disputed: destination can re-submit */}
                               {o.status === 'disputed' && isDestBranch && (
@@ -1628,10 +1660,13 @@ export default function BranchTransferPage() {
           {/* ── Status Timeline ── */}
           {viewOrder && (() => {
             const status = viewOrder.status;
+            const order_status = status;
             const steps = [
               { key: 'requested', label: 'Requested', done: true, date: viewOrder.created_at?.slice(0,10), by: viewOrder.created_by_name },
               { key: 'draft', label: 'Transfer Created', done: ['draft','sent','received_pending','received','disputed'].includes(status), date: viewOrder.created_at?.slice(0,10), by: viewOrder.created_by_name },
-              { key: 'sent', label: 'Sent', done: ['sent','received_pending','received','disputed'].includes(status), date: viewOrder.sent_at?.slice(0,10) },
+              { key: 'sent', label: order_status === 'sent_to_terminal' ? 'On Terminal' : 'Sent',
+                done: ['sent','sent_to_terminal','received_pending','received','disputed'].includes(status), date: viewOrder.sent_at?.slice(0,10),
+                variant: status === 'sent_to_terminal' ? 'warning' : undefined },
               { key: 'received', label: status === 'received_pending' ? 'Pending Review' : status === 'disputed' ? 'Disputed' : 'Received',
                 done: ['received_pending','received','disputed'].includes(status),
                 date: viewOrder.received_at?.slice(0,10) || viewOrder.pending_receipt_at?.slice(0,10),
@@ -1827,7 +1862,7 @@ export default function BranchTransferPage() {
               </table>
             )}
           </ScrollArea>
-          {viewOrder?.status === 'sent' && (
+          {(viewOrder?.status === 'sent' || (viewOrder?.status === 'sent_to_terminal' && isAdmin)) && (
             <div className="pt-3 border-t space-y-3">
               {/* Incoming price updates preview */}
               {(viewOrder?.repack_price_updates || []).filter(rpu => rpu.new_retail_price).length > 0 && (

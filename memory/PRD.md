@@ -38,38 +38,21 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 ### Branch Transfer UX Redesign (Complete — Mar 2026)
 - Status-based filter pills (All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes)
 - Card-based layout with timelines, action buttons, colored borders
+- **UX enlarged for employee accessibility** (Mar 2026): Bigger filter pills, larger cards, bigger buttons with text labels, larger timeline dots
 
 ### Terminal Sales Fixes (Complete — Mar 2026)
 - Scanner debounce (2s cooldown), full checkout flow, online API error handling
 - Sales History sidebar link at /sales with search, filters, sorting, pagination
 
-## NEXT SESSION — Priority Tasks (User Confirmed)
+### Branch Isolation Bug Fix (Complete — Mar 2026)
+- Removed `isAdmin ||` override from `isSourceBranch` and `isDestBranch` in BranchTransferPage.js
+- Removed `isAdmin` bypass from Edit Draft and Send to Terminal buttons
+- Fixed "Confirm Receipt" dialog to use branch context instead of isAdmin
+- Admin in consolidated view sees View only; specific branch selection shows correct actions
 
-### Task 1: Branch Process Isolation Fix (P0 — CRITICAL LOGIC BUG)
-**Problem:** `isSourceBranch` and `isDestBranch` in BranchTransferPage.js use `isAdmin ||` which makes admins see ALL actions for ALL transfers regardless of branch context. This breaks branch isolation.
+## NEXT SESSION — Priority Tasks
 
-**Current (broken):**
-```javascript
-const isSourceBranch = isAdmin || o.from_branch_id === effectiveBranchId;
-const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
-```
-
-**Fix:** Remove admin override — actions should be strictly branch-context:
-```javascript
-const isSourceBranch = o.from_branch_id === effectiveBranchId;
-const isDestBranch = o.to_branch_id === effectiveBranchId;
-```
-
-**Correct flow:**
-- Branch A requests stock from Branch B
-- Branch B prepares and sends → only Branch B sees Send/Cancel
-- Branch A receives and counts → only Branch A sees Receive
-- If variance: status = received_pending → only Branch B sees Accept/Dispute
-- Branch A should NEVER see Branch B's accept/dispute buttons and vice versa
-
-Also check the backend endpoints for the same admin bypass issue.
-
-### Task 2: Move Stock Requests from Purchase Orders to Branch Transfers (P0)
+### Task 1: Move Stock Requests from Purchase Orders to Branch Transfers (P1)
 **Current:** Stock requests between branches are in Purchase Orders section
 **Should be:** Under Branch Transfers since they're inter-branch operations
 - Move the "Requests" tab/functionality from PurchaseOrdersPage to BranchTransferPage
@@ -77,7 +60,7 @@ Also check the backend endpoints for the same admin bypass issue.
 - Update sidebar navigation if needed
 - Keep the "Generate Transfer from Request" flow working
 
-### Task 3: Backend Branch Isolation Audit
+### Task 2: Backend Branch Isolation Audit (P1)
 - Audit all transfer endpoints: `/receive`, `/accept-receipt`, `/dispute-receipt`
 - Ensure each endpoint validates that the requesting user belongs to the correct branch for the action
 - Source branch actions: send, cancel, accept-receipt, dispute-receipt
@@ -106,22 +89,16 @@ Also check the backend endpoints for the same admin bypass issue.
 - `/app/backend/routes/terminal.py` — Terminal pairing, QR, pull, WebSocket
 - `/app/backend/routes/branch_transfers.py` — Transfer CRUD, receive, accept/dispute
 - `/app/backend/routes/purchase_orders.py` — PO CRUD, stock requests
-- `/app/frontend/src/pages/BranchTransferPage.js` — **Lines 1516-1517 are the bug**
+- `/app/frontend/src/pages/BranchTransferPage.js` — Branch isolation fixed, UX enlarged
 - `/app/frontend/src/pages/terminal/` — All terminal components
 - `/app/frontend/src/pages/SalesPage.js` — Sales history
 - `/app/frontend/src/components/Layout.js` — Sidebar navigation
 
 ## Test Reports
-- `/app/test_reports/iteration_113.json` — Branch Transfer UX (100%)
-- `/app/test_reports/iteration_114.json` — QR Login (100%)
-- `/app/test_reports/iteration_115.json` — Terminal Pull (100%)
-- `/app/test_reports/iteration_116.json` — Branch Restriction + Nav (100%)
-- `/app/test_reports/iteration_117.json` — Sales Fixes (100%)
+- `/app/test_reports/iteration_118.json` — Branch Isolation Fix + UX Enlargement (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
-- Test Admin: testadmin@test.com / Test@123
-- Test Manager: testmanager@test.com / Test@123 (Branch 1 only)
 - Manager PIN: 521325
 
 ## 3rd Party Integrations

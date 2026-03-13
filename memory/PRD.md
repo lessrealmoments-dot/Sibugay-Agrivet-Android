@@ -48,6 +48,16 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - All match → received (inventory moves), Variance → received_pending (source notified)
 - WebSocket notification + red dot badges on Transfers tab
 
+### Branch Transfer UX Redesign (Complete — Mar 2026)
+- Replaced old "Incoming/Outgoing/Requests" sub-tabs with unified status-based filter pills
+- Status categories: All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes
+- Card-based transfer display replacing flat table rows
+- Each card shows: order number, branch route, status badge, date, inline timeline, financials, action buttons
+- Colored left borders per status (slate=draft, blue=in-transit, amber=terminal, orange=pending, emerald=completed, red=disputed)
+- "Needs Review" pill auto-highlighted in orange when transfers need attention
+- Stock Requests displayed as separate card layout with product tags
+- All existing dialogs (View, Receive, Accept/Dispute) preserved and functional
+
 ## Pricing Model (Branch Transfer — Must Preserve)
 - **Branch Capital:** Source branch's cost (read-only)
 - **Transfer Capital:** Price "sold" to destination (editable, with category markup)
@@ -62,27 +72,16 @@ draft → sent → sent_to_terminal → received (all match)
                                                                 → disputed → received_pending (re-count)
 ```
 
-## NEXT SESSION — Priority Tasks (User Confirmed)
+## NEXT SESSION — Priority Tasks
 
-### Task 1: Branch Transfer UX Redesign (Status-Based)
-**Replace current confusing Incoming/Outgoing tabs with a unified status-based view:**
-- **Requests** — Stock requests sent/received (new simplified form, no receipt upload needed since it's just a request)
-- **In Transit** — Transfers sent, goods on the way
-- **For Checking** — Sent to terminal / awaiting receipt
-- **Pending Review** — Variance detected, needs accept/dispute
-- **Completed** — Received transfers
-- **Disputes** — Connected to existing incident ticket system
-- Each transfer card shows full timeline inline (no page jumping)
-- Branch Stock Request flow: Branch A requests from Branch B → B prepares and adjusts quantities → B sends to A → A receives (PC or terminal)
-
-### Task 2: QR Code Terminal Login
+### Task 1: QR Code Terminal Login (P1)
 **Add QR code to PC Settings "Connect Terminal" section:**
 - QR code contains terminal URL + branch info for one-step pairing
 - Scanning QR opens /terminal on mobile and auto-fills branch data
 - Also support manual entry of branch unique code
 - Both paths lead to the same pairing flow
 
-### Task 3: Terminal Pull Data (Self-Serve with PIN)
+### Task 2: Terminal Pull Data (Self-Serve with PIN) (P1)
 **Terminal can pull POs and Transfers from PC directly:**
 - Terminal browses available POs/Transfers (not yet sent to terminal)
 - Selects one to check → requires PIN verification
@@ -91,7 +90,7 @@ draft → sent → sent_to_terminal → received (all match)
 - Auto-changes status to sent_to_terminal (locks on PC)
 - Terminal operator can self-serve without waiting for PC to push
 
-## Prioritized Backlog (After Next Session Tasks)
+## Prioritized Backlog
 
 ### P1 (High Priority)
 - Partial invoice payment trail
@@ -117,16 +116,18 @@ draft → sent → sent_to_terminal → received (all match)
 - `/app/backend/routes/branch_transfers.py` — send-to-terminal, terminal-receive, locking
 - `/app/frontend/src/pages/terminal/` — All terminal components
 - `/app/frontend/src/pages/PurchaseOrderPage.js` — Send to Terminal button
-- `/app/frontend/src/pages/BranchTransferPage.js` — Send to Terminal, lock/verified badges
+- `/app/frontend/src/pages/BranchTransferPage.js` — Redesigned status-based view
 - `/app/frontend/src/pages/SettingsPage.js` — Connect Terminal tab
 
 ## Test Reports
 - `/app/test_reports/iteration_110.json` — Phase 1 (100%)
 - `/app/test_reports/iteration_111.json` — Phase 2 (100%)
 - `/app/test_reports/iteration_112.json` — Phase 3 (100%)
+- `/app/test_reports/iteration_113.json` — Branch Transfer UX Redesign (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
+- Test Admin: testadmin@test.com / Test@123
 - Manager PIN: 521325
 
 ## 3rd Party Integrations

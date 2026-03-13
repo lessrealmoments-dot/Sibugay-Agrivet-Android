@@ -1333,7 +1333,7 @@ export default function BranchTransferPage() {
         <TabsContent value="history" className="mt-4 space-y-4">
           {/* Status filter pills */}
           <div className="flex items-center justify-between gap-3">
-            <div className="flex gap-1.5 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {[
                 { key: 'all', label: 'All', dot: 'bg-slate-400' },
                 { key: 'requests', label: 'Requests', dot: 'bg-violet-500' },
@@ -1358,28 +1358,28 @@ export default function BranchTransferPage() {
                 return (
                   <button key={st.key}
                     onClick={() => { setHistoryTab(st.key); if (st.key === 'requests') loadRequests(); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
                       isActive
-                        ? 'bg-[#1A4D2E] text-white shadow-md'
+                        ? 'bg-[#1A4D2E] text-white shadow-lg scale-105'
                         : needsAttention
-                        ? 'bg-white text-orange-700 border border-orange-300 hover:border-orange-400 shadow-sm'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                        ? 'bg-white text-orange-700 border-2 border-orange-400 hover:border-orange-500 shadow-sm'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-400 hover:shadow-sm'
                     }`}
                     data-testid={`filter-${st.key}`}
                   >
-                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white' : st.dot}`} />
+                    <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-white' : st.dot}`} />
                     {st.label}
                     {count > 0 && (
-                      <span className={`text-[10px] min-w-[18px] text-center px-1 rounded-full ${
-                        isActive ? 'bg-white/20' : needsAttention ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-500'
+                      <span className={`text-xs font-bold min-w-[22px] text-center px-1.5 py-0.5 rounded-full ${
+                        isActive ? 'bg-white/25 text-white' : needsAttention ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'
                       }`}>{count}</span>
                     )}
                   </button>
                 );
               })}
             </div>
-            <Button variant="outline" size="sm" onClick={() => { loadOrders(); loadRequests(); }} disabled={ordersLoading} className="shrink-0">
-              <RefreshCw size={13} className={`mr-1.5 ${ordersLoading ? 'animate-spin' : ''}`} /> Refresh
+            <Button variant="outline" size="default" onClick={() => { loadOrders(); loadRequests(); }} disabled={ordersLoading} className="shrink-0 h-10 px-4">
+              <RefreshCw size={15} className={`mr-2 ${ordersLoading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
           </div>
 
@@ -1401,12 +1401,12 @@ export default function BranchTransferPage() {
                   {stockRequests.map(req => {
                     const reqBranch = branches.find(b => b.id === req.branch_id);
                     return (
-                      <div key={req.id} className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-violet-400 p-4 hover:shadow-md transition-all" data-testid={`request-card-${req.id}`}>
+                      <div key={req.id} className="bg-white rounded-xl border-2 border-slate-200 border-l-[5px] border-l-violet-400 p-5 hover:shadow-lg transition-all" data-testid={`request-card-${req.id}`}>
                         <div className="flex items-start justify-between">
                           <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-bold text-violet-700">{req.po_number}</span>
-                              <Badge className={`text-[10px] ${
+                            <div className="flex items-center gap-2.5">
+                              <span className="font-mono text-base font-bold text-violet-700">{req.po_number}</span>
+                              <Badge className={`text-xs px-2.5 py-0.5 ${
                                 req.status === 'requested' ? 'bg-blue-100 text-blue-700'
                                 : req.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700'
                                 : req.status === 'partially_fulfilled' ? 'bg-yellow-100 text-yellow-700'
@@ -1414,46 +1414,46 @@ export default function BranchTransferPage() {
                                 : 'bg-slate-100 text-slate-600'
                               }`}>{req.status?.replace('_',' ')}</Badge>
                             </div>
-                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
-                              <Building2 size={12} className="text-slate-400" />
-                              <span className="font-medium text-slate-700">{reqBranch?.name || 'Unknown'}</span>
-                              <span className="text-slate-300">requested stock</span>
+                            <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
+                              <Building2 size={14} className="text-slate-400" />
+                              <span className="font-semibold text-slate-700">{reqBranch?.name || 'Unknown'}</span>
+                              <span className="text-slate-400">requested stock</span>
                             </p>
                           </div>
-                          <span className="text-xs text-slate-400">{req.purchase_date}</span>
+                          <span className="text-sm text-slate-400">{req.purchase_date}</span>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {(req.items || []).slice(0, 4).map((item, i) => (
-                            <span key={i} className="text-xs bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-slate-600">
+                            <span key={i} className="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-600">
                               {item.product_name} <span className="text-slate-400 font-mono">x{item.quantity}</span>
                             </span>
                           ))}
-                          {req.items?.length > 4 && <span className="text-xs text-slate-400 self-center">+{req.items.length - 4} more</span>}
+                          {req.items?.length > 4 && <span className="text-sm text-slate-400 self-center">+{req.items.length - 4} more</span>}
                         </div>
-                        {req.notes && <p className="text-xs text-slate-500 mt-2 italic">"{req.notes}"</p>}
-                        <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                        {req.notes && <p className="text-sm text-slate-500 mt-2 italic">"{req.notes}"</p>}
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                           {(req.status === 'requested' || req.status === 'draft') && (
                             <Button size="sm" onClick={() => handleGenerateTransfer(req)} disabled={generatingTransfer === req.id}
-                              className="h-8 bg-[#1A4D2E] hover:bg-[#14532d] text-white text-xs" data-testid={`gen-transfer-${req.id}`}>
-                              {generatingTransfer === req.id ? <RefreshCw size={12} className="animate-spin mr-1.5" /> : <ArrowRight size={12} className="mr-1.5" />}
+                              className="h-10 px-5 bg-[#1A4D2E] hover:bg-[#14532d] text-white text-sm font-semibold" data-testid={`gen-transfer-${req.id}`}>
+                              {generatingTransfer === req.id ? <RefreshCw size={14} className="animate-spin mr-2" /> : <ArrowRight size={14} className="mr-2" />}
                               Generate Transfer
                             </Button>
                           )}
                           {req.status === 'fulfilled' && (
-                            <div className="flex items-center gap-1.5">
-                              <CheckCircle2 size={13} className="text-emerald-600" />
-                              <span className="text-xs text-emerald-700 font-medium">Fulfilled</span>
-                              {req.fulfilled_transfer_number && <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>}
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 size={16} className="text-emerald-600" />
+                              <span className="text-sm text-emerald-700 font-semibold">Fulfilled</span>
+                              {req.fulfilled_transfer_number && <span className="text-xs text-slate-400">({req.fulfilled_transfer_number})</span>}
                             </div>
                           )}
                           {req.status === 'partially_fulfilled' && (
-                            <div className="flex items-center gap-1.5">
-                              <AlertTriangle size={13} className="text-yellow-600" />
-                              <span className="text-xs text-yellow-700 font-medium">Partial</span>
-                              {req.fulfilled_transfer_number && <span className="text-[10px] text-slate-400">({req.fulfilled_transfer_number})</span>}
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle size={16} className="text-yellow-600" />
+                              <span className="text-sm text-yellow-700 font-semibold">Partial</span>
+                              {req.fulfilled_transfer_number && <span className="text-xs text-slate-400">({req.fulfilled_transfer_number})</span>}
                             </div>
                           )}
-                          {req.status === 'in_progress' && <Badge className="text-[10px] bg-amber-100 text-amber-700">Transfer In Progress</Badge>}
+                          {req.status === 'in_progress' && <Badge className="text-xs px-2.5 py-1 bg-amber-100 text-amber-700">Transfer In Progress</Badge>}
                         </div>
                       </div>
                     );
@@ -1495,26 +1495,26 @@ export default function BranchTransferPage() {
             };
 
             if (ordersLoading) return (
-              <div className="text-center py-16 text-slate-400">
-                <RefreshCw size={20} className="animate-spin mx-auto mb-3" />
-                <p className="text-sm">Loading transfers...</p>
+              <div className="text-center py-20 text-slate-400">
+                <RefreshCw size={28} className="animate-spin mx-auto mb-4" />
+                <p className="text-base">Loading transfers...</p>
               </div>
             );
 
             if (filteredOrders.length === 0) return (
-              <div className="text-center py-16 text-slate-400">
-                <Building2 size={36} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No transfers{historyTab !== 'all' ? ` in "${[...Object.entries(statusLabel)].find(([,v]) => v === (statusLabel[historyTab === 'in_transit' ? 'sent' : historyTab]))?.[1] || historyTab}"` : ''} found.</p>
+              <div className="text-center py-20 text-slate-400">
+                <Building2 size={48} className="mx-auto mb-4 opacity-30" />
+                <p className="text-base">No transfers{historyTab !== 'all' ? ` in "${[...Object.entries(statusLabel)].find(([,v]) => v === (statusLabel[historyTab === 'in_transit' ? 'sent' : historyTab]))?.[1] || historyTab}"` : ''} found.</p>
               </div>
             );
 
             return (
-              <div className="space-y-3" data-testid="transfers-list">
+              <div className="space-y-4" data-testid="transfers-list">
                 {filteredOrders.map(o => {
                   const fromBr = branches.find(b => b.id === o.from_branch_id);
                   const toBr = branches.find(b => b.id === o.to_branch_id);
-                  const isSourceBranch = isAdmin || o.from_branch_id === effectiveBranchId;
-                  const isDestBranch = isAdmin || o.to_branch_id === effectiveBranchId;
+                  const isSourceBranch = o.from_branch_id === effectiveBranchId;
+                  const isDestBranch = o.to_branch_id === effectiveBranchId;
 
                   // Timeline
                   const timelineSteps = [
@@ -1528,42 +1528,42 @@ export default function BranchTransferPage() {
 
                   return (
                     <div key={o.id}
-                      className={`bg-white rounded-xl border border-slate-200 border-l-4 ${borderColorMap[o.status] || 'border-l-slate-300'} overflow-hidden hover:shadow-lg transition-all duration-200`}
+                      className={`bg-white rounded-xl border-2 border-slate-200 border-l-[5px] ${borderColorMap[o.status] || 'border-l-slate-300'} overflow-hidden hover:shadow-xl transition-all duration-200`}
                       data-testid={`transfer-card-${o.id}`}
                     >
                       {/* Header */}
-                      <div className="px-4 pt-3.5 pb-2 flex items-start justify-between gap-3">
+                      <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-sm font-bold text-slate-800 cursor-pointer hover:text-blue-700"
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="font-mono text-base font-bold text-slate-800 cursor-pointer hover:text-blue-700"
                               onClick={() => { setViewOrder(o); setReceiveDialog(false); }}>{o.order_number}</span>
-                            <Badge className={`text-[10px] ${STATUS_COLORS[o.status]}`}>
+                            <Badge className={`text-xs px-2.5 py-0.5 ${STATUS_COLORS[o.status]}`}>
                               {statusLabel[o.status] || o.status}
                             </Badge>
-                            {o.has_shortage && <Badge className="text-[10px] bg-red-100 text-red-700">Shortage</Badge>}
-                            {o.incident_ticket_number && <Badge className="text-[10px] bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
+                            {o.has_shortage && <Badge className="text-xs px-2 py-0.5 bg-red-100 text-red-700">Shortage</Badge>}
+                            {o.incident_ticket_number && <Badge className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
                             {o.terminal_id && o.status === 'received' && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
-                                <Smartphone size={9} /> Terminal verified
+                              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                                <Smartphone size={11} /> Terminal verified
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <span className="text-sm font-medium text-slate-700">{fromBr?.name || '?'}</span>
-                            <ArrowRight size={12} className="text-slate-300 shrink-0" />
-                            <span className="text-sm font-medium text-slate-700">{toBr?.name || '?'}</span>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-base font-semibold text-slate-700">{fromBr?.name || '?'}</span>
+                            <ArrowRight size={16} className="text-slate-400 shrink-0" />
+                            <span className="text-base font-semibold text-slate-700">{toBr?.name || '?'}</span>
                           </div>
                           {o.request_po_number && (
-                            <p className="text-[10px] text-blue-500 mt-0.5 flex items-center gap-1">
-                              <Package size={10} /> From request {o.request_po_number}
+                            <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">
+                              <Package size={12} /> From request {o.request_po_number}
                             </p>
                           )}
                         </div>
-                        <span className="text-xs text-slate-400 whitespace-nowrap shrink-0">{o.created_at?.slice(0, 10)}</span>
+                        <span className="text-sm text-slate-400 whitespace-nowrap shrink-0">{o.created_at?.slice(0, 10)}</span>
                       </div>
 
                       {/* Timeline */}
-                      <div className="px-4 py-2 border-t border-slate-50">
+                      <div className="px-5 py-3 border-t border-slate-100">
                         <div className="flex items-center">
                           {timelineSteps.map((step, i) => {
                             const dotColor = step.done
@@ -1572,11 +1572,11 @@ export default function BranchTransferPage() {
                             return (
                               <React.Fragment key={i}>
                                 <div className="flex flex-col items-center min-w-0">
-                                  <div className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} />
-                                  <span className={`text-[9px] mt-0.5 truncate ${step.done ? 'text-slate-600 font-medium' : 'text-slate-300'}`}>{step.label}</span>
+                                  <div className={`w-3.5 h-3.5 rounded-full ${dotColor} shrink-0`} />
+                                  <span className={`text-xs mt-1 truncate ${step.done ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}>{step.label}</span>
                                 </div>
                                 {i < timelineSteps.length - 1 && (
-                                  <div className={`flex-1 h-px mx-1 ${step.done && timelineSteps[i+1]?.done ? 'bg-emerald-400' : 'bg-slate-200'}`} />
+                                  <div className={`flex-1 h-0.5 mx-1.5 rounded ${step.done && timelineSteps[i+1]?.done ? 'bg-emerald-400' : 'bg-slate-200'}`} />
                                 )}
                               </React.Fragment>
                             );
@@ -1585,76 +1585,76 @@ export default function BranchTransferPage() {
                       </div>
 
                       {/* Footer: financials + actions */}
-                      <div className="px-4 py-2.5 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-3 text-xs min-w-0">
-                          <span className="text-slate-500 shrink-0">{o.items?.length || 0} items</span>
-                          <Separator orientation="vertical" className="h-3" />
-                          <span className="font-mono text-slate-600 shrink-0">{formatPHP(o.total_at_transfer_capital)}</span>
-                          <Separator orientation="vertical" className="h-3" />
-                          <span className="font-mono text-emerald-600 font-medium shrink-0">{formatPHP(o.total_at_branch_retail)} retail</span>
+                      <div className="px-5 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-4 text-sm min-w-0">
+                          <span className="text-slate-500 font-medium shrink-0">{o.items?.length || 0} items</span>
+                          <Separator orientation="vertical" className="h-4" />
+                          <span className="font-mono text-slate-700 font-semibold shrink-0">{formatPHP(o.total_at_transfer_capital)}</span>
+                          <Separator orientation="vertical" className="h-4" />
+                          <span className="font-mono text-emerald-600 font-bold shrink-0">{formatPHP(o.total_at_branch_retail)} retail</span>
                         </div>
-                        <div className="flex items-center gap-0.5 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <Button variant="ghost" size="sm" onClick={() => { setViewOrder(o); setReceiveDialog(false); }}
-                            className="h-7 px-2 text-slate-500 hover:text-slate-800" title="View" data-testid={`view-btn-${o.id}`}>
-                            <Eye size={13} />
+                            className="h-9 px-3 text-slate-500 hover:text-slate-800 text-sm" title="View" data-testid={`view-btn-${o.id}`}>
+                            <Eye size={16} className="mr-1" /> View
                           </Button>
                           {['draft', 'sent', 'received', 'received_pending'].includes(o.status) && isSourceBranch && (
                             <Button variant="ghost" size="sm" onClick={() => printTransferOrder(o)}
-                              className="h-7 px-2 text-slate-500" title="Print Invoice" data-testid={`print-btn-${o.id}`}>
-                              <FileText size={13} />
+                              className="h-9 px-3 text-slate-500 text-sm" title="Print Invoice" data-testid={`print-btn-${o.id}`}>
+                              <FileText size={16} className="mr-1" /> Print
                             </Button>
                           )}
-                          {o.status === 'draft' && (isSourceBranch || isAdmin) && (
+                          {o.status === 'draft' && isSourceBranch && (
                             <Button variant="ghost" size="sm" onClick={() => loadOrderIntoEdit(o)}
-                              className="h-7 px-2 text-amber-600" title="Edit Draft" data-testid={`edit-btn-${o.id}`}>
-                              <Pencil size={13} />
+                              className="h-9 px-3 text-amber-600 text-sm" title="Edit Draft" data-testid={`edit-btn-${o.id}`}>
+                              <Pencil size={16} className="mr-1" /> Edit
                             </Button>
                           )}
                           {o.status === 'draft' && isSourceBranch && (
                             <Button size="sm" onClick={() => handleSend(o.id)}
-                              className="h-7 px-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs" data-testid={`send-btn-${o.id}`}>
-                              <Send size={11} className="mr-1" /> Send
+                              className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold" data-testid={`send-btn-${o.id}`}>
+                              <Send size={14} className="mr-1.5" /> Send
                             </Button>
                           )}
                           {o.status === 'sent' && isDestBranch && (
                             <Button size="sm" onClick={() => openReceive(o)}
-                              className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs" data-testid={`receive-btn-${o.id}`}>
-                              <CheckCircle2 size={11} className="mr-1" /> Receive
+                              className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold" data-testid={`receive-btn-${o.id}`}>
+                              <CheckCircle2 size={14} className="mr-1.5" /> Receive
                             </Button>
                           )}
-                          {o.status === 'sent' && (isDestBranch || isAdmin) && (
+                          {o.status === 'sent' && isDestBranch && (
                             <Button variant="ghost" size="sm" onClick={() => sendTransferToTerminal(o.id)}
-                              className="h-7 px-2 text-amber-600" title="Send to Terminal" data-testid={`send-terminal-btn-${o.id}`}>
-                              <Smartphone size={13} />
+                              className="h-9 px-3 text-amber-600 text-sm" title="Send to Terminal" data-testid={`send-terminal-btn-${o.id}`}>
+                              <Smartphone size={16} className="mr-1" /> Terminal
                             </Button>
                           )}
                           {o.status === 'sent_to_terminal' && (
-                            <Badge className="text-[10px] bg-amber-100 text-amber-700 flex items-center gap-1">
-                              <Lock size={10} /> Terminal
+                            <Badge className="text-xs px-2.5 py-1 bg-amber-100 text-amber-700 flex items-center gap-1.5">
+                              <Lock size={12} /> On Terminal
                             </Badge>
                           )}
                           {o.status === 'disputed' && isDestBranch && (
                             <Button size="sm" onClick={() => openReceive(o)}
-                              className="h-7 px-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs" data-testid={`resubmit-btn-${o.id}`}>
-                              <RefreshCw size={11} className="mr-1" /> Re-count
+                              className="h-9 px-4 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold" data-testid={`resubmit-btn-${o.id}`}>
+                              <RefreshCw size={14} className="mr-1.5" /> Re-count
                             </Button>
                           )}
                           {o.status === 'received_pending' && isSourceBranch && (
                             <>
                               <Button size="sm" onClick={() => setAcceptDialog(o)}
-                                className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs" data-testid={`accept-btn-${o.id}`}>
-                                <CheckCircle2 size={11} className="mr-1" /> Accept
+                                className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold" data-testid={`accept-btn-${o.id}`}>
+                                <CheckCircle2 size={14} className="mr-1.5" /> Accept
                               </Button>
                               <Button size="sm" variant="outline" onClick={() => { setDisputeDialog(o); setDisputeNote(''); }}
-                                className="h-7 px-2 text-red-600 border-red-200 hover:bg-red-50 text-xs" data-testid={`dispute-btn-${o.id}`}>
-                                <XCircle size={11} className="mr-1" /> Dispute
+                                className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50 text-sm font-semibold" data-testid={`dispute-btn-${o.id}`}>
+                                <XCircle size={14} className="mr-1.5" /> Dispute
                               </Button>
                             </>
                           )}
                           {(o.status === 'draft' || o.status === 'sent') && isSourceBranch && (
                             <Button variant="ghost" size="sm" onClick={() => handleCancel(o.id)}
-                              className="h-7 px-2 text-red-400 hover:text-red-600" title="Cancel" data-testid={`cancel-btn-${o.id}`}>
-                              <XCircle size={13} />
+                              className="h-9 px-3 text-red-400 hover:text-red-600 text-sm" title="Cancel" data-testid={`cancel-btn-${o.id}`}>
+                              <XCircle size={16} />
                             </Button>
                           )}
                         </div>
@@ -1908,7 +1908,7 @@ export default function BranchTransferPage() {
               </table>
             )}
           </ScrollArea>
-          {(viewOrder?.status === 'sent' || (viewOrder?.status === 'sent_to_terminal' && isAdmin)) && (
+          {(viewOrder?.status === 'sent' || (viewOrder?.status === 'sent_to_terminal' && viewOrder?.to_branch_id === (currentBranch?.id || user?.branch_id))) && (
             <div className="pt-3 border-t space-y-3">
               {/* Incoming price updates preview */}
               {(viewOrder?.repack_price_updates || []).filter(rpu => rpu.new_retail_price).length > 0 && (

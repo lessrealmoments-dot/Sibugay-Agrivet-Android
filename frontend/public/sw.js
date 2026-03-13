@@ -1,6 +1,6 @@
-const CACHE_NAME = 'agripos-cache-v1';
+const CACHE_NAME = 'agripos-cache-v2';
 
-// Install: cache the app shell
+// Install: cache the app shell only
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -37,6 +37,11 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http(s) requests
   if (!url.protocol.startsWith('http')) return;
 
+  // DO NOT cache API calls — let them pass through to the network.
+  // If offline, they'll fail and the app's Axios interceptor handles it
+  // with IndexedDB data (products, customers, inventory, etc.)
+  if (url.pathname.startsWith('/api')) return;
+
   // Navigation requests: network first, fallback to cached index.html
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -51,22 +56,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API calls: network first, cache fallback
-  if (url.pathname.startsWith('/api')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
   // Google Fonts: cache first (they rarely change)
   if (url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com')) {
     event.respondWith(
@@ -76,13 +65,13 @@ self.addEventListener('fetch', (event) => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
-        });
+        }).catch(() => cached);
       })
     );
     return;
   }
 
-  // Static assets: stale-while-revalidate
+  // Static assets (JS, CSS, images): stale-while-revalidate
   event.respondWith(
     caches.match(request).then((cached) => {
       const networkFetch = fetch(request)
@@ -99,7 +88,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Listen for sync messages from the main thread
+// Listen for messages from the main thread
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();

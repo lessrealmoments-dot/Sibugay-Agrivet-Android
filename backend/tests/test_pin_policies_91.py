@@ -11,7 +11,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://budget-checker-4.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://transfer-checkpoint.preview.emergentagent.com')
 
 # Test credentials
 SUPER_ADMIN_EMAIL = "janmarkeahig@gmail.com"

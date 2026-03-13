@@ -8,6 +8,7 @@ Build a full-featured POS (Point-of-Sale) system called **AgriBooks** with multi
 - **Backend:** FastAPI (Python) + MongoDB
 - **Offline:** IndexedDB + Service Worker (PWA)
 - **Storage:** Cloudflare R2
+- **Real-time:** WebSocket (FastAPI native)
 
 ## What's Been Implemented
 
@@ -29,24 +30,46 @@ Build a full-featured POS (Point-of-Sale) system called **AgriBooks** with multi
 - PWA service worker for app shell caching
 
 ### AgriSmart Terminal — Phase 1 Foundation (Complete — Mar 2026)
-- **YouTube TV-style device pairing:** Terminal shows 6-char code, PC enters it in Settings > Connect Terminal tab to pair
-- **Backend APIs:** POST /api/terminal/generate-code, GET /api/terminal/poll/{code}, POST /api/terminal/pair, GET /api/terminal/active, POST /api/terminal/disconnect/{terminal_id}
-- **Terminal Shell:** Mobile-optimized layout at /terminal with bottom navigation (Sales | PO Check | Transfers)
-- **Terminal Sales Module:** Product search, camera barcode scanner (html5-qrcode), hardware barcode listener, cart management, checkout with offline save
-- **Terminal PO Check Module:** View/verify purchase orders, adjust received quantities, finalize PO
-- **Terminal Transfers Module:** View pending branch transfers, adjust received quantities, receive transfers
-- **Settings Integration:** "Connect Terminal" tab with code input, branch selection, active terminals list with disconnect
-- **Offline Support:** Uses existing IndexedDB + sync manager infrastructure, data download on pair
-- **Receipt Numbering:** KS- prefix for terminal sales (Kiosk Sale)
+- **YouTube TV-style device pairing:** Terminal shows 6-char code, PC enters it in Settings > Connect Terminal tab
+- **Backend APIs:** generate-code, poll, pair, active, disconnect
+- **Terminal Shell:** Mobile-optimized layout at /terminal with bottom nav (Sales | PO Check | Transfers)
+- **Sales Module:** Product search, camera/hardware barcode scanning, cart, checkout, offline save
+- **PO Check Module (basic):** View/verify purchase orders
+- **Transfers Module (basic):** View/receive pending transfers
+- **Offline Support:** Uses existing IndexedDB + sync manager
+- **Receipt Numbering:** KS- prefix for terminal sales
+
+### AgriSmart Terminal — Phase 2 WebSocket + PO Locking (Complete — Mar 2026)
+- **Real-time WebSocket:**
+  - `/api/terminal/ws/pairing/{code}` — Instant pairing notification (no more 2s polling)
+  - `/api/terminal/ws/terminal/{terminal_id}` — Real-time PO/transfer push notifications
+  - Polling kept as 3s fallback when WebSocket fails
+  - WebSocket auto-reconnect on disconnect
+- **PO Locking Mechanism:**
+  - "Send to Terminal" button on PC PO page for draft/ordered POs
+  - Status `sent_to_terminal` locks PO on PC (returns 423 if edit attempted)
+  - PC shows "Locked — checking on terminal" badge
+  - Terminal fetches only `sent_to_terminal` POs
+- **Terminal PO Verification:**
+  - View all items with ordered quantities
+  - Adjust received quantities per item
+  - Add verification notes
+  - "Finalize & Send to PC" button
+  - Records variances (ordered vs received differences)
+  - Unlocks PO back to `ordered` with `terminal_verified=true`
+  - PC shows "Terminal verified" badge
+- **Real-time PO Assignment:**
+  - When PC sends PO to terminal, WebSocket notifies terminal instantly
+  - Red dot badge on PO Check tab for new assignments
+  - Auto-refresh PO list on notification
 
 ## Prioritized Backlog
 
 ### P0 (Immediate)
-- None — user testing of AgriSmart Terminal Phase 1
+- User testing of AgriSmart Terminal Phase 2
 
 ### P1 (High Priority)
-- AgriSmart Terminal Phase 2: PO locking mechanism, "Send to Kiosk" on PC, receipt upload from terminal
-- AgriSmart Terminal Phase 3: Branch Transfer locking, real-time conflict prevention
+- AgriSmart Terminal Phase 3: Branch Transfer locking + receiving through terminal
 - Partial invoice payment trail
 - Smart Journal Entries for forgotten sales
 - Forgotten Sales on Closed Days workflow
@@ -60,23 +83,27 @@ Build a full-featured POS (Point-of-Sale) system called **AgriBooks** with multi
 - Closing History page
 
 ### P3 (Future)
-- Portable POS Android App (thermal printer SDK integration)
+- Portable POS Android App (Capacitor wrap + thermal printer SDK + Newland scanner SDK)
 - Weight-embedded EAN-13 barcode recognition
 - Automated Payment Gateway & Demo Login
 - "Weigh & Send" mode, advanced reporting, user roles/presets, "Pack & Ship"
 
 ## Key Files
-- `/app/backend/routes/terminal.py` — Terminal pairing & session management
-- `/app/frontend/src/pages/terminal/TerminalPage.jsx` — Main terminal page (pairing + shell)
-- `/app/frontend/src/pages/terminal/TerminalPairScreen.jsx` — YouTube TV-style pairing code
-- `/app/frontend/src/pages/terminal/TerminalShell.jsx` — Mobile shell with bottom nav
+- `/app/backend/routes/terminal.py` — Terminal pairing, session, WebSocket endpoints
+- `/app/backend/routes/terminal_ws.py` — WebSocket connection manager
+- `/app/backend/routes/purchase_orders.py` — send-to-terminal, terminal-finalize endpoints
+- `/app/frontend/src/pages/terminal/TerminalPage.jsx` — Main terminal page
+- `/app/frontend/src/pages/terminal/TerminalPairScreen.jsx` — Pairing with WebSocket + polling fallback
+- `/app/frontend/src/pages/terminal/TerminalShell.jsx` — Shell with WebSocket real-time events
 - `/app/frontend/src/pages/terminal/TerminalSales.jsx` — Mobile sales module
-- `/app/frontend/src/pages/terminal/TerminalPOCheck.jsx` — PO verification
+- `/app/frontend/src/pages/terminal/TerminalPOCheck.jsx` — PO verification with finalize
 - `/app/frontend/src/pages/terminal/TerminalTransfers.jsx` — Branch transfer receiving
-- `/app/frontend/src/pages/SettingsPage.js` — Connect Terminal tab (line ~132-230)
+- `/app/frontend/src/pages/PurchaseOrderPage.js` — "Send to Terminal" button, lock/verified badges
+- `/app/frontend/src/pages/SettingsPage.js` — Connect Terminal tab
 
 ## Test Reports
-- `/app/test_reports/iteration_110.json` — AgriSmart Terminal Phase 1 (100% pass)
+- `/app/test_reports/iteration_110.json` — Phase 1 (100% pass)
+- `/app/test_reports/iteration_111.json` — Phase 2 (100% pass)
 
 ## 3rd Party Integrations
 - Cloudflare R2, Resend, Google Authenticator, fpdf2, python-barcode, jsbarcode, html5-qrcode

@@ -7,11 +7,52 @@ const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
 
 export default function TerminalPairScreen({ onPaired }) {
   const [code, setCode] = useState('');
-  const [status, setStatus] = useState('loading'); // loading | showing | expired | error
+  const [status, setStatus] = useState('loading'); // loading | showing | expired | error | qr_pairing
   const [expiresIn, setExpiresIn] = useState(300);
+  const [qrMessage, setQrMessage] = useState('');
   const pollRef = useRef(null);
   const countdownRef = useRef(null);
   const wsRef = useRef(null);
+
+  // Check for QR pair token in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const pairToken = params.get('pair');
+    if (pairToken) {
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Auto-pair via QR token
+      setStatus('qr_pairing');
+      setQrMessage('Connecting to branch...');
+      fetch(`${BACKEND_URL}/api/terminal/qr-pair`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: pairToken }),
+      })
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+          if (ok && data.status === 'paired') {
+            onPaired({
+              token: data.token,
+              terminalId: data.terminal_id,
+              branchId: data.branch_id,
+              branchName: data.branch_name,
+              userName: data.user_name,
+              organizationId: data.organization_id,
+            });
+          } else {
+            setQrMessage(data.detail || 'QR pairing failed — use the code instead');
+            setTimeout(() => { setStatus('loading'); generateCode(); }, 2000);
+          }
+        })
+        .catch(() => {
+          setQrMessage('Connection failed — falling back to code');
+          setTimeout(() => { setStatus('loading'); generateCode(); }, 2000);
+        });
+      return;
+    }
+    generateCode();
+  }, []); // eslint-disable-line
 
   const generateCode = async () => {
     setStatus('loading');
@@ -25,8 +66,6 @@ export default function TerminalPairScreen({ onPaired }) {
       setStatus('error');
     }
   };
-
-  useEffect(() => { generateCode(); }, []);
 
   // Countdown timer
   useEffect(() => {
@@ -125,6 +164,13 @@ export default function TerminalPairScreen({ onPaired }) {
             <div className="py-8">
               <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mx-auto" />
               <p className="text-slate-400 text-sm mt-3">Generating code...</p>
+            </div>
+          )}
+
+          {status === 'qr_pairing' && (
+            <div className="py-8">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-400 mx-auto" />
+              <p className="text-emerald-400 text-sm mt-3 font-medium">{qrMessage || 'Connecting...'}</p>
             </div>
           )}
 

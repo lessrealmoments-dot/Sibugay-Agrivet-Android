@@ -135,6 +135,9 @@ function ConnectTerminalPanel({ branches }) {
   const [pairing, setPairing] = useState(false);
   const [terminals, setTerminals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [qrBranchId, setQrBranchId] = useState('');
+  const [qrToken, setQrToken] = useState('');
+  const [qrGenerating, setQrGenerating] = useState(false);
   const terminalUrl = `${window.location.origin}/terminal`;
 
   const loadTerminals = async () => {
@@ -173,6 +176,19 @@ function ConnectTerminalPanel({ branches }) {
     }
   };
 
+  const generateQR = async () => {
+    if (!qrBranchId) { toast.error('Select a branch first'); return; }
+    setQrGenerating(true);
+    try {
+      const res = await api.post('/terminal/initiate-qr-pairing', { branch_id: qrBranchId });
+      setQrToken(res.data.token);
+      toast.success(`QR ready for ${res.data.branch_name}`);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to generate QR');
+    }
+    setQrGenerating(false);
+  };
+
   return (
     <div className="space-y-6">
       <Card className="border-slate-200">
@@ -185,6 +201,62 @@ function ConnectTerminalPanel({ branches }) {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Quick Pair via QR Code */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-slate-50 to-emerald-50/30 border border-emerald-200/50">
+            <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-3" style={{ fontFamily: 'Manrope' }}>
+              <Smartphone size={15} className="text-emerald-600" /> Quick Pair — Scan QR Code
+            </h4>
+            <p className="text-xs text-slate-500 mb-3">Select a branch, generate a QR code, and scan it with your mobile device to instantly connect.</p>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <Label className="text-xs text-slate-500 mb-1 block">Branch</Label>
+                <select
+                  value={qrBranchId}
+                  onChange={e => { setQrBranchId(e.target.value); setQrToken(''); }}
+                  className="w-full h-9 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                  data-testid="qr-branch-select"
+                >
+                  <option value="">Select branch...</option>
+                  {(branches || []).map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+              <Button onClick={generateQR} disabled={qrGenerating || !qrBranchId}
+                className="bg-[#1A4D2E] hover:bg-[#14532d] text-white h-9 text-xs"
+                data-testid="generate-qr-btn">
+                {qrGenerating ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Monitor size={13} className="mr-1.5" />}
+                {qrToken ? 'Regenerate' : 'Generate QR'}
+              </Button>
+            </div>
+            {qrToken && (
+              <div className="mt-4 flex flex-col items-center gap-3 p-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <QRCodeSVG
+                  value={`${terminalUrl}?pair=${qrToken}`}
+                  size={200}
+                  level="M"
+                  includeMargin={true}
+                  bgColor="#ffffff"
+                  fgColor="#1A4D2E"
+                />
+                <div className="text-center">
+                  <p className="text-xs text-slate-500">Scan with your mobile camera to connect</p>
+                  <p className="text-[10px] text-slate-400 mt-1 font-mono break-all max-w-[280px]">{terminalUrl}?pair={qrToken.slice(0,12)}...</p>
+                  <p className="text-[10px] text-emerald-600 mt-1 font-medium">
+                    {branches?.find(b => b.id === qrBranchId)?.name || ''} — Expires in 10 minutes
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-medium">or pair manually</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
           {/* Terminal URL */}
           <div>
             <Label className="text-xs text-slate-500 mb-1 block">Terminal URL</Label>

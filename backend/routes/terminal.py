@@ -162,6 +162,77 @@ async def pair_terminal(data: dict, user=Depends(get_current_user)):
     }
 
 
+QR_TOKEN_EXPIRY_MINUTES = 10
+
+
+@router.post("/initiate-qr-pairing")
+async def initiate_qr_pairing(data: dict, user=Depends(get_current_user)):
+    """PC generates a QR pair token tied to a branch. Mobile scans to auto-pair."""
+    branch_id = data.get("branch_id")
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="Branch ID required")
+    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    token = secrets.token_urlsafe(32)
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=QR_TOKEN_EXPIRY_MINUTES)).isoformat()
+    doc = {
+        "id": new_id(), "token": token, "status": "pending",
+        "branch_id": branch_id, "branch_name": branch.get("name", ""),
+        "user_id": user["id"],
+        "user_name": user.get("full_name", user.get("username", "")),
+        "organization_id": user.get("organization_id"),
+        "created_at": now_iso(), "expires_at": expires_at,
+    }
+    await _raw_db.qr_pair_tokens.insert_one(doc)
+    return {"token": token, "branch_name": branch.get("name", ""), "expires_in": QR_TOKEN_EXPIRY_MINUTES * 60}
+
+
+@router.post("/qr-pair")
+async def qr_pair_terminal(data: dict):
+    """Terminal submits a QR pair token to auto-pair. No auth required (token is proof)."""
+    token = (data.get("token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+
+    doc = await _raw_db.qr_pair_tokens.find_one({"token": token, "status": "pending"}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Invalid or expired QR code — generate a new one")
+
+    expires = datetime.fromisoformat(doc["expires_at"].replace("Z", "+00:00"))
+    if datetime.now(timezone.utc) > expires:
+        await _raw_db.qr_pair_tokens.update_one({"token": token}, {"$set": {"status": "expired"}})
+        raise HTTPException(status_code=410, detail="QR code expired — generate a new one on the PC")
+
+    # Create terminal session
+    terminal_id = new_id()
+    session_token = create_token(doc["user_id"], "admin", org_id=doc.get("organization_id"))
+    session = {
+        "id": new_id(), "terminal_id": terminal_id, "code": f"QR-{token[:8]}",
+        "branch_id": doc["branch_id"], "branch_name": doc["branch_name"],
+        "user_id": doc["user_id"], "user_name": doc.get("user_name", ""),
+        "organization_id": doc.get("organization_id"), "token": session_token,
+        "status": "active", "paired_at": now_iso(), "last_seen": now_iso(),
+        "paired_via": "qr",
+    }
+    await _raw_db.terminal_sessions.insert_one(session)
+    await _raw_db.qr_pair_tokens.update_one(
+        {"token": token},
+        {"$set": {"status": "paired", "paired_at": now_iso(), "terminal_id": terminal_id}}
+    )
+
+    return {
+        "status": "paired",
+        "token": session_token,
+        "terminal_id": terminal_id,
+        "branch_id": doc["branch_id"],
+        "branch_name": doc["branch_name"],
+        "user_name": doc.get("user_name", ""),
+        "organization_id": doc.get("organization_id", ""),
+    }
+
+
 @router.get("/session")
 async def get_terminal_session(user=Depends(get_current_user)):
     """Validate current terminal session."""

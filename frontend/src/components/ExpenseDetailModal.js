@@ -15,9 +15,10 @@ import { Separator } from './ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   ShieldCheck, Upload, Pencil, Check, AlertTriangle,
-  RefreshCw, Trash2, DollarSign, Wallet, FileText, User, Calendar, Tag
+  RefreshCw, Trash2, DollarSign, Wallet, FileText, User, Calendar, Tag, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PrintEngine from '../lib/PrintEngine';
 
 const fundBadge = (src) => {
   if (src === 'safe') return 'bg-amber-100 text-amber-700';
@@ -31,6 +32,14 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
 
   const [expense, setExpense] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bizInfo, setBizInfo] = useState({});
+
+  useEffect(() => { api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {}); }, []);
+
+  const handlePrintExpense = () => {
+    if (!expense) return;
+    PrintEngine.print({ type: 'expense_voucher', data: expense, format: 'full_page', businessInfo: bizInfo });
+  };
 
   // Edit
   const [editMode, setEditMode] = useState(false);
@@ -144,6 +153,10 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
                       <Pencil size={12} className="mr-1" /> Edit
                     </Button>
                   )}
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={handlePrintExpense} data-testid="expense-print-btn">
+                    <Printer size={12} className="mr-1" /> Print
+                  </Button>
                 </div>
               )}
             </div>

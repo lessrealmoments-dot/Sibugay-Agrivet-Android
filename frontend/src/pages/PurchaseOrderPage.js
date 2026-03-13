@@ -7,6 +7,7 @@ import VerificationBadge from '../components/VerificationBadge';
 import VerifyPinDialog from '../components/VerifyPinDialog';
 import ViewQRDialog from '../components/ViewQRDialog';
 import { formatPHP } from '../lib/utils';
+import PrintEngine from '../lib/PrintEngine';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -24,7 +25,7 @@ import {
   FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign,
   Search, History, ArrowRight, Receipt, UserPlus, Package,
   Wallet, Banknote, CreditCard, AlertTriangle, ChevronDown, RefreshCw,
-  ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp
+  ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -167,6 +168,14 @@ export default function PurchaseOrderPage() {
   const [historyPOs, setHistoryPOs] = useState([]);
 
   const qtyRefs = useRef([]);
+
+  // ── Business info for printing ─────────────────────────────────────────
+  const [bizInfo, setBizInfo] = useState({});
+  useEffect(() => { api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {}); }, []);
+
+  const handlePrintPO = (po) => {
+    PrintEngine.print({ type: 'purchase_order', data: po, format: 'full_page', businessInfo: bizInfo });
+  };
 
   // ── Init ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1381,6 +1390,11 @@ export default function PurchaseOrderPage() {
                     <Pencil size={12} className="mr-1" /> Edit
                   </Button>
                 )}
+                {/* Print PO */}
+                <Button size="sm" variant="outline" className="h-7 text-xs"
+                  onClick={() => handlePrintPO(detailPO)} data-testid="po-print-btn">
+                  <Printer size={12} className="mr-1" /> Print
+                </Button>
               </div>
             </div>
             {/* Verification badge row */}

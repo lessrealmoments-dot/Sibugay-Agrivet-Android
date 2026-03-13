@@ -16,16 +16,29 @@ import { Textarea } from './ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   ShieldCheck, Upload, Pencil, Check, AlertTriangle,
-  RefreshCw, Ban, DollarSign, Wallet, CreditCard, Clock
+  RefreshCw, Ban, DollarSign, Wallet, CreditCard, Clock, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
+import PrintEngine from '../lib/PrintEngine';
 
 export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNumber, onUpdated }) {
-  const { user, hasPerm } = useAuth();
+  const { user, hasPerm, currentBranch } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   const [sale, setSale] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [businessInfo, setBusinessInfo] = useState({});
+
+  // Load business info for printing
+  useEffect(() => {
+    api.get('/settings/business-info').then(r => setBusinessInfo(r.data)).catch(() => {});
+  }, []);
+
+  const handlePrint = (format) => {
+    if (!sale) return;
+    const docType = PrintEngine.getDocType(sale);
+    PrintEngine.print({ type: docType, data: sale, format, businessInfo });
+  };
 
   // Edit
   const [editMode, setEditMode] = useState(false);
@@ -179,6 +192,14 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
                       <Pencil size={12} className="mr-1" /> Edit
                     </Button>
                   )}
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
+                    <Printer size={12} className="mr-1" /> 58mm
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => handlePrint('full_page')} data-testid="sale-print-full">
+                    <Printer size={12} className="mr-1" /> 8.5x11
+                  </Button>
                 </div>
               )}
             </div>

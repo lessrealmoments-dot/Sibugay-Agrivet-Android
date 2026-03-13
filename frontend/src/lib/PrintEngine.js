@@ -257,12 +257,170 @@ function trustReceiptFullPage(data, biz) {
   return html;
 }
 
+// ── Purchase Order (full page only) ─────────────────────────────────────────
+function purchaseOrderFullPage(data, biz) {
+  const po = data;
+  let html = buildHeader(biz);
+  html += `<div class="doc-title">Purchase Order</div>`;
+  html += '<div class="meta-grid">';
+  html += `<div><span class="label">PO No: </span><span class="value">${po.po_number || ''}</span></div>`;
+  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(po.purchase_date)}</span></div>`;
+  html += `<div><span class="label">Supplier: </span><span class="value">${po.vendor || ''}</span></div>`;
+  if (po.dr_number) html += `<div><span class="label">DR #: </span><span class="value">${po.dr_number}</span></div>`;
+  html += `<div><span class="label">Status: </span><span class="value">${(po.status || '').toUpperCase()}</span></div>`;
+  html += `<div><span class="label">Payment: </span><span class="value">${po.po_type === 'cash' ? 'Cash' : po.terms_label || 'Terms'} — ${po.payment_status || 'unpaid'}</span></div>`;
+  if (po.due_date) html += `<div><span class="label">Due Date: </span><span class="value">${fmtDate(po.due_date)}</span></div>`;
+  if (po.notes) html += `<div class="md:col-span-2"><span class="label">Notes: </span><span class="value">${po.notes}</span></div>`;
+  html += '</div>';
+  html += buildItemsFullPage(po.items || []);
+  html += '<div class="totals-section"><div class="totals-box">';
+  html += `<div class="row"><span>Subtotal</span><span>${formatPHP(po.subtotal || po.line_subtotal)}</span></div>`;
+  if (po.overall_discount_amount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(po.overall_discount_amount)}</span></div>`;
+  if (po.freight > 0) html += `<div class="row"><span>Freight</span><span>${formatPHP(po.freight)}</span></div>`;
+  if (po.tax_amount > 0) html += `<div class="row"><span>VAT (${po.tax_rate}%)</span><span>${formatPHP(po.tax_amount)}</span></div>`;
+  html += `<div class="row grand"><span>GRAND TOTAL</span><span>${formatPHP(po.grand_total)}</span></div>`;
+  if (po.balance > 0) html += `<div class="row" style="color:#c00"><span>Balance</span><span>${formatPHP(po.balance)}</span></div>`;
+  html += '</div></div>';
+  html += '<div class="signature-section">';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Prepared By</div></div>';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Received By</div></div>';
+  html += '</div>';
+  return html;
+}
+
+// ── Stock Transfer Slip (full page) ─────────────────────────────────────────
+function stockTransferFullPage(data, biz) {
+  const t = data;
+  let html = buildHeader(biz);
+  html += `<div class="doc-title">Stock Transfer Slip</div>`;
+  html += '<div class="meta-grid">';
+  html += `<div><span class="label">Transfer #: </span><span class="value">${t.transfer_number || t.id?.slice(0, 8) || ''}</span></div>`;
+  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(t.created_at || t.date)}</span></div>`;
+  html += `<div><span class="label">From: </span><span class="value">${t.from_branch_name || ''}</span></div>`;
+  html += `<div><span class="label">To: </span><span class="value">${t.to_branch_name || ''}</span></div>`;
+  html += `<div><span class="label">Status: </span><span class="value">${(t.status || '').toUpperCase()}</span></div>`;
+  if (t.notes) html += `<div><span class="label">Notes: </span><span class="value">${t.notes}</span></div>`;
+  html += '</div>';
+  html += buildItemsFullPage(t.items || []);
+  html += '<div class="signature-section">';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Released By</div></div>';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Received By</div></div>';
+  html += '</div>';
+  return html;
+}
+
+// ── Expense Voucher (full page) ─────────────────────────────────────────────
+function expenseVoucherFullPage(data, biz) {
+  const e = data;
+  let html = buildHeader(biz);
+  html += `<div class="doc-title">Expense Voucher</div>`;
+  html += '<div class="meta-grid">';
+  html += `<div><span class="label">Voucher #: </span><span class="value">${e.reference_number || e.id?.slice(0, 8) || ''}</span></div>`;
+  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(e.date || e.created_at)}</span></div>`;
+  html += `<div><span class="label">Category: </span><span class="value">${e.category || 'General'}</span></div>`;
+  html += `<div><span class="label">Payment: </span><span class="value">${e.payment_method || 'Cash'}</span></div>`;
+  html += `<div><span class="label">Amount: </span><span class="value" style="font-size:14px;font-weight:bold;color:#1A4D2E">${formatPHP(e.amount)}</span></div>`;
+  if (e.fund_source) html += `<div><span class="label">Source: </span><span class="value">${e.fund_source}</span></div>`;
+  html += '</div>';
+  if (e.description) {
+    html += `<div style="margin:12px 0;padding:8px;background:#f9f9f9;border-radius:4px;font-size:11px"><b>Description:</b> ${e.description}</div>`;
+  }
+  if (e.notes) {
+    html += `<div style="margin:8px 0;font-size:10px;color:#555"><b>Notes:</b> ${e.notes}</div>`;
+  }
+  html += '<div class="signature-section">';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Approved By</div></div>';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Received By</div></div>';
+  html += '</div>';
+  return html;
+}
+
+// ── Return Slip ─────────────────────────────────────────────────────────────
+function returnSlipThermal(data, biz) {
+  const r = data;
+  let html = buildHeader(biz);
+  html += `<div class="doc-title">RETURN SLIP</div>`;
+  html += `<div class="meta-row"><span class="label">Ref:</span><span>${r.return_number || r.id?.slice(0, 8) || ''}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDateTime(r.created_at)}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Orig. Invoice:</span><span>${r.original_invoice_number || ''}</span></div>`;
+  if (r.customer_name) html += `<div class="meta-row"><span class="label">Customer:</span><span>${r.customer_name}</span></div>`;
+  html += '<div class="sep"></div>';
+  html += buildItemsThermal(r.items || []);
+  html += '<div class="sep"></div>';
+  html += '<div class="totals">';
+  html += `<div class="row grand"><span>REFUND</span><span>${formatPHP(r.refund_amount || r.total_refund || 0)}</span></div>`;
+  html += `<div class="row"><span>Method</span><span>${r.refund_method || 'Cash'}</span></div>`;
+  html += '</div>';
+  html += `<div class="footer">${biz.receipt_footer || ''}</div>`;
+  return html;
+}
+
+function returnSlipFullPage(data, biz) {
+  const r = data;
+  let html = buildHeader(biz);
+  html += `<div class="doc-title">Return Slip</div>`;
+  html += '<div class="meta-grid">';
+  html += `<div><span class="label">Return #: </span><span class="value">${r.return_number || r.id?.slice(0, 8) || ''}</span></div>`;
+  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(r.created_at)}</span></div>`;
+  html += `<div><span class="label">Original Invoice: </span><span class="value">${r.original_invoice_number || ''}</span></div>`;
+  if (r.customer_name) html += `<div><span class="label">Customer: </span><span class="value">${r.customer_name}</span></div>`;
+  html += `<div><span class="label">Refund Method: </span><span class="value">${r.refund_method || 'Cash'}</span></div>`;
+  html += `<div><span class="label">Reason: </span><span class="value">${r.reason || ''}</span></div>`;
+  html += '</div>';
+  html += buildItemsFullPage(r.items || []);
+  html += '<div class="totals-section"><div class="totals-box">';
+  html += `<div class="row grand"><span>Total Refund</span><span>${formatPHP(r.refund_amount || r.total_refund || 0)}</span></div>`;
+  html += '</div></div>';
+  html += '<div class="signature-section">';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Authorized By</div></div>';
+  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Customer Signature</div></div>';
+  html += '</div>';
+  return html;
+}
+
+// ── Statement of Account (full page only) ───────────────────────────────────
+function statementFullPage(data, biz) {
+  const s = data;
+  let html = buildHeader(biz);
+  html += `<div class="doc-title">Statement of Account</div>`;
+  html += '<div class="meta-grid">';
+  html += `<div><span class="label">Customer: </span><span class="value" style="font-size:13px;font-weight:bold">${s.customer_name || ''}</span></div>`;
+  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(s.statement_date || new Date().toISOString())}</span></div>`;
+  if (s.customer_phone) html += `<div><span class="label">Phone: </span><span class="value">${s.customer_phone}</span></div>`;
+  if (s.customer_address) html += `<div><span class="label">Address: </span><span class="value">${s.customer_address}</span></div>`;
+  html += '</div>';
+  // Transactions table
+  if (s.transactions?.length) {
+    html += '<table class="items-table"><thead><tr>';
+    html += '<th>Date</th><th>Reference</th><th>Description</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th class="text-right">Balance</th>';
+    html += '</tr></thead><tbody>';
+    for (const tx of s.transactions) {
+      html += `<tr>`;
+      html += `<td>${fmtDate(tx.date)}</td>`;
+      html += `<td>${tx.reference || ''}</td>`;
+      html += `<td>${tx.description || ''}</td>`;
+      html += `<td class="text-right">${tx.debit > 0 ? formatPHP(tx.debit) : ''}</td>`;
+      html += `<td class="text-right">${tx.credit > 0 ? formatPHP(tx.credit) : ''}</td>`;
+      html += `<td class="text-right">${formatPHP(tx.running_balance || 0)}</td>`;
+      html += `</tr>`;
+    }
+    html += '</tbody></table>';
+  }
+  html += '<div class="totals-section"><div class="totals-box">';
+  if (s.opening_balance !== undefined) html += `<div class="row"><span>Opening Balance</span><span>${formatPHP(s.opening_balance)}</span></div>`;
+  if (s.total_charges !== undefined) html += `<div class="row"><span>Total Charges</span><span>${formatPHP(s.total_charges)}</span></div>`;
+  if (s.total_payments !== undefined) html += `<div class="row"><span>Total Payments</span><span>-${formatPHP(s.total_payments)}</span></div>`;
+  html += `<div class="row grand"><span>Balance Due</span><span>${formatPHP(s.closing_balance || s.balance || 0)}</span></div>`;
+  html += '</div></div>';
+  return html;
+}
+
 // ── Print function ──────────────────────────────────────────────────────────
 const PrintEngine = {
   /**
    * @param {object} opts
-   * @param {'order_slip'|'trust_receipt'} opts.type
-   * @param {object} opts.data - Invoice/PO data
+   * @param {'order_slip'|'trust_receipt'|'purchase_order'|'stock_transfer'|'expense_voucher'|'return_slip'|'statement'} opts.type
+   * @param {object} opts.data - Document data
    * @param {'thermal'|'full_page'} opts.format
    * @param {object} opts.businessInfo - From /settings/business-info
    */
@@ -276,6 +434,21 @@ const PrintEngine = {
         break;
       case 'trust_receipt':
         body = format === 'thermal' ? trustReceiptThermal(data, businessInfo) : trustReceiptFullPage(data, businessInfo);
+        break;
+      case 'purchase_order':
+        body = purchaseOrderFullPage(data, businessInfo);
+        break;
+      case 'stock_transfer':
+        body = stockTransferFullPage(data, businessInfo);
+        break;
+      case 'expense_voucher':
+        body = expenseVoucherFullPage(data, businessInfo);
+        break;
+      case 'return_slip':
+        body = format === 'thermal' ? returnSlipThermal(data, businessInfo) : returnSlipFullPage(data, businessInfo);
+        break;
+      case 'statement':
+        body = statementFullPage(data, businessInfo);
         break;
       default:
         body = format === 'thermal' ? orderSlipThermal(data, businessInfo) : orderSlipFullPage(data, businessInfo);

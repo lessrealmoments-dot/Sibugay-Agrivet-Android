@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
+import PrintEngine from '../lib/PrintEngine';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -14,6 +15,11 @@ export default function CustomerStatementModal({ open, onOpenChange, customer })
   const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10));
   const [statement, setStatement] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState({});
+
+  useEffect(() => {
+    api.get('/settings/business-info').then(r => setBusinessInfo(r.data)).catch(() => {});
+  }, []);
 
   const loadStatement = async () => {
     if (!customer?.id) return;
@@ -28,7 +34,13 @@ export default function CustomerStatementModal({ open, onOpenChange, customer })
   };
 
   const handlePrint = () => {
-    window.print();
+    if (!statement) return;
+    PrintEngine.print({
+      type: 'statement',
+      data: { ...statement, customer_name: customer?.name, customer_phone: customer?.phone, customer_address: customer?.address },
+      format: 'full_page',
+      businessInfo,
+    });
   };
 
   const typeLabel = (t) => {

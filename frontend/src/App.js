@@ -55,6 +55,7 @@ import ExpensesPage from './pages/ExpensesPage';
 import TransactionSearchPage from './pages/TransactionSearchPage';
 import JournalEntriesPage from './pages/JournalEntriesPage';
 import BudgetChecker from './components/BudgetChecker';
+import TerminalPage from './pages/terminal/TerminalPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)
@@ -201,10 +202,17 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-        <Toaster position="bottom-right" richColors />
-      </AuthProvider>
+      <Routes>
+        {/* Terminal route — independent of main auth, manages its own session */}
+        <Route path="/terminal" element={<TerminalPage />} />
+        {/* All other routes go through AuthProvider */}
+        <Route path="*" element={
+          <AuthProvider>
+            <AppRoutes />
+            <Toaster position="bottom-right" richColors />
+          </AuthProvider>
+        } />
+      </Routes>
     </BrowserRouter>
   );
 }

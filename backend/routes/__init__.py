@@ -32,6 +32,7 @@ from .verify import router as verify_router
 from .organizations import router as organizations_router
 from .superadmin import router as superadmin_router
 from .admin_auth import router as admin_auth_router
+from .terminal import router as terminal_router
 
 __all__ = [
     'auth_router', 'branches_router', 'users_router', 'products_router',
@@ -42,4 +43,5 @@ __all__ = [
     'import_router', 'notifications_router', 'branch_transfers_router', 'reports_router',
     'returns_router', 'audit_router', 'uploads_router', 'verify_router',
     'organizations_router', 'superadmin_router', 'admin_auth_router',
+    'terminal_router',
 ]

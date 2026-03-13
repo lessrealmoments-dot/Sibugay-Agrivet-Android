@@ -36,6 +36,7 @@ from routes import (
     import_router, notifications_router, branch_transfers_router, reports_router,
     returns_router, audit_router, uploads_router, verify_router,
     organizations_router, superadmin_router, admin_auth_router,
+    terminal_router,
 )
 from routes.backups import router as backups_router
 from routes.internal_invoices import router as internal_invoices_router
@@ -166,6 +167,9 @@ api_router.include_router(admin_auth_router)
 
 # Universal Transaction Search
 api_router.include_router(search_router)
+
+# AgriSmart Terminal (mobile POS pairing & sessions)
+api_router.include_router(terminal_router)
 
 # Z-Report PDF
 api_router.include_router(zreport_pdf_router)

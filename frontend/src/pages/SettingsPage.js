@@ -11,7 +11,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Settings, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock,
-  RefreshCw, AlertTriangle, ShieldCheck, Eye, EyeOff, User, Building2, Save
+  RefreshCw, AlertTriangle, ShieldCheck, Eye, EyeOff, User, Building2, Save, Monitor, Trash2, Copy
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
@@ -128,8 +128,155 @@ function ChangePasswordForm() {
   );
 }
 
+// ── Connect Terminal Panel ─────────────────────────────────────────────────
+function ConnectTerminalPanel({ branches }) {
+  const [code, setCode] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [pairing, setPairing] = useState(false);
+  const [terminals, setTerminals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const terminalUrl = `${window.location.origin}/terminal`;
+
+  const loadTerminals = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/terminal/active');
+      setTerminals(res.data || []);
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { loadTerminals(); }, []);
+
+  const handlePair = async () => {
+    if (!code.trim() || code.trim().length !== 6) { toast.error('Enter the 6-character code from the terminal'); return; }
+    if (!branchId) { toast.error('Select a branch'); return; }
+    setPairing(true);
+    try {
+      const res = await api.post('/terminal/pair', { code: code.trim(), branch_id: branchId });
+      toast.success(res.data.message);
+      setCode('');
+      loadTerminals();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to pair terminal');
+    }
+    setPairing(false);
+  };
+
+  const disconnectTerminal = async (terminalId) => {
+    try {
+      await api.post(`/terminal/disconnect/${terminalId}`);
+      toast.success('Terminal disconnected');
+      loadTerminals();
+    } catch {
+      toast.error('Failed to disconnect');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+            <Monitor size={16} /> Pair a Terminal
+          </CardTitle>
+          <p className="text-sm text-slate-500">
+            Connect an Android device, tablet, or phone as an AgriSmart Terminal.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Terminal URL */}
+          <div>
+            <Label className="text-xs text-slate-500 mb-1 block">Terminal URL</Label>
+            <div className="flex items-center gap-2">
+              <Input value={terminalUrl} readOnly className="font-mono text-xs bg-slate-50" data-testid="terminal-url" />
+              <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(terminalUrl); toast.success('Copied!'); }} data-testid="copy-terminal-url">
+                <Copy size={14} />
+              </Button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Open this URL on the mobile device, then enter the code shown below.</p>
+          </div>
+
+          {/* Pairing code input */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs text-slate-500 mb-1 block">Code from Terminal</Label>
+              <Input
+                value={code}
+                onChange={e => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                placeholder="ABC123"
+                maxLength={6}
+                className="font-mono text-lg tracking-widest text-center uppercase"
+                data-testid="terminal-code-input"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-slate-500 mb-1 block">Assign to Branch</Label>
+              <select
+                value={branchId}
+                onChange={e => setBranchId(e.target.value)}
+                className="w-full h-10 rounded-md border border-slate-200 px-3 text-sm bg-white"
+                data-testid="terminal-branch-select"
+              >
+                <option value="">Select branch...</option>
+                {(branches || []).map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                onClick={handlePair}
+                disabled={pairing || !code || !branchId}
+                className="bg-[#1A4D2E] hover:bg-[#14532d] text-white w-full"
+                data-testid="pair-terminal-btn"
+              >
+                {pairing ? <RefreshCw size={14} className="animate-spin mr-1.5" /> : <Smartphone size={14} className="mr-1.5" />}
+                {pairing ? 'Pairing...' : 'Pair Terminal'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Active Terminals */}
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold" style={{ fontFamily: 'Manrope' }}>
+              Active Terminals
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={loadTerminals} disabled={loading}>
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {terminals.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">No active terminals</p>
+          ) : (
+            <div className="space-y-2">
+              {terminals.map(t => (
+                <div key={t.terminal_id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200" data-testid={`terminal-${t.terminal_id}`}>
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{t.branch_name || 'Unknown Branch'}</p>
+                    <p className="text-xs text-slate-500">Paired by {t.user_name} · {t.paired_at?.slice(0, 10)}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => disconnectTerminal(t.terminal_id)} className="text-red-500 hover:text-red-700 hover:bg-red-50" data-testid={`disconnect-${t.terminal_id}`}>
+                    <Trash2 size={14} className="mr-1" /> Disconnect
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
-  const { user: currentUser, refreshUser } = useAuth();
+  const { user: currentUser, refreshUser, branches } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
 
   // ── TOTP ──────────────────────────────────────────────────────────────────
@@ -376,6 +523,11 @@ export default function SettingsPage() {
           {isAdmin && (
             <TabsTrigger value="business" data-testid="business-tab" className="flex items-center gap-1.5">
               <Building2 size={14} /> Business Info
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="terminal" data-testid="terminal-tab" className="flex items-center gap-1.5">
+              <Monitor size={14} /> Connect Terminal
             </TabsTrigger>
           )}
         </TabsList>
@@ -784,6 +936,13 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* ── Connect Terminal Tab ───────────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="terminal" className="space-y-6">
+            <ConnectTerminalPanel branches={branches} />
           </TabsContent>
         )}
       </Tabs>

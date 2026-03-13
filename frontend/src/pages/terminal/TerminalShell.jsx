@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell } from 'lucide-react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell, Settings, ChevronRight, Unlink } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
@@ -16,13 +16,15 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
 
 const TABS = [
-  { key: 'sales', label: 'Sales', icon: ShoppingCart },
-  { key: 'po', label: 'PO Check', icon: ClipboardCheck },
-  { key: 'transfers', label: 'Transfers', icon: ArrowLeftRight },
+  { key: 'sales', label: 'Sales', icon: ShoppingCart, color: 'text-emerald-600 bg-emerald-50' },
+  { key: 'po', label: 'PO Check', icon: ClipboardCheck, color: 'text-amber-600 bg-amber-50' },
+  { key: 'transfers', label: 'Transfers', icon: ArrowLeftRight, color: 'text-blue-600 bg-blue-50' },
 ];
 
 export default function TerminalShell({ session, onLogout }) {
   const [activeTab, setActiveTab] = useState('sales');
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [dataReady, setDataReady] = useState(false);
@@ -219,9 +221,6 @@ export default function TerminalShell({ session, onLogout }) {
           <button onClick={handleManualSync} disabled={syncing} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" data-testid="sync-btn">
             <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
           </button>
-          <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500" data-testid="terminal-logout-btn">
-            <LogOut size={14} />
-          </button>
         </div>
       </div>
 
@@ -238,33 +237,120 @@ export default function TerminalShell({ session, onLogout }) {
         )}
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="bg-white border-t border-slate-200 safe-area-bottom">
-        <div className="flex items-center justify-around py-1.5 px-2">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.key;
-            const hasBadge = (tab.key === 'po' && notifications.some(n => n.type === 'po' && Date.now() - n.time < 60000)) ||
-                             (tab.key === 'transfers' && notifications.some(n => n.type === 'transfer' && Date.now() - n.time < 60000));
-            return (
-              <button
-                key={tab.key}
-                onClick={() => { setActiveTab(tab.key); setNotifications(prev => prev.filter(n => n.type !== (tab.key === 'po' ? 'po' : 'transfer'))); }}
-                className={`relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all ${
-                  active ? 'text-[#1A4D2E] bg-emerald-50' : 'text-slate-400'
-                }`}
-                data-testid={`tab-${tab.key}`}
-              >
-                <Icon size={18} strokeWidth={active ? 2.5 : 1.5} />
-                <span className="text-[10px] font-medium">{tab.label}</span>
-                {hasBadge && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-white" />
-                )}
+      {/* Floating Mode Selector — lower left */}
+      <div className="fixed bottom-4 left-4 z-50 safe-area-bottom" data-testid="mode-selector">
+        {/* Mode menu popup */}
+        {modeMenuOpen && (
+          <div className="absolute bottom-14 left-0 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden w-52 animate-in slide-in-from-bottom-2">
+            {TABS.map(tab => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.key;
+              const hasBadge = (tab.key === 'po' && notifications.some(n => n.type === 'po' && Date.now() - n.time < 60000)) ||
+                               (tab.key === 'transfers' && notifications.some(n => n.type === 'transfer' && Date.now() - n.time < 60000));
+              return (
+                <button key={tab.key}
+                  onClick={() => { setActiveTab(tab.key); setModeMenuOpen(false); setNotifications(prev => prev.filter(n => n.type !== (tab.key === 'po' ? 'po' : 'transfer'))); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    active ? 'bg-[#1A4D2E] text-white' : 'hover:bg-slate-50 text-slate-700'
+                  }`}
+                  data-testid={`mode-${tab.key}`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${active ? 'bg-white/20' : tab.color}`}>
+                    <Icon size={16} />
+                  </div>
+                  <span className="text-sm font-medium flex-1">{tab.label}</span>
+                  {hasBadge && <span className="w-2.5 h-2.5 bg-red-500 rounded-full" />}
+                  {active && <ChevronRight size={14} className="opacity-60" />}
+                </button>
+              );
+            })}
+            <div className="border-t border-slate-100">
+              <button onClick={() => { setModeMenuOpen(false); setSettingsOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 text-slate-500"
+                data-testid="terminal-settings-btn">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100">
+                  <Settings size={16} />
+                </div>
+                <span className="text-sm font-medium">Settings</span>
               </button>
-            );
-          })}
-        </div>
+            </div>
+          </div>
+        )}
+
+        {/* Floating button */}
+        <button
+          onClick={() => setModeMenuOpen(v => !v)}
+          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
+            modeMenuOpen ? 'bg-slate-800 text-white rotate-90' : 'bg-[#1A4D2E] text-white hover:bg-[#14532d]'
+          }`}
+          data-testid="mode-toggle-btn"
+        >
+          {(() => {
+            const CurrentIcon = TABS.find(t => t.key === activeTab)?.icon || ShoppingCart;
+            return modeMenuOpen ? <ChevronRight size={20} /> : <CurrentIcon size={20} />;
+          })()}
+        </button>
+
+        {/* Notification dot */}
+        {notifications.length > 0 && !modeMenuOpen && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#F5F5F0]" />
+        )}
       </div>
+
+      {/* Click-away backdrop when menu open */}
+      {modeMenuOpen && (
+        <div className="fixed inset-0 z-40" onClick={() => setModeMenuOpen(false)} />
+      )}
+
+      {/* Settings Panel */}
+      {settingsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSettingsOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-800" style={{ fontFamily: 'Manrope' }}>Terminal Settings</h3>
+              <p className="text-xs text-slate-400 mt-0.5">{session.branchName}</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Branch</p>
+                  <p className="text-sm font-semibold text-slate-800">{session.branchName}</p>
+                </div>
+                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Linked</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Paired by</p>
+                  <p className="text-sm text-slate-700">{session.userName || 'Unknown'}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Status</p>
+                  <p className="text-sm text-slate-700 flex items-center gap-1.5">
+                    {isOnline ? <Wifi size={12} className="text-emerald-600" /> : <WifiOff size={12} className="text-red-500" />}
+                    {isOnline ? 'Online' : 'Offline'}
+                  </p>
+                </div>
+                <button onClick={() => { setSettingsOpen(false); handleManualSync(); }}
+                  className="text-xs text-blue-600 hover:underline">Sync now</button>
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 space-y-2">
+              <button onClick={() => { setSettingsOpen(false); handleLogout(); }}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm font-medium"
+                data-testid="unlink-terminal-btn">
+                <Unlink size={16} />
+                Unlink Terminal
+              </button>
+              <button onClick={() => setSettingsOpen(false)}
+                className="w-full py-2.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -114,6 +114,10 @@ async def pair_terminal(data: dict, user=Depends(get_current_user)):
     if not branch_id:
         raise HTTPException(status_code=400, detail="Branch ID required")
 
+    # Non-admin users can only pair to their assigned branch
+    if user.get("role") not in ("admin",) and user.get("branch_id") and user["branch_id"] != branch_id:
+        raise HTTPException(status_code=403, detail="You can only pair a terminal to your assigned branch")
+
     doc = await _raw_db.terminal_codes.find_one({"code": code, "status": "pending"}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Code not found or already used")
@@ -123,7 +127,7 @@ async def pair_terminal(data: dict, user=Depends(get_current_user)):
         await _raw_db.terminal_codes.update_one({"code": code}, {"$set": {"status": "expired"}})
         raise HTTPException(status_code=410, detail="Code expired — generate a new one on the terminal")
 
-    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+    branch = await _raw_db.branches.find_one({"id": branch_id}, {"_id": 0})
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found")
 
@@ -171,7 +175,12 @@ async def initiate_qr_pairing(data: dict, user=Depends(get_current_user)):
     branch_id = data.get("branch_id")
     if not branch_id:
         raise HTTPException(status_code=400, detail="Branch ID required")
-    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0})
+
+    # Non-admin users can only pair to their assigned branch
+    if user.get("role") not in ("admin",) and user.get("branch_id") and user["branch_id"] != branch_id:
+        raise HTTPException(status_code=403, detail="You can only pair a terminal to your assigned branch")
+
+    branch = await _raw_db.branches.find_one({"id": branch_id}, {"_id": 0})
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found")
 
@@ -245,7 +254,7 @@ async def get_terminal_session(user=Depends(get_current_user)):
     await _raw_db.terminal_sessions.update_one(
         {"terminal_id": session["terminal_id"]}, {"$set": {"last_seen": now_iso()}}
     )
-    branch = await db.branches.find_one({"id": session["branch_id"]}, {"_id": 0})
+    branch = await _raw_db.branches.find_one({"id": session["branch_id"]}, {"_id": 0})
     return {
         "terminal_id": session["terminal_id"],
         "branch_id": session["branch_id"],
@@ -353,7 +362,7 @@ async def list_available_transfers(branch_id: str = None, user=Depends(get_curre
     for t in transfers:
         branch_ids.add(t.get("from_branch_id", ""))
     branches = {}
-    async for b in db.branches.find({"id": {"$in": list(branch_ids)}}, {"_id": 0, "id": 1, "name": 1}):
+    async for b in _raw_db.branches.find({"id": {"$in": list(branch_ids)}}, {"_id": 0, "id": 1, "name": 1}):
         branches[b["id"]] = b["name"]
     for t in transfers:
         t["from_branch_name"] = branches.get(t.get("from_branch_id", ""), "?")

@@ -93,11 +93,13 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
 
   // Camera barcode scanner
   const startScanner = async () => {
+    setScannerActive(true);
+    // Wait for div to render before starting scanner
+    await new Promise(r => setTimeout(r, 300));
     try {
       const { Html5Qrcode } = await import('html5-qrcode');
       const scanner = new Html5Qrcode('terminal-scanner-view');
       scannerRef.current = scanner;
-      setScannerActive(true);
 
       await scanner.start(
         { facingMode: 'environment' },
@@ -115,7 +117,8 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
         () => {} // ignore errors
       );
     } catch (e) {
-      toast.error('Camera access denied or not available');
+      console.error('Scanner error:', e);
+      toast.error('Camera access denied. Check browser permissions.');
       setScannerActive(false);
     }
   };

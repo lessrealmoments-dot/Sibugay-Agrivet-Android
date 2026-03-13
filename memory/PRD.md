@@ -42,25 +42,18 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Variance recording with terminal_verified badge on PC
 
 ### AgriSmart Terminal — Phase 3 Branch Transfer Integration (Complete — Mar 2026)
-- **"Send to Terminal" on Branch Transfer page** for `sent` status transfers
-- **Transfer locking:** `sent_to_terminal` status blocks PC receive (423), cancel
-- **Terminal receive flow:**
-  - Shows items with sent qty, transfer capital, branch retail pricing
-  - Quantity adjustment per item with variance badges (short/excess)
-  - Capital impact display for variances
-  - "Submit with Variance" or "Confirm Receipt" based on variance
-  - All quantities match → `received`, inventory updated immediately
-  - Variance detected → `received_pending`, source branch notified for accept/dispute
-- **WebSocket notification** when transfer is assigned to terminal
-- **Red dot badges** on Transfers tab for new assignments
-- **PC badges:** "On Terminal" (amber) and "Terminal" (green after verification)
+- "Send to Terminal" on Branch Transfer page for sent status transfers
+- Transfer locking: sent_to_terminal status blocks PC receive (423), cancel
+- Terminal receive flow with pricing display, variance handling
+- All match → received (inventory moves), Variance → received_pending (source notified)
+- WebSocket notification + red dot badges on Transfers tab
 
 ## Pricing Model (Branch Transfer — Must Preserve)
-- **Branch Capital:** Source branch's cost for product (read-only)
-- **Transfer Capital:** Price at which product is "sold" to destination branch (editable, with category markup)
-- **Branch Retail:** Retail price at destination branch (admin-only editing)
+- **Branch Capital:** Source branch's cost (read-only)
+- **Transfer Capital:** Price "sold" to destination (editable, with category markup)
+- **Branch Retail:** Retail price at destination (admin-only editing)
 - **Min Margin:** Transfer_capital to branch_retail
-- **Repack pricing:** Set new retail prices for repacks at destination
+- **Repack pricing:** New retail prices for repacks at destination
 
 ## Branch Transfer Status Flow
 ```
@@ -69,13 +62,41 @@ draft → sent → sent_to_terminal → received (all match)
                                                                 → disputed → received_pending (re-count)
 ```
 
-## Prioritized Backlog
+## NEXT SESSION — Priority Tasks (User Confirmed)
+
+### Task 1: Branch Transfer UX Redesign (Status-Based)
+**Replace current confusing Incoming/Outgoing tabs with a unified status-based view:**
+- **Requests** — Stock requests sent/received (new simplified form, no receipt upload needed since it's just a request)
+- **In Transit** — Transfers sent, goods on the way
+- **For Checking** — Sent to terminal / awaiting receipt
+- **Pending Review** — Variance detected, needs accept/dispute
+- **Completed** — Received transfers
+- **Disputes** — Connected to existing incident ticket system
+- Each transfer card shows full timeline inline (no page jumping)
+- Branch Stock Request flow: Branch A requests from Branch B → B prepares and adjusts quantities → B sends to A → A receives (PC or terminal)
+
+### Task 2: QR Code Terminal Login
+**Add QR code to PC Settings "Connect Terminal" section:**
+- QR code contains terminal URL + branch info for one-step pairing
+- Scanning QR opens /terminal on mobile and auto-fills branch data
+- Also support manual entry of branch unique code
+- Both paths lead to the same pairing flow
+
+### Task 3: Terminal Pull Data (Self-Serve with PIN)
+**Terminal can pull POs and Transfers from PC directly:**
+- Terminal browses available POs/Transfers (not yet sent to terminal)
+- Selects one to check → requires PIN verification
+- PIN rules: admin PIN, manager PIN, or time-based PIN
+- Must follow the same PIN policies configured in Settings
+- Auto-changes status to sent_to_terminal (locks on PC)
+- Terminal operator can self-serve without waiting for PC to push
+
+## Prioritized Backlog (After Next Session Tasks)
 
 ### P1 (High Priority)
-- Branch Transfer UX redesign (unified view: My Requests / Incoming / Outgoing)
-- Branch Stock Request flow (simplified form, no receipt upload)
 - Partial invoice payment trail
 - Smart Journal Entries for forgotten sales
+- Forgotten Sales on Closed Days workflow
 
 ### P2 (Medium Priority)
 - Admin tool for corrupted POs in production DB
@@ -107,3 +128,6 @@ draft → sent → sent_to_terminal → received (all match)
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
 - Manager PIN: 521325
+
+## 3rd Party Integrations
+- Cloudflare R2, Resend, Google Authenticator, fpdf2, python-barcode, jsbarcode, html5-qrcode

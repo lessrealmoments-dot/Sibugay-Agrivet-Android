@@ -74,6 +74,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Invalid PIN returns clear error message
 - Terminal operator can self-serve without waiting for PC to push
 
+### Terminal UX Improvements (Complete — Mar 2026)
+- Branch restriction: managers/cashiers can only pair terminal to their assigned branch, admins can pair to any
+- Camera scanner fix: resolved race condition where scanner div wasn't rendered before Html5Qrcode initialization
+- Navigation redesign: replaced bottom tab bar with floating mode selector icon (lower-left)
+- Floating menu shows: Sales, PO Check, Transfers, Settings
+- Settings panel shows branch info, paired-by user, online status, Sync Now, and Unlink Terminal button
+- Unlink Terminal clears session and returns to pairing screen
+
 ## Pricing Model (Branch Transfer — Must Preserve)
 - **Branch Capital:** Source branch's cost (read-only)
 - **Transfer Capital:** Price "sold" to destination (editable, with category markup)
@@ -126,6 +134,7 @@ draft → sent → sent_to_terminal → received (all match)
 - `/app/test_reports/iteration_113.json` — Branch Transfer UX Redesign (100%)
 - `/app/test_reports/iteration_114.json` — QR Code Terminal Login (100%)
 - `/app/test_reports/iteration_115.json` — Terminal Pull Data (100%)
+- `/app/test_reports/iteration_116.json` — Branch Restriction + Nav Redesign (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

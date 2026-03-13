@@ -89,9 +89,9 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
   const updateQty = (productId, delta) => {
     setCart(prev => prev.map(c => {
       if (c.product_id !== productId) return c;
-      const newQty = Math.max(0, c.quantity + delta);
-      return newQty === 0 ? null : { ...c, quantity: newQty, total: newQty * c.price };
-    }).filter(Boolean));
+      const newQty = Math.max(1, c.quantity + delta);
+      return { ...c, quantity: newQty, total: newQty * c.price };
+    }));
   };
 
   const removeItem = (productId) => setCart(prev => prev.filter(c => c.product_id !== productId));
@@ -361,37 +361,20 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => updateQty(item.product_id, -1)}
-                    className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 active:bg-slate-200"
+                    className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 active:bg-slate-200"
                     data-testid={`qty-minus-${item.product_id}`}
                   >
-                    <Minus size={14} />
+                    <Minus size={16} />
                   </button>
-                  <input
-                    type="number" inputMode="numeric" min={1}
-                    value={item.quantity}
-                    onChange={e => {
-                      const raw = e.target.value;
-                      const val = raw === '' ? '' : (parseInt(raw) || 0);
-                      setCart(prev => prev.map(c => c.product_id === item.product_id
-                        ? { ...c, quantity: val === '' ? '' : Math.max(0, val), total: (val === '' ? 0 : Math.max(0, val)) * c.price }
-                        : c));
-                    }}
-                    onBlur={() => {
-                      setCart(prev => prev.map(c => {
-                        if (c.product_id !== item.product_id) return c;
-                        const qty = parseInt(c.quantity) || 1;
-                        return { ...c, quantity: qty, total: qty * c.price };
-                      }));
-                    }}
-                    className="w-12 h-8 text-center text-sm font-bold border border-slate-200 rounded-lg focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none"
-                    data-testid={`qty-input-${item.product_id}`}
-                  />
+                  <span className="w-10 text-center text-sm font-bold" data-testid={`qty-display-${item.product_id}`}>
+                    {item.quantity}
+                  </span>
                   <button
                     onClick={() => updateQty(item.product_id, 1)}
-                    className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 active:bg-slate-200"
+                    className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 active:bg-slate-200"
                     data-testid={`qty-plus-${item.product_id}`}
                   >
-                    <Plus size={14} />
+                    <Plus size={16} />
                   </button>
                 </div>
                 <p className="text-sm font-bold text-[#1A4D2E] w-20 text-right">{formatPHP(item.total)}</p>

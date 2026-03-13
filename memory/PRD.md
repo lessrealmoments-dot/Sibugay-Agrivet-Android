@@ -1,111 +1,86 @@
 # AgriBooks PRD
 
 ## Original Problem Statement
-Full-stack POS, Inventory, and Accounting platform for Philippine retail businesses.
+Build a full-featured POS (Point-of-Sale) system called **AgriBooks** with multi-tenant, multi-branch support. The system includes sales management, purchase orders, inventory, branch transfers, accounting, employee management, and more.
 
 ## Core Architecture
-- **Frontend:** React + Shadcn/UI + Tailwind
-- **Backend:** FastAPI + MongoDB
-- **3rd Party:** Cloudflare R2, Resend, Google Authenticator, fpdf2, python-barcode, jsbarcode, html5-qrcode
+- **Frontend:** React + Tailwind CSS + Shadcn UI
+- **Backend:** FastAPI (Python) + MongoDB
+- **Offline:** IndexedDB + Service Worker (PWA)
+- **Storage:** Cloudflare R2
 
 ## What's Been Implemented
 
-### Accounts Receivable (AR) Module
-- Fixed & enhanced "Find & Pay" panel in CloseWizardPage
-- Redesigned PaymentsPage to QuickBooks-style layout
-- Discount functionality for interest/penalties
-- Inline interest rate configuration
+### Core POS (Complete)
+- Multi-tenant org management, branch management, user roles & permissions
+- Unified sales with walk-in/credit/consignment support
+- Purchase orders, suppliers, branch transfers
+- Inventory management, count sheets, barcode printing
+- Customers, price schemes, branch-specific pricing
+- Daily operations, close-of-day wizard, Z-reports
+- Payments, fund management, expenses, accounting, journal entries
+- Audit center, incident tickets, backups, reports
+- Mobile barcode scanner, returns/refunds
 
-### Expense Fund Source Routing (2026-03-12)
-- Payment method correctly routes to the right wallet (cashier/digital/safe)
+### Budget Checker Kiosk Mode (Complete — Feb 2026)
+- F1 to lock, Ctrl+Shift+U to unlock with PIN
+- Product search, price display, budget calculation
+- Offline-capable with cached PIN hash (SHA-256)
+- PWA service worker for app shell caching
 
-### Sales History Enhancement (2026-03-12)
-- All sales with pagination, sortable columns, search, filter chips
-- Quick Action menu: View Details, Print Receipt (58mm), Print Full Page (8.5x11), Add Payment
-
-### PIN Security Fixes (2026-03-12)
-- SalesOrderPage credit PIN enforcement
-- Manager PINs restricted to assigned branch only
-
-### Date Editing for PO & SO (2026-03-12)
-- Invoice/SO and PO date changes with closed-day validation
-- Closed-day edits require PIN + auto-create journal entries
-
-### Print System — Complete (2026-03-13)
-
-#### Phase 1: Foundation
-- **Business Info Settings** (Settings > Business Info tab)
-- **Print Engine** (`lib/PrintEngine.js`) — shared utility, 2 formats x 7 document types
-- **Quick Action Menu** on Sales History rows
-
-#### Phase 2: Wired Into All Sections
-- **Sale Detail Modal** — 58mm and 8.5x11 print buttons
-- **PO Detail Dialog** — Print button (Purchase Order format)
-- **Expense Detail Modal** — Print button (Expense Voucher format)
-- **Customer Statement Modal** — Upgraded to PrintEngine (Statement of Account format)
-- **Z-Report / Close Wizard** — Already had window.print() + PDF download
-
-#### Document Types & Formats
-| Document | Thermal (58mm) | Full Page (8.5x11) | Where |
-|----------|:-:|:-:|-------|
-| **Order Slip** | Yes | Yes | Cash/digital sales |
-| **Trust Receipt** | Yes | Yes | Credit/partial sales (with PD 115 legal terms) |
-| **Purchase Order** | — | Yes | PO detail dialog |
-| **Stock Transfer Slip** | — | Yes | Branch transfers |
-| **Expense Voucher** | — | Yes | Expense detail |
-| **Return Slip** | Yes | Yes | Returns |
-| **Statement of Account** | — | Yes | Customer statement modal |
-
-### Budget Checker / Kiosk Lock Mode (2026-03-13)
-- **F1 to lock** — Full-screen green overlay with "Price & Budget Checker"
-- **Product search** by name or barcode (reuses `/api/products/search-detail`)
-- **Search results** show: product name, SKU, retail price, stock available
-- **Add to Order List** — qty controls (+/-), per-item subtotals
-- **Grand Total** — real-time calculation
-- **Budget Input** — remaining/over-budget indicator (green/red)
-- **See Cost** — PIN-protected (Manager/Admin/TOTP) to reveal capital prices
-- **Persistent Lock** — survives page refresh (localStorage)
-- **Ctrl+Shift+U to unlock** — requires Manager PIN, Admin PIN, or TOTP
-- **Clear List** — resets order and budget
-- **Quick Add (Enter)** — barcode scan or first result auto-added
-- Backend: 2 new PIN policy actions (`kiosk_unlock`, `kiosk_cost_reveal`)
+### AgriSmart Terminal — Phase 1 Foundation (Complete — Mar 2026)
+- **YouTube TV-style device pairing:** Terminal shows 6-char code, PC enters it in Settings > Connect Terminal tab to pair
+- **Backend APIs:** POST /api/terminal/generate-code, GET /api/terminal/poll/{code}, POST /api/terminal/pair, GET /api/terminal/active, POST /api/terminal/disconnect/{terminal_id}
+- **Terminal Shell:** Mobile-optimized layout at /terminal with bottom navigation (Sales | PO Check | Transfers)
+- **Terminal Sales Module:** Product search, camera barcode scanner (html5-qrcode), hardware barcode listener, cart management, checkout with offline save
+- **Terminal PO Check Module:** View/verify purchase orders, adjust received quantities, finalize PO
+- **Terminal Transfers Module:** View pending branch transfers, adjust received quantities, receive transfers
+- **Settings Integration:** "Connect Terminal" tab with code input, branch selection, active terminals list with disconnect
+- **Offline Support:** Uses existing IndexedDB + sync manager infrastructure, data download on pair
+- **Receipt Numbering:** KS- prefix for terminal sales (Kiosk Sale)
 
 ## Prioritized Backlog
 
-### P1 (Upcoming)
-- Visual "trail" indicator for partial invoices with same-day payments
-- Smart Journal Entries / Forgotten Sales on Closed Days workflow
+### P0 (Immediate)
+- None — user testing of AgriSmart Terminal Phase 1
+
+### P1 (High Priority)
+- AgriSmart Terminal Phase 2: PO locking mechanism, "Send to Kiosk" on PC, receipt upload from terminal
+- AgriSmart Terminal Phase 3: Branch Transfer locking, real-time conflict prevention
+- Partial invoice payment trail
+- Smart Journal Entries for forgotten sales
+- Forgotten Sales on Closed Days workflow
+
+### P2 (Medium Priority)
+- Admin tool for corrupted Purchase Orders in production DB
+- Refactor SuperAdminPage.jsx (1000+ lines)
+- Fix react-hooks/exhaustive-deps warnings
+- Refactor AdminLoginPage.jsx to use useNavigate
 - Over-limit Cash Advances logic
 - Closing History page
 
-### P2 (Future)
-- Portable Android POS prep (stripped-down UI: PO + Sales only, with SDK integration)
-- PWA conversion
-- Weight-embedded EAN-13 barcodes
-- Automated Payment Gateway
-- Demo Login System
-- SuperAdminPage refactoring (1000+ lines)
-- eslint warnings cleanup
-- AdminLoginPage useNavigate refactor
-- Admin PO fix tool for corrupted production data
+### P3 (Future)
+- Portable POS Android App (thermal printer SDK integration)
+- Weight-embedded EAN-13 barcode recognition
+- Automated Payment Gateway & Demo Login
+- "Weigh & Send" mode, advanced reporting, user roles/presets, "Pack & Ship"
 
 ## Key Files
-- `frontend/src/components/BudgetChecker.jsx` — Kiosk / Budget Checker full-screen component
-- `frontend/src/utils/PrintEngine.js` — Print engine (7 doc types)
-- `frontend/src/pages/SalesPage.js` — Sales History + Quick Action
-- `frontend/src/pages/SettingsPage.jsx` — Business Info tab
-- `frontend/src/pages/PurchaseOrderPage.jsx` — PO print button
-- `frontend/src/pages/SuperAdminPage.jsx` — Expense print button
-- `frontend/src/pages/PaymentsPage.jsx` — Customer Statement print
-- `frontend/src/App.js` — Kiosk state management + F1/Ctrl+Shift+U listeners
-- `backend/routes/verify.py` — PIN policies (incl. kiosk_unlock, kiosk_cost_reveal)
-- `backend/routes/settings_routes.py` — Business info API
-- `backend/routes/auth.py` — verify-manager-pin endpoint
-- `backend/routes/products.py` — search-detail, barcode-lookup endpoints
-- `backend/routes/invoice_routes.py` — Enhanced list + date editing
+- `/app/backend/routes/terminal.py` — Terminal pairing & session management
+- `/app/frontend/src/pages/terminal/TerminalPage.jsx` — Main terminal page (pairing + shell)
+- `/app/frontend/src/pages/terminal/TerminalPairScreen.jsx` — YouTube TV-style pairing code
+- `/app/frontend/src/pages/terminal/TerminalShell.jsx` — Mobile shell with bottom nav
+- `/app/frontend/src/pages/terminal/TerminalSales.jsx` — Mobile sales module
+- `/app/frontend/src/pages/terminal/TerminalPOCheck.jsx` — PO verification
+- `/app/frontend/src/pages/terminal/TerminalTransfers.jsx` — Branch transfer receiving
+- `/app/frontend/src/pages/SettingsPage.js` — Connect Terminal tab (line ~132-230)
 
 ## Test Reports
-- `/app/test_reports/iteration_106.json` — Sales History + PIN fixes (100%)
-- `/app/test_reports/iteration_107.json` — Print Phase 1 (100%)
-- `/app/test_reports/iteration_108.json` — Print Phase 2 (100%)
-- `/app/test_reports/iteration_109.json` — Budget Checker / Kiosk Mode (100%)
+- `/app/test_reports/iteration_110.json` — AgriSmart Terminal Phase 1 (100% pass)
+
+## 3rd Party Integrations
+- Cloudflare R2, Resend, Google Authenticator, fpdf2, python-barcode, jsbarcode, html5-qrcode
+
+## Credentials
+- Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
+- Manager PIN: 521325

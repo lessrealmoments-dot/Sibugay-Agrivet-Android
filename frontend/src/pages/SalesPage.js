@@ -38,7 +38,7 @@ export default function SalesPage() {
   const [sortBy, setSortBy] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
   const [loading, setLoading] = useState(false);
-  const LIMIT = 25;
+  const LIMIT = 50;
 
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);

@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
     label: 'Transactions',
     items: [
       { path: '/sales-new',  label: 'Sales',             icon: ShoppingCart, perm: 'sales.view',       offlineOk: 'full' },
+      { path: '/sales',      label: 'Sales History',     icon: ClipboardList, perm: 'sales.view' },
       { path: '/returns',    label: 'Return & Refund',   icon: RotateCcw,    perm: 'sales.view' },
       { path: '/customers',  label: 'Customers',         icon: Users,        perm: 'customers.view',   offlineOk: 'readonly' },
       { path: '/payments',   label: 'Receive Payments',  icon: Tags,         perm: 'accounting.view' },

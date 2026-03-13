@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, Camera, X, Check, CreditCard, Banknote, ChevronUp, ChevronDown, Wallet, Upload, Loader2, Clock } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, Camera, X, Check, CreditCard, Banknote, ChevronUp, ChevronDown, Wallet, Upload, Loader2, Clock, Printer } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { toast } from 'sonner';
 import { formatPHP } from '../../lib/utils';
+import PrintEngine from '../../lib/PrintEngine';
 import {
   getProducts, getCustomers, getPriceSchemes,
   addPendingSale, getPendingSaleCount, getInventoryItem, getBranchPrice,
@@ -31,7 +32,10 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
   const scannerRef = useRef(null);
   const scannerContainerRef = useRef(null);
   const lastScanRef = useRef({ barcode: '', time: 0 });
-  const SCAN_COOLDOWN = 2000; // 2 seconds between same barcode
+  const SCAN_COOLDOWN = 2000;
+  const [lastSaleData, setLastSaleData] = useState(null); // for print prompt
+  const [showPrintPrompt, setShowPrintPrompt] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState({});
 
   // Load cached data
   useEffect(() => {
@@ -41,7 +45,8 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
       setCustomers(custs);
       setSchemes(schs);
     })();
-  }, []);
+    api.get('/settings/business-info').then(r => setBusinessInfo(r.data || {})).catch(() => {});
+  }, []); // eslint-disable-line
 
   // Search products
   useEffect(() => {
@@ -255,12 +260,15 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
         const res = await api.post('/unified-sale', saleData);
         const invoiceNum = res.data.invoice_number || res.data.sale_number;
         toast.success(`Sale ${invoiceNum} completed!`);
+        // Store sale data for print prompt
+        setLastSaleData({ ...saleData, invoice_number: invoiceNum, ...res.data });
+        setShowPrintPrompt(true);
         clearCart(); setCheckoutOpen(false); resetCheckout();
       } catch (e) {
         const detail = e.response?.data?.detail || 'Sale failed';
         toast.error(detail);
         setSaving(false);
-        return; // Don't silently save offline — show the error
+        return;
       }
     } else {
       await addPendingSale(saleData);
@@ -358,9 +366,17 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
                   >
                     <Minus size={14} />
                   </button>
-                  <span className="w-8 text-center text-sm font-bold" data-testid={`qty-display-${item.product_id}`}>
-                    {item.quantity}
-                  </span>
+                  <input
+                    type="number" inputMode="numeric" min={1}
+                    value={item.quantity}
+                    onChange={e => {
+                      const val = parseInt(e.target.value) || 0;
+                      if (val <= 0) { removeItem(item.product_id); return; }
+                      setCart(prev => prev.map(c => c.product_id === item.product_id ? { ...c, quantity: val, total: val * c.price } : c));
+                    }}
+                    className="w-12 h-8 text-center text-sm font-bold border border-slate-200 rounded-lg focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none"
+                    data-testid={`qty-input-${item.product_id}`}
+                  />
                   <button
                     onClick={() => updateQty(item.product_id, 1)}
                     className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 active:bg-slate-200"
@@ -625,6 +641,45 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
             {!isOnline && (
               <p className="text-[10px] text-amber-600 text-center">You are offline. Sale will be saved and synced when connected.</p>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Order Slip Prompt */}
+      <Dialog open={showPrintPrompt} onOpenChange={setShowPrintPrompt}>
+        <DialogContent className="max-w-xs mx-auto">
+          <DialogHeader>
+            <DialogTitle className="text-center text-base font-bold" style={{ fontFamily: 'Manrope' }}>
+              Sale Complete
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-center">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
+              <Check size={28} className="text-emerald-600" />
+            </div>
+            <p className="text-sm text-slate-600">
+              <span className="font-mono font-bold text-slate-800">{lastSaleData?.invoice_number}</span>
+            </p>
+            <p className="text-lg font-bold text-[#1A4D2E]">{formatPHP(lastSaleData?.grand_total || 0)}</p>
+            <p className="text-xs text-slate-500">Would you like to print an order slip?</p>
+            <div className="space-y-2 pt-1">
+              <Button onClick={() => {
+                PrintEngine.print({ type: 'order_slip', data: lastSaleData, format: 'thermal', businessInfo });
+                setShowPrintPrompt(false); setLastSaleData(null);
+              }} className="w-full bg-[#1A4D2E] hover:bg-[#15412a] text-white h-11" data-testid="print-thermal-btn">
+                <Printer size={16} className="mr-2" /> Print Receipt (58mm)
+              </Button>
+              <Button variant="outline" onClick={() => {
+                PrintEngine.print({ type: 'order_slip', data: lastSaleData, format: 'full_page', businessInfo });
+                setShowPrintPrompt(false); setLastSaleData(null);
+              }} className="w-full h-10" data-testid="print-full-btn">
+                <Printer size={14} className="mr-2" /> Print Full Page
+              </Button>
+              <Button variant="ghost" onClick={() => { setShowPrintPrompt(false); setLastSaleData(null); }}
+                className="w-full text-slate-500" data-testid="skip-print-btn">
+                Skip
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -370,9 +370,18 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
                     type="number" inputMode="numeric" min={1}
                     value={item.quantity}
                     onChange={e => {
-                      const val = parseInt(e.target.value) || 0;
-                      if (val <= 0) { removeItem(item.product_id); return; }
-                      setCart(prev => prev.map(c => c.product_id === item.product_id ? { ...c, quantity: val, total: val * c.price } : c));
+                      const raw = e.target.value;
+                      const val = raw === '' ? '' : (parseInt(raw) || 0);
+                      setCart(prev => prev.map(c => c.product_id === item.product_id
+                        ? { ...c, quantity: val === '' ? '' : Math.max(0, val), total: (val === '' ? 0 : Math.max(0, val)) * c.price }
+                        : c));
+                    }}
+                    onBlur={() => {
+                      setCart(prev => prev.map(c => {
+                        if (c.product_id !== item.product_id) return c;
+                        const qty = parseInt(c.quantity) || 1;
+                        return { ...c, quantity: qty, total: qty * c.price };
+                      }));
                     }}
                     className="w-12 h-8 text-center text-sm font-bold border border-slate-200 rounded-lg focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none"
                     data-testid={`qty-input-${item.product_id}`}

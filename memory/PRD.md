@@ -82,6 +82,12 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Settings panel shows branch info, paired-by user, online status, Sync Now, and Unlink Terminal button
 - Unlink Terminal clears session and returns to pairing screen
 
+### Terminal Sales & UX Fixes (Complete — Mar 2026)
+- Scanner debounce: 2-second cooldown prevents duplicate scans of same barcode
+- Full checkout flow: Cash (amount tendered + change), Digital (screenshot upload required), Credit (customer + 15/30/60 day terms), Split (cash+digital with auto-calculation)
+- Online sales: shows real API errors instead of silently saving offline
+- Sales History: added sidebar link under Transactions, shows all sales newest-first with search, filters (All/Paid/Partial/Credit/Voided), sorting, pagination (50/page)
+
 ## Pricing Model (Branch Transfer — Must Preserve)
 - **Branch Capital:** Source branch's cost (read-only)
 - **Transfer Capital:** Price "sold" to destination (editable, with category markup)
@@ -135,6 +141,7 @@ draft → sent → sent_to_terminal → received (all match)
 - `/app/test_reports/iteration_114.json` — QR Code Terminal Login (100%)
 - `/app/test_reports/iteration_115.json` — Terminal Pull Data (100%)
 - `/app/test_reports/iteration_116.json` — Branch Restriction + Nav Redesign (100%)
+- `/app/test_reports/iteration_117.json` — Terminal Sales Fixes + Sales History (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

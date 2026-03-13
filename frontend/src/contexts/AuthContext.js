@@ -13,6 +13,13 @@ const AuthContext = createContext(null);
 export const api = axios.create({ baseURL: `${BACKEND_URL}/api` });
 
 // ── Offline fallback handler ─────────────────────────────────────────────────
+export async function hashPinOffline(pin) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pin + '_agripos_kiosk_v1');
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function handleOfflineRequest(config) {
   const path = config.url || '';
   const params = config.params || {};
@@ -76,6 +83,22 @@ async function handleOfflineRequest(config) {
       const inventory = await getInventory();
       return { data: { items: inventory, total: inventory.length } };
     }
+
+    // Barcode lookup (for kiosk / POS barcode scanning)
+    if (path.startsWith('/products/barcode-lookup/')) {
+      const barcode = decodeURIComponent(path.split('/products/barcode-lookup/')[1]);
+      const products = await getProducts();
+      const found = products.find(p => p.barcode === barcode && p.active !== false);
+      if (!found) {
+        return Promise.reject({ response: { status: 404, data: { detail: 'No product found with this barcode' } } });
+      }
+      const inv = await getInventoryItem(found.id);
+      const branchId = params.branch_id;
+      const bp = branchId ? await getBranchPrice(found.id) : null;
+      const prices = bp?.prices ? { ...(found.prices || {}), ...bp.prices } : (found.prices || {});
+      const cost = bp?.cost_price ?? found.cost_price;
+      return { data: { ...found, prices, cost_price: cost, available: inv?.quantity ?? 0 } };
+    }
   }
 
   // Offline sale → queue to pending_sales
@@ -95,6 +118,20 @@ async function handleOfflineRequest(config) {
         message: 'Sale saved offline — will sync when connected.',
       }
     };
+  }
+
+  // Offline PIN verification (for kiosk unlock / cost reveal)
+  if (method === 'post' && path === '/auth/verify-manager-pin') {
+    const body = typeof config.data === 'string' ? JSON.parse(config.data) : (config.data || {});
+    const pin = body.pin || '';
+    const cachedHash = localStorage.getItem('kiosk_pin_cache');
+    if (cachedHash && pin) {
+      const inputHash = await hashPinOffline(pin);
+      if (inputHash === cachedHash) {
+        return { data: { valid: true, manager_id: 'offline_cached', manager_name: 'Manager (offline)', role: 'cached' } };
+      }
+    }
+    return { data: { valid: false, detail: 'Cannot verify PIN offline. No cached credentials.' } };
   }
 
   // Can't serve from cache — propagate original error

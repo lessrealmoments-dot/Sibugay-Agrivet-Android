@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from '../contexts/AuthContext';
+import { api, hashPinOffline } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, Lock, Eye, EyeOff,
@@ -192,6 +192,8 @@ export default function BudgetChecker({ onUnlock, branchId }) {
       if (res.data?.valid) {
         setCostRevealed(true);
         setShowCostPin(false);
+        // Cache PIN hash for offline use
+        hashPinOffline(costPin).then(h => localStorage.setItem('kiosk_pin_cache', h));
         setCostPin('');
       } else {
         setCostPinError('Invalid PIN');
@@ -211,6 +213,8 @@ export default function BudgetChecker({ onUnlock, branchId }) {
         pin: unlockPin, action_key: 'kiosk_unlock'
       });
       if (res.data?.valid) {
+        // Cache PIN hash for offline use
+        hashPinOffline(unlockPin).then(h => localStorage.setItem('kiosk_pin_cache', h));
         setShowUnlock(false);
         setUnlockPin('');
         onUnlock();

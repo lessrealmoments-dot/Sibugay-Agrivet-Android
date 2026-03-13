@@ -598,6 +598,8 @@ async def update_purchase_order(po_id: str, data: dict, user=Depends(get_current
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")
+    if po.get("status") == "sent_to_terminal":
+        raise HTTPException(status_code=423, detail="PO is locked — currently being checked on a terminal. Finalize it on the terminal first.")
     if po["status"] not in ("draft", "ordered", "in_progress"):
         raise HTTPException(status_code=400, detail="Only draft or reopened (ordered) POs can be edited")
 
@@ -947,6 +949,129 @@ async def receive_purchase_order(po_id: str, data: dict = None, user=Depends(get
         await db.notifications.insert_one(notification)
 
     return {"message": "PO received, inventory updated", "receipt_count": total_receipts}
+
+
+# ── Terminal Integration: Send to Terminal / Terminal Finalize ──────────────
+
+@router.post("/{po_id}/send-to-terminal")
+async def send_po_to_terminal(po_id: str, user=Depends(get_current_user)):
+    """
+    Mark a PO as 'sent_to_terminal' — locks it on PC for terminal checking.
+    The terminal will verify quantities and finalize.
+    """
+    if user.get("role") not in ["admin", "manager"]:
+        raise HTTPException(status_code=403, detail="Manager or admin required")
+
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po["status"] not in ("draft", "ordered", "in_progress"):
+        raise HTTPException(status_code=400, detail=f"Cannot send PO with status '{po['status']}' to terminal")
+
+    await db.purchase_orders.update_one(
+        {"id": po_id},
+        {"$set": {
+            "status": "sent_to_terminal",
+            "sent_to_terminal_at": now_iso(),
+            "sent_to_terminal_by": user.get("full_name", user.get("username", "")),
+        }}
+    )
+
+    # Notify terminals for this branch via WebSocket
+    branch_id = po.get("branch_id")
+    if branch_id:
+        try:
+            from routes.terminal_ws import terminal_ws_manager
+            from config import _raw_db
+            terminals = await _raw_db.terminal_sessions.find(
+                {"branch_id": branch_id, "status": "active"}, {"_id": 0, "terminal_id": 1}
+            ).to_list(20)
+            for t in terminals:
+                await terminal_ws_manager.notify_terminal(t["terminal_id"], "po_assigned", {
+                    "po_id": po_id,
+                    "po_number": po.get("po_number", ""),
+                    "vendor": po.get("vendor", ""),
+                    "item_count": len(po.get("items", [])),
+                })
+        except Exception as e:
+            logger.warning(f"Failed to notify terminals: {e}")
+
+    return {"message": f"PO {po.get('po_number', '')} sent to terminal for checking"}
+
+
+@router.post("/{po_id}/terminal-finalize")
+async def terminal_finalize_po(po_id: str, data: dict, user=Depends(get_current_user)):
+    """
+    Terminal finalizes a PO after verifying quantities.
+    Updates items with received quantities and changes status back to 'ordered'.
+    The PC user can then proceed with the normal receive flow.
+    Body: { items: [{product_id, qty_received, ...}], terminal_id, notes }
+    """
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po["status"] != "sent_to_terminal":
+        raise HTTPException(status_code=400, detail="PO is not in terminal checking mode")
+
+    terminal_items = data.get("items", [])
+    terminal_id = data.get("terminal_id", "")
+    notes = data.get("notes", "")
+
+    # Build updated items with received quantities
+    old_items = {i.get("product_id"): i for i in po.get("items", [])}
+    updated_items = []
+    variances = []
+
+    for ti in terminal_items:
+        pid = ti.get("product_id")
+        old_item = old_items.get(pid, {})
+        ordered_qty = float(old_item.get("quantity", 0))
+        received_qty = float(ti.get("qty_received", ordered_qty))
+
+        updated_item = {**old_item, "quantity": received_qty}
+        if "original_ordered" not in updated_item:
+            updated_item["original_ordered"] = ordered_qty
+
+        # Recompute total
+        unit_price = float(updated_item.get("unit_price", 0))
+        disc_amt = float(updated_item.get("discount_amount", 0))
+        updated_item["total"] = round(received_qty * unit_price - disc_amt, 2)
+        updated_items.append(updated_item)
+
+        if ordered_qty != received_qty:
+            variances.append({
+                "product_id": pid,
+                "product_name": old_item.get("product_name", ""),
+                "ordered": ordered_qty,
+                "received": received_qty,
+                "difference": received_qty - ordered_qty,
+            })
+
+    # Recompute totals
+    subtotal = sum(i.get("total", 0) for i in updated_items)
+    overall_disc = float(po.get("overall_discount", 0))
+    grand_total = round(subtotal - overall_disc, 2)
+
+    update_doc = {
+        "items": updated_items,
+        "subtotal": subtotal,
+        "grand_total": grand_total,
+        "status": "ordered",  # Unlock — back to ordered so PC can receive
+        "terminal_verified": True,
+        "terminal_verified_at": now_iso(),
+        "terminal_verified_by": user.get("full_name", user.get("username", "")),
+        "terminal_id": terminal_id,
+        "terminal_variances": variances,
+        "terminal_notes": notes,
+    }
+
+    await db.purchase_orders.update_one({"id": po_id}, {"$set": update_doc})
+
+    return {
+        "message": f"PO {po.get('po_number', '')} verified by terminal",
+        "variances": len(variances),
+        "variance_details": variances,
+    }
 
 
 @router.get("/{po_id}/capital-preview")

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeftRight, Search, RefreshCw, Check, AlertTriangle, Loader2, Package, ArrowRight } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -15,7 +15,7 @@ const STATUS_COLORS = {
   disputed: 'bg-red-100 text-red-700',
 };
 
-export default function TerminalTransfers({ api, session, isOnline }) {
+export default function TerminalTransfers({ api, session, isOnline, onRefreshRef }) {
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -23,7 +23,7 @@ export default function TerminalTransfers({ api, session, isOnline }) {
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  const loadTransfers = async () => {
+  const loadTransfers = useCallback(async () => {
     if (!isOnline) { toast('Transfers require internet', { duration: 2000 }); return; }
     setLoading(true);
     try {
@@ -37,9 +37,14 @@ export default function TerminalTransfers({ api, session, isOnline }) {
       toast.error('Failed to load transfers');
     }
     setLoading(false);
-  };
+  }, [api, session.branchId, isOnline]);
 
-  useEffect(() => { if (isOnline) loadTransfers(); }, [isOnline]); // eslint-disable-line
+  useEffect(() => { if (isOnline) loadTransfers(); }, [isOnline, loadTransfers]);
+
+  // Expose refresh callback to parent for WebSocket notifications
+  useEffect(() => {
+    if (onRefreshRef) onRefreshRef.current = loadTransfers;
+  }, [onRefreshRef, loadTransfers]);
 
   const openTransfer = (transfer) => {
     setSelectedTransfer(transfer);

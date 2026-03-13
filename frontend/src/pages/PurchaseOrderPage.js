@@ -25,7 +25,8 @@ import {
   FileText, Plus, Trash2, Save, Truck, Check, X, DollarSign,
   Search, History, ArrowRight, Receipt, UserPlus, Package,
   Wallet, Banknote, CreditCard, AlertTriangle, ChevronDown, RefreshCw,
-  ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp, Printer
+  ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp, Printer,
+  Smartphone, Lock
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,6 +48,7 @@ const TERMS_OPTIONS = [
 const statusColor = (s) => {
   if (s === 'received') return 'bg-emerald-100 text-emerald-700';
   if (s === 'ordered') return 'bg-blue-100 text-blue-700';
+  if (s === 'sent_to_terminal') return 'bg-amber-100 text-amber-700';
   if (s === 'draft') return 'bg-slate-100 text-slate-600';
   if (s === 'cancelled') return 'bg-red-100 text-red-600';
   return 'bg-slate-100 text-slate-700';
@@ -495,6 +497,15 @@ export default function PurchaseOrderPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
   };
 
+  const sendPOToTerminal = async (poId) => {
+    if (!window.confirm('Send this PO to the terminal for checking? It will be locked here until the terminal finalizes it.')) return;
+    try {
+      await api.post(`/purchase-orders/${poId}/send-to-terminal`);
+      toast.success('PO sent to terminal for checking');
+      fetchOrders();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to send to terminal'); }
+  };
+
   const cancelPO = async (poId) => {
     setCancelPinTarget(poId);
     setCancelPin('');
@@ -661,7 +672,7 @@ export default function PurchaseOrderPage() {
   const filteredOrders = useMemo(() => {
     if (listFilter === 'all') return orders;
     if (listFilter === 'draft') return orders.filter(o => o.status === 'draft');
-    if (listFilter === 'ordered') return orders.filter(o => o.status === 'ordered');
+    if (listFilter === 'ordered') return orders.filter(o => o.status === 'ordered' || o.status === 'sent_to_terminal');
     if (listFilter === 'received') return orders.filter(o => o.status === 'received');
     if (listFilter === 'unpaid') return orders.filter(o => o.payment_status !== 'paid' && o.status !== 'cancelled');
     return orders;
@@ -1071,7 +1082,7 @@ export default function PurchaseOrderPage() {
             {[
               { key: 'all', label: `All (${orders.length})` },
               { key: 'draft', label: `Draft (${orders.filter(o => o.status === 'draft').length})` },
-              { key: 'ordered', label: `Ordered (${orders.filter(o => o.status === 'ordered').length})` },
+              { key: 'ordered', label: `Ordered (${orders.filter(o => o.status === 'ordered' || o.status === 'sent_to_terminal').length})` },
               { key: 'received', label: `Received (${orders.filter(o => o.status === 'received').length})` },
               { key: 'unpaid', label: `Unpaid (${orders.filter(o => o.payment_status !== 'paid' && o.status !== 'cancelled').length})` },
             ].map(f => (
@@ -1122,7 +1133,7 @@ export default function PurchaseOrderPage() {
                       <TableCell className="text-right font-semibold font-mono">{formatPHP(poTotal(po))}</TableCell>
                       <TableCell className="text-xs text-slate-500">{po.purchase_date || '—'}</TableCell>
                       <TableCell>
-                        <Badge className={`text-[10px] ${statusColor(po.status)}`}>{po.status}</Badge>
+                        <Badge className={`text-[10px] ${statusColor(po.status)}`}>{po.status === 'sent_to_terminal' ? 'On Terminal' : po.status}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-0.5">
@@ -1169,6 +1180,23 @@ export default function PurchaseOrderPage() {
                               className="h-7 text-[11px]" data-testid={`receive-po-${po.id}`}>
                               <Check size={11} className="mr-0.5" /> Receive
                             </Button>
+                          )}
+                          {(po.status === 'draft' || po.status === 'ordered') && (
+                            <Button size="sm" variant="outline" onClick={() => sendPOToTerminal(po.id)}
+                              className="h-7 text-[11px] text-amber-600 border-amber-200 hover:bg-amber-50"
+                              data-testid={`send-terminal-po-${po.id}`}>
+                              <Smartphone size={11} className="mr-0.5" /> Send to Terminal
+                            </Button>
+                          )}
+                          {po.status === 'sent_to_terminal' && (
+                            <Badge className="text-[10px] bg-amber-100 text-amber-700 flex items-center gap-1">
+                              <Lock size={10} /> Locked — checking on terminal
+                            </Badge>
+                          )}
+                          {po.status === 'ordered' && po.terminal_verified && (
+                            <Badge className="text-[10px] bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                              <Smartphone size={10} /> Terminal verified
+                            </Badge>
                           )}
                           {po.status === 'received' && (
                             <Button size="sm" variant="outline" onClick={() => reopenPO(po)}

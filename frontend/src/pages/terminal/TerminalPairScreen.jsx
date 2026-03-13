@@ -3,6 +3,7 @@ import { Loader2, Smartphone, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
 
 export default function TerminalPairScreen({ onPaired }) {
   const [code, setCode] = useState('');
@@ -10,6 +11,7 @@ export default function TerminalPairScreen({ onPaired }) {
   const [expiresIn, setExpiresIn] = useState(300);
   const pollRef = useRef(null);
   const countdownRef = useRef(null);
+  const wsRef = useRef(null);
 
   const generateCode = async () => {
     setStatus('loading');
@@ -31,17 +33,50 @@ export default function TerminalPairScreen({ onPaired }) {
     if (status !== 'showing') return;
     countdownRef.current = setInterval(() => {
       setExpiresIn(prev => {
-        if (prev <= 1) {
-          setStatus('expired');
-          return 0;
-        }
+        if (prev <= 1) { setStatus('expired'); return 0; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(countdownRef.current);
   }, [status]);
 
-  // Poll for pairing
+  // WebSocket for instant pairing notification
+  useEffect(() => {
+    if (status !== 'showing' || !code) return;
+
+    const connectWS = () => {
+      try {
+        const ws = new WebSocket(`${WS_URL}/api/terminal/ws/pairing/${code}`);
+        wsRef.current = ws;
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'paired') {
+            clearInterval(pollRef.current);
+            clearInterval(countdownRef.current);
+            onPaired({
+              token: msg.data.token,
+              terminalId: msg.data.terminal_id,
+              branchId: msg.data.branch_id,
+              branchName: msg.data.branch_name,
+              userName: msg.data.user_name,
+              organizationId: msg.data.organization_id,
+            });
+          }
+        };
+
+        ws.onclose = () => { wsRef.current = null; };
+        ws.onerror = () => { ws.close(); };
+      } catch {
+        // WebSocket not available, rely on polling fallback
+      }
+    };
+
+    connectWS();
+    return () => { if (wsRef.current) { wsRef.current.close(); wsRef.current = null; } };
+  }, [status, code, onPaired]);
+
+  // Polling fallback (in case WebSocket fails)
   useEffect(() => {
     if (status !== 'showing' || !code) return;
     pollRef.current = setInterval(async () => {
@@ -63,7 +98,7 @@ export default function TerminalPairScreen({ onPaired }) {
           setStatus('expired');
         }
       } catch { /* keep polling */ }
-    }, 2000);
+    }, 3000); // Slower polling since WebSocket is primary
     return () => clearInterval(pollRef.current);
   }, [status, code, onPaired]);
 
@@ -105,6 +140,10 @@ export default function TerminalPairScreen({ onPaired }) {
               <p className="text-slate-500 text-xs">
                 Code expires in <span className="text-emerald-400 font-mono">{mins}:{secs.toString().padStart(2, '0')}</span>
               </p>
+              <div className="mt-2 flex items-center justify-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                <span className="text-emerald-400/70 text-[10px]">Waiting for connection...</span>
+              </div>
             </>
           )}
 

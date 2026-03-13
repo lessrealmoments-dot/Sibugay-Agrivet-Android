@@ -1,18 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Settings, Wifi, WifiOff, LogOut, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
 import TerminalTransfers from './TerminalTransfers';
 import axios from 'axios';
 import {
-  cacheProducts, getProducts, cacheCustomers, getCustomers,
-  cachePriceSchemes, getPriceSchemes, cacheInventory, getInventory,
+  cacheProducts, getProducts, cacheCustomers,
+  cachePriceSchemes, cacheInventory,
   cacheBranchPrices, setOfflineOrg, getPendingSaleCount,
 } from '../../lib/offlineDB';
-import { syncPendingSales, refreshPOSCache, startAutoSync, stopAutoSync } from '../../lib/syncManager';
+import { syncPendingSales, startAutoSync, stopAutoSync } from '../../lib/syncManager';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
 
 const TABS = [
   { key: 'sales', label: 'Sales', icon: ShoppingCart },
@@ -27,8 +28,12 @@ export default function TerminalShell({ session, onLogout }) {
   const [dataReady, setDataReady] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncProgress, setSyncProgress] = useState('');
+  const [notifications, setNotifications] = useState([]);
+  const wsRef = useRef(null);
+  const poRefreshRef = useRef(null); // callback to refresh PO list
+  const transferRefreshRef = useRef(null);
 
-  // Create an authenticated axios instance for terminal
+  // Authenticated axios instance
   const [api] = useState(() => {
     const instance = axios.create({ baseURL: `${BACKEND_URL}/api` });
     instance.interceptors.request.use(config => {
@@ -41,23 +46,62 @@ export default function TerminalShell({ session, onLogout }) {
     return instance;
   });
 
-  // Online/offline
+  // Online/offline detection
   useEffect(() => {
     const goOnline = () => { setIsOnline(true); toast.success('Back online'); };
     const goOffline = () => { setIsOnline(false); toast('Working offline', { duration: 3000 }); };
     window.addEventListener('online', goOnline);
     window.addEventListener('offline', goOffline);
-    return () => {
-      window.removeEventListener('online', goOnline);
-      window.removeEventListener('offline', goOffline);
-    };
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
   }, []);
+
+  // WebSocket connection for real-time events
+  useEffect(() => {
+    if (!session.terminalId) return;
+
+    const connectWS = () => {
+      try {
+        const ws = new WebSocket(`${WS_URL}/api/terminal/ws/terminal/${session.terminalId}`);
+        wsRef.current = ws;
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+          switch (msg.type) {
+            case 'po_assigned':
+              toast.success(`New PO: ${msg.data.po_number || 'PO'} from ${msg.data.vendor || 'vendor'}`, { duration: 5000 });
+              setNotifications(prev => [...prev, { type: 'po', ...msg.data, time: Date.now() }]);
+              // Auto-refresh PO list
+              if (poRefreshRef.current) poRefreshRef.current();
+              break;
+            case 'transfer_assigned':
+              toast.success(`New Transfer: ${msg.data.transfer_number || 'Transfer'}`, { duration: 5000 });
+              setNotifications(prev => [...prev, { type: 'transfer', ...msg.data, time: Date.now() }]);
+              if (transferRefreshRef.current) transferRefreshRef.current();
+              break;
+            default:
+              break;
+          }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          // Reconnect after 3 seconds
+          setTimeout(() => { if (navigator.onLine) connectWS(); }, 3000);
+        };
+
+        ws.onerror = () => { ws.close(); };
+      } catch { /* WebSocket not available */ }
+    };
+
+    if (navigator.onLine) connectWS();
+
+    return () => { if (wsRef.current) { wsRef.current.close(); wsRef.current = null; } };
+  }, [session.terminalId]);
 
   // Initial data load
   const loadData = useCallback(async () => {
     setSyncing(true);
     setSyncProgress('Connecting...');
-
     if (session.organizationId) setOfflineOrg(session.organizationId);
 
     if (navigator.onLine) {
@@ -77,23 +121,18 @@ export default function TerminalShell({ session, onLogout }) {
           cachePriceSchemes(schemeRes.data || posRes.data.price_schemes || []),
           posRes.data.inventory?.length ? cacheInventory(
             posRes.data.inventory.map(item => ({
-              product_id: item.product_id,
-              quantity: item.quantity ?? 0,
-              branch_id: item.branch_id,
-              updated_at: item.updated_at || new Date().toISOString(),
+              product_id: item.product_id, quantity: item.quantity ?? 0,
+              branch_id: item.branch_id, updated_at: item.updated_at || new Date().toISOString(),
             }))
           ) : Promise.resolve(),
           posRes.data.branch_prices?.length ? cacheBranchPrices(
             posRes.data.branch_prices.map(bp => ({
-              product_id: bp.product_id,
-              prices: bp.prices || {},
-              cost_price: bp.cost_price ?? null,
-              branch_id: bp.branch_id,
+              product_id: bp.product_id, prices: bp.prices || {},
+              cost_price: bp.cost_price ?? null, branch_id: bp.branch_id,
             }))
           ) : Promise.resolve(),
         ]);
 
-        // Sync any pending sales
         const count = await getPendingSaleCount();
         setPendingCount(count);
         if (count > 0) {
@@ -106,7 +145,7 @@ export default function TerminalShell({ session, onLogout }) {
         setDataReady(true);
         toast.success(`Data synced — ${posRes.data.products?.length || 0} products loaded`);
       } catch (e) {
-        console.error('Sync failed, trying offline cache:', e);
+        console.error('Sync failed:', e);
         await loadOfflineData();
       }
     } else {
@@ -141,9 +180,13 @@ export default function TerminalShell({ session, onLogout }) {
   };
 
   const handleLogout = () => {
+    if (wsRef.current) wsRef.current.close();
     localStorage.removeItem('agrismart_terminal');
     onLogout();
   };
+
+  // Notification badge count (unread)
+  const unreadCount = notifications.filter(n => Date.now() - n.time < 60000).length;
 
   if (!dataReady) {
     return (
@@ -185,19 +228,13 @@ export default function TerminalShell({ session, onLogout }) {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'sales' && (
-          <TerminalSales
-            api={api}
-            session={session}
-            isOnline={isOnline}
-            pendingCount={pendingCount}
-            setPendingCount={setPendingCount}
-          />
+          <TerminalSales api={api} session={session} isOnline={isOnline} pendingCount={pendingCount} setPendingCount={setPendingCount} />
         )}
         {activeTab === 'po' && (
-          <TerminalPOCheck api={api} session={session} isOnline={isOnline} />
+          <TerminalPOCheck api={api} session={session} isOnline={isOnline} onRefreshRef={poRefreshRef} />
         )}
         {activeTab === 'transfers' && (
-          <TerminalTransfers api={api} session={session} isOnline={isOnline} />
+          <TerminalTransfers api={api} session={session} isOnline={isOnline} onRefreshRef={transferRefreshRef} />
         )}
       </div>
 
@@ -207,17 +244,22 @@ export default function TerminalShell({ session, onLogout }) {
           {TABS.map(tab => {
             const Icon = tab.icon;
             const active = activeTab === tab.key;
+            const hasBadge = (tab.key === 'po' && notifications.some(n => n.type === 'po' && Date.now() - n.time < 60000)) ||
+                             (tab.key === 'transfers' && notifications.some(n => n.type === 'transfer' && Date.now() - n.time < 60000));
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all ${
+                onClick={() => { setActiveTab(tab.key); setNotifications(prev => prev.filter(n => n.type !== (tab.key === 'po' ? 'po' : 'transfer'))); }}
+                className={`relative flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all ${
                   active ? 'text-[#1A4D2E] bg-emerald-50' : 'text-slate-400'
                 }`}
                 data-testid={`tab-${tab.key}`}
               >
                 <Icon size={18} strokeWidth={active ? 2.5 : 1.5} />
                 <span className="text-[10px] font-medium">{tab.label}</span>
+                {hasBadge && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-white" />
+                )}
               </button>
             );
           })}

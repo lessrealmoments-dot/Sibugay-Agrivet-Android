@@ -29,6 +29,12 @@ export default function TerminalPOCheck({ api, session, isOnline, onRefreshRef }
   const [items, setItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
+  const [showPull, setShowPull] = useState(false);
+  const [availablePOs, setAvailablePOs] = useState([]);
+  const [pullLoading, setPullLoading] = useState(false);
+  const [pullTarget, setPullTarget] = useState(null);
+  const [pin, setPin] = useState('');
+  const [pulling, setPulling] = useState(false);
 
   const loadPOs = useCallback(async () => {
     if (!isOnline) { toast('PO Check requires internet', { duration: 2000 }); return; }
@@ -52,6 +58,30 @@ export default function TerminalPOCheck({ api, session, isOnline, onRefreshRef }
   useEffect(() => {
     if (onRefreshRef) onRefreshRef.current = loadPOs;
   }, [onRefreshRef, loadPOs]);
+
+  // Pull from PC
+  const loadAvailablePOs = async () => {
+    setPullLoading(true);
+    try {
+      const res = await api.get('/terminal/available-pos', { params: { branch_id: session.branchId } });
+      setAvailablePOs(Array.isArray(res.data) ? res.data : []);
+    } catch { toast.error('Failed to load available POs'); }
+    setPullLoading(false);
+  };
+
+  const handlePull = async () => {
+    if (!pullTarget || !pin) return;
+    setPulling(true);
+    try {
+      await api.post('/terminal/pull-po', { po_id: pullTarget.id, pin });
+      toast.success(`${pullTarget.po_number} pulled to terminal`);
+      setPullTarget(null); setPin(''); setShowPull(false);
+      loadPOs();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Pull failed');
+    }
+    setPulling(false);
+  };
 
   const openPO = (po) => {
     setSelectedPO(po);
@@ -123,6 +153,10 @@ export default function TerminalPOCheck({ api, session, isOnline, onRefreshRef }
           </div>
           <Button variant="outline" size="sm" onClick={loadPOs} disabled={loading || !isOnline} data-testid="po-refresh-btn">
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { setShowPull(true); loadAvailablePOs(); }}
+            disabled={!isOnline} className="ml-1.5 text-blue-600 border-blue-200" data-testid="pull-po-btn">
+            <Package size={14} className="mr-1" /> Pull
           </Button>
         </div>
         <Input
@@ -270,6 +304,67 @@ export default function TerminalPOCheck({ api, session, isOnline, onRefreshRef }
               {saving ? 'Sending...' : 'Finalize & Send to PC'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pull from PC Dialog */}
+      <Dialog open={showPull} onOpenChange={v => { setShowPull(v); if (!v) { setPullTarget(null); setPin(''); } }}>
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold" style={{ fontFamily: 'Manrope' }}>
+              {pullTarget ? 'Enter PIN to Pull' : 'Pull PO from PC'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!pullTarget ? (
+            <div className="flex-1 overflow-auto space-y-2">
+              {pullLoading ? (
+                <div className="text-center py-8"><Loader2 size={20} className="animate-spin mx-auto text-slate-400" /></div>
+              ) : availablePOs.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <Package size={24} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No POs available to pull</p>
+                  <p className="text-xs mt-1">POs need to be in Draft/Ordered status on the PC</p>
+                </div>
+              ) : availablePOs.map(po => (
+                <button key={po.id} onClick={() => setPullTarget(po)}
+                  className="w-full bg-white rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 transition-colors"
+                  data-testid={`available-po-${po.id}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-800">{po.po_number}</span>
+                    <Badge className="text-[10px] bg-blue-100 text-blue-700">{po.status}</Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{po.vendor || 'Unknown vendor'}</p>
+                  <p className="text-xs text-slate-400 mt-1">{po.item_count} items · {po.purchase_date || po.created_at?.slice(0,10)}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-semibold text-blue-800">{pullTarget.po_number}</p>
+                <p className="text-xs text-blue-600">{pullTarget.vendor} · {pullTarget.item_count} items</p>
+              </div>
+              <div>
+                <label className="text-xs text-slate-500 mb-1.5 block font-medium">Manager / Admin PIN</label>
+                <Input
+                  type="password" autoComplete="off" inputMode="numeric"
+                  value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  placeholder="Enter PIN" className="h-11 text-center text-lg font-mono tracking-widest"
+                  data-testid="pull-pin-input"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Uses the same PIN rules configured in Settings</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { setPullTarget(null); setPin(''); }} className="flex-1">Back</Button>
+                <Button onClick={handlePull} disabled={pulling || !pin} className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                  data-testid="confirm-pull-btn">
+                  {pulling ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Package size={14} className="mr-1.5" />}
+                  Pull to Terminal
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

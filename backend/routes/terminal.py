@@ -310,3 +310,120 @@ async def send_notification_to_terminal(data: dict, user=Depends(get_current_use
         notified += 1
 
     return {"notified": notified, "terminal_count": len(terminals)}
+
+
+
+# ── Terminal Pull (Self-Serve) ──────────────────────────────────────────────
+
+@router.get("/available-pos")
+async def list_available_pos(branch_id: str = None, user=Depends(get_current_user)):
+    """List POs that the terminal can pull (ordered/draft/in_progress, not yet on terminal)."""
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="branch_id required")
+    query = {
+        "branch_id": branch_id,
+        "status": {"$in": ["draft", "ordered", "in_progress"]},
+    }
+    pos = await db.purchase_orders.find(
+        query, {"_id": 0, "id": 1, "po_number": 1, "vendor": 1, "status": 1,
+                "items": 1, "purchase_date": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(50)
+    for po in pos:
+        po["item_count"] = len(po.get("items", []))
+        po.pop("items", None)  # Don't send full items in list
+    return pos
+
+
+@router.get("/available-transfers")
+async def list_available_transfers(branch_id: str = None, user=Depends(get_current_user)):
+    """List transfers that the terminal can pull (sent status, destination = this branch)."""
+    if not branch_id:
+        raise HTTPException(status_code=400, detail="branch_id required")
+    query = {
+        "to_branch_id": branch_id,
+        "status": "sent",
+    }
+    transfers = await db.transfers.find(
+        query, {"_id": 0, "id": 1, "order_number": 1, "from_branch_id": 1,
+                "to_branch_id": 1, "status": 1, "items": 1, "created_at": 1,
+                "total_at_transfer_capital": 1, "total_at_branch_retail": 1}
+    ).sort("created_at", -1).to_list(50)
+    # Resolve branch names
+    branch_ids = set()
+    for t in transfers:
+        branch_ids.add(t.get("from_branch_id", ""))
+    branches = {}
+    async for b in db.branches.find({"id": {"$in": list(branch_ids)}}, {"_id": 0, "id": 1, "name": 1}):
+        branches[b["id"]] = b["name"]
+    for t in transfers:
+        t["from_branch_name"] = branches.get(t.get("from_branch_id", ""), "?")
+        t["item_count"] = len(t.get("items", []))
+        t.pop("items", None)
+    return transfers
+
+
+@router.post("/pull-po")
+async def pull_po(data: dict, user=Depends(get_current_user)):
+    """Terminal pulls a PO for checking. Requires PIN verification."""
+    po_id = data.get("po_id")
+    pin = str(data.get("pin", ""))
+    if not po_id:
+        raise HTTPException(status_code=400, detail="po_id required")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN required")
+
+    # Verify PIN
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "terminal_pull")
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN — use admin, manager, or time-based PIN")
+
+    po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="PO not found")
+    if po["status"] not in ("draft", "ordered", "in_progress"):
+        raise HTTPException(status_code=400, detail=f"Cannot pull PO with status '{po['status']}'")
+
+    await db.purchase_orders.update_one(
+        {"id": po_id},
+        {"$set": {
+            "status": "sent_to_terminal",
+            "sent_to_terminal_at": now_iso(),
+            "sent_to_terminal_by": f"Terminal ({verifier.get('name', 'PIN')})",
+            "pulled_by_terminal": True,
+        }}
+    )
+    return {"message": f"PO {po.get('po_number', '')} pulled to terminal", "verified_by": verifier.get("name", "")}
+
+
+@router.post("/pull-transfer")
+async def pull_transfer(data: dict, user=Depends(get_current_user)):
+    """Terminal pulls a transfer for checking. Requires PIN verification."""
+    transfer_id = data.get("transfer_id")
+    pin = str(data.get("pin", ""))
+    if not transfer_id:
+        raise HTTPException(status_code=400, detail="transfer_id required")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN required")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "terminal_pull")
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN — use admin, manager, or time-based PIN")
+
+    transfer = await db.transfers.find_one({"id": transfer_id}, {"_id": 0})
+    if not transfer:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    if transfer["status"] != "sent":
+        raise HTTPException(status_code=400, detail=f"Cannot pull transfer with status '{transfer['status']}'")
+
+    await db.transfers.update_one(
+        {"id": transfer_id},
+        {"$set": {
+            "status": "sent_to_terminal",
+            "sent_to_terminal_at": now_iso(),
+            "sent_to_terminal_by": f"Terminal ({verifier.get('name', 'PIN')})",
+            "pulled_by_terminal": True,
+        }}
+    )
+    return {"message": f"Transfer {transfer.get('order_number', '')} pulled to terminal", "verified_by": verifier.get("name", "")}

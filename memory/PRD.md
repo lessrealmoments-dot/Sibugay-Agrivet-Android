@@ -58,6 +58,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Stock Requests displayed as separate card layout with product tags
 - All existing dialogs (View, Receive, Accept/Dispute) preserved and functional
 
+### QR Code Terminal Login (Complete — Mar 2026)
+- PC Settings > Connect Terminal shows "Quick Pair — Scan QR Code" with branch selector
+- Generates a time-limited QR token (10 min expiry) tied to a branch
+- QR code encodes terminal URL with pair token for one-scan mobile pairing
+- Terminal auto-detects `?pair=TOKEN` URL param and auto-pairs without code screen
+- URL cleaned after pairing for security
+- Manual 6-digit code pairing preserved as fallback below QR section
+
 ## Pricing Model (Branch Transfer — Must Preserve)
 - **Branch Capital:** Source branch's cost (read-only)
 - **Transfer Capital:** Price "sold" to destination (editable, with category markup)
@@ -74,14 +82,7 @@ draft → sent → sent_to_terminal → received (all match)
 
 ## NEXT SESSION — Priority Tasks
 
-### Task 1: QR Code Terminal Login (P1)
-**Add QR code to PC Settings "Connect Terminal" section:**
-- QR code contains terminal URL + branch info for one-step pairing
-- Scanning QR opens /terminal on mobile and auto-fills branch data
-- Also support manual entry of branch unique code
-- Both paths lead to the same pairing flow
-
-### Task 2: Terminal Pull Data (Self-Serve with PIN) (P1)
+### Task 1: Terminal Pull Data (Self-Serve with PIN) (P1)
 **Terminal can pull POs and Transfers from PC directly:**
 - Terminal browses available POs/Transfers (not yet sent to terminal)
 - Selects one to check → requires PIN verification
@@ -124,6 +125,7 @@ draft → sent → sent_to_terminal → received (all match)
 - `/app/test_reports/iteration_111.json` — Phase 2 (100%)
 - `/app/test_reports/iteration_112.json` — Phase 3 (100%)
 - `/app/test_reports/iteration_113.json` — Branch Transfer UX Redesign (100%)
+- `/app/test_reports/iteration_114.json` — QR Code Terminal Login (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

@@ -175,6 +175,9 @@ PIN_POLICY_ACTIONS = [
     {"key": "section_override",       "label": "Section Access Override",         "module": "System",            "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "admin_action",           "label": "Admin Action (Bulk Ops)",         "module": "System",            "defaults": ["admin_pin", "totp"]},
     {"key": "backup_restore",         "label": "Restore Backup",                  "module": "System",            "defaults": ["admin_pin", "totp"]},
+    # Kiosk / Budget Checker
+    {"key": "kiosk_unlock",           "label": "Unlock Kiosk (Budget Checker)",   "module": "System",            "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "kiosk_cost_reveal",      "label": "Reveal Cost in Kiosk",            "module": "System",            "defaults": ["admin_pin", "manager_pin", "totp"]},
 ]
 
 # Build quick lookup: action_key → default methods

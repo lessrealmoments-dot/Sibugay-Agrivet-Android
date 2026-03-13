@@ -54,6 +54,7 @@ import MobileScannerPage from './pages/MobileScannerPage';
 import ExpensesPage from './pages/ExpensesPage';
 import TransactionSearchPage from './pages/TransactionSearchPage';
 import JournalEntriesPage from './pages/JournalEntriesPage';
+import BudgetChecker from './components/BudgetChecker';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)
@@ -74,9 +75,25 @@ function ProtectedRoute({ children }) {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, effectiveBranchId } = useAuth();
   const [setupNeeded, setSetupNeeded] = useState(null);
-  
+  const [kioskLocked, setKioskLocked] = useState(() => localStorage.getItem('kiosk_locked') === 'true');
+
+  // F1 to lock kiosk
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        if (user) {
+          setKioskLocked(true);
+          localStorage.setItem('kiosk_locked', 'true');
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [user]);
+
   useEffect(() => {
     const checkSetup = async () => {
       try {
@@ -109,7 +126,14 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
+    <>
+      {kioskLocked && user && (
+        <BudgetChecker
+          branchId={effectiveBranchId}
+          onUnlock={() => { setKioskLocked(false); localStorage.removeItem('kiosk_locked'); }}
+        />
+      )}
+      <Routes>
       {/* Public routes */}
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
       <Route path="/register" element={user ? <Navigate to="/dashboard" replace /> : <RegisterPage />} />
@@ -170,6 +194,7 @@ function AppRoutes() {
       <Route path="/view-receipts/:token" element={<ViewReceiptsPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </>
   );
 }
 

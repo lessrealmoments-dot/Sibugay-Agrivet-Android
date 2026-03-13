@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
+import PrintEngine from '../lib/PrintEngine';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Edit3, Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { Edit3, Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, ChevronLeft, ChevronRight, MoreHorizontal, Printer, FileText, Ban, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import SaleDetailModal from '../components/SaleDetailModal';
 
@@ -40,6 +42,12 @@ export default function SalesPage() {
 
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
+  const [businessInfo, setBusinessInfo] = useState({});
+
+  // Load business info for printing
+  useEffect(() => {
+    api.get('/settings/business-info').then(r => setBusinessInfo(r.data)).catch(() => {});
+  }, []);
 
   const fetchSales = useCallback(async () => {
     setLoading(true);
@@ -89,6 +97,11 @@ export default function SalesPage() {
   const openInvoiceDetail = (sale) => {
     setSelectedInvoiceId(sale.id);
     setInvoiceModalOpen(true);
+  };
+
+  const handlePrint = (sale, format) => {
+    const docType = PrintEngine.getDocType(sale);
+    PrintEngine.print({ type: docType, data: sale, format, businessInfo });
   };
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -203,20 +216,21 @@ export default function SalesPage() {
                       Date <SortIcon col="created_at" />
                     </button>
                   </TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sales.map(s => (
-                  <TableRow key={s.id} className="table-row-hover cursor-pointer" onClick={() => openInvoiceDetail(s)}>
-                    <TableCell>
+                  <TableRow key={s.id} className="table-row-hover">
+                    <TableCell className="cursor-pointer" onClick={() => openInvoiceDetail(s)}>
                       <span className="font-mono text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
                         {s.invoice_number}
                         {s.edited && <Edit3 size={10} className="text-orange-500" />}
                       </span>
                     </TableCell>
-                    <TableCell className="font-medium text-sm max-w-[160px] truncate">{s.customer_name || 'Walk-in'}</TableCell>
-                    <TableCell className="text-slate-500 text-xs">{s.items?.length || 0}</TableCell>
-                    <TableCell className="text-right font-semibold font-mono text-sm">{formatPHP(s.grand_total)}</TableCell>
+                    <TableCell className="font-medium text-sm max-w-[160px] truncate cursor-pointer" onClick={() => openInvoiceDetail(s)}>{s.customer_name || 'Walk-in'}</TableCell>
+                    <TableCell className="text-slate-500 text-xs cursor-pointer" onClick={() => openInvoiceDetail(s)}>{s.items?.length || 0}</TableCell>
+                    <TableCell className="text-right font-semibold font-mono text-sm cursor-pointer" onClick={() => openInvoiceDetail(s)}>{formatPHP(s.grand_total)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`text-[10px] ${paymentBadge(s.payment_method)}`}>
                         {s.payment_type === 'split' ? 'Split' : (s.payment_method || 'Cash')}
@@ -232,13 +246,51 @@ export default function SalesPage() {
                     <TableCell className="text-xs text-slate-500 whitespace-nowrap">
                       {s.order_date || (s.created_at ? new Date(s.created_at).toLocaleDateString() : '')}
                     </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" data-testid={`quick-action-${s.id}`}
+                            onClick={e => e.stopPropagation()}>
+                            <MoreHorizontal size={14} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => openInvoiceDetail(s)} data-testid={`action-view-${s.id}`}>
+                            <FileText size={13} className="mr-2 text-slate-500" /> View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handlePrint(s, 'thermal')} data-testid={`action-print-thermal-${s.id}`}>
+                            <Printer size={13} className="mr-2 text-slate-500" /> Print Receipt (58mm)
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePrint(s, 'full_page')} data-testid={`action-print-full-${s.id}`}>
+                            <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page (8.5x11)
+                          </DropdownMenuItem>
+                          {s.status !== 'voided' && s.balance > 0 && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => openInvoiceDetail(s)} data-testid={`action-pay-${s.id}`}>
+                                <DollarSign size={13} className="mr-2 text-emerald-500" /> Add Payment
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {s.status === 'voided' && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem disabled className="text-red-400">
+                                <Ban size={13} className="mr-2" /> Voided
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {!sales.length && !loading && (
-                  <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">No sales found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-12 text-slate-400">No sales found</TableCell></TableRow>
                 )}
                 {loading && (
-                  <TableRow><TableCell colSpan={8} className="text-center py-12">
+                  <TableRow><TableCell colSpan={9} className="text-center py-12">
                     <RefreshCw size={18} className="animate-spin mx-auto text-slate-400" />
                   </TableCell></TableRow>
                 )}

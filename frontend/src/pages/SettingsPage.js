@@ -11,7 +11,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Settings, Shield, Key, Smartphone, CheckCircle2, XCircle, Lock,
-  RefreshCw, AlertTriangle, ShieldCheck, Eye, EyeOff, User
+  RefreshCw, AlertTriangle, ShieldCheck, Eye, EyeOff, User, Building2, Save
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from 'sonner';
@@ -326,6 +326,34 @@ export default function SettingsPage() {
     setSavingProfile(false);
   };
 
+  // ── Business Info ──────────────────────────────────────────────────────────
+  const [bizInfo, setBizInfo] = useState({
+    business_name: '', address: '', phone: '', tin: '', email: '',
+    trust_receipt_terms: '', receipt_footer: 'This is not an official receipt.', thermal_width: '58mm',
+  });
+  const [savingBiz, setSavingBiz] = useState(false);
+  const [bizLoaded, setBizLoaded] = useState(false);
+
+  const loadBizInfo = useCallback(async () => {
+    try {
+      const res = await api.get('/settings/business-info');
+      setBizInfo(res.data);
+      setBizLoaded(true);
+    } catch {}
+  }, []);
+
+  useEffect(() => { if (isAdmin) loadBizInfo(); }, [isAdmin, loadBizInfo]);
+
+  const saveBizInfo = async () => {
+    if (!bizInfo.business_name?.trim()) { toast.error('Business name is required'); return; }
+    setSavingBiz(true);
+    try {
+      await api.put('/settings/business-info', bizInfo);
+      toast.success('Business info saved');
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setSavingBiz(false);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn" data-testid="settings-page">
       <div>
@@ -343,6 +371,11 @@ export default function SettingsPage() {
           {isAdmin && (
             <TabsTrigger value="security" data-testid="security-tab" className="flex items-center gap-1.5">
               <Shield size={14} /> Security
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="business" data-testid="business-tab" className="flex items-center gap-1.5">
+              <Building2 size={14} /> Business Info
             </TabsTrigger>
           )}
         </TabsList>
@@ -676,6 +709,79 @@ export default function SettingsPage() {
                     })}
                   </TableBody>
                 </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* ── Business Info Tab ─────────────────────────────────────── */}
+        {isAdmin && (
+          <TabsContent value="business" className="space-y-6">
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  <Building2 size={18} className="text-[#1A4D2E]" /> Business Information
+                </CardTitle>
+                <p className="text-sm text-slate-500">Used on printed receipts, order slips, and trust receipts</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                  <div>
+                    <Label className="text-xs text-slate-500">Business Name <span className="text-red-500">*</span></Label>
+                    <Input data-testid="biz-name" value={bizInfo.business_name}
+                      onChange={e => setBizInfo(b => ({ ...b, business_name: e.target.value }))}
+                      placeholder="Your business name" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Phone</Label>
+                    <Input data-testid="biz-phone" value={bizInfo.phone}
+                      onChange={e => setBizInfo(b => ({ ...b, phone: e.target.value }))}
+                      placeholder="(optional)" className="mt-1" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-xs text-slate-500">Address</Label>
+                    <Input data-testid="biz-address" value={bizInfo.address}
+                      onChange={e => setBizInfo(b => ({ ...b, address: e.target.value }))}
+                      placeholder="Street, City, Province (optional)" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">TIN (Tax ID)</Label>
+                    <Input data-testid="biz-tin" value={bizInfo.tin}
+                      onChange={e => setBizInfo(b => ({ ...b, tin: e.target.value }))}
+                      placeholder="(optional)" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-slate-500">Receipt Footer Text</Label>
+                    <Input data-testid="biz-footer" value={bizInfo.receipt_footer}
+                      onChange={e => setBizInfo(b => ({ ...b, receipt_footer: e.target.value }))}
+                      placeholder="This is not an official receipt." className="mt-1" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                  Trust Receipt Terms
+                </CardTitle>
+                <p className="text-sm text-slate-500">Legal clause printed on trust receipts for credit sales. Use {'{business_name}'} as placeholder.</p>
+              </CardHeader>
+              <CardContent>
+                <textarea
+                  data-testid="biz-trust-terms"
+                  value={bizInfo.trust_receipt_terms}
+                  onChange={e => setBizInfo(b => ({ ...b, trust_receipt_terms: e.target.value }))}
+                  rows={4}
+                  className="w-full max-w-2xl border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1A4D2E]/30 resize-none"
+                  placeholder="Received the above item in good condition and in trust from {business_name}..."
+                />
+                <div className="mt-4">
+                  <Button onClick={saveBizInfo} disabled={savingBiz}
+                    className="bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid="save-biz-info">
+                    <Save size={14} className="mr-1.5" /> {savingBiz ? 'Saving...' : 'Save Business Info'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

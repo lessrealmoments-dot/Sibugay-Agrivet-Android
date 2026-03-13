@@ -130,4 +130,67 @@ async def get_terms_options(user=Depends(get_current_user)):
     ]
 
 
+# ── Business Info ────────────────────────────────────────────────────────────
+
+@router.get("/business-info")
+async def get_business_info(user=Depends(get_current_user)):
+    """Get business info for receipts/printing."""
+    doc = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    base = doc.get("value", {}) if doc else {}
+    # Merge with print-specific fields
+    print_doc = await db.settings.find_one({"key": "business_print_info"}, {"_id": 0})
+    print_info = print_doc.get("value", {}) if print_doc else {}
+    return {
+        "business_name": base.get("name", ""),
+        "address": print_info.get("address", ""),
+        "phone": base.get("phone", "") or print_info.get("phone", ""),
+        "tin": print_info.get("tin", ""),
+        "email": base.get("email", ""),
+        "trust_receipt_terms": print_info.get("trust_receipt_terms",
+            "Received the above item in good condition and in trust from {business_name} (trustor) "
+            "to be sold and the proceeds delivered to the said trustor on or before the due date. "
+            "In case of non-payment, the trustee (buyer) shall pay: an interest of not less than 3% "
+            "per month from the due date and Atty's fees equal to 25% of the amount due plus the cost of suit."
+        ),
+        "receipt_footer": print_info.get("receipt_footer", "This is not an official receipt."),
+        "thermal_width": print_info.get("thermal_width", "58mm"),
+    }
+
+
+@router.put("/business-info")
+async def update_business_info(data: dict, user=Depends(get_current_user)):
+    """Update business info for receipts/printing. Business name required."""
+    check_perm(user, "settings", "edit")
+    business_name = data.get("business_name", "").strip()
+    if not business_name:
+        from fastapi import HTTPException as HE
+        raise HE(status_code=400, detail="Business name is required")
+
+    # Update the company_info name
+    await db.settings.update_one(
+        {"key": "company_info"},
+        {"$set": {"value.name": business_name, "value.phone": data.get("phone", ""), "updated_at": now_iso()}},
+        upsert=True
+    )
+    # Store print-specific info separately
+    await db.settings.update_one(
+        {"key": "business_print_info"},
+        {"$set": {
+            "key": "business_print_info",
+            "value": {
+                "address": data.get("address", ""),
+                "phone": data.get("phone", ""),
+                "tin": data.get("tin", ""),
+                "trust_receipt_terms": data.get("trust_receipt_terms", ""),
+                "receipt_footer": data.get("receipt_footer", "This is not an official receipt."),
+                "thermal_width": data.get("thermal_width", "58mm"),
+            },
+            "updated_at": now_iso(),
+            "updated_by": user["id"],
+        }},
+        upsert=True
+    )
+    return {"message": "Business info updated"}
+
+
 # ── Legacy TOTP Controls kept in lines 69-90 above ──────────────────────────

@@ -25,6 +25,7 @@ import {
   TrendingUp, TrendingDown, Clock, ArrowRight, Eye, XCircle, Pencil, Upload, Check,
   ClipboardCheck, FileText, Smartphone, Lock
 } from 'lucide-react';
+import PrintEngine from '../lib/PrintEngine';
 import { toast } from 'sonner';
 
 const STATUS_COLORS = {
@@ -642,179 +643,32 @@ export default function BranchTransferPage() {
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed to send to terminal'); }
   };
 
-  // ── Print Internal Invoice (enhanced from Transfer Order) ──────────────────
-  const printTransferOrder = (order) => {
+  // ── Print via centralized PrintEngine ──────────────────────────────────────
+  const [bizInfo, setBizInfo] = useState({});
+  useEffect(() => {
+    api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {});
+  }, []);
+
+  const printTransferOrder = async (order) => {
     const toBranch = branches.find(b => b.id === order.to_branch_id)?.name || '';
     const fromBranch = branches.find(b => b.id === order.from_branch_id)?.name || '';
-    const items = order.items || [];
-    const totalTransferVal = items.reduce((s, i) => s + i.transfer_capital * i.qty, 0);
-    const totalRetailVal = items.reduce((s, i) => s + i.branch_retail * i.qty, 0);
-    const php = (n) => '₱' + parseFloat(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const invoiceNo = order.invoice_number || order.order_number;
-    const uploadUrl = `${window.location.origin}/upload/branch_transfer/${order.id}`;
-    const requestRef = order.request_po_number ? `<div class="date">Request: ${order.request_po_number}</div>` : '';
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${invoiceNo} — Internal Invoice</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #1a1a1a; padding: 20px 28px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 3px solid #1A4D2E; }
-    .company h1 { font-size: 22px; font-weight: 800; color: #1A4D2E; letter-spacing: -0.5px; }
-    .company p { font-size: 10px; color: #666; margin-top: 2px; }
-    .doc-info { text-align: right; }
-    .doc-info h2 { font-size: 14px; font-weight: 700; color: #1A4D2E; text-transform: uppercase; letter-spacing: 1px; }
-    .doc-info .number { font-size: 16px; font-weight: 800; color: #333; }
-    .doc-info .date { font-size: 10px; color: #666; margin-top: 3px; }
-    .address-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-    .address-box { border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; background: #fafafa; }
-    .address-box .label { font-size: 8px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
-    .address-box .value { font-size: 13px; font-weight: 700; color: #1A4D2E; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-    thead tr { background: #1A4D2E; color: white; }
-    thead th { padding: 6px 8px; text-align: left; font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    thead th.right { text-align: right; }
-    thead th.center { text-align: center; }
-    tbody tr { border-bottom: 1px solid #e8e8e8; }
-    tbody tr:nth-child(even) { background: #f9f9f9; }
-    tbody td { padding: 6px 8px; font-size: 10px; }
-    tbody td.right { text-align: right; font-family: 'Courier New', monospace; }
-    tbody td.center { text-align: center; }
-    tbody td.actual { border: 1px dashed #ccc; background: #fffde7; min-width: 50px; height: 24px; }
-    .totals { margin-left: auto; width: 280px; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; }
-    .totals-row { display: flex; justify-content: space-between; padding: 5px 10px; font-size: 10px; border-bottom: 1px solid #f0f0f0; }
-    .totals-row.total { background: #1A4D2E; color: white; font-weight: 700; font-size: 12px; }
-    .totals-row.retail { background: #e8f5e9; color: #1A4D2E; font-weight: 600; }
-    .correction-box { margin-top: 16px; border: 2px dashed #e0e0e0; border-radius: 8px; padding: 12px; background: #fffde7; }
-    .correction-box h3 { font-size: 10px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
-    .correction-box .lines { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .correction-box .line { border-bottom: 1px solid #d4d4d4; height: 22px; }
-    .correction-box .line-label { font-size: 8px; color: #999; }
-    .footer-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 16px; }
-    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; flex: 1; }
-    .sig-box { text-align: center; }
-    .sig-line { border-bottom: 1px solid #333; margin-bottom: 4px; height: 24px; }
-    .sig-label { font-size: 8px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
-    .qr-section { text-align: center; margin-left: 20px; }
-    .qr-section p { font-size: 8px; color: #666; margin-top: 4px; }
-    .note { font-size: 8px; color: #999; margin-top: 16px; text-align: center; }
-    .terms-box { font-size: 9px; color: #555; margin-top: 8px; padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 4px; background: #f8f8f8; }
-    @media print { body { padding: 0; } @page { margin: 12mm; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="company">
-      <h1>AgriBooks</h1>
-      <p>Internal Branch Transfer Invoice</p>
-    </div>
-    <div class="doc-info">
-      <h2>Internal Invoice</h2>
-      <div class="number">${invoiceNo}</div>
-      <div class="date">Transfer: ${order.order_number}</div>
-      ${requestRef}
-      <div class="date">Date: ${order.created_at?.slice(0, 10) || ''}</div>
-      <div class="date">Status: ${order.status?.toUpperCase()}</div>
-    </div>
-  </div>
+    // Generate or fetch document code for QR
+    let docCode = order.doc_code || '';
+    if (!docCode) {
+      try {
+        const res = await api.post('/doc/generate-code', { doc_type: 'branch_transfer', doc_id: order.id });
+        docCode = res.data.code || '';
+      } catch { /* print without QR if code generation fails */ }
+    }
 
-  <div class="address-row">
-    <div class="address-box">
-      <div class="label">From (Supplier Branch)</div>
-      <div class="value">${fromBranch}</div>
-    </div>
-    <div class="address-box">
-      <div class="label">To (Receiving Branch)</div>
-      <div class="value">${toBranch}</div>
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th style="width:5%">#</th>
-        <th style="width:30%">Product</th>
-        <th class="center" style="width:10%">Qty Sent</th>
-        <th class="center" style="width:10%;background:#b45309;">Actual Rcvd</th>
-        <th class="right" style="width:13%">Unit Price</th>
-        <th class="right" style="width:13%">Total</th>
-        <th class="right" style="width:13%">Retail Price</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${items.map((item, idx) => `
-      <tr>
-        <td class="center">${idx + 1}</td>
-        <td>
-          <div style="font-weight:600">${item.product_name}</div>
-          <div style="color:#999;font-size:8px;font-family:monospace">${item.sku} · ${item.category || ''}</div>
-        </td>
-        <td class="center" style="font-family:monospace;font-weight:700">${item.qty} ${item.unit || ''}</td>
-        <td class="actual"></td>
-        <td class="right">${php(item.transfer_capital)}</td>
-        <td class="right" style="font-weight:700">${php(item.transfer_capital * item.qty)}</td>
-        <td class="right" style="color:#1A4D2E;font-weight:700">${php(item.branch_retail)}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-
-  <div style="display:flex;gap:16px;">
-    <div style="flex:1;">
-      <div class="totals">
-        <div class="totals-row"><span>Total Items</span><span>${items.length}</span></div>
-        <div class="totals-row"><span>Total Qty</span><span>${items.reduce((s, i) => s + i.qty, 0)}</span></div>
-        <div class="totals-row total"><span>Invoice Total</span><span>${php(totalTransferVal)}</span></div>
-        <div class="totals-row retail"><span>Retail Value</span><span>${php(totalRetailVal)}</span></div>
-      </div>
-      <div class="terms-box">
-        <strong>Payment Terms:</strong> Net 15 days &nbsp;|&nbsp; <strong>Due:</strong> ${(() => { const d = new Date(order.created_at); d.setDate(d.getDate() + 15); return d.toISOString().slice(0,10); })()}
-      </div>
-    </div>
-    <div class="correction-box" style="flex:1;">
-      <h3>Corrections / Discrepancy Notes</h3>
-      <div class="lines">
-        <div><div class="line-label">Corrected Total</div><div class="line"></div></div>
-        <div><div class="line-label">Reason</div><div class="line"></div></div>
-        <div><div class="line-label">Noted By</div><div class="line"></div></div>
-        <div><div class="line-label">Date</div><div class="line"></div></div>
-      </div>
-      <p style="font-size:8px;color:#b45309;margin-top:6px;">
-        Write actual received qty in the "Actual Rcvd" column. Upload photo of this invoice after corrections.
-      </p>
-    </div>
-  </div>
-
-  <div class="footer-row">
-    <div class="signatures">
-      <div class="sig-box">
-        <div class="sig-line"></div>
-        <div class="sig-label">Prepared By</div>
-      </div>
-      <div class="sig-box">
-        <div class="sig-line"></div>
-        <div class="sig-label">Driver / Released By</div>
-      </div>
-      <div class="sig-box">
-        <div class="sig-line"></div>
-        <div class="sig-label">Received By</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="note">
-    AgriBooks — Internal Branch Transfer Invoice &nbsp;|&nbsp; This is an internal document. Upload corrected copy via QR or PC.
-  </div>
-</body>
-</html>`;
-
-    const win = window.open('', '_blank', 'width=900,height=700');
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 500);
+    PrintEngine.print({
+      type: 'branch_transfer',
+      data: { ...order, from_branch_name: fromBranch, to_branch_name: toBranch },
+      format: 'full_page',
+      businessInfo: bizInfo,
+      docCode,
+    });
   };
 
   const handleCancel = async (orderId) => {    if (!window.confirm('Cancel this transfer order?')) return;

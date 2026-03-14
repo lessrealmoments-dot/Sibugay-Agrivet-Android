@@ -1,11 +1,14 @@
 /**
- * PrintEngine — Generates print-ready HTML for thermal (58mm) and full-page (8.5x11) documents.
- * Document types: Order Slip, Trust Receipt, PO, etc.
- * Usage: PrintEngine.print({ type, data, format, businessInfo })
+ * PrintEngine v2 — Professional receipt/invoice generator
+ * Generates print-ready HTML for thermal (58mm) and full-page (8.5×11) documents.
+ * 
+ * Document types: order_slip, trust_receipt, purchase_order, branch_transfer,
+ *                 expense_voucher, return_slip, statement
+ * 
+ * Usage: PrintEngine.print({ type, data, format, businessInfo, docCode })
  */
 
-const THERMAL_WIDTH = '58mm';
-const FULL_PAGE_WIDTH = '8.5in';
+const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
 
 function formatPHP(v) {
   const n = parseFloat(v) || 0;
@@ -22,6 +25,19 @@ function fmtDateTime(d) {
   if (!d) return '';
   try { return new Date(d).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
   catch { return d; }
+}
+
+// ── QR Code helper (uses public API for print-friendly inline image) ────────
+function qrImgTag(code, size = 120) {
+  if (!code) return '';
+  const url = `${window.location.origin}/doc/${code}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}&margin=4`;
+  return `
+    <div class="qr-block">
+      <img src="${qrUrl}" alt="QR" width="${size}" height="${size}" />
+      <div class="qr-code-text">${code}</div>
+      <div class="qr-hint">Scan to view document</div>
+    </div>`;
 }
 
 // ── Thermal Receipt CSS ─────────────────────────────────────────────────────
@@ -51,58 +67,117 @@ const thermalCSS = `
   .signature-line .line { border-top: 1px solid #000; width: 70%; margin: 0 auto; }
   .signature-line .sig-label { font-size: 7px; color: #666; margin-top: 2px; }
   .footer { text-align: center; font-size: 7px; color: #666; margin-top: 6px; border-top: 1px dashed #000; padding-top: 4px; }
+  .qr-block { text-align: center; margin: 6px 0 4px; }
+  .qr-block img { display: block; margin: 0 auto; }
+  .qr-code-text { font-size: 10px; font-weight: bold; letter-spacing: 2px; margin-top: 2px; }
+  .qr-hint { font-size: 7px; color: #666; }
   @media print { body { width: 58mm; } }
 `;
 
-// ── Full Page CSS ───────────────────────────────────────────────────────────
+// ── Full Page CSS (Professional Template) ───────────────────────────────────
 const fullPageCSS = `
-  @page { size: 8.5in 11in; margin: 0.5in; }
+  @page { size: 8.5in 11in; margin: 0.6in 0.7in; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; line-height: 1.4; color: #222; max-width: 7.5in; }
-  .header { text-align: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #1A4D2E; }
-  .header .biz-name { font-size: 18px; font-weight: bold; color: #1A4D2E; }
-  .header .biz-detail { font-size: 10px; color: #555; }
-  .doc-title { font-size: 16px; font-weight: bold; text-align: center; margin: 12px 0; color: #1A4D2E; letter-spacing: 2px; text-transform: uppercase; }
-  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; margin: 10px 0; font-size: 10px; }
-  .meta-grid .label { color: #666; }
-  .meta-grid .value { font-weight: bold; }
-  .items-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10px; }
-  .items-table th { background: #f1f5f0; border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 9px; text-transform: uppercase; color: #555; }
-  .items-table td { border: 1px solid #eee; padding: 5px 8px; }
-  .items-table .text-right { text-align: right; }
-  .items-table .text-center { text-align: center; }
-  .items-table tfoot td { font-weight: bold; background: #fafafa; }
-  .totals-section { display: flex; justify-content: flex-end; margin: 12px 0; }
-  .totals-box { width: 280px; }
-  .totals-box .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; }
-  .totals-box .grand { font-size: 14px; font-weight: bold; border-top: 2px solid #1A4D2E; padding-top: 6px; margin-top: 4px; color: #1A4D2E; }
-  .payment-info { margin: 12px 0; font-size: 10px; padding: 8px; background: #f9f9f9; border-radius: 4px; }
-  .trust-terms { margin: 16px 0; font-size: 9px; line-height: 1.4; border: 1px solid #ddd; padding: 10px; border-radius: 4px; }
-  .trust-terms .terms-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; text-transform: uppercase; }
-  .signature-section { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 10px; }
-  .signature-block { text-align: center; width: 200px; }
-  .signature-block .line { border-top: 1px solid #000; margin-bottom: 4px; }
-  .signature-block .sig-label { font-size: 9px; color: #666; }
-  .footer { text-align: center; font-size: 8px; color: #999; margin-top: 20px; border-top: 1px solid #eee; padding-top: 8px; }
+  body { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 11px; line-height: 1.5; color: #222; }
+
+  /* Header: company left, doc info right */
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 3px solid #1A4D2E; margin-bottom: 18px; }
+  .page-header .company { }
+  .page-header .company .biz-name { font-size: 24px; font-weight: 800; color: #1A4D2E; letter-spacing: -0.5px; line-height: 1.1; }
+  .page-header .company .biz-detail { font-size: 10px; color: #666; margin-top: 2px; }
+  .page-header .doc-meta { text-align: right; }
+  .page-header .doc-meta .doc-type { font-size: 13px; font-weight: 700; color: #1A4D2E; text-transform: uppercase; letter-spacing: 2px; }
+  .page-header .doc-meta .doc-number { font-size: 18px; font-weight: 800; color: #222; margin-top: 2px; }
+  .page-header .doc-meta .doc-date { font-size: 10px; color: #888; margin-top: 2px; }
+
+  /* Info boxes */
+  .info-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .info-box { background: #f8faf8; border: 1px solid #e2e8e2; border-radius: 6px; padding: 12px 14px; }
+  .info-box .box-label { font-size: 9px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .info-box .box-value { font-size: 14px; font-weight: 700; color: #1A4D2E; }
+  .info-box .box-sub { font-size: 10px; color: #666; margin-top: 2px; }
+
+  /* Meta grid */
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; margin-bottom: 18px; font-size: 11px; }
+  .meta-grid .m-label { color: #888; font-size: 10px; }
+  .meta-grid .m-value { font-weight: 600; color: #333; }
+
+  /* Items table */
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+  .items-table thead th { background: #1A4D2E; color: #fff; padding: 8px 10px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+  .items-table thead th.r { text-align: right; }
+  .items-table thead th.c { text-align: center; }
+  .items-table tbody td { padding: 7px 10px; font-size: 11px; border-bottom: 1px solid #eee; }
+  .items-table tbody tr:nth-child(even) { background: #fafcfa; }
+  .items-table tbody td.r { text-align: right; font-family: 'Courier New', monospace; }
+  .items-table tbody td.c { text-align: center; }
+  .items-table tbody td .item-sub { font-size: 9px; color: #999; font-family: monospace; }
+
+  /* Totals */
+  .totals-area { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+  .totals-box { width: 260px; border: 1px solid #e2e8e2; border-radius: 6px; overflow: hidden; }
+  .totals-box .t-row { display: flex; justify-content: space-between; padding: 6px 12px; font-size: 11px; border-bottom: 1px solid #f0f0f0; }
+  .totals-box .t-row:last-child { border-bottom: none; }
+  .totals-box .t-grand { background: #1A4D2E; color: #fff; font-weight: 700; font-size: 13px; padding: 8px 12px; }
+  .totals-box .t-highlight { background: #e8f5e9; color: #1A4D2E; font-weight: 600; }
+
+  /* Notes */
+  .notes-box { font-size: 10px; color: #555; margin-bottom: 16px; padding: 8px 12px; background: #fffde7; border: 1px solid #fff3cd; border-radius: 4px; }
+
+  /* Signatures */
+  .sig-row { display: flex; justify-content: space-between; margin-top: 48px; gap: 24px; }
+  .sig-block { text-align: center; flex: 1; }
+  .sig-block .sig-line { border-bottom: 1px solid #333; margin-bottom: 4px; height: 28px; }
+  .sig-block .sig-label { font-size: 9px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* QR */
+  .qr-block { text-align: center; }
+  .qr-block img { display: block; margin: 0 auto; }
+  .qr-code-text { font-size: 12px; font-weight: 700; letter-spacing: 3px; margin-top: 4px; color: #333; }
+  .qr-hint { font-size: 8px; color: #999; }
+
+  /* Footer */
+  .page-footer { text-align: center; font-size: 8px; color: #aaa; margin-top: 24px; padding-top: 10px; border-top: 1px solid #eee; }
+  .page-footer .thank-you { font-size: 12px; font-weight: 600; color: #1A4D2E; margin-bottom: 4px; }
+
+  /* Payment info */
+  .payment-box { font-size: 10px; padding: 8px 12px; background: #f9f9f9; border: 1px solid #eee; border-radius: 4px; margin-bottom: 12px; }
+
   @media print { body { max-width: none; } }
 `;
 
-// ── Build header HTML ───────────────────────────────────────────────────────
-function buildHeader(biz) {
+// ── Build page header ───────────────────────────────────────────────────────
+function buildPageHeader(biz, docType, docNumber, date, extraLines = []) {
+  let companyHtml = `<div class="biz-name">${biz.business_name || 'AgriBooks'}</div>`;
+  if (biz.address) companyHtml += `<div class="biz-detail">${biz.address}</div>`;
+  if (biz.phone) companyHtml += `<div class="biz-detail">${biz.phone}</div>`;
+  if (biz.tin) companyHtml += `<div class="biz-detail">TIN: ${biz.tin}</div>`;
+
+  let metaHtml = `<div class="doc-type">${docType}</div>`;
+  metaHtml += `<div class="doc-number">${docNumber}</div>`;
+  metaHtml += `<div class="doc-date">${fmtDate(date)}</div>`;
+  for (const line of extraLines) {
+    metaHtml += `<div class="doc-date">${line}</div>`;
+  }
+
+  return `<div class="page-header"><div class="company">${companyHtml}</div><div class="doc-meta">${metaHtml}</div></div>`;
+}
+
+function buildThermalHeader(biz) {
   const parts = [];
-  parts.push(`<div class="biz-name">${biz.business_name || 'Business Name'}</div>`);
+  parts.push(`<div class="biz-name">${biz.business_name || 'AgriBooks'}</div>`);
   if (biz.address) parts.push(`<div class="biz-detail">${biz.address}</div>`);
   if (biz.phone) parts.push(`<div class="biz-detail">${biz.phone}</div>`);
   if (biz.tin) parts.push(`<div class="biz-detail">TIN: ${biz.tin}</div>`);
   return `<div class="header">${parts.join('')}</div>`;
 }
 
-// ── Items table ─────────────────────────────────────────────────────────────
+// ── Thermal item list ───────────────────────────────────────────────────────
 function buildItemsThermal(items) {
   let html = '<table class="items-table">';
   for (const item of items) {
-    const qty = parseFloat(item.quantity) || 0;
-    const rate = parseFloat(item.rate || item.unit_price || item.price) || 0;
+    const qty = parseFloat(item.quantity || item.qty) || 0;
+    const rate = parseFloat(item.rate || item.unit_price || item.price || item.transfer_capital) || 0;
     const total = parseFloat(item.total) || (qty * rate);
     html += `<tr><td class="item-name" colspan="2">${item.product_name || item.description || ''}</td></tr>`;
     html += `<tr><td class="item-detail">${qty} x ${formatPHP(rate)}</td><td class="item-total">${formatPHP(total)}</td></tr>`;
@@ -111,9 +186,34 @@ function buildItemsThermal(items) {
   return html;
 }
 
-function buildItemsFullPage(items) {
-  let html = '<table class="items-table"><thead><tr>';
-  html += '<th>#</th><th>Item</th><th class="text-center">Qty</th><th class="text-right">Price</th><th class="text-right">Discount</th><th class="text-right">Total</th>';
+// ═══════════════════════════════════════════════════════════════════════════
+//  FULL PAGE DOCUMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Order Slip (Sales) ──────────────────────────────────────────────────────
+function orderSlipFullPage(data, biz, docCode) {
+  const inv = data;
+  let html = buildPageHeader(biz, 'Order Slip', inv.invoice_number || '', inv.created_at || inv.order_date, [
+    inv.cashier_name ? `Cashier: ${inv.cashier_name}` : '',
+  ].filter(Boolean));
+
+  // Customer info box (only if not walk-in)
+  if (inv.customer_name && inv.customer_name !== 'Walk-in') {
+    html += `<div class="info-row"><div class="info-box"><div class="box-label">Customer</div><div class="box-value">${inv.customer_name}</div>`;
+    if (inv.customer_address) html += `<div class="box-sub">${inv.customer_address}</div>`;
+    if (inv.customer_phone) html += `<div class="box-sub">${inv.customer_phone}</div>`;
+    html += `</div><div class="info-box"><div class="box-label">Payment</div><div class="box-value">${inv.payment_method || 'Cash'}</div>`;
+    if (inv.terms && inv.terms !== 'COD') html += `<div class="box-sub">Terms: ${inv.terms}</div>`;
+    if (inv.due_date) html += `<div class="box-sub">Due: ${fmtDate(inv.due_date)}</div>`;
+    html += `</div></div>`;
+  }
+
+  // Items table
+  const items = inv.items || [];
+  html += '<table class="items-table"><thead><tr>';
+  html += '<th style="width:5%">#</th><th>Item</th><th class="c" style="width:10%">Qty</th><th class="r" style="width:15%">Price</th>';
+  if (items.some(i => parseFloat(i.discount_amount) > 0)) html += '<th class="r" style="width:12%">Discount</th>';
+  html += '<th class="r" style="width:15%">Total</th>';
   html += '</tr></thead><tbody>';
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -121,29 +221,279 @@ function buildItemsFullPage(items) {
     const rate = parseFloat(item.rate || item.unit_price || item.price) || 0;
     const disc = parseFloat(item.discount_amount) || 0;
     const total = parseFloat(item.total) || (qty * rate - disc);
-    html += `<tr>`;
-    html += `<td class="text-center">${i + 1}</td>`;
-    html += `<td>${item.product_name || item.description || ''}</td>`;
-    html += `<td class="text-center">${qty}</td>`;
-    html += `<td class="text-right">${formatPHP(rate)}</td>`;
-    html += `<td class="text-right">${disc > 0 ? formatPHP(disc) : '-'}</td>`;
-    html += `<td class="text-right">${formatPHP(total)}</td>`;
-    html += `</tr>`;
+    html += `<tr><td class="c">${i + 1}</td><td>${item.product_name || ''}</td><td class="c">${qty}</td><td class="r">${formatPHP(rate)}</td>`;
+    if (items.some(it => parseFloat(it.discount_amount) > 0)) html += `<td class="r">${disc > 0 ? formatPHP(disc) : '-'}</td>`;
+    html += `<td class="r" style="font-weight:600">${formatPHP(total)}</td></tr>`;
   }
   html += '</tbody></table>';
+
+  // Totals + QR side by side
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">';
+  html += qrImgTag(docCode, 100);
+  html += '<div class="totals-box">';
+  html += `<div class="t-row"><span>Subtotal</span><span>${formatPHP(inv.subtotal)}</span></div>`;
+  if (inv.overall_discount > 0) html += `<div class="t-row"><span>Discount</span><span>-${formatPHP(inv.overall_discount)}</span></div>`;
+  if (inv.freight > 0) html += `<div class="t-row"><span>Freight</span><span>${formatPHP(inv.freight)}</span></div>`;
+  html += `<div class="t-row t-grand"><span>TOTAL</span><span>${formatPHP(inv.grand_total)}</span></div>`;
+  if (inv.amount_paid > 0) html += `<div class="t-row"><span>Amount Paid</span><span>${formatPHP(inv.amount_paid)}</span></div>`;
+  const balance = (inv.grand_total || 0) - (inv.amount_paid || 0);
+  if (balance > 0 && inv.payment_type === 'credit') html += `<div class="t-row" style="color:#c00;font-weight:600"><span>Balance Due</span><span>${formatPHP(balance)}</span></div>`;
+  html += '</div></div>';
+
+  // Footer
+  html += `<div class="page-footer"><div class="thank-you">Thank you for your business!</div>${biz.receipt_footer || 'This is not an official receipt.'}</div>`;
   return html;
 }
 
-// ── Order Slip ──────────────────────────────────────────────────────────────
-function orderSlipThermal(data, biz) {
+// ── Trust Receipt ───────────────────────────────────────────────────────────
+function trustReceiptFullPage(data, biz, docCode) {
   const inv = data;
-  let html = buildHeader(biz);
+  let html = buildPageHeader(biz, 'Trust Receipt', inv.invoice_number || '', inv.order_date || inv.created_at, [
+    inv.terms && inv.terms !== 'COD' ? `Terms: ${inv.terms}` : '',
+    inv.due_date ? `Due: ${fmtDate(inv.due_date)}` : '',
+  ].filter(Boolean));
+
+  html += `<div class="info-row">`;
+  html += `<div class="info-box"><div class="box-label">Customer</div><div class="box-value">${inv.customer_name || ''}</div>`;
+  if (inv.customer_address) html += `<div class="box-sub">${inv.customer_address}</div>`;
+  if (inv.customer_phone) html += `<div class="box-sub">${inv.customer_phone}</div>`;
+  html += `</div>`;
+  html += `<div class="info-box"><div class="box-label">Cashier</div><div class="box-value">${inv.cashier_name || ''}</div></div>`;
+  html += `</div>`;
+
+  // Items
+  const items = inv.items || [];
+  html += '<table class="items-table"><thead><tr>';
+  html += '<th style="width:5%">#</th><th>Item</th><th class="c" style="width:10%">Qty</th><th class="r" style="width:15%">Price</th><th class="r" style="width:15%">Total</th>';
+  html += '</tr></thead><tbody>';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const qty = parseFloat(item.quantity) || 0;
+    const rate = parseFloat(item.rate || item.unit_price || item.price) || 0;
+    const total = parseFloat(item.total) || (qty * rate);
+    html += `<tr><td class="c">${i + 1}</td><td>${item.product_name || ''}</td><td class="c">${qty}</td><td class="r">${formatPHP(rate)}</td><td class="r" style="font-weight:600">${formatPHP(total)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+
+  // Totals + QR
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">';
+  html += qrImgTag(docCode, 100);
+  html += '<div class="totals-box">';
+  html += `<div class="t-row"><span>Subtotal</span><span>${formatPHP(inv.subtotal)}</span></div>`;
+  if (inv.overall_discount > 0) html += `<div class="t-row"><span>Discount</span><span>-${formatPHP(inv.overall_discount)}</span></div>`;
+  html += `<div class="t-row t-grand"><span>TOTAL</span><span>${formatPHP(inv.grand_total)}</span></div>`;
+  if (inv.amount_paid > 0) html += `<div class="t-row"><span>Paid</span><span>${formatPHP(inv.amount_paid)}</span></div>`;
+  if (inv.balance > 0) html += `<div class="t-row" style="color:#c00;font-weight:700"><span>Balance Due</span><span>${formatPHP(inv.balance)}</span></div>`;
+  html += '</div></div>';
+
+  // Trust terms
+  const terms = (biz.trust_receipt_terms || '').replace('{business_name}', biz.business_name || '');
+  if (terms) {
+    html += `<div style="margin:16px 0;font-size:9px;line-height:1.4;border:1px solid #ddd;padding:10px;border-radius:4px"><div style="font-weight:bold;font-size:10px;margin-bottom:4px;text-transform:uppercase">Terms and Conditions</div><p>${terms}</p></div>`;
+  }
+
+  // Signatures
+  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Trustor (Seller)</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Trustee (Buyer) Signature</div></div></div>';
+  return html;
+}
+
+// ── Purchase Order ──────────────────────────────────────────────────────────
+function purchaseOrderFullPage(data, biz, docCode) {
+  const po = data;
+  let html = buildPageHeader(biz, 'Purchase Order', po.po_number || '', po.purchase_date, [
+    `Status: ${(po.status || '').toUpperCase()}`,
+  ]);
+
+  html += `<div class="info-row">`;
+  html += `<div class="info-box"><div class="box-label">Supplier</div><div class="box-value">${po.vendor || ''}</div>`;
+  if (po.dr_number) html += `<div class="box-sub">DR #: ${po.dr_number}</div>`;
+  html += `</div>`;
+  html += `<div class="info-box"><div class="box-label">Payment</div><div class="box-value">${po.po_type === 'cash' ? 'Cash' : po.terms_label || 'Terms'}</div>`;
+  html += `<div class="box-sub">${po.payment_status || 'Unpaid'}</div>`;
+  if (po.due_date) html += `<div class="box-sub">Due: ${fmtDate(po.due_date)}</div>`;
+  html += `</div></div>`;
+
+  if (po.notes) html += `<div class="notes-box"><strong>Notes:</strong> ${po.notes}</div>`;
+
+  // Items
+  const items = po.items || [];
+  html += '<table class="items-table"><thead><tr>';
+  html += '<th style="width:5%">#</th><th>Item</th><th class="c" style="width:10%">Qty</th><th class="r" style="width:15%">Unit Cost</th><th class="r" style="width:15%">Total</th>';
+  html += '</tr></thead><tbody>';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const qty = parseFloat(item.quantity) || 0;
+    const rate = parseFloat(item.rate || item.unit_price || item.price) || 0;
+    const total = parseFloat(item.total) || (qty * rate);
+    html += `<tr><td class="c">${i + 1}</td><td>${item.product_name || item.description || ''}</td><td class="c">${qty}</td><td class="r">${formatPHP(rate)}</td><td class="r" style="font-weight:600">${formatPHP(total)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+
+  // Totals + QR
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">';
+  html += qrImgTag(docCode, 100);
+  html += '<div class="totals-box">';
+  html += `<div class="t-row"><span>Subtotal</span><span>${formatPHP(po.subtotal || po.line_subtotal)}</span></div>`;
+  if (po.overall_discount_amount > 0) html += `<div class="t-row"><span>Discount</span><span>-${formatPHP(po.overall_discount_amount)}</span></div>`;
+  if (po.freight > 0) html += `<div class="t-row"><span>Freight</span><span>${formatPHP(po.freight)}</span></div>`;
+  if (po.tax_amount > 0) html += `<div class="t-row"><span>VAT (${po.tax_rate}%)</span><span>${formatPHP(po.tax_amount)}</span></div>`;
+  html += `<div class="t-row t-grand"><span>Grand Total</span><span>${formatPHP(po.grand_total)}</span></div>`;
+  if (po.balance > 0) html += `<div class="t-row" style="color:#c00;font-weight:600"><span>Balance</span><span>${formatPHP(po.balance)}</span></div>`;
+  html += '</div></div>';
+
+  // Signatures
+  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Prepared By</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Received By</div></div></div>';
+  html += `<div class="page-footer"><div class="thank-you">Thank you!</div>AgriBooks — Purchase Order</div>`;
+  return html;
+}
+
+// ── Branch Transfer Invoice ─────────────────────────────────────────────────
+function branchTransferFullPage(data, biz, docCode) {
+  const t = data;
+  const invoiceNo = t.invoice_number || t.order_number || '';
+  let html = buildPageHeader(biz, 'Branch Transfer', invoiceNo, t.created_at, [
+    t.order_number !== invoiceNo ? `Transfer: ${t.order_number}` : '',
+    t.request_po_number ? `Request: ${t.request_po_number}` : '',
+    `Status: ${(t.status || '').toUpperCase()}`,
+  ].filter(Boolean));
+
+  // From / To boxes
+  html += `<div class="info-row">`;
+  html += `<div class="info-box"><div class="box-label">From (Source Branch)</div><div class="box-value">${t.from_branch_name || ''}</div></div>`;
+  html += `<div class="info-box"><div class="box-label">To (Receiving Branch)</div><div class="box-value">${t.to_branch_name || ''}</div></div>`;
+  html += `</div>`;
+
+  // Items table - clean columns
+  const items = t.items || [];
+  html += '<table class="items-table"><thead><tr>';
+  html += '<th style="width:5%">#</th><th>Product</th><th class="c" style="width:10%">Qty</th><th class="r" style="width:15%">Transfer Price</th><th class="r" style="width:15%">Total</th><th class="r" style="width:15%">Retail</th>';
+  html += '</tr></thead><tbody>';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const qty = parseFloat(item.qty) || 0;
+    const tc = parseFloat(item.transfer_capital) || 0;
+    html += `<tr><td class="c">${i + 1}</td>`;
+    html += `<td>${item.product_name || ''}<div class="item-sub">${item.sku || ''} ${item.category ? '· ' + item.category : ''}</div></td>`;
+    html += `<td class="c">${qty} ${item.unit || ''}</td>`;
+    html += `<td class="r">${formatPHP(tc)}</td>`;
+    html += `<td class="r" style="font-weight:600">${formatPHP(tc * qty)}</td>`;
+    html += `<td class="r" style="color:#1A4D2E;font-weight:600">${formatPHP(item.branch_retail)}</td>`;
+    html += `</tr>`;
+  }
+  html += '</tbody></table>';
+
+  // Totals + QR
+  const totalTransfer = items.reduce((s, i) => s + (parseFloat(i.transfer_capital) || 0) * (parseFloat(i.qty) || 0), 0);
+  const totalRetail = items.reduce((s, i) => s + (parseFloat(i.branch_retail) || 0) * (parseFloat(i.qty) || 0), 0);
+
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">';
+  html += qrImgTag(docCode, 100);
+  html += '<div class="totals-box">';
+  html += `<div class="t-row"><span>Total Items</span><span>${items.length}</span></div>`;
+  html += `<div class="t-row"><span>Total Qty</span><span>${items.reduce((s, i) => s + (parseFloat(i.qty) || 0), 0)}</span></div>`;
+  html += `<div class="t-row t-grand"><span>Transfer Total</span><span>${formatPHP(totalTransfer)}</span></div>`;
+  html += `<div class="t-row t-highlight"><span>Retail Value</span><span>${formatPHP(totalRetail)}</span></div>`;
+  html += '</div></div>';
+
+  // Signatures
+  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Prepared By</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Driver / Released By</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Received By</div></div></div>';
+  html += `<div class="page-footer"><div class="thank-you">Thank you!</div>AgriBooks — Internal Branch Transfer</div>`;
+  return html;
+}
+
+// ── Expense Voucher ─────────────────────────────────────────────────────────
+function expenseVoucherFullPage(data, biz, docCode) {
+  const e = data;
+  let html = buildPageHeader(biz, 'Expense Voucher', e.reference_number || e.id?.slice(0, 8) || '', e.date || e.created_at);
+
+  html += '<div class="meta-grid">';
+  html += `<div><span class="m-label">Category</span><div class="m-value">${e.category || 'General'}</div></div>`;
+  html += `<div><span class="m-label">Payment</span><div class="m-value">${e.payment_method || 'Cash'}</div></div>`;
+  html += `<div><span class="m-label">Amount</span><div class="m-value" style="font-size:16px;color:#1A4D2E">${formatPHP(e.amount)}</div></div>`;
+  if (e.fund_source) html += `<div><span class="m-label">Source</span><div class="m-value">${e.fund_source}</div></div>`;
+  html += '</div>';
+  if (e.description) html += `<div class="notes-box"><strong>Description:</strong> ${e.description}</div>`;
+  if (e.notes) html += `<div class="notes-box"><strong>Notes:</strong> ${e.notes}</div>`;
+
+  html += '<div style="display:flex;justify-content:flex-end">' + qrImgTag(docCode, 80) + '</div>';
+  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Approved By</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Received By</div></div></div>';
+  return html;
+}
+
+// ── Return Slip ─────────────────────────────────────────────────────────────
+function returnSlipFullPage(data, biz, docCode) {
+  const r = data;
+  let html = buildPageHeader(biz, 'Return Slip', r.return_number || r.id?.slice(0, 8) || '', r.created_at, [
+    `Original Invoice: ${r.original_invoice_number || ''}`,
+  ]);
+
+  if (r.customer_name) {
+    html += `<div class="info-row"><div class="info-box"><div class="box-label">Customer</div><div class="box-value">${r.customer_name}</div></div>`;
+    html += `<div class="info-box"><div class="box-label">Refund Method</div><div class="box-value">${r.refund_method || 'Cash'}</div>`;
+    if (r.reason) html += `<div class="box-sub">Reason: ${r.reason}</div>`;
+    html += `</div></div>`;
+  }
+
+  const items = r.items || [];
+  html += '<table class="items-table"><thead><tr><th style="width:5%">#</th><th>Item</th><th class="c" style="width:10%">Qty</th><th class="r" style="width:15%">Price</th><th class="r" style="width:15%">Total</th></tr></thead><tbody>';
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const qty = parseFloat(item.quantity) || 0;
+    const rate = parseFloat(item.rate || item.unit_price || item.price) || 0;
+    const total = parseFloat(item.total) || (qty * rate);
+    html += `<tr><td class="c">${i + 1}</td><td>${item.product_name || ''}</td><td class="c">${qty}</td><td class="r">${formatPHP(rate)}</td><td class="r" style="font-weight:600">${formatPHP(total)}</td></tr>`;
+  }
+  html += '</tbody></table>';
+
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">';
+  html += qrImgTag(docCode, 80);
+  html += `<div class="totals-box"><div class="t-row t-grand"><span>Total Refund</span><span>${formatPHP(r.refund_amount || r.total_refund || 0)}</span></div></div>`;
+  html += '</div>';
+
+  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Authorized By</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Customer Signature</div></div></div>';
+  return html;
+}
+
+// ── Statement of Account ────────────────────────────────────────────────────
+function statementFullPage(data, biz, docCode) {
+  const s = data;
+  let html = buildPageHeader(biz, 'Statement of Account', '', s.statement_date || new Date().toISOString());
+
+  html += `<div class="info-row"><div class="info-box"><div class="box-label">Customer</div><div class="box-value" style="font-size:16px">${s.customer_name || ''}</div>`;
+  if (s.customer_phone) html += `<div class="box-sub">${s.customer_phone}</div>`;
+  if (s.customer_address) html += `<div class="box-sub">${s.customer_address}</div>`;
+  html += `</div><div class="info-box"><div class="box-label">Balance Due</div><div class="box-value" style="font-size:18px;color:#c00">${formatPHP(s.closing_balance || s.balance || 0)}</div></div></div>`;
+
+  if (s.transactions?.length) {
+    html += '<table class="items-table"><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th class="r">Debit</th><th class="r">Credit</th><th class="r">Balance</th></tr></thead><tbody>';
+    for (const tx of s.transactions) {
+      html += `<tr><td>${fmtDate(tx.date)}</td><td>${tx.reference || ''}</td><td>${tx.description || ''}</td><td class="r">${tx.debit > 0 ? formatPHP(tx.debit) : ''}</td><td class="r">${tx.credit > 0 ? formatPHP(tx.credit) : ''}</td><td class="r">${formatPHP(tx.running_balance || 0)}</td></tr>`;
+    }
+    html += '</tbody></table>';
+  }
+
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">';
+  html += qrImgTag(docCode, 80);
+  html += '<div class="totals-box">';
+  if (s.opening_balance !== undefined) html += `<div class="t-row"><span>Opening</span><span>${formatPHP(s.opening_balance)}</span></div>`;
+  if (s.total_charges !== undefined) html += `<div class="t-row"><span>Charges</span><span>${formatPHP(s.total_charges)}</span></div>`;
+  if (s.total_payments !== undefined) html += `<div class="t-row"><span>Payments</span><span>-${formatPHP(s.total_payments)}</span></div>`;
+  html += `<div class="t-row t-grand"><span>Balance Due</span><span>${formatPHP(s.closing_balance || s.balance || 0)}</span></div>`;
+  html += '</div></div>';
+  return html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  THERMAL DOCUMENTS (keep existing for 58mm printers)
+// ═══════════════════════════════════════════════════════════════════════════
+
+function orderSlipThermal(data, biz, docCode) {
+  const inv = data;
+  let html = buildThermalHeader(biz);
   html += `<div class="doc-title">ORDER SLIP</div>`;
   html += `<div class="meta-row"><span class="label">No:</span><span>${inv.invoice_number || ''}</span></div>`;
   html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDateTime(inv.created_at || inv.order_date)}</span></div>`;
-  if (inv.customer_name && inv.customer_name !== 'Walk-in') {
-    html += `<div class="meta-row"><span class="label">Customer:</span><span>${inv.customer_name}</span></div>`;
-  }
+  if (inv.customer_name && inv.customer_name !== 'Walk-in') html += `<div class="meta-row"><span class="label">Customer:</span><span>${inv.customer_name}</span></div>`;
   html += `<div class="meta-row"><span class="label">Cashier:</span><span>${inv.cashier_name || ''}</span></div>`;
   html += '<div class="sep"></div>';
   html += buildItemsThermal(inv.items || []);
@@ -151,7 +501,6 @@ function orderSlipThermal(data, biz) {
   html += '<div class="totals">';
   html += `<div class="row"><span>Subtotal</span><span>${formatPHP(inv.subtotal)}</span></div>`;
   if (inv.overall_discount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(inv.overall_discount)}</span></div>`;
-  if (inv.freight > 0) html += `<div class="row"><span>Freight</span><span>${formatPHP(inv.freight)}</span></div>`;
   html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(inv.grand_total)}</span></div>`;
   html += '</div>';
   html += '<div class="payment-info">';
@@ -162,305 +511,106 @@ function orderSlipThermal(data, biz) {
     if (change > 0) html += `<div class="meta-row"><span class="label">Change:</span><span>${formatPHP(change)}</span></div>`;
   }
   html += '</div>';
+  if (docCode) html += qrImgTag(docCode, 80);
   html += `<div class="footer">${biz.receipt_footer || 'This is not an official receipt.'}<br>Thank you!</div>`;
   return html;
 }
 
-function orderSlipFullPage(data, biz) {
+function trustReceiptThermal(data, biz, docCode) {
   const inv = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Order Slip</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">Slip No: </span><span class="value">${inv.invoice_number || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDateTime(inv.created_at || inv.order_date)}</span></div>`;
-  html += `<div><span class="label">Customer: </span><span class="value">${inv.customer_name || 'Walk-in'}</span></div>`;
-  html += `<div><span class="label">Cashier: </span><span class="value">${inv.cashier_name || ''}</span></div>`;
-  if (inv.payment_method) html += `<div><span class="label">Payment: </span><span class="value">${inv.payment_method}</span></div>`;
-  html += '</div>';
-  html += buildItemsFullPage(inv.items || []);
-  html += '<div class="totals-section"><div class="totals-box">';
-  html += `<div class="row"><span>Subtotal</span><span>${formatPHP(inv.subtotal)}</span></div>`;
-  if (inv.overall_discount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(inv.overall_discount)}</span></div>`;
-  if (inv.freight > 0) html += `<div class="row"><span>Freight</span><span>${formatPHP(inv.freight)}</span></div>`;
-  html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(inv.grand_total)}</span></div>`;
-  if (inv.amount_paid > 0) html += `<div class="row"><span>Amount Paid</span><span>${formatPHP(inv.amount_paid)}</span></div>`;
-  html += '</div></div>';
-  html += `<div class="footer">${biz.receipt_footer || 'This is not an official receipt.'}</div>`;
-  return html;
-}
-
-// ── Trust Receipt ───────────────────────────────────────────────────────────
-function trustReceiptThermal(data, biz) {
-  const inv = data;
-  let html = buildHeader(biz);
+  let html = buildThermalHeader(biz);
   html += `<div class="doc-title">TRUST RECEIPT</div>`;
   html += `<div class="meta-row"><span class="label">No:</span><span>${inv.invoice_number || ''}</span></div>`;
   html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDate(inv.order_date || inv.created_at)}</span></div>`;
   html += `<div class="meta-row"><span class="label">Customer:</span><span>${inv.customer_name || ''}</span></div>`;
   if (inv.due_date) html += `<div class="meta-row"><span class="label">Due:</span><span>${fmtDate(inv.due_date)}</span></div>`;
-  if (inv.terms && inv.terms !== 'COD') html += `<div class="meta-row"><span class="label">Terms:</span><span>${inv.terms}</span></div>`;
-  html += `<div class="meta-row"><span class="label">Cashier:</span><span>${inv.cashier_name || ''}</span></div>`;
   html += '<div class="sep"></div>';
   html += buildItemsThermal(inv.items || []);
   html += '<div class="sep"></div>';
   html += '<div class="totals">';
   html += `<div class="row"><span>Subtotal</span><span>${formatPHP(inv.subtotal)}</span></div>`;
-  if (inv.overall_discount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(inv.overall_discount)}</span></div>`;
   html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(inv.grand_total)}</span></div>`;
   if (inv.amount_paid > 0) html += `<div class="row"><span>Paid</span><span>${formatPHP(inv.amount_paid)}</span></div>`;
-  if (inv.balance > 0) html += `<div class="row" style="font-weight:bold;color:#c00"><span>BALANCE DUE</span><span>${formatPHP(inv.balance)}</span></div>`;
-  if (inv.interest_rate > 0) html += `<div class="row" style="font-size:8px"><span>Interest Rate</span><span>${inv.interest_rate}%/mo</span></div>`;
+  if (inv.balance > 0) html += `<div class="row" style="font-weight:bold"><span>BALANCE</span><span>${formatPHP(inv.balance)}</span></div>`;
   html += '</div>';
-  // Trust terms
   const terms = (biz.trust_receipt_terms || '').replace('{business_name}', biz.business_name || '');
-  if (terms) {
-    html += `<div class="trust-terms"><div class="terms-title">TERMS AND CONDITIONS</div>${terms}</div>`;
-  }
+  if (terms) html += `<div class="trust-terms"><div class="terms-title">TERMS</div>${terms}</div>`;
   html += '<div class="signature-line"><div style="margin-top:20px"></div><div class="line"></div><div class="sig-label">Customer Signature</div></div>';
+  if (docCode) html += qrImgTag(docCode, 80);
   html += `<div class="footer">${fmtDate(inv.order_date || inv.created_at)}</div>`;
   return html;
 }
 
-function trustReceiptFullPage(data, biz) {
-  const inv = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Trust Receipt</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">Receipt No: </span><span class="value">${inv.invoice_number || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(inv.order_date || inv.created_at)}</span></div>`;
-  html += `<div><span class="label">Customer: </span><span class="value">${inv.customer_name || ''}</span></div>`;
-  if (inv.due_date) html += `<div><span class="label">Due Date: </span><span class="value">${fmtDate(inv.due_date)}</span></div>`;
-  if (inv.terms && inv.terms !== 'COD') html += `<div><span class="label">Terms: </span><span class="value">${inv.terms}</span></div>`;
-  html += `<div><span class="label">Cashier: </span><span class="value">${inv.cashier_name || ''}</span></div>`;
-  if (inv.customer_address) html += `<div><span class="label">Address: </span><span class="value">${inv.customer_address}</span></div>`;
-  if (inv.customer_phone) html += `<div><span class="label">Phone: </span><span class="value">${inv.customer_phone}</span></div>`;
-  html += '</div>';
-  html += buildItemsFullPage(inv.items || []);
-  html += '<div class="totals-section"><div class="totals-box">';
-  html += `<div class="row"><span>Subtotal</span><span>${formatPHP(inv.subtotal)}</span></div>`;
-  if (inv.overall_discount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(inv.overall_discount)}</span></div>`;
-  if (inv.freight > 0) html += `<div class="row"><span>Freight</span><span>${formatPHP(inv.freight)}</span></div>`;
-  html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(inv.grand_total)}</span></div>`;
-  if (inv.amount_paid > 0) html += `<div class="row"><span>Amount Paid</span><span>${formatPHP(inv.amount_paid)}</span></div>`;
-  if (inv.balance > 0) html += `<div class="row" style="color:#c00;font-weight:bold"><span>Balance Due</span><span>${formatPHP(inv.balance)}</span></div>`;
-  if (inv.interest_rate > 0) html += `<div class="row" style="font-size:9px"><span>Interest Rate</span><span>${inv.interest_rate}% per month</span></div>`;
-  html += '</div></div>';
-  // Trust terms
-  const terms = (biz.trust_receipt_terms || '').replace('{business_name}', biz.business_name || '');
-  if (terms) {
-    html += `<div class="trust-terms"><div class="terms-title">TERMS AND CONDITIONS</div><p>${terms}</p></div>`;
-  }
-  html += '<div class="signature-section">';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Trustor (Seller)</div></div>';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Trustee (Buyer) Signature Over Printed Name</div></div>';
-  html += '</div>';
-  return html;
-}
-
-// ── Purchase Order (full page only) ─────────────────────────────────────────
-function purchaseOrderFullPage(data, biz) {
-  const po = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Purchase Order</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">PO No: </span><span class="value">${po.po_number || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(po.purchase_date)}</span></div>`;
-  html += `<div><span class="label">Supplier: </span><span class="value">${po.vendor || ''}</span></div>`;
-  if (po.dr_number) html += `<div><span class="label">DR #: </span><span class="value">${po.dr_number}</span></div>`;
-  html += `<div><span class="label">Status: </span><span class="value">${(po.status || '').toUpperCase()}</span></div>`;
-  html += `<div><span class="label">Payment: </span><span class="value">${po.po_type === 'cash' ? 'Cash' : po.terms_label || 'Terms'} — ${po.payment_status || 'unpaid'}</span></div>`;
-  if (po.due_date) html += `<div><span class="label">Due Date: </span><span class="value">${fmtDate(po.due_date)}</span></div>`;
-  if (po.notes) html += `<div class="md:col-span-2"><span class="label">Notes: </span><span class="value">${po.notes}</span></div>`;
-  html += '</div>';
-  html += buildItemsFullPage(po.items || []);
-  html += '<div class="totals-section"><div class="totals-box">';
-  html += `<div class="row"><span>Subtotal</span><span>${formatPHP(po.subtotal || po.line_subtotal)}</span></div>`;
-  if (po.overall_discount_amount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(po.overall_discount_amount)}</span></div>`;
-  if (po.freight > 0) html += `<div class="row"><span>Freight</span><span>${formatPHP(po.freight)}</span></div>`;
-  if (po.tax_amount > 0) html += `<div class="row"><span>VAT (${po.tax_rate}%)</span><span>${formatPHP(po.tax_amount)}</span></div>`;
-  html += `<div class="row grand"><span>GRAND TOTAL</span><span>${formatPHP(po.grand_total)}</span></div>`;
-  if (po.balance > 0) html += `<div class="row" style="color:#c00"><span>Balance</span><span>${formatPHP(po.balance)}</span></div>`;
-  html += '</div></div>';
-  html += '<div class="signature-section">';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Prepared By</div></div>';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Received By</div></div>';
-  html += '</div>';
-  return html;
-}
-
-// ── Stock Transfer Slip (full page) ─────────────────────────────────────────
-function stockTransferFullPage(data, biz) {
-  const t = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Stock Transfer Slip</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">Transfer #: </span><span class="value">${t.transfer_number || t.id?.slice(0, 8) || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(t.created_at || t.date)}</span></div>`;
-  html += `<div><span class="label">From: </span><span class="value">${t.from_branch_name || ''}</span></div>`;
-  html += `<div><span class="label">To: </span><span class="value">${t.to_branch_name || ''}</span></div>`;
-  html += `<div><span class="label">Status: </span><span class="value">${(t.status || '').toUpperCase()}</span></div>`;
-  if (t.notes) html += `<div><span class="label">Notes: </span><span class="value">${t.notes}</span></div>`;
-  html += '</div>';
-  html += buildItemsFullPage(t.items || []);
-  html += '<div class="signature-section">';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Released By</div></div>';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Received By</div></div>';
-  html += '</div>';
-  return html;
-}
-
-// ── Expense Voucher (full page) ─────────────────────────────────────────────
-function expenseVoucherFullPage(data, biz) {
-  const e = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Expense Voucher</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">Voucher #: </span><span class="value">${e.reference_number || e.id?.slice(0, 8) || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(e.date || e.created_at)}</span></div>`;
-  html += `<div><span class="label">Category: </span><span class="value">${e.category || 'General'}</span></div>`;
-  html += `<div><span class="label">Payment: </span><span class="value">${e.payment_method || 'Cash'}</span></div>`;
-  html += `<div><span class="label">Amount: </span><span class="value" style="font-size:14px;font-weight:bold;color:#1A4D2E">${formatPHP(e.amount)}</span></div>`;
-  if (e.fund_source) html += `<div><span class="label">Source: </span><span class="value">${e.fund_source}</span></div>`;
-  html += '</div>';
-  if (e.description) {
-    html += `<div style="margin:12px 0;padding:8px;background:#f9f9f9;border-radius:4px;font-size:11px"><b>Description:</b> ${e.description}</div>`;
-  }
-  if (e.notes) {
-    html += `<div style="margin:8px 0;font-size:10px;color:#555"><b>Notes:</b> ${e.notes}</div>`;
-  }
-  html += '<div class="signature-section">';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Approved By</div></div>';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Received By</div></div>';
-  html += '</div>';
-  return html;
-}
-
-// ── Return Slip ─────────────────────────────────────────────────────────────
-function returnSlipThermal(data, biz) {
+function returnSlipThermal(data, biz, docCode) {
   const r = data;
-  let html = buildHeader(biz);
+  let html = buildThermalHeader(biz);
   html += `<div class="doc-title">RETURN SLIP</div>`;
-  html += `<div class="meta-row"><span class="label">Ref:</span><span>${r.return_number || r.id?.slice(0, 8) || ''}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Ref:</span><span>${r.return_number || ''}</span></div>`;
   html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDateTime(r.created_at)}</span></div>`;
-  html += `<div class="meta-row"><span class="label">Orig. Invoice:</span><span>${r.original_invoice_number || ''}</span></div>`;
-  if (r.customer_name) html += `<div class="meta-row"><span class="label">Customer:</span><span>${r.customer_name}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Orig:</span><span>${r.original_invoice_number || ''}</span></div>`;
   html += '<div class="sep"></div>';
   html += buildItemsThermal(r.items || []);
   html += '<div class="sep"></div>';
   html += '<div class="totals">';
   html += `<div class="row grand"><span>REFUND</span><span>${formatPHP(r.refund_amount || r.total_refund || 0)}</span></div>`;
-  html += `<div class="row"><span>Method</span><span>${r.refund_method || 'Cash'}</span></div>`;
   html += '</div>';
+  if (docCode) html += qrImgTag(docCode, 80);
   html += `<div class="footer">${biz.receipt_footer || ''}</div>`;
   return html;
 }
 
-function returnSlipFullPage(data, biz) {
-  const r = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Return Slip</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">Return #: </span><span class="value">${r.return_number || r.id?.slice(0, 8) || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(r.created_at)}</span></div>`;
-  html += `<div><span class="label">Original Invoice: </span><span class="value">${r.original_invoice_number || ''}</span></div>`;
-  if (r.customer_name) html += `<div><span class="label">Customer: </span><span class="value">${r.customer_name}</span></div>`;
-  html += `<div><span class="label">Refund Method: </span><span class="value">${r.refund_method || 'Cash'}</span></div>`;
-  html += `<div><span class="label">Reason: </span><span class="value">${r.reason || ''}</span></div>`;
-  html += '</div>';
-  html += buildItemsFullPage(r.items || []);
-  html += '<div class="totals-section"><div class="totals-box">';
-  html += `<div class="row grand"><span>Total Refund</span><span>${formatPHP(r.refund_amount || r.total_refund || 0)}</span></div>`;
-  html += '</div></div>';
-  html += '<div class="signature-section">';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Authorized By</div></div>';
-  html += '<div class="signature-block"><div class="line"></div><div class="sig-label">Customer Signature</div></div>';
-  html += '</div>';
-  return html;
-}
 
-// ── Statement of Account (full page only) ───────────────────────────────────
-function statementFullPage(data, biz) {
-  const s = data;
-  let html = buildHeader(biz);
-  html += `<div class="doc-title">Statement of Account</div>`;
-  html += '<div class="meta-grid">';
-  html += `<div><span class="label">Customer: </span><span class="value" style="font-size:13px;font-weight:bold">${s.customer_name || ''}</span></div>`;
-  html += `<div><span class="label">Date: </span><span class="value">${fmtDate(s.statement_date || new Date().toISOString())}</span></div>`;
-  if (s.customer_phone) html += `<div><span class="label">Phone: </span><span class="value">${s.customer_phone}</span></div>`;
-  if (s.customer_address) html += `<div><span class="label">Address: </span><span class="value">${s.customer_address}</span></div>`;
-  html += '</div>';
-  // Transactions table
-  if (s.transactions?.length) {
-    html += '<table class="items-table"><thead><tr>';
-    html += '<th>Date</th><th>Reference</th><th>Description</th><th class="text-right">Debit</th><th class="text-right">Credit</th><th class="text-right">Balance</th>';
-    html += '</tr></thead><tbody>';
-    for (const tx of s.transactions) {
-      html += `<tr>`;
-      html += `<td>${fmtDate(tx.date)}</td>`;
-      html += `<td>${tx.reference || ''}</td>`;
-      html += `<td>${tx.description || ''}</td>`;
-      html += `<td class="text-right">${tx.debit > 0 ? formatPHP(tx.debit) : ''}</td>`;
-      html += `<td class="text-right">${tx.credit > 0 ? formatPHP(tx.credit) : ''}</td>`;
-      html += `<td class="text-right">${formatPHP(tx.running_balance || 0)}</td>`;
-      html += `</tr>`;
-    }
-    html += '</tbody></table>';
-  }
-  html += '<div class="totals-section"><div class="totals-box">';
-  if (s.opening_balance !== undefined) html += `<div class="row"><span>Opening Balance</span><span>${formatPHP(s.opening_balance)}</span></div>`;
-  if (s.total_charges !== undefined) html += `<div class="row"><span>Total Charges</span><span>${formatPHP(s.total_charges)}</span></div>`;
-  if (s.total_payments !== undefined) html += `<div class="row"><span>Total Payments</span><span>-${formatPHP(s.total_payments)}</span></div>`;
-  html += `<div class="row grand"><span>Balance Due</span><span>${formatPHP(s.closing_balance || s.balance || 0)}</span></div>`;
-  html += '</div></div>';
-  return html;
-}
+// ═══════════════════════════════════════════════════════════════════════════
+//  MAIN PRINT ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Print function ──────────────────────────────────────────────────────────
 const PrintEngine = {
   /**
    * @param {object} opts
-   * @param {'order_slip'|'trust_receipt'|'purchase_order'|'stock_transfer'|'expense_voucher'|'return_slip'|'statement'} opts.type
+   * @param {'order_slip'|'trust_receipt'|'purchase_order'|'branch_transfer'|'expense_voucher'|'return_slip'|'statement'} opts.type
    * @param {object} opts.data - Document data
    * @param {'thermal'|'full_page'} opts.format
    * @param {object} opts.businessInfo - From /settings/business-info
+   * @param {string} opts.docCode - Unique document QR code (optional)
    */
-  print({ type, data, format = 'thermal', businessInfo = {} }) {
+  print({ type, data, format = 'thermal', businessInfo = {}, docCode = '' }) {
     const css = format === 'thermal' ? thermalCSS : fullPageCSS;
     let body = '';
 
     switch (type) {
       case 'order_slip':
-        body = format === 'thermal' ? orderSlipThermal(data, businessInfo) : orderSlipFullPage(data, businessInfo);
+        body = format === 'thermal' ? orderSlipThermal(data, businessInfo, docCode) : orderSlipFullPage(data, businessInfo, docCode);
         break;
       case 'trust_receipt':
-        body = format === 'thermal' ? trustReceiptThermal(data, businessInfo) : trustReceiptFullPage(data, businessInfo);
+        body = format === 'thermal' ? trustReceiptThermal(data, businessInfo, docCode) : trustReceiptFullPage(data, businessInfo, docCode);
         break;
       case 'purchase_order':
-        body = purchaseOrderFullPage(data, businessInfo);
+        body = purchaseOrderFullPage(data, businessInfo, docCode);
         break;
-      case 'stock_transfer':
-        body = stockTransferFullPage(data, businessInfo);
+      case 'branch_transfer':
+        body = branchTransferFullPage(data, businessInfo, docCode);
         break;
       case 'expense_voucher':
-        body = expenseVoucherFullPage(data, businessInfo);
+        body = expenseVoucherFullPage(data, businessInfo, docCode);
         break;
       case 'return_slip':
-        body = format === 'thermal' ? returnSlipThermal(data, businessInfo) : returnSlipFullPage(data, businessInfo);
+        body = format === 'thermal' ? returnSlipThermal(data, businessInfo, docCode) : returnSlipFullPage(data, businessInfo, docCode);
         break;
       case 'statement':
-        body = statementFullPage(data, businessInfo);
+        body = statementFullPage(data, businessInfo, docCode);
         break;
       default:
-        body = format === 'thermal' ? orderSlipThermal(data, businessInfo) : orderSlipFullPage(data, businessInfo);
+        body = format === 'thermal' ? orderSlipThermal(data, businessInfo, docCode) : orderSlipFullPage(data, businessInfo, docCode);
     }
 
+    const winWidth = format === 'thermal' ? 400 : 900;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title><style>${css}</style></head><body>${body}</body></html>`;
-    const win = window.open('', '_blank', 'width=400,height=600');
+    const win = window.open('', '_blank', `width=${winWidth},height=700`);
     if (!win) { alert('Please allow popups to print'); return; }
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 300);
+    setTimeout(() => { win.print(); }, 500);
   },
 
   // Helper to determine doc type from invoice data

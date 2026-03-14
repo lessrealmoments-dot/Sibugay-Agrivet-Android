@@ -175,8 +175,15 @@ export default function PurchaseOrderPage() {
   const [bizInfo, setBizInfo] = useState({});
   useEffect(() => { api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {}); }, []);
 
-  const handlePrintPO = (po) => {
-    PrintEngine.print({ type: 'purchase_order', data: po, format: 'full_page', businessInfo: bizInfo });
+  const handlePrintPO = async (po) => {
+    let docCode = po.doc_code || '';
+    if (!docCode) {
+      try {
+        const res = await api.post('/doc/generate-code', { doc_type: 'purchase_order', doc_id: po.id });
+        docCode = res.data.code || '';
+      } catch { /* print without QR */ }
+    }
+    PrintEngine.print({ type: 'purchase_order', data: po, format: 'full_page', businessInfo: bizInfo, docCode });
   };
 
   // ── Init ───────────────────────────────────────────────────────────────

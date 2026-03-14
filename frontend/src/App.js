@@ -56,6 +56,7 @@ import TransactionSearchPage from './pages/TransactionSearchPage';
 import JournalEntriesPage from './pages/JournalEntriesPage';
 import BudgetChecker from './components/BudgetChecker';
 import TerminalPage from './pages/terminal/TerminalPage';
+import DocViewerPage from './pages/DocViewerPage';
 
 // Legacy pages (keep files but not in primary nav)
 // POSPage → replaced by UnifiedSalesPage (/sales-new)
@@ -143,6 +144,9 @@ function AppRoutes() {
 
       {/* Platform admin portal — separate entry point */}
       <Route path="/admin" element={<AdminLoginPage />} />
+
+      {/* Document viewer (PIN-protected, no login required) */}
+      <Route path="/doc/:code" element={<DocViewerPage />} />
 
       {/* Super admin panel (protected, requires is_super_admin) */}
       <Route path="/superadmin" element={<ProtectedRoute><SuperAdminPage /></ProtectedRoute>} />

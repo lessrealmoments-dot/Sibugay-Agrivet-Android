@@ -1,0 +1,81 @@
+{
+  "summary": "Testing 3-tier Document Viewer system (Tier 1 open, Tier 2 PIN-protected, Tier 3 terminal-only). All backend APIs and frontend flows working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "backend_api_tests": {
+      "status": "ALL PASS (12/12)",
+      "file": "/app/backend/tests/test_doc_viewer_tiered_120.py",
+      "test_cases": [
+        {"test": "test_view_existing_document_no_auth", "status": "PASS", "detail": "GET /api/doc/view/{code} returns basic info without auth"},
+        {"test": "test_view_document_case_insensitive", "status": "PASS", "detail": "Code lookup is case-insensitive"},
+        {"test": "test_view_nonexistent_document_returns_404", "status": "PASS", "detail": "Returns 404 for nonexistent code"},
+        {"test": "test_tier1_excludes_sensitive_data", "status": "PASS", "detail": "Tier 1 excludes payments, attached_files, verifier"},
+        {"test": "test_lookup_with_valid_pin_returns_full_details", "status": "PASS", "detail": "Valid PIN returns full document with attached_files"},
+        {"test": "test_lookup_with_invalid_pin_returns_403", "status": "PASS", "detail": "Invalid PIN returns 403 Forbidden"},
+        {"test": "test_lookup_missing_code_returns_400", "status": "PASS", "detail": "Missing code returns 400"},
+        {"test": "test_lookup_missing_pin_returns_400", "status": "PASS", "detail": "Missing PIN returns 400"},
+        {"test": "test_lookup_nonexistent_code_returns_404", "status": "PASS", "detail": "Valid PIN + nonexistent code returns 404"},
+        {"test": "test_lookup_empty_code_returns_400", "status": "PASS", "detail": "Empty code returns 400"},
+        {"test": "test_lookup_empty_pin_returns_400", "status": "PASS", "detail": "Empty PIN returns 400"},
+        {"test": "test_items_have_required_fields", "status": "PASS", "detail": "Items have name, qty, price, total fields"}
+      ]
+    },
+    "frontend_ui_tests": {
+      "status": "ALL PASS (6/6)",
+      "route": "/doc/:code (public, no login required)",
+      "test_cases": [
+        {"test": "Tier 1 loads instantly", "status": "PASS", "detail": "DocViewerPage loads with items, total, status immediately"},
+        {"test": "View Full Details button visible", "status": "PASS", "detail": "Tier 2 locked section with expand button works"},
+        {"test": "PIN input expands on click", "status": "PASS", "detail": "Clicking View Full Details expands PIN input form"},
+        {"test": "Invalid PIN shows error", "status": "PASS", "detail": "PIN 000000 shows 'Invalid PIN' error message"},
+        {"test": "Valid PIN unlocks Tier 2", "status": "PASS", "detail": "PIN 521325 shows full details with 'Full details unlocked'"},
+        {"test": "Terminal actions hidden", "status": "PASS", "detail": "Terminal-only actions (Tier 3) NOT shown on regular browser"}
+      ]
+    },
+    "404_handling": {
+      "status": "PASS",
+      "detail": "Nonexistent code shows 'Document Not Found' error with code displayed"
+    }
+  },
+  "verified_features": [
+    "GET /api/doc/view/{code} returns basic document info without auth (Tier 1 open endpoint)",
+    "POST /api/doc/lookup with PIN returns full document details including payment history/attached files (Tier 2)",
+    "DocViewerPage at /doc/{code} loads instantly showing items, total, status (Tier 1)",
+    "DocViewerPage 'View Full Details' button expands PIN input",
+    "DocViewerPage valid PIN shows full details (Tier 2)",
+    "DocViewerPage invalid PIN shows error message 'Invalid PIN'",
+    "DocViewerPage does NOT show terminal action buttons on non-terminal devices (Tier 3 gating)",
+    "GET /api/doc/view/{code} with nonexistent code returns 404"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_doc_viewer_tiered_120.py",
+    "/app/test_reports/pytest/pytest_doc_viewer_120.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_doc_viewer_tiered_120.py"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 tests passed)",
+    "frontend": "100% (6/6 UI tests passed)"
+  },
+  "test_credentials_used": {
+    "test_doc_code": "CT7SP66X",
+    "valid_manager_pin": "521325",
+    "invalid_pin_for_testing": "000000"
+  },
+  "seed_data_creation": "None - used existing test doc code CT7SP66X",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "3-tier document viewer fully tested. Test code CT7SP66X is branch_transfer type (status: Cancelled). Tier 1 endpoint GET /api/doc/view/{code} requires NO auth. Tier 2 POST /api/doc/lookup requires PIN (521325). Tier 3 terminal detection checks localStorage for 'agrismart_terminal' key - regular browsers won't have this. UI design is clean and professional with proper error handling.",
+  "rca_of_issues": "None - all features working correctly"
+}

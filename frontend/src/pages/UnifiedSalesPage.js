@@ -172,7 +172,11 @@ export default function UnifiedSalesPage() {
   const [saving, setSaving] = useState(false);
   
   // Reference number prompt
-  const [refPrompt, setRefPrompt] = useState({ open: false, number: '', title: '' });
+  const [refPrompt, setRefPrompt] = useState({ open: false, number: '', title: '', invoiceData: null });
+
+  // Business info for printing
+  const [bizInfo, setBizInfo] = useState({});
+  useEffect(() => { api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {}); }, []);
   
   // Credit approval
   const [creditApprovalDialog, setCreditApprovalDialog] = useState(false);
@@ -1003,7 +1007,7 @@ export default function UnifiedSalesPage() {
           ? `Invoice ${invoiceNum} created! Balance: ${formatPHP(balance)}`
           : `Sale ${invoiceNum} completed!`
         );
-        setRefPrompt({ open: true, number: invoiceNum, title: saleData.customer_name || 'Walk-in' });
+        setRefPrompt({ open: true, number: invoiceNum, title: saleData.customer_name || 'Walk-in', invoiceData: { ...saleData, ...res.data, invoice_number: invoiceNum } });
         clearCart();
         setCheckoutDialog(false);
         setPendingCreditSale(null);
@@ -2598,6 +2602,8 @@ export default function UnifiedSalesPage() {
         referenceNumber={refPrompt.number}
         type="sale"
         title={refPrompt.title}
+        invoiceData={refPrompt.invoiceData}
+        businessInfo={bizInfo}
       />
 
     </div>

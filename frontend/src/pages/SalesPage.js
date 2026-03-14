@@ -99,9 +99,16 @@ export default function SalesPage() {
     setInvoiceModalOpen(true);
   };
 
-  const handlePrint = (sale, format) => {
+  const handlePrint = async (sale, format) => {
     const docType = PrintEngine.getDocType(sale);
-    PrintEngine.print({ type: docType, data: sale, format, businessInfo });
+    let docCode = sale.doc_code || '';
+    if (!docCode && sale.id) {
+      try {
+        const res = await api.post('/doc/generate-code', { doc_type: 'invoice', doc_id: sale.id });
+        docCode = res.data?.code || '';
+      } catch { /* print without QR */ }
+    }
+    PrintEngine.print({ type: docType, data: sale, format, businessInfo, docCode });
   };
 
   const totalPages = Math.ceil(total / LIMIT);

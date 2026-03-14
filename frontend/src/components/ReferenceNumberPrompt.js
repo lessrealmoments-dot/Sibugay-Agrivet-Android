@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
-import { Copy, Check, FileText } from 'lucide-react';
+import { Copy, Check, FileText, Printer, X } from 'lucide-react';
+import PrintEngine from '../lib/PrintEngine';
+import { api } from '../contexts/AuthContext';
 
 /**
- * Modal that prompts the user to write the reference number on their original receipt.
- * Shows after any transaction creation (sale, PO, expense).
- *
+ * Modal after transaction creation — shows reference number + print option.
  * Props:
- *   open: boolean
- *   onClose: () => void
- *   referenceNumber: string (e.g., "SI-MN-001042")
- *   type: "sale" | "po" | "expense" | "invoice"
- *   title: optional label (e.g., "Walk-in" or vendor name)
+ *   open, onClose, referenceNumber, type, title
+ *   invoiceData: full invoice/PO object for printing
+ *   businessInfo: from /settings/business-info
  */
-export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, type = "sale", title }) {
+export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, type = "sale", title, invoiceData, businessInfo }) {
   const [copied, setCopied] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const typeLabel = {
     sale: 'Sales Receipt',
@@ -30,7 +29,6 @@ export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback
       const el = document.createElement('textarea');
       el.value = referenceNumber;
       document.body.appendChild(el);
@@ -40,6 +38,36 @@ export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, 
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const handlePrint = async (format) => {
+    if (!invoiceData) return;
+    setPrinting(true);
+    try {
+      // Generate doc code for QR
+      let docCode = '';
+      const docTypeMap = { sale: 'invoice', po: 'purchase_order', invoice: 'invoice' };
+      const docType = docTypeMap[type] || 'invoice';
+      const docId = invoiceData.id;
+      if (docId) {
+        try {
+          const res = await api.post('/doc/generate-code', { doc_type: docType, doc_id: docId });
+          docCode = res.data?.code || '';
+        } catch { /* print without QR */ }
+      }
+
+      const printType = PrintEngine.getDocType(invoiceData);
+      PrintEngine.print({
+        type: type === 'po' ? 'purchase_order' : printType,
+        data: invoiceData,
+        format,
+        businessInfo: businessInfo || {},
+        docCode,
+      });
+    } catch (e) {
+      console.error('Print error:', e);
+    }
+    setPrinting(false);
   };
 
   return (
@@ -53,20 +81,41 @@ export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, 
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <p className="text-sm text-slate-600">
-            Write this reference number on your original receipt for easy tracking:
-          </p>
-
           {/* Big reference number display */}
           <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-5 text-center"
             data-testid="reference-number-display">
             <p className="font-mono text-2xl font-bold text-slate-800 tracking-wider select-all">
               {referenceNumber}
             </p>
-            {title && (
-              <p className="text-sm text-slate-500 mt-1">{title}</p>
-            )}
+            {title && <p className="text-sm text-slate-500 mt-1">{title}</p>}
           </div>
+
+          {/* Print options */}
+          {invoiceData && (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-600 font-medium">Print this receipt?</p>
+              <div className="flex gap-2">
+                <Button
+                  data-testid="print-full-page-btn"
+                  variant="outline"
+                  className="flex-1 h-11"
+                  onClick={() => handlePrint('full_page')}
+                  disabled={printing}
+                >
+                  <Printer size={16} className="mr-2" /> Full Page (8.5x11)
+                </Button>
+                <Button
+                  data-testid="print-thermal-btn"
+                  variant="outline"
+                  className="flex-1 h-11"
+                  onClick={() => handlePrint('thermal')}
+                  disabled={printing}
+                >
+                  <Printer size={16} className="mr-2" /> Thermal (58mm)
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <Button

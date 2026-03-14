@@ -18,6 +18,7 @@ import {
   deductLocalInventory, hasPendingSales
 } from '../lib/offlineDB';
 import { syncPendingSales, refreshPOSCache, startAutoSync, stopAutoSync, newEnvelopeId } from '../lib/syncManager';
+import ReferenceNumberPrompt from '../components/ReferenceNumberPrompt';
 
 export default function POSPage() {
   const { currentBranch, user } = useAuth();
@@ -41,9 +42,12 @@ export default function POSPage() {
   const [closing, setClosing] = useState(null);
   const [closeForm, setCloseForm] = useState({ actual_cash: 0, bank_checks: 0, other_payment_forms: 0, cash_to_drawer: 0, cash_to_safe: 0 });
   const [closingResult, setClosingResult] = useState(null);
+  const [refPrompt, setRefPrompt] = useState({ open: false, number: '', title: '', invoiceData: null });
+  const [bizInfo, setBizInfo] = useState({});
   const searchRef = useRef(null);
 
   // Online/Offline detection
+  useEffect(() => { api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {}); }, []);
   useEffect(() => {
     const goOnline = async () => {
       setIsOnline(true);
@@ -222,6 +226,7 @@ export default function POSPage() {
         // Deduct from local cache so stock levels stay accurate
         await deductLocalInventory(saleData.items);
         toast.success(`Sale ${res.data.sale_number} completed!`);
+        setRefPrompt({ open: true, number: res.data.sale_number, title: saleData.customer_name || 'Walk-in', invoiceData: { ...saleData, ...res.data, invoice_number: res.data.sale_number, grand_total: grandTotal, subtotal } });
       } catch (e) {
         // API failed while online - save offline as fallback
         await addPendingSale(saleData);
@@ -751,6 +756,16 @@ export default function POSPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ReferenceNumberPrompt
+        open={refPrompt.open}
+        onClose={() => setRefPrompt(p => ({ ...p, open: false }))}
+        referenceNumber={refPrompt.number}
+        type="sale"
+        title={refPrompt.title}
+        invoiceData={refPrompt.invoiceData}
+        businessInfo={bizInfo}
+      />
     </div>
   );
 }

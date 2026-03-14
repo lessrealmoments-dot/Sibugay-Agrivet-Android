@@ -1552,6 +1552,16 @@ export default function BranchTransferPage() {
                             <span className="text-base font-semibold text-slate-700">{fromBr?.name || '?'}</span>
                             <ArrowRight size={16} className="text-slate-400 shrink-0" />
                             <span className="text-base font-semibold text-slate-700">{toBr?.name || '?'}</span>
+                            {isSourceBranch && (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2.5 py-0.5 ml-1" data-testid={`role-sender-${o.id}`}>
+                                <Send size={10} /> You: Sender
+                              </span>
+                            )}
+                            {isDestBranch && !isSourceBranch && (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5 ml-1" data-testid={`role-receiver-${o.id}`}>
+                                <CheckCircle2 size={10} /> You: Receiver
+                              </span>
+                            )}
                           </div>
                           {o.request_po_number && (
                             <p className="text-xs text-blue-500 mt-1 flex items-center gap-1">

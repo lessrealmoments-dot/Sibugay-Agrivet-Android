@@ -39,6 +39,7 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Status-based filter pills (All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes)
 - Card-based layout with timelines, action buttons, colored borders
 - **UX enlarged for employee accessibility** (Mar 2026): Bigger filter pills, larger cards, bigger buttons with text labels, larger timeline dots
+- **Branch role indicator** (Mar 2026): "You: Sender" (blue) / "You: Receiver" (green) tags on each transfer card
 
 ### Terminal Sales Fixes (Complete — Mar 2026)
 - Scanner debounce (2s cooldown), full checkout flow, online API error handling

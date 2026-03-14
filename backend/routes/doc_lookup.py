@@ -74,9 +74,8 @@ async def generate_doc_code(data: dict, user=Depends(get_current_user)):
 @router.post("/lookup")
 async def lookup_document(data: dict):
     """
-    PIN-protected document lookup by code.
+    PIN-protected document lookup by code — returns FULL details.
     Body: { code: "ABC12345", pin: "521325" }
-    Returns document details based on type.
     """
     code = (data.get("code") or "").strip().upper()
     pin = (data.get("pin") or "").strip()
@@ -105,9 +104,7 @@ async def lookup_document(data: dict):
         doc = await db.invoices.find_one({"id": doc_id}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=404, detail="Invoice not found")
-        # Get payment history
         payments = doc.get("payments", [])
-        # Get customer info
         customer = None
         if doc.get("customer_id"):
             customer = await db.customers.find_one(
@@ -125,7 +122,6 @@ async def lookup_document(data: dict):
         doc = await db.purchase_orders.find_one({"id": doc_id}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=404, detail="PO not found")
-        # Get attached receipts
         uploads = await db.upload_sessions.find(
             {"record_type": "purchase_order", "record_id": doc_id},
             {"_id": 0}
@@ -147,10 +143,8 @@ async def lookup_document(data: dict):
         doc = await db.branch_transfer_orders.find_one({"id": doc_id}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=404, detail="Transfer not found")
-        # Get branch names
         from_branch = await db.branches.find_one({"id": doc.get("from_branch_id")}, {"_id": 0, "name": 1})
         to_branch = await db.branches.find_one({"id": doc.get("to_branch_id")}, {"_id": 0, "name": 1})
-        # Get attached receipts/DR photos
         uploads = await db.upload_sessions.find(
             {"record_type": "branch_transfer", "record_id": doc_id},
             {"_id": 0}
@@ -168,6 +162,83 @@ async def lookup_document(data: dict):
             "to_branch_name": to_branch.get("name", "") if to_branch else "",
             "attached_files": files,
             "verifier": verifier.get("verifier_name", ""),
+        }
+
+    raise HTTPException(status_code=400, detail=f"Unknown document type: {doc_type}")
+
+
+@router.get("/view/{code}")
+async def view_document_open(code: str):
+    """
+    Open (no PIN) document view — returns basic receipt info only.
+    Sensitive data (payment history, attached files, internal notes) excluded.
+    """
+    code = code.strip().upper()
+    doc_ref = await db.doc_codes.find_one({"code": code}, {"_id": 0})
+    if not doc_ref:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc_type = doc_ref["doc_type"]
+    doc_id = doc_ref["doc_id"]
+
+    if doc_type == "invoice":
+        doc = await db.invoices.find_one({"id": doc_id}, {"_id": 0})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        balance = (doc.get("grand_total") or 0) - (doc.get("amount_paid") or 0)
+        is_paid = balance <= 0 or doc.get("payment_status") == "paid"
+        return {
+            "doc_type": "invoice",
+            "doc_id": doc_id,
+            "number": doc.get("invoice_number", ""),
+            "date": doc.get("created_at") or doc.get("order_date", ""),
+            "customer_name": doc.get("customer_name", "Walk-in"),
+            "items": [{"name": i.get("product_name", ""), "qty": i.get("quantity", 0), "price": i.get("rate") or i.get("unit_price") or i.get("price", 0), "total": i.get("total", 0)} for i in (doc.get("items") or [])],
+            "subtotal": doc.get("subtotal", 0),
+            "discount": doc.get("overall_discount", 0),
+            "grand_total": doc.get("grand_total", 0),
+            "status": "Fully Paid" if is_paid else f"Balance: ₱{balance:,.2f}",
+            "payment_method": doc.get("payment_method", "Cash"),
+            "payment_type": doc.get("payment_type", "cash"),
+            "customer_id": doc.get("customer_id", ""),
+        }
+
+    elif doc_type == "purchase_order":
+        doc = await db.purchase_orders.find_one({"id": doc_id}, {"_id": 0})
+        if not doc:
+            raise HTTPException(status_code=404, detail="PO not found")
+        return {
+            "doc_type": "purchase_order",
+            "doc_id": doc_id,
+            "number": doc.get("po_number", ""),
+            "date": doc.get("purchase_date", ""),
+            "supplier_name": doc.get("vendor", ""),
+            "items": [{"name": i.get("product_name") or i.get("description", ""), "qty": i.get("quantity", 0), "price": i.get("rate") or i.get("unit_price") or i.get("price", 0), "total": i.get("total", 0)} for i in (doc.get("items") or [])],
+            "grand_total": doc.get("grand_total", 0),
+            "status": (doc.get("status") or "").replace("_", " ").title(),
+            "payment_status": doc.get("payment_status", "unpaid"),
+            "branch_id": doc.get("branch_id", ""),
+        }
+
+    elif doc_type == "branch_transfer":
+        doc = await db.branch_transfer_orders.find_one({"id": doc_id}, {"_id": 0})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Transfer not found")
+        from_branch = await db.branches.find_one({"id": doc.get("from_branch_id")}, {"_id": 0, "name": 1})
+        to_branch = await db.branches.find_one({"id": doc.get("to_branch_id")}, {"_id": 0, "name": 1})
+        status_labels = {"draft": "Draft", "sent": "In Transit", "sent_to_terminal": "On Terminal", "received_pending": "Pending Review", "received": "Completed", "disputed": "Disputed", "cancelled": "Cancelled"}
+        return {
+            "doc_type": "branch_transfer",
+            "doc_id": doc_id,
+            "number": doc.get("invoice_number") or doc.get("order_number", ""),
+            "date": doc.get("created_at", ""),
+            "from_branch": from_branch.get("name", "") if from_branch else "",
+            "to_branch": to_branch.get("name", "") if to_branch else "",
+            "items": [{"name": i.get("product_name", ""), "qty": i.get("qty", 0), "price": i.get("transfer_capital", 0), "total": (i.get("transfer_capital", 0) * i.get("qty", 0))} for i in (doc.get("items") or [])],
+            "total": sum(i.get("transfer_capital", 0) * i.get("qty", 0) for i in (doc.get("items") or [])),
+            "status": status_labels.get(doc.get("status", ""), doc.get("status", "")),
+            "raw_status": doc.get("status", ""),
+            "to_branch_id": doc.get("to_branch_id", ""),
         }
 
     raise HTTPException(status_code=400, detail=f"Unknown document type: {doc_type}")

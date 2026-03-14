@@ -38,10 +38,11 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 ### QR Document Lookup System (Complete — Mar 2026)
 - Unique 8-char alphanumeric code per document (Sales, PO, Branch Transfer)
 - QR code printed on every receipt linking to `/doc/:code`
-- PIN-protected document viewer (Manager PIN / Admin PIN / TOTP)
-- Branch Transfer viewer: status, From/To, timeline, items, attached files
-- Sales viewer: payment status, items, payment history
-- PO viewer: supplier, payment terms, items, attached receipts
+- **3-Tier Access Model:**
+  - Tier 1 (Open): Items, total, status, customer/supplier — no PIN needed
+  - Tier 2 (PIN): Payment history, attached files, notes, reprint — Manager/Admin/TOTP PIN
+  - Tier 3 (Terminal): Pull PO/Transfer to terminal, apply credit payment — paired terminal + PIN
+- Terminal detection via localStorage `agrismart_terminal` session
 
 ### PrintEngine v2 Redesign (Complete — Mar 2026)
 - Professional template: company left, doc info right, green header bar

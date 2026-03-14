@@ -53,7 +53,7 @@ export default function BudgetChecker({ onUnlock, branchId }) {
   // ── Keyboard: Ctrl+Shift+U → unlock ──────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'U') {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'U' || e.key === 'u')) {
         e.preventDefault();
         setShowUnlock(true);
         setTimeout(() => document.getElementById('kiosk-unlock-pin')?.focus(), 100);
@@ -636,7 +636,7 @@ export default function BudgetChecker({ onUnlock, branchId }) {
                 </div>
                 <div>
                   <h3 className="font-semibold text-slate-800 text-lg" style={{ fontFamily: 'Manrope' }}>
-                    Unlock POS
+                    Unlock AgriBooks
                   </h3>
                   <p className="text-sm text-slate-400">Enter Manager PIN, Admin PIN, or TOTP</p>
                 </div>

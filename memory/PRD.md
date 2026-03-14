@@ -74,6 +74,13 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Fixed "Confirm Receipt" dialog to use branch context instead of isAdmin
 - Admin in consolidated view sees View only; specific branch selection shows correct actions
 
+### Centralized Receipt & Modal UX Fix (Complete — Mar 2026)
+- **SaleDetailModal print with QR codes**: Fixed `handlePrint` to generate doc_code via `/api/doc/generate-code` before printing. Receipts from Sales History now include QR codes, same as PO and Branch Transfer.
+- **PODetailModal print added**: Added PrintEngine + doc code integration to PODetailModal (was completely missing). Now supports Print Full Page and Print Thermal with QR codes.
+- **Modal button overflow fix**: Redesigned action buttons in SaleDetailModal, PODetailModal, and PurchaseOrderPage detail dialog. Primary "Print" button visible, all other actions (View on Phone, Upload Receipt, Verify, Edit) in a compact "..." dropdown menu. No more horizontal overflow.
+- **Print Thermal templates**: Added thermal (58mm) receipt templates for Purchase Orders and Branch Transfers (previously only had full-page).
+- **Document code search in QuickSearch (Ctrl+K)**: The Ctrl+K search now detects document codes (from QR scan or manual input). When a doc code is entered, backend looks it up in the `doc_codes` collection and returns the matching document with a "QR Code Match" badge. Trigger button updated to "Find / Scan..."
+
 ## NEXT SESSION — Priority Tasks
 
 ### Task 1: Move Stock Requests from Purchase Orders to Branch Transfers (P1)
@@ -113,13 +120,22 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - `/app/backend/routes/terminal.py` — Terminal pairing, QR, pull, WebSocket
 - `/app/backend/routes/branch_transfers.py` — Transfer CRUD, receive, accept/dispute
 - `/app/backend/routes/purchase_orders.py` — PO CRUD, stock requests
+- `/app/backend/routes/search.py` — Universal search with doc code lookup
+- `/app/backend/routes/doc_lookup.py` — Doc code generation and lookup
 - `/app/frontend/src/pages/BranchTransferPage.js` — Branch isolation fixed, UX enlarged
+- `/app/frontend/src/pages/PurchaseOrderPage.js` — PO management with centralized print
 - `/app/frontend/src/pages/terminal/` — All terminal components
-- `/app/frontend/src/pages/SalesPage.js` — Sales history
+- `/app/frontend/src/pages/SalesPage.js` — Sales history with centralized print
+- `/app/frontend/src/components/SaleDetailModal.js` — Sale detail with QR print + compact actions
+- `/app/frontend/src/components/PODetailModal.js` — PO detail with QR print + compact actions
+- `/app/frontend/src/components/QuickSearch.js` — Ctrl+K search with doc code scanning
+- `/app/frontend/src/components/ReferenceNumberPrompt.js` — Post-sale print prompt
+- `/app/frontend/src/lib/PrintEngine.js` — Centralized print with thermal + full-page for all types
 - `/app/frontend/src/components/Layout.js` — Sidebar navigation
 
 ## Test Reports
 - `/app/test_reports/iteration_118.json` — Branch Isolation Fix + UX Enlargement (100%)
+- `/app/test_reports/iteration_122.json` — Centralized Receipt + Modal UX + QuickSearch (90%→100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

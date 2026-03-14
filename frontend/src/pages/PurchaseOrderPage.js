@@ -176,7 +176,7 @@ export default function PurchaseOrderPage() {
   const [bizInfo, setBizInfo] = useState({});
   useEffect(() => { api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {}); }, []);
 
-  const handlePrintPO = async (po) => {
+  const handlePrintPO = async (po, format = 'full_page') => {
     let docCode = po.doc_code || '';
     if (!docCode) {
       try {
@@ -184,7 +184,7 @@ export default function PurchaseOrderPage() {
         docCode = res.data.code || '';
       } catch { /* print without QR */ }
     }
-    PrintEngine.print({ type: 'purchase_order', data: po, format: 'full_page', businessInfo: bizInfo, docCode });
+    PrintEngine.print({ type: 'purchase_order', data: po, format, businessInfo: bizInfo, docCode });
   };
 
   // ── Init ───────────────────────────────────────────────────────────────
@@ -1414,7 +1414,10 @@ export default function PurchaseOrderPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handlePrintPO(detailPO)}>
+                    <DropdownMenuItem onClick={() => handlePrintPO(detailPO, 'thermal')}>
+                      <Printer size={13} className="mr-2 text-slate-500" /> Print Thermal (58mm)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handlePrintPO(detailPO, 'full_page')}>
                       <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

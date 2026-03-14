@@ -560,6 +560,62 @@ function returnSlipThermal(data, biz, docCode) {
 }
 
 
+function purchaseOrderThermal(data, biz, docCode) {
+  const po = data;
+  let html = buildThermalHeader(biz);
+  html += `<div class="doc-title">PURCHASE ORDER</div>`;
+  html += `<div class="meta-row"><span class="label">PO #:</span><span>${po.po_number || ''}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDateTime(po.purchase_date || po.created_at)}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Supplier:</span><span>${po.vendor || ''}</span></div>`;
+  if (po.dr_number) html += `<div class="meta-row"><span class="label">DR #:</span><span>${po.dr_number}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Status:</span><span>${(po.status || '').toUpperCase()}</span></div>`;
+  html += '<div class="sep"></div>';
+  html += buildItemsThermal(po.items || []);
+  html += '<div class="sep"></div>';
+  html += '<div class="totals">';
+  html += `<div class="row"><span>Subtotal</span><span>${formatPHP(po.subtotal || po.line_subtotal)}</span></div>`;
+  if (po.overall_discount_amount > 0) html += `<div class="row"><span>Discount</span><span>-${formatPHP(po.overall_discount_amount)}</span></div>`;
+  if (po.freight > 0) html += `<div class="row"><span>Freight</span><span>${formatPHP(po.freight)}</span></div>`;
+  html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(po.grand_total)}</span></div>`;
+  if (po.balance > 0) html += `<div class="row" style="font-weight:bold"><span>BALANCE</span><span>${formatPHP(po.balance)}</span></div>`;
+  html += '</div>';
+  if (docCode) html += qrImgTag(docCode, 80);
+  html += `<div class="footer">${biz.receipt_footer || 'AgriBooks — Purchase Order'}</div>`;
+  return html;
+}
+
+function branchTransferThermal(data, biz, docCode) {
+  const t = data;
+  let html = buildThermalHeader(biz);
+  html += `<div class="doc-title">BRANCH TRANSFER</div>`;
+  html += `<div class="meta-row"><span class="label">No:</span><span>${t.order_number || ''}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDateTime(t.created_at)}</span></div>`;
+  html += `<div class="meta-row"><span class="label">From:</span><span>${t.from_branch_name || ''}</span></div>`;
+  html += `<div class="meta-row"><span class="label">To:</span><span>${t.to_branch_name || ''}</span></div>`;
+  html += `<div class="meta-row"><span class="label">Status:</span><span>${(t.status || '').toUpperCase()}</span></div>`;
+  html += '<div class="sep"></div>';
+  const items = t.items || [];
+  let itemHtml = '<table class="items-table">';
+  for (const item of items) {
+    const qty = parseFloat(item.qty) || 0;
+    const tc = parseFloat(item.transfer_capital) || 0;
+    itemHtml += `<tr><td class="item-name" colspan="2">${item.product_name || ''}</td></tr>`;
+    itemHtml += `<tr><td class="item-detail">${qty} x ${formatPHP(tc)}</td><td class="item-total">${formatPHP(tc * qty)}</td></tr>`;
+  }
+  itemHtml += '</table>';
+  html += itemHtml;
+  html += '<div class="sep"></div>';
+  const totalTransfer = items.reduce((s, i) => s + (parseFloat(i.transfer_capital) || 0) * (parseFloat(i.qty) || 0), 0);
+  html += '<div class="totals">';
+  html += `<div class="row"><span>Items</span><span>${items.length}</span></div>`;
+  html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(totalTransfer)}</span></div>`;
+  html += '</div>';
+  if (docCode) html += qrImgTag(docCode, 80);
+  html += `<div class="footer">AgriBooks — Branch Transfer</div>`;
+  return html;
+}
+
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  MAIN PRINT ENGINE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -585,10 +641,10 @@ const PrintEngine = {
         body = format === 'thermal' ? trustReceiptThermal(data, businessInfo, docCode) : trustReceiptFullPage(data, businessInfo, docCode);
         break;
       case 'purchase_order':
-        body = purchaseOrderFullPage(data, businessInfo, docCode);
+        body = format === 'thermal' ? purchaseOrderThermal(data, businessInfo, docCode) : purchaseOrderFullPage(data, businessInfo, docCode);
         break;
       case 'branch_transfer':
-        body = branchTransferFullPage(data, businessInfo, docCode);
+        body = format === 'thermal' ? branchTransferThermal(data, businessInfo, docCode) : branchTransferFullPage(data, businessInfo, docCode);
         break;
       case 'expense_voucher':
         body = expenseVoucherFullPage(data, businessInfo, docCode);

@@ -649,7 +649,7 @@ export default function BranchTransferPage() {
     api.get('/settings/business-info').then(r => setBizInfo(r.data)).catch(() => {});
   }, []);
 
-  const printTransferOrder = async (order) => {
+  const printTransferOrder = async (order, format = 'full_page') => {
     const toBranch = branches.find(b => b.id === order.to_branch_id)?.name || '';
     const fromBranch = branches.find(b => b.id === order.from_branch_id)?.name || '';
 
@@ -665,7 +665,7 @@ export default function BranchTransferPage() {
     PrintEngine.print({
       type: 'branch_transfer',
       data: { ...order, from_branch_name: fromBranch, to_branch_name: toBranch },
-      format: 'full_page',
+      format,
       businessInfo: bizInfo,
       docCode,
     });

@@ -35,6 +35,12 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Terminal Pull: self-serve PO/Transfer pull with PIN verification
 - Settings panel with Unlink Terminal
 
+### Print Prompts After Sale/PO (Complete — Mar 2026)
+- After every sale (Quick Sales + Orders), ReferenceNumberPrompt now shows Print Full Page and Print Thermal buttons
+- Print generates doc code + QR code on all receipts
+- Sales History page also generates QR codes when reprinting
+- POSPage now shows the same prompt after checkout
+
 ### QR Document Lookup System (Complete — Mar 2026)
 - Unique 8-char alphanumeric code per document (Sales, PO, Branch Transfer)
 - QR code printed on every receipt linking to `/doc/:code`

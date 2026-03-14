@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
-import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
+import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2, RotateCcw, Building2, CreditCard, QrCode, ScanLine } from 'lucide-react';
 import PODetailModal from './PODetailModal';
 import SaleDetailModal from './SaleDetailModal';
 import ExpenseDetailModal from './ExpenseDetailModal';
@@ -80,7 +80,12 @@ export default function QuickSearch() {
     setLoading(true);
     try {
       const res = await api.get('/search/transactions', { params: { q, limit: 8 } });
-      setResults(res.data.results || []);
+      const items = res.data.results || [];
+      // Mark doc_code matches for special display
+      if (res.data.doc_code_match) {
+        items.forEach(it => { it._isDocCodeMatch = true; });
+      }
+      setResults(items);
     } catch {
       setResults([]);
     } finally {
@@ -128,7 +133,7 @@ export default function QuickSearch() {
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors text-sm text-slate-500"
         >
           <Search size={14} />
-          <span className="hidden sm:inline">Find...</span>
+          <span className="hidden sm:inline">Find / Scan...</span>
           <kbd className="hidden md:inline text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-400 font-mono">
             Ctrl+K
           </kbd>
@@ -149,7 +154,7 @@ export default function QuickSearch() {
           data-testid="quick-search-input"
           value={query}
           onChange={handleChange}
-          placeholder="Search receipts, POs, expenses..."
+          placeholder="Search receipts, POs, or scan document code..."
           className="flex-1 text-sm outline-none bg-transparent text-slate-800 placeholder:text-slate-400"
           onKeyDown={(e) => {
             if (e.key === 'Enter') goToAdvanced();
@@ -165,20 +170,33 @@ export default function QuickSearch() {
       {(results.length > 0 || (query.length >= 2 && !loading)) && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-[380px] overflow-y-auto"
           data-testid="quick-search-results">
+          {/* Doc code hint */}
+          {query.length >= 6 && /^[A-Za-z0-9]+$/.test(query.trim()) && results.some(r => r._isDocCodeMatch) && (
+            <div className="px-3 py-2 bg-[#1A4D2E]/5 border-b border-[#1A4D2E]/10 flex items-center gap-2">
+              <QrCode size={14} className="text-[#1A4D2E]" />
+              <span className="text-xs text-[#1A4D2E] font-medium">Document code detected</span>
+            </div>
+          )}
           {results.map((item) => {
-            const Icon = TYPE_ICONS[item.type] || FileText;
-            const color = TYPE_COLORS[item.type] || 'text-slate-600';
+            const Icon = item._isDocCodeMatch ? QrCode : (TYPE_ICONS[item.type] || FileText);
+            const color = item._isDocCodeMatch ? 'text-[#1A4D2E]' : (TYPE_COLORS[item.type] || 'text-slate-600');
             return (
               <button
                 key={`${item.type}-${item.id}`}
                 onClick={() => handleResultClick(item)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 border-b border-slate-50 text-left transition-colors"
+                data-testid={`search-result-${item.type}-${item.id}`}
               >
                 <Icon size={14} className={color} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     {item.number && <span className="font-mono text-xs font-semibold text-slate-700">{item.number}</span>}
                     <span className={`text-[10px] ${color}`}>{TYPE_LABELS[item.type]}</span>
+                    {item._isDocCodeMatch && (
+                      <span className="text-[9px] bg-[#1A4D2E]/10 text-[#1A4D2E] px-1.5 py-0.5 rounded-full font-medium">
+                        QR Code Match
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500 truncate">{item.title}</p>
                 </div>

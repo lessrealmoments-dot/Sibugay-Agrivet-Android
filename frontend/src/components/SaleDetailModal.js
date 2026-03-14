@@ -16,8 +16,9 @@ import { Textarea } from './ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   ShieldCheck, Upload, Pencil, Check, AlertTriangle,
-  RefreshCw, Ban, DollarSign, Wallet, CreditCard, Clock, Printer
+  RefreshCw, Ban, DollarSign, Wallet, CreditCard, Clock, Printer, MoreHorizontal
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { toast } from 'sonner';
 import PrintEngine from '../lib/PrintEngine';
 
@@ -34,10 +35,18 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
     api.get('/settings/business-info').then(r => setBusinessInfo(r.data)).catch(() => {});
   }, []);
 
-  const handlePrint = (format) => {
+  const handlePrint = async (format) => {
     if (!sale) return;
     const docType = PrintEngine.getDocType(sale);
-    PrintEngine.print({ type: docType, data: sale, format, businessInfo });
+    let docCode = sale.doc_code || '';
+    if (!docCode && sale.id) {
+      try {
+        const res = await api.post('/doc/generate-code', { doc_type: 'invoice', doc_id: sale.id });
+        docCode = res.data?.code || '';
+        setSale(prev => prev ? { ...prev, doc_code: docCode } : prev);
+      } catch { /* print without QR */ }
+    }
+    PrintEngine.print({ type: docType, data: sale, format, businessInfo, docCode });
   };
 
   // Edit
@@ -171,35 +180,46 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
                 {editMode ? `Edit Sale — ${saleNumber}` : `Sale Detail — ${saleNumber}`}
               </DialogTitle>
               {sale && !loading && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
-                    onClick={() => setViewQROpen(true)} data-testid="sale-view-phone-btn">
-                    <span className="mr-1">📱</span> View
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={() => setUploadQROpen(true)} data-testid="sale-upload-receipt-btn">
-                    <Upload size={12} className="mr-1" /> Upload Receipt
-                  </Button>
-                  {!sale.verified && !isVoided && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
-                      onClick={() => setVerifyDialogOpen(true)} data-testid="sale-verify-btn">
-                      <ShieldCheck size={12} className="mr-1" /> Verify
-                    </Button>
-                  )}
-                  {canEdit && !editMode && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-300"
-                      onClick={openEdit} data-testid="sale-edit-btn">
-                      <Pencil size={12} className="mr-1" /> Edit
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
-                    <Printer size={12} className="mr-1" /> 58mm
-                  </Button>
+                <div className="flex items-center gap-1.5">
                   <Button size="sm" variant="outline" className="h-7 text-xs"
                     onClick={() => handlePrint('full_page')} data-testid="sale-print-full">
-                    <Printer size={12} className="mr-1" /> 8.5x11
+                    <Printer size={12} className="mr-1" /> Print
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-7 w-7 p-0" data-testid="sale-more-actions">
+                        <MoreHorizontal size={14} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
+                        <Printer size={13} className="mr-2 text-slate-500" /> Print Thermal (58mm)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handlePrint('full_page')}>
+                        <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setViewQROpen(true)} data-testid="sale-view-phone-btn">
+                        <Wallet size={13} className="mr-2 text-slate-500" /> View on Phone
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setUploadQROpen(true)} data-testid="sale-upload-receipt-btn">
+                        <Upload size={13} className="mr-2 text-slate-500" /> Upload Receipt
+                      </DropdownMenuItem>
+                      {!sale.verified && !isVoided && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setVerifyDialogOpen(true)} data-testid="sale-verify-btn">
+                            <ShieldCheck size={13} className="mr-2 text-[#1A4D2E]" /> Verify
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {canEdit && !editMode && (
+                        <DropdownMenuItem onClick={openEdit} data-testid="sale-edit-btn">
+                          <Pencil size={13} className="mr-2 text-amber-600" /> Edit Sale
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </div>

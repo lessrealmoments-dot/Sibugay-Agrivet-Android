@@ -34,6 +34,38 @@ async def search_transactions(
     if not q and not date_from and not date_to:
         return {"results": [], "total": 0}
 
+    # ── Check if query is a document code (from QR scan) ─────────────
+    if q and len(q.strip()) >= 6:
+        code_candidate = q.strip().upper()
+        doc_ref = await db.doc_codes.find_one({"code": code_candidate}, {"_id": 0})
+        if doc_ref:
+            doc_type = doc_ref["doc_type"]
+            doc_id = doc_ref["doc_id"]
+            if doc_type == "invoice":
+                inv = await db.invoices.find_one({"id": doc_id}, {"_id": 0, "id": 1, "invoice_number": 1, "customer_name": 1, "grand_total": 1, "balance": 1, "status": 1, "order_date": 1, "branch_id": 1, "created_at": 1})
+                if inv:
+                    results.append({"type": "invoice", "id": inv["id"], "number": inv.get("invoice_number", ""), "title": inv.get("customer_name", "Walk-in"), "amount": inv.get("grand_total", 0), "balance": inv.get("balance", 0), "status": inv.get("status", ""), "date": inv.get("order_date", ""), "branch_id": inv.get("branch_id", ""), "sub_type": "doc_code", "created_at": inv.get("created_at", ""), "doc_code": code_candidate})
+            elif doc_type == "purchase_order":
+                po = await db.purchase_orders.find_one({"id": doc_id}, {"_id": 0, "id": 1, "po_number": 1, "vendor": 1, "grand_total": 1, "balance": 1, "status": 1, "purchase_date": 1, "branch_id": 1, "created_at": 1})
+                if po:
+                    results.append({"type": "purchase_order", "id": po["id"], "number": po.get("po_number", ""), "title": po.get("vendor", ""), "amount": po.get("grand_total", 0), "balance": po.get("balance", 0), "status": po.get("status", ""), "date": po.get("purchase_date", ""), "branch_id": po.get("branch_id", ""), "sub_type": "doc_code", "created_at": po.get("created_at", ""), "doc_code": code_candidate})
+            elif doc_type == "branch_transfer":
+                bt = await db.branch_transfer_orders.find_one({"id": doc_id}, {"_id": 0, "id": 1, "order_number": 1, "from_branch_name": 1, "to_branch_name": 1, "total_at_transfer_capital": 1, "status": 1, "created_at": 1, "from_branch_id": 1, "to_branch_id": 1})
+                if bt:
+                    results.append({"type": "branch_transfer", "id": bt["id"], "number": bt.get("order_number", ""), "title": f"{bt.get('from_branch_name', '')} → {bt.get('to_branch_name', '')}", "amount": bt.get("total_at_transfer_capital", 0), "balance": 0, "status": bt.get("status", ""), "date": (bt.get("created_at") or "")[:10], "branch_id": bt.get("to_branch_id", bt.get("from_branch_id", "")), "sub_type": "doc_code", "created_at": bt.get("created_at", ""), "doc_code": code_candidate})
+            # If we found exact doc code match, return immediately
+            if results:
+                return {"results": results, "total": len(results), "doc_code_match": True}
+
+    # Also search by doc_code field on documents themselves
+    if q:
+        doc_code_query = q.strip().upper()
+        for coll_name, doc_type_key in [("invoices", "invoice"), ("purchase_orders", "purchase_order"), ("branch_transfer_orders", "branch_transfer")]:
+            doc = await db[coll_name].find_one({"doc_code": doc_code_query}, {"_id": 0, "id": 1})
+            if doc:
+                # Already handled above via doc_codes collection
+                break
+
     # Build text search conditions
     text_conditions = []
     if q:

@@ -16,9 +16,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   FileText, Check, X, AlertTriangle, ShieldCheck, Pencil, Upload,
-  RefreshCw, DollarSign, Package, Clock
+  RefreshCw, DollarSign, Package, Clock, Printer, MoreHorizontal
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { toast } from 'sonner';
+import PrintEngine from '../lib/PrintEngine';
 
 const statusColor = (s) => {
   if (s === 'received') return 'bg-emerald-100 text-emerald-700';
@@ -39,6 +41,24 @@ export default function PODetailModal({ open, onOpenChange, poId, poNumber, onUp
 
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [businessInfo, setBusinessInfo] = useState({});
+
+  useEffect(() => {
+    api.get('/settings/business-info').then(r => setBusinessInfo(r.data)).catch(() => {});
+  }, []);
+
+  const handlePrintPO = async (format = 'full_page') => {
+    if (!po) return;
+    let docCode = po.doc_code || '';
+    if (!docCode && po.id) {
+      try {
+        const res = await api.post('/doc/generate-code', { doc_type: 'purchase_order', doc_id: po.id });
+        docCode = res.data?.code || '';
+        setPo(prev => prev ? { ...prev, doc_code: docCode } : prev);
+      } catch { /* print without QR */ }
+    }
+    PrintEngine.print({ type: 'purchase_order', data: po, format, businessInfo, docCode });
+  };
 
   // Edit
   const [editMode, setEditMode] = useState(false);
@@ -186,27 +206,46 @@ export default function PODetailModal({ open, onOpenChange, poId, poNumber, onUp
                 {editMode ? `Edit PO — ${po?.po_number}` : `PO Detail — ${po?.po_number}`}
               </DialogTitle>
               {po && !loading && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
-                    onClick={() => setViewQROpen(true)} data-testid="po-view-phone-btn">
-                    <span className="mr-1">📱</span> View
-                  </Button>
+                <div className="flex items-center gap-1.5">
                   <Button size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={() => setUploadQROpen(true)} data-testid="po-upload-receipt-btn">
-                    <Upload size={12} className="mr-1" /> Upload Receipt
+                    onClick={() => handlePrintPO('full_page')} data-testid="po-print-btn">
+                    <Printer size={12} className="mr-1" /> Print
                   </Button>
-                  {!po.verified && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
-                      onClick={() => setVerifyDialogOpen(true)} data-testid="po-verify-btn">
-                      <ShieldCheck size={12} className="mr-1" /> Verify
-                    </Button>
-                  )}
-                  {po.status === 'ordered' && po.reopened_at && !editMode && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-300"
-                      onClick={openEdit} data-testid="po-edit-btn">
-                      <Pencil size={12} className="mr-1" /> Edit
-                    </Button>
-                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-7 w-7 p-0" data-testid="po-more-actions">
+                        <MoreHorizontal size={14} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handlePrintPO('thermal')}>
+                        <Printer size={13} className="mr-2 text-slate-500" /> Print Thermal (58mm)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handlePrintPO('full_page')}>
+                        <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setViewQROpen(true)} data-testid="po-view-phone-btn">
+                        <Package size={13} className="mr-2 text-slate-500" /> View on Phone
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setUploadQROpen(true)} data-testid="po-upload-receipt-btn">
+                        <Upload size={13} className="mr-2 text-slate-500" /> Upload Receipt
+                      </DropdownMenuItem>
+                      {!po.verified && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setVerifyDialogOpen(true)} data-testid="po-verify-btn">
+                            <ShieldCheck size={13} className="mr-2 text-[#1A4D2E]" /> Verify
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {po.status === 'ordered' && po.reopened_at && !editMode && (
+                        <DropdownMenuItem onClick={openEdit} data-testid="po-edit-btn">
+                          <Pencil size={13} className="mr-2 text-amber-600" /> Edit PO
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </div>

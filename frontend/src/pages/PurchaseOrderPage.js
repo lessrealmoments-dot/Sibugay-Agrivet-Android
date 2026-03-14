@@ -26,8 +26,9 @@ import {
   Search, History, ArrowRight, Receipt, UserPlus, Package,
   Wallet, Banknote, CreditCard, AlertTriangle, ChevronDown, RefreshCw,
   ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp, Printer,
-  Smartphone, Lock
+  Smartphone, Lock, MoreHorizontal
 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 const EMPTY_LINE = {
@@ -1400,36 +1401,44 @@ export default function PurchaseOrderPage() {
               <DialogTitle style={{ fontFamily: 'Manrope' }}>
                 {detailEditMode ? `Edit PO — ${detailPO?.po_number}` : `PO Detail — ${detailPO?.po_number}`}
               </DialogTitle>
-              <div className="flex gap-2">
-                {/* View on Phone QR */}
-                <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
-                  onClick={() => { setViewQROpen(true); setViewQRFileCount(0); }}>
-                  <span className="mr-1">📱</span> View
-                </Button>
-                {/* Upload Receipt button */}
-                <Button size="sm" variant="outline" className="h-7 text-xs"
-                  onClick={() => { setUploadRecordId(detailPO?.id); setUploadQROpen(true); }}>
-                  <Upload size={12} className="mr-1" /> Upload Receipt
-                </Button>
-                {/* Verify button */}
-                {detailPO && !detailPO.verified && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
-                    onClick={() => setVerifyDialogOpen(true)}>
-                    <ShieldCheck size={12} className="mr-1" /> Verify
-                  </Button>
-                )}
-                {/* Edit button for reopened POs */}
-                {detailPO?.status === 'ordered' && detailPO?.reopened_at && !detailEditMode && (
-                  <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-300"
-                    onClick={() => openDetailForEdit(detailPO)}>
-                    <Pencil size={12} className="mr-1" /> Edit
-                  </Button>
-                )}
+              <div className="flex items-center gap-1.5">
                 {/* Print PO */}
                 <Button size="sm" variant="outline" className="h-7 text-xs"
                   onClick={() => handlePrintPO(detailPO)} data-testid="po-print-btn">
                   <Printer size={12} className="mr-1" /> Print
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-7 w-7 p-0" data-testid="po-detail-more-actions">
+                      <MoreHorizontal size={14} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => handlePrintPO(detailPO)}>
+                      <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setViewQROpen(true); setViewQRFileCount(0); }}>
+                      <Package size={13} className="mr-2 text-slate-500" /> View on Phone
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setUploadRecordId(detailPO?.id); setUploadQROpen(true); }}>
+                      <Upload size={13} className="mr-2 text-slate-500" /> Upload Receipt
+                    </DropdownMenuItem>
+                    {detailPO && !detailPO.verified && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setVerifyDialogOpen(true)}>
+                          <ShieldCheck size={13} className="mr-2 text-[#1A4D2E]" /> Verify
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {detailPO?.status === 'ordered' && detailPO?.reopened_at && !detailEditMode && (
+                      <DropdownMenuItem onClick={() => openDetailForEdit(detailPO)}>
+                        <Pencil size={13} className="mr-2 text-amber-600" /> Edit PO
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             {/* Verification badge row */}

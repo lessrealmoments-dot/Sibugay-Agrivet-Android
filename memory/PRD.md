@@ -35,6 +35,22 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Terminal Pull: self-serve PO/Transfer pull with PIN verification
 - Settings panel with Unlink Terminal
 
+### QR Document Lookup System (Complete — Mar 2026)
+- Unique 8-char alphanumeric code per document (Sales, PO, Branch Transfer)
+- QR code printed on every receipt linking to `/doc/:code`
+- PIN-protected document viewer (Manager PIN / Admin PIN / TOTP)
+- Branch Transfer viewer: status, From/To, timeline, items, attached files
+- Sales viewer: payment status, items, payment history
+- PO viewer: supplier, payment terms, items, attached receipts
+
+### PrintEngine v2 Redesign (Complete — Mar 2026)
+- Professional template: company left, doc info right, green header bar
+- Clean info boxes for From/To or Supplier/Customer
+- Spacious table with alternating rows, fewer columns
+- QR code on all printed documents
+- Consistent styling across all document types
+- Branch Transfer migrated from custom HTML to centralized PrintEngine
+
 ### Branch Transfer UX Redesign (Complete — Mar 2026)
 - Status-based filter pills (All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes)
 - Card-based layout with timelines, action buttons, colored borders

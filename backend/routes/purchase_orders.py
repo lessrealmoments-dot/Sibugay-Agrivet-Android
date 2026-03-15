@@ -253,7 +253,7 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
     """
     check_perm(user, "inventory", "adjust")
 
-    branch_id = data.get("branch_id", "")
+    branch_id = data.get("branch_id", "") or user.get("branch_id", "")
     
     # Idempotency check — prevent duplicate POs from offline sync
     idem_key = data.get("idempotency_key")

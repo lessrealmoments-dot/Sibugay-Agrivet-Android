@@ -310,6 +310,7 @@ export default function BranchTransferPage() {
         vendor: `Branch Request → ${targetBranch?.name || reqTargetBranch}`,
         items,
         po_type: 'branch_request',
+        branch_id: currentBranch?.id || user?.branch_id || '',
         supply_branch_id: reqTargetBranch,
         show_retail: reqShowRetail,
         purchase_date: new Date().toISOString().slice(0, 10),

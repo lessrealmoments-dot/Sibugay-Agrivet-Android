@@ -199,7 +199,9 @@ export default function IncidentTicketsPage() {
                 <TableRow key={t.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedTicket(t)}
                   data-testid={`ticket-row-${t.id}`}>
                   <TableCell className="font-mono text-xs font-bold text-blue-600">{t.ticket_number}</TableCell>
-                  <TableCell className="font-mono text-xs">{t.order_number}</TableCell>
+                  <TableCell>
+                    <a href="/branch-transfers" className="font-mono text-xs text-blue-600 hover:underline">{t.order_number}</a>
+                  </TableCell>
                   <TableCell className="text-xs">{t.from_branch_name} → {t.to_branch_name}</TableCell>
                   <TableCell className="text-right font-mono font-bold text-red-600">{formatPHP(t.total_capital_loss)}</TableCell>
                   <TableCell><Badge className={`text-[10px] ${PRIORITY_COLORS[t.priority]}`}>{t.priority}</Badge></TableCell>
@@ -229,7 +231,12 @@ export default function IncidentTicketsPage() {
               <div className="space-y-4">
                 {/* Header info */}
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-slate-500">Transfer:</span> <span className="font-mono font-bold">{selectedTicket.order_number}</span></div>
+                  <div>
+                    <span className="text-slate-500">Transfer:</span>{' '}
+                    <a href="/branch-transfers" className="font-mono font-bold text-blue-600 hover:underline cursor-pointer" data-testid="ticket-transfer-link">
+                      {selectedTicket.order_number}
+                    </a>
+                  </div>
                   <div><span className="text-slate-500">Route:</span> {selectedTicket.from_branch_name} → {selectedTicket.to_branch_name}</div>
                   <div><span className="text-slate-500">Capital Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_capital_loss)}</span></div>
                   <div><span className="text-slate-500">Retail Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_retail_loss)}</span></div>

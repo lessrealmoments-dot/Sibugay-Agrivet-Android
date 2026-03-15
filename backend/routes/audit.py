@@ -1319,3 +1319,82 @@ async def _compute_unverified(branch_id: str, date_from: str, date_to: str) -> d
         "total_items": total_items,
         "severity": sev,
     }
+
+
+@router.get("/transfer-variances")
+async def get_transfer_variances(
+    user=Depends(get_current_user),
+    branch_id: Optional[str] = None,
+    limit: int = 50
+):
+    """Get transfer variance history with incident ticket links for the Audit Center."""
+    check_perm(user, "reports", "view")
+
+    query = {}
+    if branch_id:
+        query["$or"] = [{"from_branch_id": branch_id}, {"to_branch_id": branch_id}]
+
+    # Transfers with variances (has_shortage or has_excess, and status is received)
+    query["$and"] = [
+        {"status": "received"},
+        {"$or": [{"has_shortage": True}, {"has_excess": True}]}
+    ]
+
+    transfers = await db.branch_transfer_orders.find(
+        query, {"_id": 0}
+    ).sort("received_at", -1).to_list(limit)
+
+    items = []
+    total_capital_loss = 0
+    total_with_tickets = 0
+
+    for t in transfers:
+        shortages = t.get("shortages", [])
+        excesses = t.get("excesses", [])
+        capital_loss = sum(s.get("capital_variance", 0) for s in shortages)
+        total_capital_loss += capital_loss
+
+        from_branch = await db.branches.find_one({"id": t.get("from_branch_id")}, {"_id": 0, "name": 1})
+        to_branch = await db.branches.find_one({"id": t.get("to_branch_id")}, {"_id": 0, "name": 1})
+
+        has_ticket = bool(t.get("incident_ticket_id"))
+        if has_ticket:
+            total_with_tickets += 1
+
+        items.append({
+            "transfer_id": t["id"],
+            "order_number": t.get("order_number", ""),
+            "from_branch_name": from_branch.get("name", "") if from_branch else "",
+            "to_branch_name": to_branch.get("name", "") if to_branch else "",
+            "shortages_count": len(shortages),
+            "excesses_count": len(excesses),
+            "capital_loss": round(capital_loss, 2),
+            "incident_ticket_id": t.get("incident_ticket_id"),
+            "incident_ticket_number": t.get("incident_ticket_number"),
+            "accepted_at": t.get("accepted_at") or t.get("received_at", ""),
+            "accepted_by_name": t.get("accepted_by_name", ""),
+            "accept_note": t.get("accept_note", ""),
+            "dispute_note": t.get("dispute_note"),
+            "disputed_at": t.get("disputed_at"),
+            "status": t["status"],
+        })
+
+    # Summary
+    open_tickets = await db.incident_tickets.count_documents({"status": {"$in": ["open", "investigating"]}})
+    total_unresolved_loss = 0
+    unresolved = await db.incident_tickets.find(
+        {"status": {"$in": ["open", "investigating"]}}, {"_id": 0, "total_capital_loss": 1}
+    ).to_list(500)
+    for t in unresolved:
+        total_unresolved_loss += t.get("total_capital_loss", 0)
+
+    return {
+        "items": items,
+        "summary": {
+            "total_variance_transfers": len(items),
+            "total_capital_loss": round(total_capital_loss, 2),
+            "total_with_incident_tickets": total_with_tickets,
+            "open_incident_tickets": open_tickets,
+            "total_unresolved_loss": round(total_unresolved_loss, 2),
+        }
+    }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth, api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -74,6 +74,7 @@ function validateRow(row, minMargin) {
 
 export default function BranchTransferPage() {
   const { branches, currentBranch, user, canViewAllBranches, selectedBranchId, isConsolidatedView } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
   const searchTimers = useRef({});
   const dropdownRefs = useRef({});
@@ -1689,7 +1690,13 @@ export default function BranchTransferPage() {
                               {statusLabel[o.status] || o.status}
                             </Badge>
                             {o.has_shortage && <Badge className="text-xs px-2 py-0.5 bg-red-100 text-red-700">Shortage</Badge>}
-                            {o.incident_ticket_number && <Badge className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700">{o.incident_ticket_number}</Badge>}
+                            {o.incident_ticket_number && (
+                              <Badge className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 cursor-pointer hover:bg-amber-200 transition-colors"
+                                onClick={(e) => { e.stopPropagation(); navigate('/incident-tickets'); }}
+                                data-testid={`ticket-badge-${o.id}`}>
+                                <AlertTriangle size={10} className="mr-1" />{o.incident_ticket_number}
+                              </Badge>
+                            )}
                             {o.terminal_id && o.status === 'received' && (
                               <span className="inline-flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
                                 <Smartphone size={11} /> Terminal verified
@@ -1916,6 +1923,125 @@ export default function BranchTransferPage() {
               <span className="text-blue-700">From stock request: <b>{viewOrder.request_po_number}</b></span>
             </div>
           )}
+
+          {/* Incident ticket link */}
+          {viewOrder?.incident_ticket_number && (
+            <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs cursor-pointer hover:bg-amber-100 transition-colors"
+              onClick={() => navigate('/incident-tickets')} data-testid="transfer-ticket-link">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={14} className="text-amber-600" />
+                <span className="text-amber-800">Incident Ticket: <b>{viewOrder.incident_ticket_number}</b></span>
+              </div>
+              <ArrowRight size={14} className="text-amber-500" />
+            </div>
+          )}
+
+          {/* ── Dispute / Variance History Timeline ── */}
+          {viewOrder && (viewOrder.dispute_note || viewOrder.has_shortage || viewOrder.has_excess || viewOrder.pending_receipt_at) && (() => {
+            const events = [];
+            // First count (pending receipt)
+            if (viewOrder.pending_receipt_at) {
+              events.push({
+                type: 'counted',
+                label: 'First Count Submitted',
+                by: viewOrder.pending_receipt_by_name,
+                at: viewOrder.pending_receipt_at,
+                note: viewOrder.receive_notes,
+                icon: 'count',
+                shortages: viewOrder.shortages,
+                excesses: viewOrder.excesses,
+              });
+            }
+            // Dispute (if any)
+            if (viewOrder.dispute_note || viewOrder.disputed_at) {
+              events.push({
+                type: 'disputed',
+                label: 'Disputed by Source',
+                by: viewOrder.disputed_by_name,
+                at: viewOrder.disputed_at,
+                note: viewOrder.dispute_note,
+                icon: 'dispute',
+              });
+            }
+            // Re-count (if disputed then re-received)
+            if (viewOrder.disputed_at && viewOrder.received_at && viewOrder.received_at > viewOrder.disputed_at) {
+              events.push({
+                type: 're-counted',
+                label: 'Re-count Submitted',
+                by: viewOrder.received_by_name || viewOrder.pending_receipt_by_name,
+                at: viewOrder.received_at,
+                icon: 'recount',
+              });
+            }
+            // Final acceptance
+            if (viewOrder.accepted_at) {
+              events.push({
+                type: 'accepted',
+                label: viewOrder.incident_ticket_number ? 'Accepted + Incident Created' : 'Variance Accepted',
+                by: viewOrder.accepted_by_name,
+                at: viewOrder.accepted_at,
+                note: viewOrder.accept_note,
+                icon: 'accept',
+                ticket: viewOrder.incident_ticket_number,
+              });
+            }
+
+            if (!events.length) return null;
+            return (
+              <div className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-0" data-testid="dispute-history">
+                <p className="text-[11px] font-semibold text-slate-600 mb-2 flex items-center gap-1.5">
+                  <Clock size={12} className="text-slate-400" /> Variance History
+                </p>
+                <div className="relative pl-4 space-y-3">
+                  <div className="absolute left-[7px] top-1 bottom-1 w-px bg-slate-300" />
+                  {events.map((ev, i) => {
+                    const colors = {
+                      counted: 'bg-blue-500',
+                      dispute: 'bg-red-500',
+                      recount: 'bg-amber-500',
+                      accept: 'bg-emerald-500',
+                    };
+                    return (
+                      <div key={i} className="relative">
+                        <div className={`absolute -left-4 top-0.5 w-2.5 h-2.5 rounded-full ${colors[ev.icon] || 'bg-slate-400'} ring-2 ring-white`} />
+                        <div className="ml-2">
+                          <p className="text-xs font-semibold text-slate-700">{ev.label}</p>
+                          <p className="text-[10px] text-slate-500">
+                            {ev.by && <span>{ev.by} · </span>}
+                            {ev.at?.slice(0, 16)?.replace('T', ' ')}
+                          </p>
+                          {ev.note && <p className="text-[10px] text-slate-500 mt-0.5 italic">&quot;{ev.note}&quot;</p>}
+                          {ev.ticket && (
+                            <button onClick={() => navigate('/incident-tickets')} className="text-[10px] text-amber-700 font-medium mt-0.5 hover:underline flex items-center gap-1">
+                              <AlertTriangle size={10} /> {ev.ticket}
+                            </button>
+                          )}
+                          {ev.shortages && ev.shortages.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {ev.shortages.map((s, j) => (
+                                <span key={j} className="text-[10px] bg-amber-100 text-amber-700 rounded px-1.5 py-0.5">
+                                  {s.product_name}: -{s.variance} {s.unit}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {ev.excesses && ev.excesses.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {ev.excesses.map((s, j) => (
+                                <span key={j} className="text-[10px] bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">
+                                  {s.product_name}: +{Math.abs(s.variance)} {s.unit}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Invoice reference */}
           {viewOrder?.invoice_number && (

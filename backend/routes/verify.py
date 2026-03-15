@@ -164,6 +164,8 @@ PIN_POLICY_ACTIONS = [
     {"key": "price_override",         "label": "Override Branch Price",           "module": "Products",          "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "reopen_po",              "label": "Reopen Purchase Order",           "module": "Purchase Orders",   "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "cancel_po",              "label": "Cancel Purchase Order",           "module": "Purchase Orders",   "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Incident Tickets
+    {"key": "incident_resolve",        "label": "Resolve Incident Ticket",         "module": "Incidents",         "defaults": ["admin_pin", "manager_pin", "totp"]},
     # Expenses
     {"key": "void_expense",           "label": "Void / Delete Expense",           "module": "Expenses",          "defaults": ["admin_pin", "manager_pin", "totp"]},
     # Audit & Verification

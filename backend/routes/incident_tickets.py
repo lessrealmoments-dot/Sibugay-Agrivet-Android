@@ -59,10 +59,20 @@ async def incident_summary(user=Depends(get_current_user)):
         }}
     ]
     results = await db.incident_tickets.aggregate(pipeline).to_list(20)
+
+    # Separate pipeline: capital loss excluding sender_error (no real loss)
+    real_loss_pipeline = [
+        {"$match": {"resolution_type": {"$ne": "sender_error"}}},
+        {"$group": {"_id": None, "total": {"$sum": "$total_capital_loss"}}},
+    ]
+    real_loss_result = await db.incident_tickets.aggregate(real_loss_pipeline).to_list(1)
+    total_real_capital_loss = real_loss_result[0]["total"] if real_loss_result else 0
+
     summary = {
         "open": 0, "investigating": 0, "resolved": 0, "closed": 0,
         "total_unresolved_capital_loss": 0, "total_unresolved_retail_loss": 0,
         "total_recovered": 0,
+        "total_real_capital_loss": total_real_capital_loss,
     }
     for r in results:
         s = r["_id"]
@@ -258,6 +268,16 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
     if not resolution_note:
         raise HTTPException(status_code=400, detail="Resolution note is required")
 
+    # ── PIN Authorization ──
+    pin = data.get("pin", "").strip()
+    if not pin:
+        raise HTTPException(status_code=400, detail="Authorization PIN required")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "incident_resolve", branch_id=ticket.get("to_branch_id"))
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN — authorization denied")
+
     resolution_type = data.get("resolution_type", "write_off")
     if resolution_type not in RESOLUTION_TYPES:
         raise HTTPException(status_code=400, detail=f"Invalid resolution type: {resolution_type}")
@@ -271,6 +291,7 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
         detail_parts.append(f"Charged to: {accountable_party}")
     if recovery_amount > 0:
         detail_parts.append(f"Recovery: PHP {recovery_amount:,.2f}")
+    detail_parts.append(f"Approved by: {verifier['verifier_name']} ({verifier['method']})")
     detail_parts.append(resolution_note)
 
     event = {
@@ -281,6 +302,9 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
         "resolution_type": resolution_type,
         "accountable_party": accountable_party,
         "recovery_amount": recovery_amount,
+        "approved_by_id": verifier["verifier_id"],
+        "approved_by_name": verifier["verifier_name"],
+        "approval_method": verifier["method"],
         "at": now_iso(),
     }
 
@@ -294,6 +318,9 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
             "recovery_amount": recovery_amount,
             "resolved_by_id": user["id"],
             "resolved_by_name": user.get("full_name", user["username"]),
+            "approved_by_id": verifier["verifier_id"],
+            "approved_by_name": verifier["verifier_name"],
+            "approval_method": verifier["method"],
             "resolved_at": now_iso(),
             "updated_at": now_iso(),
         }, "$push": {"timeline": event}}

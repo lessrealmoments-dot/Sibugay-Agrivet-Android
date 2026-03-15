@@ -63,6 +63,7 @@ export default function IncidentTicketsPage() {
   const [recoveryAmount, setRecoveryAmount] = useState(0);
   const [resolutionType, setResolutionType] = useState('');
   const [accountableParty, setAccountableParty] = useState('');
+  const [resolvePin, setResolvePin] = useState('');
 
   // Assign dialog state
   const [assignDialog, setAssignDialog] = useState(null);
@@ -166,6 +167,10 @@ export default function IncidentTicketsPage() {
   const handleResolve = async () => {
     if (!resolveDialog || !resolveNote.trim()) { toast.error('Resolution note required'); return; }
     if (!resolutionType) { toast.error('Please select a resolution type'); return; }
+    if (['transit_loss', 'insurance_claim'].includes(resolutionType) && !accountableParty.trim()) {
+      toast.error('Accountable party required'); return;
+    }
+    if (!resolvePin) { toast.error('Authorization PIN required'); return; }
     setActionLoading(true);
     try {
       await api.put(`/incident-tickets/${resolveDialog.id}/resolve`, {
@@ -173,12 +178,13 @@ export default function IncidentTicketsPage() {
         resolution_note: resolveNote,
         accountable_party: accountableParty,
         recovery_amount: recoveryAmount,
+        pin: resolvePin,
       });
       toast.success('Ticket resolved');
       setResolveDialog(null);
       setSelectedTicket(null);
       fetchData();
-    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to resolve'); }
     setActionLoading(false);
   };
 
@@ -223,6 +229,7 @@ export default function IncidentTicketsPage() {
     setRecoveryAmount(0);
     setResolutionType('');
     setAccountableParty('');
+    setResolvePin('');
   };
 
   const openSenderConfirm = (ticket) => {
@@ -249,7 +256,7 @@ export default function IncidentTicketsPage() {
   const fmtDate = (d) => d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 
   const totalVariances = varianceData?.summary?.total_variance_transfers || 0;
-  const totalCapLoss = varianceData?.summary?.total_capital_loss || 0;
+  const totalCapLoss = summary.total_real_capital_loss || varianceData?.summary?.total_capital_loss || 0;
   const openTickets = (summary.open || 0) + (summary.investigating || 0);
   const unresolvedLoss = summary.total_unresolved_capital_loss || 0;
 
@@ -500,6 +507,11 @@ export default function IncidentTicketsPage() {
                   {selectedTicket.assigned_to_name && <div><span className="text-slate-500">Assigned:</span> {selectedTicket.assigned_to_name}</div>}
                   {selectedTicket.recovery_amount > 0 && <div><span className="text-slate-500">Recovered:</span> <span className="text-emerald-600 font-bold">{formatPHP(selectedTicket.recovery_amount)}</span></div>}
                   {selectedTicket.accountable_party && <div><span className="text-slate-500">Charged to:</span> <span className="font-semibold text-red-600">{selectedTicket.accountable_party}</span></div>}
+                  {selectedTicket.approved_by_name && <div>
+                    <span className="text-slate-500">Approved by:</span>{' '}
+                    <span className="font-semibold text-emerald-700">{selectedTicket.approved_by_name}</span>
+                    {selectedTicket.approval_method && <span className="text-[10px] text-slate-400 ml-1">({selectedTicket.approval_method})</span>}
+                  </div>}
                   {selectedTicket.sender_confirmed && <div className="col-span-2">
                     <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
                       <ShieldCheck size={12} /> Sender confirmed quantities ({fmtDate(selectedTicket.sender_confirmed_at)})
@@ -731,10 +743,29 @@ export default function IncidentTicketsPage() {
                 data-testid="resolve-note-input" />
             </div>
 
+            {/* Authorization PIN */}
+            <div className="border-t pt-3">
+              <label className="text-xs font-semibold text-slate-700 block mb-1 flex items-center gap-1.5">
+                <ShieldCheck size={13} className="text-blue-600" /> Authorization Required
+              </label>
+              <p className="text-[10px] text-slate-400 mb-2">
+                Enter Admin PIN, Manager PIN, or Time-based PIN to authorize this resolution.
+              </p>
+              <Input
+                type="password"
+                value={resolvePin}
+                onChange={e => setResolvePin(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleResolve()}
+                placeholder="Enter PIN..."
+                className="h-9 text-sm font-mono tracking-widest"
+                data-testid="resolve-pin-input"
+              />
+            </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button variant="outline" onClick={() => setResolveDialog(null)}>Cancel</Button>
               <Button onClick={handleResolve}
-                disabled={!resolveNote.trim() || !resolutionType || actionLoading
+                disabled={!resolveNote.trim() || !resolutionType || !resolvePin || actionLoading
                   || (['transit_loss', 'insurance_claim'].includes(resolutionType) && !accountableParty.trim())}
                 className="bg-emerald-600 text-white" data-testid="confirm-resolve-btn">
                 <CheckCircle2 size={12} className="mr-1" /> Resolve

@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   AlertTriangle, CheckCircle2, Clock, Search, MessageSquare, UserCheck,
-  XCircle, FileText, ArrowRight, Eye, RefreshCw, ArrowLeftRight, Check
+  XCircle, FileText, ArrowRight, Eye, RefreshCw, ArrowLeftRight, Check,
+  ShieldCheck, Truck, PackageX, Receipt, Scale
 } from 'lucide-react';
 import { toast } from 'sonner';
 import TransferDetailModal from '../components/TransferDetailModal';
@@ -31,10 +32,19 @@ const PRIORITY_COLORS = {
   low: 'bg-slate-100 text-slate-600',
 };
 
-export default function IncidentTicketsPage() {
-  const { user, users, branches } = useAuth();
+const RESOLUTION_TYPE_META = {
+  transit_loss: { icon: Truck, color: 'text-red-600', bg: 'bg-red-50', label: 'Transit Loss' },
+  sender_error: { icon: ShieldCheck, color: 'text-blue-600', bg: 'bg-blue-50', label: 'Sender Error (No Loss)' },
+  receiver_error: { icon: Scale, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Receiver Error' },
+  write_off: { icon: PackageX, color: 'text-slate-600', bg: 'bg-slate-50', label: 'Write Off' },
+  insurance_claim: { icon: Receipt, color: 'text-purple-600', bg: 'bg-purple-50', label: 'Insurance Claim' },
+  partial_recovery: { icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Partial Recovery' },
+};
 
-  // ── Main view: "tickets" or "variances" ───────────────────────────────
+export default function IncidentTicketsPage() {
+  const { user, branches } = useAuth();
+
+  // ── Main view ─────────────────────────────────────────────────────────
   const [mainTab, setMainTab] = useState('tickets');
 
   // ── Tickets state ─────────────────────────────────────────────────────
@@ -46,12 +56,23 @@ export default function IncidentTicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [noteText, setNoteText] = useState('');
+
+  // Resolve dialog state
   const [resolveDialog, setResolveDialog] = useState(null);
   const [resolveNote, setResolveNote] = useState('');
   const [recoveryAmount, setRecoveryAmount] = useState(0);
+  const [resolutionType, setResolutionType] = useState('');
+  const [accountableParty, setAccountableParty] = useState('');
+
+  // Assign dialog state
   const [assignDialog, setAssignDialog] = useState(null);
   const [assignUserId, setAssignUserId] = useState('');
   const [teamMembers, setTeamMembers] = useState([]);
+
+  // Sender confirm dialog state
+  const [senderConfirmDialog, setSenderConfirmDialog] = useState(null);
+  const [senderConfirmItems, setSenderConfirmItems] = useState([]);
+  const [senderConfirmNote, setSenderConfirmNote] = useState('');
 
   // ── Transfer Variances state ──────────────────────────────────────────
   const [varianceData, setVarianceData] = useState(null);
@@ -86,7 +107,6 @@ export default function IncidentTicketsPage() {
     setVarianceLoading(false);
   }, []);
 
-  // Load variance summary on mount for the header cards, full data on tab switch
   useEffect(() => { loadVariances(); }, [loadVariances]);
   useEffect(() => { if (mainTab === 'variances') loadVariances(); }, [mainTab, loadVariances]);
 
@@ -107,6 +127,14 @@ export default function IncidentTicketsPage() {
     } catch { setTeamMembers([]); }
   };
 
+  const refreshTicket = async (ticketId) => {
+    try {
+      const res = await api.get(`/incident-tickets/${ticketId}`);
+      setSelectedTicket(res.data);
+    } catch { /* ignore */ }
+    fetchData();
+  };
+
   const handleAddNote = async () => {
     if (!selectedTicket || !noteText.trim()) return;
     setActionLoading(true);
@@ -114,9 +142,7 @@ export default function IncidentTicketsPage() {
       await api.put(`/incident-tickets/${selectedTicket.id}/add-note`, { note: noteText });
       toast.success('Note added');
       setNoteText('');
-      const res = await api.get(`/incident-tickets/${selectedTicket.id}`);
-      setSelectedTicket(res.data);
-      fetchData();
+      await refreshTicket(selectedTicket.id);
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setActionLoading(false);
   };
@@ -132,23 +158,49 @@ export default function IncidentTicketsPage() {
       });
       toast.success('Ticket assigned');
       setAssignDialog(null);
-      const res = await api.get(`/incident-tickets/${assignDialog.id}`);
-      setSelectedTicket(res.data);
-      fetchData();
+      await refreshTicket(assignDialog.id);
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setActionLoading(false);
   };
 
   const handleResolve = async () => {
     if (!resolveDialog || !resolveNote.trim()) { toast.error('Resolution note required'); return; }
+    if (!resolutionType) { toast.error('Please select a resolution type'); return; }
     setActionLoading(true);
     try {
       await api.put(`/incident-tickets/${resolveDialog.id}/resolve`, {
-        resolution_note: resolveNote, recovery_amount: recoveryAmount,
+        resolution_type: resolutionType,
+        resolution_note: resolveNote,
+        accountable_party: accountableParty,
+        recovery_amount: recoveryAmount,
       });
       toast.success('Ticket resolved');
       setResolveDialog(null);
       setSelectedTicket(null);
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
+    setActionLoading(false);
+  };
+
+  const handleSenderConfirm = async () => {
+    if (!senderConfirmDialog) return;
+    setActionLoading(true);
+    try {
+      const res = await api.put(`/incident-tickets/${senderConfirmDialog.id}/sender-confirm`, {
+        confirmed_items: senderConfirmItems.map(i => ({
+          product_id: i.product_id,
+          sender_confirmed_qty: i.sender_confirmed_qty,
+        })),
+        note: senderConfirmNote,
+      });
+      if (res.data.auto_resolved) {
+        toast.success('Variance cancelled — sender confirms no actual loss!');
+        setSelectedTicket(null);
+      } else {
+        toast.success('Sender confirmation recorded. Variance still exists.');
+        await refreshTicket(senderConfirmDialog.id);
+      }
+      setSenderConfirmDialog(null);
       fetchData();
     } catch (e) { toast.error(e.response?.data?.detail || 'Failed'); }
     setActionLoading(false);
@@ -165,6 +217,29 @@ export default function IncidentTicketsPage() {
     setActionLoading(false);
   };
 
+  const openResolveDialog = (ticket) => {
+    setResolveDialog(ticket);
+    setResolveNote('');
+    setRecoveryAmount(0);
+    setResolutionType('');
+    setAccountableParty('');
+  };
+
+  const openSenderConfirm = (ticket) => {
+    setSenderConfirmDialog(ticket);
+    setSenderConfirmNote('');
+    setSenderConfirmItems(
+      (ticket.items || []).map(i => ({
+        product_id: i.product_id,
+        product_name: i.product_name,
+        sku: i.sku,
+        qty_ordered: i.qty_ordered,
+        qty_received: i.qty_received,
+        sender_confirmed_qty: i.sender_confirmed_qty ?? i.qty_ordered,
+      }))
+    );
+  };
+
   const filtered = search
     ? tickets.filter(t => t.ticket_number?.toLowerCase().includes(search.toLowerCase()) ||
         t.order_number?.toLowerCase().includes(search.toLowerCase()) ||
@@ -173,7 +248,6 @@ export default function IncidentTicketsPage() {
 
   const fmtDate = (d) => d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
 
-  // ── Combined summary for header ───────────────────────────────────────
   const totalVariances = varianceData?.summary?.total_variance_transfers || 0;
   const totalCapLoss = varianceData?.summary?.total_capital_loss || 0;
   const openTickets = (summary.open || 0) + (summary.investigating || 0);
@@ -188,7 +262,7 @@ export default function IncidentTicketsPage() {
         <p className="text-sm text-slate-500 mt-0.5">Track, investigate, and resolve transfer discrepancies and losses</p>
       </div>
 
-      {/* ── Combined Summary Cards ── */}
+      {/* ── Summary Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="border border-amber-200 bg-amber-50/30">
           <CardContent className="p-3">
@@ -227,28 +301,21 @@ export default function IncidentTicketsPage() {
         </Card>
       </div>
 
-      {/* ── Main Tabs: Tickets vs All Variances ── */}
+      {/* ── Main Tabs ── */}
       <Tabs value={mainTab} onValueChange={setMainTab}>
         <TabsList className="h-10">
           <TabsTrigger value="tickets" data-testid="tickets-main-tab" className="gap-1.5">
             <FileText size={14} /> Incident Tickets
-            {openTickets > 0 && (
-              <span className="ml-1 bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{openTickets}</span>
-            )}
+            {openTickets > 0 && <span className="ml-1 bg-red-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{openTickets}</span>}
           </TabsTrigger>
           <TabsTrigger value="variances" data-testid="variances-main-tab" className="gap-1.5">
             <ArrowLeftRight size={14} /> All Transfer Variances
-            {totalVariances > 0 && (
-              <span className="ml-1 bg-amber-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{totalVariances}</span>
-            )}
+            {totalVariances > 0 && <span className="ml-1 bg-amber-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-bold">{totalVariances}</span>}
           </TabsTrigger>
         </TabsList>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            TICKETS TAB
-           ══════════════════════════════════════════════════════════════════ */}
+        {/* ── TICKETS TAB ── */}
         <TabsContent value="tickets" className="mt-4 space-y-4">
-          {/* Status Tabs + Search */}
           <div className="flex items-center gap-3">
             <Tabs value={tab} onValueChange={setTab} className="flex-1">
               <TabsList className="h-9 bg-slate-100">
@@ -265,7 +332,6 @@ export default function IncidentTicketsPage() {
             </div>
           </div>
 
-          {/* Tickets Table */}
           <Card className="border-slate-200">
             <CardContent className="p-0">
               <Table>
@@ -274,7 +340,7 @@ export default function IncidentTicketsPage() {
                   <TableHead className="text-xs uppercase text-slate-500">Transfer</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Route</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500 text-right">Capital Loss</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500">Priority</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Resolution</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Assigned</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
@@ -286,7 +352,9 @@ export default function IncidentTicketsPage() {
                     <TableRow><TableCell colSpan={8} className="text-center py-8 text-slate-400">
                       {tab === 'open' ? 'No open incidents' : 'No tickets found'}
                     </TableCell></TableRow>
-                  ) : filtered.map(t => (
+                  ) : filtered.map(t => {
+                    const rtMeta = RESOLUTION_TYPE_META[t.resolution_type];
+                    return (
                     <TableRow key={t.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedTicket(t)}
                       data-testid={`ticket-row-${t.id}`}>
                       <TableCell className="font-mono text-xs font-bold text-blue-600">{t.ticket_number}</TableCell>
@@ -298,26 +366,30 @@ export default function IncidentTicketsPage() {
                       </TableCell>
                       <TableCell className="text-xs">{t.from_branch_name} &rarr; {t.to_branch_name}</TableCell>
                       <TableCell className="text-right font-mono font-bold text-red-600">{formatPHP(t.total_capital_loss)}</TableCell>
-                      <TableCell><Badge className={`text-[10px] ${PRIORITY_COLORS[t.priority]}`}>{t.priority}</Badge></TableCell>
+                      <TableCell>
+                        {rtMeta ? (
+                          <Badge className={`text-[10px] ${rtMeta.bg} ${rtMeta.color}`}>{rtMeta.label}</Badge>
+                        ) : (
+                          <span className="text-[10px] text-slate-400">{'\u2014'}</span>
+                        )}
+                      </TableCell>
                       <TableCell><Badge className={`text-[10px] ${STATUS_COLORS[t.status]}`}>{t.status}</Badge></TableCell>
                       <TableCell className="text-xs text-slate-500">{t.assigned_to_name || '\u2014'}</TableCell>
                       <TableCell className="text-xs text-slate-400">{fmtDate(t.created_at)}</TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            ALL VARIANCES TAB
-           ══════════════════════════════════════════════════════════════════ */}
+        {/* ── ALL VARIANCES TAB ── */}
         <TabsContent value="variances" className="mt-4 space-y-4">
           {varianceLoading ? (
             <div className="text-center py-16 text-slate-400">
-              <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
-              Loading transfer variance data...
+              <RefreshCw size={20} className="animate-spin mx-auto mb-2" /> Loading...
             </div>
           ) : !varianceData ? (
             <Card className="border-slate-200">
@@ -333,9 +405,7 @@ export default function IncidentTicketsPage() {
                   <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                     <AlertTriangle size={14} className="text-amber-600" />
                     All Transfer Variances
-                    <span className="text-xs font-normal text-slate-400">
-                      ({varianceData.items.length} transfers with discrepancies)
-                    </span>
+                    <span className="text-xs font-normal text-slate-400">({varianceData.items.length} transfers)</span>
                   </h3>
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={loadVariances}>
                     <RefreshCw size={12} className="mr-1" /> Refresh
@@ -344,7 +414,7 @@ export default function IncidentTicketsPage() {
                 {varianceData.items.length === 0 ? (
                   <div className="text-center py-12 text-slate-400">
                     <Check size={24} className="mx-auto mb-2 text-emerald-400" />
-                    <p className="text-sm">No transfer variances found. All transfers matched perfectly.</p>
+                    <p className="text-sm">No transfer variances found.</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100">
@@ -355,13 +425,8 @@ export default function IncidentTicketsPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-sm font-bold text-slate-700">{item.order_number}</span>
                               {item.incident_ticket_number ? (
-                                <button
-                                  className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium hover:bg-amber-200 transition-colors"
-                                  onClick={() => {
-                                    setMainTab('tickets');
-                                    setTab('all');
-                                    setSearch(item.incident_ticket_number);
-                                  }}
+                                <button className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium hover:bg-amber-200 transition-colors"
+                                  onClick={() => { setMainTab('tickets'); setTab('all'); setSearch(item.incident_ticket_number); }}
                                   data-testid={`variance-ticket-${item.transfer_id}`}>
                                   <AlertTriangle size={9} /> {item.incident_ticket_number}
                                 </button>
@@ -370,16 +435,13 @@ export default function IncidentTicketsPage() {
                               )}
                               {item.capital_loss > 0 && (
                                 <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
-                                  Loss: {item.capital_loss.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
+                                  Loss: {formatPHP(item.capital_loss)}
                                 </span>
                               )}
                             </div>
                             <p className="text-xs text-slate-500 mt-1">
                               {item.from_branch_name} <ArrowRight size={10} className="inline text-slate-400" /> {item.to_branch_name}
                             </p>
-                            {item.dispute_note && (
-                              <p className="text-[10px] text-slate-400 mt-0.5 italic">&quot;{item.dispute_note}&quot;</p>
-                            )}
                           </div>
                           <div className="text-right shrink-0 ml-4">
                             <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -387,14 +449,10 @@ export default function IncidentTicketsPage() {
                               {item.excesses_count > 0 && <span className="text-blue-600 font-medium">{item.excesses_count} excess(es)</span>}
                             </div>
                             <p className="text-[10px] text-slate-400 mt-0.5">{item.accepted_at?.slice(0, 10)}</p>
-                            {item.accepted_by_name && <p className="text-[10px] text-slate-400">by {item.accepted_by_name}</p>}
                             <Button size="sm" variant="outline" className="h-7 text-xs mt-1.5"
                               onClick={() => openVarianceDetail(item.transfer_id)} data-testid={`view-variance-${item.transfer_id}`}
                               disabled={varianceViewLoading === item.transfer_id}>
-                              {varianceViewLoading === item.transfer_id
-                                ? <RefreshCw size={12} className="mr-1 animate-spin" />
-                                : <Eye size={12} className="mr-1" />
-                              } View
+                              {varianceViewLoading === item.transfer_id ? <RefreshCw size={12} className="mr-1 animate-spin" /> : <Eye size={12} className="mr-1" />} View
                             </Button>
                           </div>
                         </div>
@@ -408,21 +466,22 @@ export default function IncidentTicketsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          DIALOGS
-         ══════════════════════════════════════════════════════════════════ */}
-
-      {/* Ticket Detail Dialog */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          TICKET DETAIL DIALOG
+         ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {selectedTicket && (
+          {selectedTicket && (() => {
+            const rt = RESOLUTION_TYPE_META[selectedTicket.resolution_type];
+            return (
             <>
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+                <DialogTitle className="flex items-center gap-2 flex-wrap" style={{ fontFamily: 'Manrope' }}>
                   <FileText size={18} />
                   {selectedTicket.ticket_number}
                   <Badge className={`text-[10px] ${STATUS_COLORS[selectedTicket.status]}`}>{selectedTicket.status}</Badge>
                   <Badge className={`text-[10px] ${PRIORITY_COLORS[selectedTicket.priority]}`}>{selectedTicket.priority}</Badge>
+                  {rt && <Badge className={`text-[10px] ${rt.bg} ${rt.color}`}>{rt.label}</Badge>}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
@@ -430,7 +489,7 @@ export default function IncidentTicketsPage() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-slate-500">Transfer:</span>{' '}
-                    <button className="font-mono font-bold text-blue-600 hover:underline cursor-pointer" data-testid="ticket-transfer-link"
+                    <button className="font-mono font-bold text-blue-600 hover:underline" data-testid="ticket-transfer-link"
                       onClick={() => { setSelectedTicket(null); openVarianceDetail(selectedTicket.transfer_id); }}>
                       {selectedTicket.order_number}
                     </button>
@@ -440,7 +499,31 @@ export default function IncidentTicketsPage() {
                   <div><span className="text-slate-500">Retail Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_retail_loss)}</span></div>
                   {selectedTicket.assigned_to_name && <div><span className="text-slate-500">Assigned:</span> {selectedTicket.assigned_to_name}</div>}
                   {selectedTicket.recovery_amount > 0 && <div><span className="text-slate-500">Recovered:</span> <span className="text-emerald-600 font-bold">{formatPHP(selectedTicket.recovery_amount)}</span></div>}
+                  {selectedTicket.accountable_party && <div><span className="text-slate-500">Charged to:</span> <span className="font-semibold text-red-600">{selectedTicket.accountable_party}</span></div>}
+                  {selectedTicket.sender_confirmed && <div className="col-span-2">
+                    <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
+                      <ShieldCheck size={12} /> Sender confirmed quantities ({fmtDate(selectedTicket.sender_confirmed_at)})
+                    </span>
+                  </div>}
                 </div>
+
+                {/* Resolution summary card */}
+                {selectedTicket.resolution_type && (
+                  <div className={`rounded-lg border p-3 ${rt?.bg || 'bg-slate-50'}`}>
+                    <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      {rt && <rt.icon size={13} className={rt.color} />} Resolution: {rt?.label || selectedTicket.resolution_type}
+                    </p>
+                    {selectedTicket.accountable_party && (
+                      <p className="text-xs text-slate-600 mt-1">Charged to: <b>{selectedTicket.accountable_party}</b></p>
+                    )}
+                    {selectedTicket.resolution_note && (
+                      <p className="text-xs text-slate-500 mt-1 italic">&quot;{selectedTicket.resolution_note}&quot;</p>
+                    )}
+                    {selectedTicket.recovery_amount > 0 && (
+                      <p className="text-xs text-emerald-700 mt-1 font-medium">Recovery: {formatPHP(selectedTicket.recovery_amount)}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Variance Items */}
                 <div className="border rounded-lg overflow-hidden">
@@ -449,6 +532,7 @@ export default function IncidentTicketsPage() {
                       <tr>
                         <th className="text-left px-3 py-2 font-medium">Product</th>
                         <th className="text-right px-3 py-2 font-medium">Sent</th>
+                        {selectedTicket.sender_confirmed && <th className="text-right px-3 py-2 font-medium text-blue-600">Sender Says</th>}
                         <th className="text-right px-3 py-2 font-medium">Received</th>
                         <th className="text-right px-3 py-2 font-medium">Variance</th>
                         <th className="text-right px-3 py-2 font-medium">Loss</th>
@@ -459,6 +543,9 @@ export default function IncidentTicketsPage() {
                         <tr key={i} className={item.type === 'shortage' ? 'bg-red-50/40' : 'bg-blue-50/40'}>
                           <td className="px-3 py-2 font-medium">{item.product_name} <span className="text-slate-400 text-[10px]">{item.sku}</span></td>
                           <td className="px-3 py-2 text-right font-mono">{item.qty_ordered}</td>
+                          {selectedTicket.sender_confirmed && (
+                            <td className="px-3 py-2 text-right font-mono text-blue-600 font-bold">{item.sender_confirmed_qty ?? '—'}</td>
+                          )}
                           <td className="px-3 py-2 text-right font-mono font-bold">{item.qty_received}</td>
                           <td className={`px-3 py-2 text-right font-mono font-bold ${item.type === 'shortage' ? 'text-red-600' : 'text-blue-600'}`}>
                             {item.type === 'shortage' ? `-${item.variance}` : `+${Math.abs(item.variance)}`}
@@ -480,12 +567,18 @@ export default function IncidentTicketsPage() {
                           {event.action === 'created' && <AlertTriangle size={12} className="text-red-500" />}
                           {event.action === 'assigned' && <UserCheck size={12} className="text-blue-500" />}
                           {event.action === 'note' && <MessageSquare size={12} className="text-slate-500" />}
+                          {event.action === 'sender_confirmed' && <ShieldCheck size={12} className="text-blue-600" />}
                           {event.action === 'resolved' && <CheckCircle2 size={12} className="text-emerald-500" />}
                           {event.action === 'closed' && <XCircle size={12} className="text-slate-400" />}
                         </div>
                         <div className="flex-1">
                           <p className="text-slate-700">{event.detail}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">{event.by_name} &middot; {fmtDate(event.at)}</p>
+                          {event.resolution_type && (
+                            <Badge className={`mt-1 text-[10px] ${RESOLUTION_TYPE_META[event.resolution_type]?.bg || ''} ${RESOLUTION_TYPE_META[event.resolution_type]?.color || ''}`}>
+                              {RESOLUTION_TYPE_META[event.resolution_type]?.label || event.resolution_type}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -512,7 +605,13 @@ export default function IncidentTicketsPage() {
                         className="text-xs" data-testid="assign-btn">
                         <UserCheck size={12} className="mr-1" /> Assign
                       </Button>
-                      <Button size="sm" onClick={() => { setResolveDialog(selectedTicket); setResolveNote(''); setRecoveryAmount(0); }}
+                      {!selectedTicket.sender_confirmed && (
+                        <Button size="sm" variant="outline" onClick={() => openSenderConfirm(selectedTicket)}
+                          className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="sender-confirm-btn">
+                          <ShieldCheck size={12} className="mr-1" /> Sender Confirm
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={() => openResolveDialog(selectedTicket)}
                         className="text-xs bg-emerald-600 text-white" data-testid="resolve-btn">
                         <CheckCircle2 size={12} className="mr-1" /> Resolve
                       </Button>
@@ -527,11 +626,14 @@ export default function IncidentTicketsPage() {
                 </div>
               </div>
             </>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
-      {/* Assign Dialog */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          ASSIGN DIALOG
+         ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={!!assignDialog} onOpenChange={() => setAssignDialog(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Assign Investigator</DialogTitle></DialogHeader>
@@ -553,36 +655,176 @@ export default function IncidentTicketsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Resolve Dialog */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          RESOLVE DIALOG (ENHANCED)
+         ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={!!resolveDialog} onOpenChange={() => setResolveDialog(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Resolve Incident</DialogTitle></DialogHeader>
+          {resolveDialog && (
           <div className="space-y-4">
+            {/* Loss summary */}
+            <div className="flex gap-4 p-3 bg-slate-50 rounded-lg text-sm">
+              <div><span className="text-slate-500">Capital Loss:</span> <span className="font-bold text-red-600">{formatPHP(resolveDialog.total_capital_loss)}</span></div>
+              <div><span className="text-slate-500">Items:</span> <span className="font-bold">{resolveDialog.items?.length || 0}</span></div>
+            </div>
+
+            {/* Resolution Type */}
+            <div>
+              <label className="text-xs text-slate-500 font-medium block mb-1">Resolution Type *</label>
+              <Select value={resolutionType} onValueChange={setResolutionType}>
+                <SelectTrigger data-testid="resolution-type-select">
+                  <SelectValue placeholder="How was this resolved?" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(RESOLUTION_TYPE_META).map(([key, meta]) => (
+                    <SelectItem key={key} value={key}>
+                      <span className="flex items-center gap-2">
+                        <meta.icon size={14} className={meta.color} />
+                        {meta.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {resolutionType === 'sender_error' && (
+                <p className="text-[10px] text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                  Sender error means no actual loss occurred. The sender miscounted the original shipment.
+                </p>
+              )}
+              {resolutionType === 'transit_loss' && (
+                <p className="text-[10px] text-red-600 mt-1 bg-red-50 px-2 py-1 rounded">
+                  Transit loss will charge the accountable party (driver/courier) below.
+                </p>
+              )}
+            </div>
+
+            {/* Accountable Party (shown for transit_loss, insurance_claim, partial_recovery) */}
+            {['transit_loss', 'insurance_claim', 'partial_recovery'].includes(resolutionType) && (
+              <div>
+                <label className="text-xs text-slate-500 font-medium block mb-1">Accountable Party *</label>
+                <Input value={accountableParty} onChange={e => setAccountableParty(e.target.value)}
+                  placeholder="e.g. Driver Juan, LBC Express, JRS Courier..."
+                  className="h-9 text-sm" data-testid="accountable-party-input" />
+                <p className="text-[10px] text-slate-400 mt-1">Who is responsible for the loss / claim?</p>
+              </div>
+            )}
+
+            {/* Recovery Amount */}
+            {resolutionType !== 'sender_error' && (
+              <div>
+                <label className="text-xs text-slate-500 font-medium block mb-1">Recovery Amount</label>
+                <Input type="number" value={recoveryAmount} onChange={e => setRecoveryAmount(parseFloat(e.target.value) || 0)}
+                  placeholder="0.00" className="h-9" data-testid="recovery-amount-input" />
+                <p className="text-[10px] text-slate-400 mt-1">Amount recovered/to be recovered from responsible party</p>
+              </div>
+            )}
+
+            {/* Resolution Note */}
             <div>
               <label className="text-xs text-slate-500 font-medium block mb-1">Resolution Note *</label>
               <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
-                placeholder="e.g. Driver compensated for shortage, packaging damage claimed from supplier..."
+                placeholder={resolutionType === 'transit_loss' ? 'e.g. 2 bags fell from truck, driver acknowledges and will compensate...'
+                  : resolutionType === 'sender_error' ? 'e.g. Warehouse manager confirmed they only packed 8 instead of 10...'
+                  : 'Describe the resolution...'}
                 rows={3} className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
                 data-testid="resolve-note-input" />
             </div>
-            <div>
-              <label className="text-xs text-slate-500 font-medium block mb-1">Recovery Amount (optional)</label>
-              <Input type="number" value={recoveryAmount} onChange={e => setRecoveryAmount(parseFloat(e.target.value) || 0)}
-                placeholder="0.00" className="h-9" data-testid="recovery-amount-input" />
-              <p className="text-[10px] text-slate-400 mt-1">Amount recovered from driver/supplier/insurance</p>
-            </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button variant="outline" onClick={() => setResolveDialog(null)}>Cancel</Button>
-              <Button onClick={handleResolve} disabled={!resolveNote.trim() || actionLoading}
+              <Button onClick={handleResolve}
+                disabled={!resolveNote.trim() || !resolutionType || actionLoading
+                  || (['transit_loss', 'insurance_claim'].includes(resolutionType) && !accountableParty.trim())}
                 className="bg-emerald-600 text-white" data-testid="confirm-resolve-btn">
                 <CheckCircle2 size={12} className="mr-1" /> Resolve
               </Button>
             </div>
           </div>
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* Transfer Detail Modal (shared read-only view) */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          SENDER CONFIRMATION DIALOG
+         ═══════════════════════════════════════════════════════════════════ */}
+      <Dialog open={!!senderConfirmDialog} onOpenChange={() => setSenderConfirmDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
+              <ShieldCheck size={18} className="text-blue-600" /> Sender Confirmation
+            </DialogTitle>
+          </DialogHeader>
+          {senderConfirmDialog && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              The <b>sender</b> confirms the actual quantities they packed and shipped.
+              If the sender&apos;s confirmed qty matches the receiver&apos;s count, the variance is <b>automatically cancelled</b> (no real loss).
+            </p>
+
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-medium">Product</th>
+                    <th className="text-right px-3 py-2 font-medium">Originally Logged</th>
+                    <th className="text-right px-3 py-2 font-medium">Receiver Got</th>
+                    <th className="text-right px-3 py-2 font-medium text-blue-600">Sender Actually Sent</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {senderConfirmItems.map((item, i) => {
+                    const matches = item.sender_confirmed_qty === item.qty_received;
+                    return (
+                    <tr key={i} className={matches ? 'bg-emerald-50/40' : 'bg-amber-50/40'}>
+                      <td className="px-3 py-2 font-medium">{item.product_name} <span className="text-slate-400 text-[10px]">{item.sku}</span></td>
+                      <td className="px-3 py-2 text-right font-mono">{item.qty_ordered}</td>
+                      <td className="px-3 py-2 text-right font-mono font-bold">{item.qty_received}</td>
+                      <td className="px-3 py-2 text-right">
+                        <Input type="number" className="h-7 w-20 text-sm text-center ml-auto font-mono font-bold"
+                          value={item.sender_confirmed_qty}
+                          onChange={e => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setSenderConfirmItems(prev => prev.map((p, j) => j === i ? { ...p, sender_confirmed_qty: val } : p));
+                          }}
+                          data-testid={`sender-confirm-qty-${i}`}
+                        />
+                        {matches && <span className="text-[10px] text-emerald-600 font-medium block mt-0.5">Matches receiver</span>}
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {senderConfirmItems.every(i => i.sender_confirmed_qty === i.qty_received) && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-700">
+                <CheckCircle2 size={14} className="inline mr-1.5" />
+                All quantities match! This will <b>auto-resolve</b> the ticket as &quot;Sender Error — No Loss&quot;.
+              </div>
+            )}
+
+            <div>
+              <label className="text-xs text-slate-500 font-medium block mb-1">Confirmation Note (optional)</label>
+              <Input value={senderConfirmNote} onChange={e => setSenderConfirmNote(e.target.value)}
+                placeholder="e.g. Warehouse manager confirmed packing count..."
+                className="h-9 text-sm" data-testid="sender-confirm-note" />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => setSenderConfirmDialog(null)}>Cancel</Button>
+              <Button onClick={handleSenderConfirm} disabled={actionLoading}
+                className="bg-blue-600 text-white" data-testid="confirm-sender-btn">
+                <ShieldCheck size={12} className="mr-1" /> Confirm Sender Quantities
+              </Button>
+            </div>
+          </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Detail Modal */}
       <TransferDetailModal
         transfer={varianceViewTransfer}
         open={!!varianceViewTransfer}

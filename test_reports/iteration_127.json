@@ -1,0 +1,150 @@
+{
+  "summary": "Phase 2 Incident Tickets - Structured Variance Resolution Workflow: All features tested and working. 17/17 backend tests passed. Frontend UI verified with Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {
+        "component": "IncidentTicketsPage - items table",
+        "issue": "React hydration warnings: <th>/<td> cannot be child of <span>, <span> cannot be child of <tbody>/<tr> - caused by dynamic rendering in items.map()",
+        "priority": "LOW",
+        "note": "Does not affect functionality - carried over from previous iteration. Consider using React.Fragment instead of span for mapping table elements."
+      },
+      {
+        "component": "Dialog components",
+        "issue": "Missing Description or aria-describedby for DialogContent",
+        "priority": "LOW",
+        "note": "Accessibility warning - does not affect functionality"
+      }
+    ]
+  },
+  "test_results": {
+    "backend_tests": {
+      "total": 17,
+      "passed": 17,
+      "failed": 0,
+      "test_file": "/app/backend/tests/test_incident_tickets_phase2_127.py",
+      "test_categories": [
+        "Resolution types endpoint returns 6 types",
+        "Resolve with resolution_type and accountable_party",
+        "Validation: note required, invalid type rejected",
+        "Sender confirm with matching qty auto-resolves",
+        "Sender confirm with non-matching qty doesn't auto-resolve",
+        "Existing closed tickets work without resolution_type"
+      ]
+    },
+    "frontend_tests": {
+      "incident_tickets_page_loads": {
+        "status": "PASS",
+        "details": "Page loads with summary cards, main tabs (Incident Tickets, All Transfer Variances), status sub-tabs"
+      },
+      "summary_cards_display": {
+        "status": "PASS",
+        "details": "Shows Total Variances (8), Capital Loss (₱6,670.00), Active Tickets (1), Resolved (5), Unresolved Loss (₱1,050.00)"
+      },
+      "resolution_column_in_table": {
+        "status": "PASS",
+        "details": "Table headers include RESOLUTION column: ['Ticket', 'Transfer', 'Route', 'Capital Loss', 'Resolution', 'Status', 'Assigned', 'Date']"
+      },
+      "ticket_detail_dialog": {
+        "status": "PASS",
+        "details": {
+          "shows_status_badges": true,
+          "shows_sender_confirmation_status": true,
+          "shows_sender_says_column_in_items_table": true,
+          "resolve_button_visible": true,
+          "assign_button_visible": true
+        }
+      },
+      "resolve_dialog_resolution_types_dropdown": {
+        "status": "PASS",
+        "details": {
+          "types_visible": ["Transit Loss", "Sender Error (No Loss)", "Receiver Error", "Write Off", "Insurance Claim", "Partial Recovery"],
+          "count": 6
+        }
+      },
+      "resolution_type_hints": {
+        "status": "PASS",
+        "details": {
+          "transit_loss_shows_red_warning": true,
+          "warning_text": "Transit loss will charge the accountable party (driver/courier) below.",
+          "sender_error_shows_blue_info": true,
+          "info_text": "Sender error means no actual loss occurred. The sender miscounted the original shipment."
+        }
+      },
+      "conditional_accountable_party_field": {
+        "status": "PASS",
+        "details": {
+          "shown_for_transit_loss": true,
+          "hidden_for_sender_error": true,
+          "placeholder": "e.g. Driver Juan, LBC Express, JRS Courier..."
+        }
+      },
+      "resolve_button_validation": {
+        "status": "PASS",
+        "details": "Resolve button disabled when required fields missing (no type, no note, no accountable party for transit_loss)"
+      },
+      "all_transfer_variances_tab": {
+        "status": "PASS",
+        "details": {
+          "variance_items_count": 8,
+          "shows_incident_ticket_badges": true,
+          "shows_loss_amounts": true,
+          "view_buttons_visible": true
+        }
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_incident_tickets_phase2_127.py",
+    "/app/test_reports/pytest/pytest_incident_tickets_phase2_127.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "React hydration warnings persist in items table mapping - consider using React.Fragment (<></>) instead of <span> for wrapping dynamic table rows",
+    "Resolution column shows '—' for legacy closed tickets without resolution_type - this is expected behavior"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_incident_tickets_phase2_127.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (all Phase 2 features verified)"
+  },
+  "test_credentials_used": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325"
+  },
+  "seed_data_creation": "Created test incident tickets via transfer flow during backend testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 2 Incident Tickets implemented and tested. Key test IDs: incident-tickets-page, tickets-main-tab, variances-main-tab, resolve-btn, sender-confirm-btn, resolution-type-select, accountable-party-input, recovery-amount-input, resolve-note-input, confirm-resolve-btn. Resolution types: transit_loss, sender_error, receiver_error, write_off, insurance_claim, partial_recovery. Note: The Sender Confirm button only appears for open/investigating tickets that haven't been sender-confirmed yet. Accountable Party field is conditional - shown for transit_loss, insurance_claim, partial_recovery only.",
+  "phase2_features_verified": {
+    "resolution_types_endpoint": {
+      "endpoint": "GET /api/incident-tickets/resolution-types",
+      "returns": "6 types with value and label",
+      "verified": true
+    },
+    "resolve_with_resolution_type": {
+      "endpoint": "PUT /api/incident-tickets/{id}/resolve",
+      "accepts": "resolution_type, accountable_party, recovery_amount, resolution_note",
+      "verified": true
+    },
+    "sender_confirm_flow": {
+      "endpoint": "PUT /api/incident-tickets/{id}/sender-confirm",
+      "auto_resolve_when": "all sender_confirmed_qty match receiver qty",
+      "verified": true
+    },
+    "ui_enhancements": {
+      "resolution_column": true,
+      "resolution_type_dropdown": true,
+      "conditional_accountable_party": true,
+      "resolution_type_hints": true,
+      "sender_confirmation_display": true
+    }
+  }
+}

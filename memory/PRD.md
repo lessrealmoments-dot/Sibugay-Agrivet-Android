@@ -35,68 +35,69 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Terminal Pull: self-serve PO/Transfer pull with PIN verification
 - Settings panel with Unlink Terminal
 
-### Print Prompts After Sale/PO (Complete — Mar 2026)
-- After every sale (Quick Sales + Orders), ReferenceNumberPrompt now shows Print Full Page and Print Thermal buttons
-- Print generates doc code + QR code on all receipts
-- Sales History page also generates QR codes when reprinting
-- POSPage now shows the same prompt after checkout
-
 ### QR Document Lookup System (Complete — Mar 2026)
 - Unique 8-char alphanumeric code per document (Sales, PO, Branch Transfer)
 - QR code printed on every receipt linking to `/doc/:code`
-- **3-Tier Access Model:**
-  - Tier 1 (Open): Items, total, status, customer/supplier — no PIN needed
-  - Tier 2 (PIN): Payment history, attached files, notes, reprint — Manager/Admin/TOTP PIN
-  - Tier 3 (Terminal): Pull PO/Transfer to terminal, apply credit payment — paired terminal + PIN
+- 3-Tier Access Model (Open / PIN / Terminal)
 - Terminal detection via localStorage `agrismart_terminal` session
 
 ### PrintEngine v2 Redesign (Complete — Mar 2026)
-- Professional template: company left, doc info right, green header bar
-- Clean info boxes for From/To or Supplier/Customer
-- Spacious table with alternating rows, fewer columns
-- QR code on all printed documents
+- Professional template with QR codes on all document types
+- Thermal (58mm) + Full Page templates for Sales, PO, and Branch Transfers
 - Consistent styling across all document types
-- Branch Transfer migrated from custom HTML to centralized PrintEngine
 
 ### Branch Transfer UX Redesign (Complete — Mar 2026)
-- Status-based filter pills (All, Requests, Drafts, In Transit, Terminal, Needs Review, Completed, Disputes)
-- Card-based layout with timelines, action buttons, colored borders
-- **UX enlarged for employee accessibility** (Mar 2026): Bigger filter pills, larger cards, bigger buttons with text labels, larger timeline dots
-- **Branch role indicator** (Mar 2026): "You: Sender" (blue) / "You: Receiver" (green) tags on each transfer card
-
-### Terminal Sales Fixes (Complete — Mar 2026)
-- Scanner debounce (2s cooldown), full checkout flow, online API error handling
-- Sales History sidebar link at /sales with search, filters, sorting, pagination
-
-### Branch Isolation Bug Fix (Complete — Mar 2026)
-- Removed `isAdmin ||` override from `isSourceBranch` and `isDestBranch` in BranchTransferPage.js
-- Removed `isAdmin` bypass from Edit Draft and Send to Terminal buttons
-- Fixed "Confirm Receipt" dialog to use branch context instead of isAdmin
-- Admin in consolidated view sees View only; specific branch selection shows correct actions
+- Status-based filter pills, card-based layout, enlarged UX
+- Branch role indicator ("You: Sender" / "You: Receiver")
+- Branch isolation fix (admin can't bypass branch context)
 
 ### Centralized Receipt & Modal UX Fix (Complete — Mar 2026)
-- **SaleDetailModal print with QR codes**: Fixed `handlePrint` to generate doc_code via `/api/doc/generate-code` before printing. Receipts from Sales History now include QR codes, same as PO and Branch Transfer.
-- **PODetailModal print added**: Added PrintEngine + doc code integration to PODetailModal (was completely missing). Now supports Print Full Page and Print Thermal with QR codes.
-- **Modal button overflow fix**: Redesigned action buttons in SaleDetailModal, PODetailModal, and PurchaseOrderPage detail dialog. Primary "Print" button visible, all other actions (View on Phone, Upload Receipt, Verify, Edit) in a compact "..." dropdown menu. No more horizontal overflow.
-- **Print Thermal templates**: Added thermal (58mm) receipt templates for Purchase Orders and Branch Transfers (previously only had full-page).
-- **Document code search in QuickSearch (Ctrl+K)**: The Ctrl+K search now detects document codes (from QR scan or manual input). When a doc code is entered, backend looks it up in the `doc_codes` collection and returns the matching document with a "QR Code Match" badge. Trigger button updated to "Find / Scan..."
+- SaleDetailModal, PODetailModal, PurchaseOrderPage detail — all generate doc_code + QR on print
+- Action toolbar redesign: all actions visible (Print Full, Print 58mm, View on Phone, Upload Receipt, Verify, Edit) as `flex-wrap` row below title
+- Document code search in QuickSearch (Ctrl+K) with "QR Code Match" badge
+
+### Stock Request Migration to Branch Transfers (Complete — Mar 2026)
+- **Moved "Branch Stock Request" from Purchase Orders to Branch Transfers**
+- New "Request Stock" tab in Branch Transfers with simplified form:
+  - Your Branch (locked) → Request From Branch → Product search + Qty → Notes → Send
+  - Show retail price toggle for supply branch visibility
+  - Still creates `purchase_order` with `po_type: branch_request` on backend (zero migration risk)
+- **Removed Source Type Toggle from Purchase Orders** — PO page is now purely for external suppliers
+- **Incoming/Outgoing Requests view** in Transfers History:
+  - "Incoming" tab shows requests from other branches (existing, with "Generate Transfer" action)
+  - "My Requests" tab shows requests you sent (new, with fulfillment status tracking)
+- Backend: Added `po_type` filter to `/purchase-orders` list endpoint
+
+## How Stock Requests Connect to Everything
+
+### Data Flow
+```
+Branch A (requester) → Request Stock tab → POST /purchase-orders (po_type=branch_request)
+  → Notification to Branch B (supply branch)
+  → Branch B sees in "Incoming Requests" → "Generate Transfer" button
+  → Creates actual branch_transfer order → Normal transfer lifecycle
+  → On receive: inventory adjusted, linked PO marked fulfilled/partially_fulfilled
+```
+
+### Connections
+- **Stock movement**: Only on transfer receive (inventory addition/deduction)
+- **Cash/cost tracking**: Via `transfer_capital` on the actual transfer
+- **Notifications**: Fired on request creation to supply branch
+- **Fulfillment**: Transfer receive updates linked PO via `request_po_id`
+- **Internal invoices**: Created on transfer generation from request
+- **Incident tickets**: Created on transfer disputes (count variance)
 
 ## NEXT SESSION — Priority Tasks
 
-### Task 1: Move Stock Requests from Purchase Orders to Branch Transfers (P1)
-**Current:** Stock requests between branches are in Purchase Orders section
-**Should be:** Under Branch Transfers since they're inter-branch operations
-- Move the "Requests" tab/functionality from PurchaseOrdersPage to BranchTransferPage
-- Update the request creation flow to live under Branch Transfers
-- Update sidebar navigation if needed
-- Keep the "Generate Transfer from Request" flow working
+### Task 1: Incident Ticket Connectivity Audit (P1)
+- Audit how transfer disputes create incident tickets
+- Ensure tickets are connected to Reports and Audit section
+- Verify price moving average impact from disputed transfers
+- Map all incident ticket sources: transfers, count sheets, POs
 
 ### Task 2: Backend Branch Isolation Audit (P1)
-- Audit all transfer endpoints: `/receive`, `/accept-receipt`, `/dispute-receipt`
-- Ensure each endpoint validates that the requesting user belongs to the correct branch for the action
-- Source branch actions: send, cancel, accept-receipt, dispute-receipt
-- Dest branch actions: receive, re-count after dispute
-- Admin in consolidated view should see everything but actions restricted to branch context
+- Audit transfer endpoints: `/receive`, `/accept-receipt`, `/dispute-receipt`
+- Ensure each validates user belongs to correct branch
 
 ## Prioritized Backlog
 
@@ -119,26 +120,25 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 ## Key Files
 - `/app/backend/routes/terminal.py` — Terminal pairing, QR, pull, WebSocket
 - `/app/backend/routes/branch_transfers.py` — Transfer CRUD, receive, accept/dispute
-- `/app/backend/routes/purchase_orders.py` — PO CRUD, stock requests
+- `/app/backend/routes/purchase_orders.py` — PO CRUD (now with po_type filter)
 - `/app/backend/routes/search.py` — Universal search with doc code lookup
 - `/app/backend/routes/doc_lookup.py` — Doc code generation and lookup
-- `/app/frontend/src/pages/BranchTransferPage.js` — Branch isolation fixed, UX enlarged
-- `/app/frontend/src/pages/PurchaseOrderPage.js` — PO management with centralized print
+- `/app/backend/routes/incident_tickets.py` — Incident ticket CRUD
+- `/app/frontend/src/pages/BranchTransferPage.js` — Transfers + Request Stock + History
+- `/app/frontend/src/pages/PurchaseOrderPage.js` — External supplier POs only
 - `/app/frontend/src/pages/terminal/` — All terminal components
-- `/app/frontend/src/pages/SalesPage.js` — Sales history with centralized print
-- `/app/frontend/src/components/SaleDetailModal.js` — Sale detail with QR print + compact actions
-- `/app/frontend/src/components/PODetailModal.js` — PO detail with QR print + compact actions
+- `/app/frontend/src/components/SaleDetailModal.js` — Sale detail with QR print
+- `/app/frontend/src/components/PODetailModal.js` — PO detail with QR print
 - `/app/frontend/src/components/QuickSearch.js` — Ctrl+K search with doc code scanning
-- `/app/frontend/src/components/ReferenceNumberPrompt.js` — Post-sale print prompt
-- `/app/frontend/src/lib/PrintEngine.js` — Centralized print with thermal + full-page for all types
-- `/app/frontend/src/components/Layout.js` — Sidebar navigation
+- `/app/frontend/src/lib/PrintEngine.js` — Centralized print engine
 
 ## Test Reports
-- `/app/test_reports/iteration_118.json` — Branch Isolation Fix + UX Enlargement (100%)
-- `/app/test_reports/iteration_122.json` — Centralized Receipt + Modal UX + QuickSearch (90%→100%)
+- `/app/test_reports/iteration_122.json` — Centralized Receipt + Modal UX + QuickSearch (100%)
+- `/app/test_reports/iteration_123.json` — Stock Request Migration (100%)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325
+- Company Admin: jovelyneahig@gmail.com / Aa@050772
 - Manager PIN: 521325
 
 ## 3rd Party Integrations

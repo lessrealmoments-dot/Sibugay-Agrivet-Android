@@ -26,9 +26,8 @@ import {
   Search, History, ArrowRight, Receipt, UserPlus, Package,
   Wallet, Banknote, CreditCard, AlertTriangle, ChevronDown, RefreshCw,
   ShieldCheck, Clock, Pencil, Upload, ImageIcon, TrendingDown, TrendingUp, Printer,
-  Smartphone, Lock, MoreHorizontal
+  Smartphone, Lock
 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { toast } from 'sonner';
 
 const EMPTY_LINE = {
@@ -1397,56 +1396,12 @@ export default function PurchaseOrderPage() {
       <Dialog open={detailDialog} onOpenChange={v => { setDetailDialog(v); if (!v) { setDetailEditMode(false); } }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle style={{ fontFamily: 'Manrope' }}>
-                {detailEditMode ? `Edit PO — ${detailPO?.po_number}` : `PO Detail — ${detailPO?.po_number}`}
-              </DialogTitle>
-              <div className="flex items-center gap-1.5">
-                {/* Print PO */}
-                <Button size="sm" variant="outline" className="h-7 text-xs"
-                  onClick={() => handlePrintPO(detailPO)} data-testid="po-print-btn">
-                  <Printer size={12} className="mr-1" /> Print
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" className="h-7 w-7 p-0" data-testid="po-detail-more-actions">
-                      <MoreHorizontal size={14} />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => handlePrintPO(detailPO, 'thermal')}>
-                      <Printer size={13} className="mr-2 text-slate-500" /> Print Thermal (58mm)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handlePrintPO(detailPO, 'full_page')}>
-                      <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => { setViewQROpen(true); setViewQRFileCount(0); }}>
-                      <Package size={13} className="mr-2 text-slate-500" /> View on Phone
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setUploadRecordId(detailPO?.id); setUploadQROpen(true); }}>
-                      <Upload size={13} className="mr-2 text-slate-500" /> Upload Receipt
-                    </DropdownMenuItem>
-                    {detailPO && !detailPO.verified && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setVerifyDialogOpen(true)}>
-                          <ShieldCheck size={13} className="mr-2 text-[#1A4D2E]" /> Verify
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    {detailPO?.status === 'ordered' && detailPO?.reopened_at && !detailEditMode && (
-                      <DropdownMenuItem onClick={() => openDetailForEdit(detailPO)}>
-                        <Pencil size={13} className="mr-2 text-amber-600" /> Edit PO
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>
+              {detailEditMode ? `Edit PO — ${detailPO?.po_number}` : `PO Detail — ${detailPO?.po_number}`}
+            </DialogTitle>
             {/* Verification badge row */}
             {detailPO && detailPO.verified && (
-              <div className="mt-1.5 flex items-center gap-2">
+              <div className="mt-1 flex items-center gap-2">
                 <VerificationBadge doc={detailPO} />
                 {detailPO.verified_at && (
                   <span className="text-[10px] text-slate-400">
@@ -1456,8 +1411,43 @@ export default function PurchaseOrderPage() {
               </div>
             )}
           </DialogHeader>
+
+          {/* Action toolbar — always visible */}
           {detailPO && (
-            <div className="space-y-4 mt-2">
+            <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100" data-testid="po-page-action-bar">
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => handlePrintPO(detailPO, 'full_page')} data-testid="po-print-btn">
+                <Printer size={12} className="mr-1" /> Print Full
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => handlePrintPO(detailPO, 'thermal')} data-testid="po-print-thermal-btn">
+                <Printer size={12} className="mr-1" /> Print 58mm
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => { setViewQROpen(true); setViewQRFileCount(0); }} data-testid="po-view-phone-btn">
+                <Package size={12} className="mr-1" /> View on Phone
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => { setUploadRecordId(detailPO?.id); setUploadQROpen(true); }} data-testid="po-upload-receipt-btn">
+                <Upload size={12} className="mr-1" /> Upload Receipt
+              </Button>
+              {!detailPO.verified && (
+                <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/30 hover:bg-[#1A4D2E]/5"
+                  onClick={() => setVerifyDialogOpen(true)} data-testid="po-verify-btn">
+                  <ShieldCheck size={12} className="mr-1" /> Verify
+                </Button>
+              )}
+              {detailPO?.status === 'ordered' && detailPO?.reopened_at && !detailEditMode && (
+                <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                  onClick={() => openDetailForEdit(detailPO)} data-testid="po-edit-btn">
+                  <Pencil size={12} className="mr-1" /> Edit
+                </Button>
+              )}
+            </div>
+          )}
+
+          {detailPO && (
+            <div className="space-y-4">
               {/* Reopened banner */}
               {detailPO.reopened_at && (
                 <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">

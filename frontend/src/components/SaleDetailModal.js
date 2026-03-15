@@ -16,9 +16,8 @@ import { Textarea } from './ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import {
   ShieldCheck, Upload, Pencil, Check, AlertTriangle,
-  RefreshCw, Ban, DollarSign, Wallet, CreditCard, Clock, Printer, MoreHorizontal
+  RefreshCw, Ban, DollarSign, Wallet, CreditCard, Clock, Printer
 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { toast } from 'sonner';
 import PrintEngine from '../lib/PrintEngine';
 
@@ -175,66 +174,55 @@ export default function SaleDetailModal({ open, onOpenChange, saleId, invoiceNum
       <Dialog open={open} onOpenChange={v => { onOpenChange(v); if (!v) setEditMode(false); }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" data-testid="sale-detail-modal">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle style={{ fontFamily: 'Manrope' }} data-testid="sale-detail-title">
-                {editMode ? `Edit Sale — ${saleNumber}` : `Sale Detail — ${saleNumber}`}
-              </DialogTitle>
-              {sale && !loading && (
-                <div className="flex items-center gap-1.5">
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={() => handlePrint('full_page')} data-testid="sale-print-full">
-                    <Printer size={12} className="mr-1" /> Print
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-7 w-7 p-0" data-testid="sale-more-actions">
-                        <MoreHorizontal size={14} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
-                        <Printer size={13} className="mr-2 text-slate-500" /> Print Thermal (58mm)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handlePrint('full_page')}>
-                        <Printer size={13} className="mr-2 text-slate-500" /> Print Full Page
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setViewQROpen(true)} data-testid="sale-view-phone-btn">
-                        <Wallet size={13} className="mr-2 text-slate-500" /> View on Phone
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setUploadQROpen(true)} data-testid="sale-upload-receipt-btn">
-                        <Upload size={13} className="mr-2 text-slate-500" /> Upload Receipt
-                      </DropdownMenuItem>
-                      {!sale.verified && !isVoided && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setVerifyDialogOpen(true)} data-testid="sale-verify-btn">
-                            <ShieldCheck size={13} className="mr-2 text-[#1A4D2E]" /> Verify
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                      {canEdit && !editMode && (
-                        <DropdownMenuItem onClick={openEdit} data-testid="sale-edit-btn">
-                          <Pencil size={13} className="mr-2 text-amber-600" /> Edit Sale
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
-            </div>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} data-testid="sale-detail-title">
+              {editMode ? `Edit Sale — ${saleNumber}` : `Sale Detail — ${saleNumber}`}
+            </DialogTitle>
             {sale?.verified && (
-              <div className="mt-1.5 flex items-center gap-2">
+              <div className="mt-1 flex items-center gap-2">
                 <VerificationBadge doc={sale} />
                 {sale.verified_at && <span className="text-[10px] text-slate-400">{sale.verified_at?.slice(0, 16)?.replace('T', ' ')}</span>}
               </div>
             )}
           </DialogHeader>
 
+          {/* Action toolbar — always visible */}
+          {sale && !loading && (
+            <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100" data-testid="sale-action-bar">
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => handlePrint('full_page')} data-testid="sale-print-full">
+                <Printer size={12} className="mr-1" /> Print Full
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
+                <Printer size={12} className="mr-1" /> Print 58mm
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => setViewQROpen(true)} data-testid="sale-view-phone-btn">
+                <Wallet size={12} className="mr-1" /> View on Phone
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs"
+                onClick={() => setUploadQROpen(true)} data-testid="sale-upload-receipt-btn">
+                <Upload size={12} className="mr-1" /> Upload Receipt
+              </Button>
+              {!sale.verified && !isVoided && (
+                <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/30 hover:bg-[#1A4D2E]/5"
+                  onClick={() => setVerifyDialogOpen(true)} data-testid="sale-verify-btn">
+                  <ShieldCheck size={12} className="mr-1" /> Verify
+                </Button>
+              )}
+              {canEdit && !editMode && (
+                <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                  onClick={openEdit} data-testid="sale-edit-btn">
+                  <Pencil size={12} className="mr-1" /> Edit
+                </Button>
+              )}
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-12"><div className="text-slate-400">Loading...</div></div>
           ) : sale ? (
-            <div className="space-y-4 mt-2">
+            <div className="space-y-4">
               {/* Receipts gallery */}
               <ReceiptGallery recordType="invoice" recordId={sale.id} />
 

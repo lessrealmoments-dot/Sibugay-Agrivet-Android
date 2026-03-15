@@ -93,6 +93,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Fixed product search endpoint mismatch (`/detail-search` → `/search-detail`)
 - Fixed `branch_id` missing from stock request POST body + backend fallback from JWT
 
+### Phase 2: Structured Variance Resolution Workflow (Complete — Mar 2026)
+- Resolution Type dropdown: transit_loss, sender_error, receiver_error, write_off, insurance_claim, partial_recovery
+- Accountable Party field (conditional — shown for transit_loss, insurance_claim, partial_recovery)
+- Sender Confirmation flow: sender can confirm actual quantities; if all match receiver, ticket auto-resolves as "sender_error" (no real loss)
+- Enhanced resolve dialog with contextual hints per resolution type
+- Resolution column added to tickets table
+- Backend: /api/incident-tickets/resolve enhanced, /api/incident-tickets/sender-confirm new, /api/incident-tickets/resolution-types new
+
 ## NEXT SESSION — Priority Tasks
 
 ### Task 1: Backend Branch Isolation Audit (P1)
@@ -136,6 +144,7 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - `/app/test_reports/iteration_124.json` — Dispute/Ticket Connectivity (100%)
 - `/app/test_reports/iteration_125.json` — Transfer Variance Modal Fix (100%, 6/6 tests)
 - `/app/test_reports/iteration_126.json` — Variance + Tickets Merge (100%, 10/10 tests)
+- `/app/test_reports/iteration_127.json` — Phase 2 Resolution Workflow (100%, 17/17 backend + full frontend)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

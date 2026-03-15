@@ -22,6 +22,7 @@ import PODetailModal from '../components/PODetailModal';
 import SaleDetailModal from '../components/SaleDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 import ReceiptGallery from '../components/ReceiptGallery';
+import TransferDetailModal from '../components/TransferDetailModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -580,8 +581,19 @@ export default function AuditCenterPage() {
     setVarianceLoading(false);
   };
 
-  const openVarianceDetail = (transferId) => {
-    window.location.href = `/branch-transfers?view=${transferId}`;
+  // ── Transfer detail modal (inline, read-only) ────────────────────────────
+  const [varianceViewTransfer, setVarianceViewTransfer] = useState(null);
+  const [varianceViewLoading, setVarianceViewLoading] = useState(null);
+
+  const openVarianceDetail = async (transferId) => {
+    setVarianceViewLoading(transferId);
+    try {
+      const res = await api.get(`${BACKEND_URL}/api/branch-transfers/${transferId}`);
+      setVarianceViewTransfer(res.data);
+    } catch {
+      toast.error('Failed to load transfer details');
+    }
+    setVarianceViewLoading(null);
   };
 
 
@@ -2161,8 +2173,12 @@ export default function AuditCenterPage() {
                               <p className="text-[10px] text-slate-400 mt-0.5">{item.accepted_at?.slice(0, 10)}</p>
                               {item.accepted_by_name && <p className="text-[10px] text-slate-400">by {item.accepted_by_name}</p>}
                               <Button size="sm" variant="outline" className="h-7 text-xs mt-1.5"
-                                onClick={() => openVarianceDetail(item.transfer_id)} data-testid={`view-variance-${item.transfer_id}`}>
-                                <Eye size={12} className="mr-1" /> View
+                                onClick={() => openVarianceDetail(item.transfer_id)} data-testid={`view-variance-${item.transfer_id}`}
+                                disabled={varianceViewLoading === item.transfer_id}>
+                                {varianceViewLoading === item.transfer_id
+                                  ? <RefreshCw size={12} className="mr-1 animate-spin" />
+                                  : <Eye size={12} className="mr-1" />
+                                } View
                               </Button>
                             </div>
                           </div>
@@ -2308,6 +2324,14 @@ export default function AuditCenterPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Transfer Detail Modal (read-only, for variance view) */}
+      <TransferDetailModal
+        transfer={varianceViewTransfer}
+        open={!!varianceViewTransfer}
+        onOpenChange={(open) => { if (!open) setVarianceViewTransfer(null); }}
+        branches={branches || []}
+      />
     </div>
   );
 }

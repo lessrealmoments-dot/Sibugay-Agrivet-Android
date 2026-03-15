@@ -78,6 +78,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Shows: order header, status timeline, variance history, reconciliation table, print button
 - BranchTransferPage's existing action-based view dialog remains unchanged
 
+### Transfer Variances & Incident Tickets Merge (Complete — Mar 2026)
+- Merged Transfer Variances tab from Audit Center into the Incident Tickets page
+- Incident Tickets page is now the single source of truth: two main tabs ("Incident Tickets" + "All Transfer Variances")
+- Summary cards show combined metrics (Total Variances, Capital Loss, Active Tickets, Resolved, Unresolved Loss)
+- Transfer order links in both tabs open TransferDetailModal popup inline
+- Ticket badges on variance items navigate to tickets tab with search
+- Removed Transfer Variances tab from Audit Center (now has: Verification, Transactions, Security Flags)
+
 ## NEXT SESSION — Priority Tasks
 
 ### Task 1: Backend Branch Isolation Audit (P1)
@@ -120,6 +128,7 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - `/app/test_reports/iteration_123.json` — Stock Request Migration (100%)
 - `/app/test_reports/iteration_124.json` — Dispute/Ticket Connectivity (100%)
 - `/app/test_reports/iteration_125.json` — Transfer Variance Modal Fix (100%, 6/6 tests)
+- `/app/test_reports/iteration_126.json` — Variance + Tickets Merge (100%, 10/10 tests)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

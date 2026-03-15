@@ -15,14 +15,13 @@ import {
   ShieldCheck, RefreshCw, AlertTriangle, Check, X, ChevronDown, ChevronUp,
   Printer, History, Plus, Package, Banknote, TrendingUp, Users, ArrowRight,
   RotateCcw, FileText, Clock, Building2, Download, ShieldAlert, Smartphone,
-  KeyRound, Eye, ImageIcon, CircleAlert, Receipt, ArrowUpDown, ArrowLeftRight
+  KeyRound, Eye, ImageIcon, CircleAlert, Receipt, ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PODetailModal from '../components/PODetailModal';
 import SaleDetailModal from '../components/SaleDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 import ReceiptGallery from '../components/ReceiptGallery';
-import TransferDetailModal from '../components/TransferDetailModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -521,8 +520,6 @@ export default function AuditCenterPage() {
 
   // ── Security Flags ─────────────────────────────────────────────────────
   const [securityFlags, setSecurityFlags] = useState([]);
-  const [varianceData, setVarianceData] = useState(null);
-  const [varianceLoading, setVarianceLoading] = useState(false);
   const [loadingFlags, setLoadingFlags] = useState(false);
   const [ackDialog, setAckDialog] = useState(null); // event being acknowledged
   const [ackNote, setAckNote] = useState('');
@@ -546,7 +543,6 @@ export default function AuditCenterPage() {
   useEffect(() => { if (tab === 'history') loadHistory(); }, [tab, loadHistory]);
   useEffect(() => { if (tab === 'discrepancies') loadDiscrepancies(); }, [tab]); // eslint-disable-line
   useEffect(() => { if (tab === 'security') loadSecurityFlags(); }, [tab, periodFrom, periodTo]); // eslint-disable-line
-  useEffect(() => { if (tab === 'variances') loadVariances(); }, [tab, auditBranchId]); // eslint-disable-line
 
   const loadDiscrepancies = async () => {
     setLoadingDisc(true);
@@ -569,31 +565,6 @@ export default function AuditCenterPage() {
       setSecurityFlags(res.data.events || []);
     } catch { }
     setLoadingFlags(false);
-  };
-
-  const loadVariances = async () => {
-    setVarianceLoading(true);
-    try {
-      const params = auditBranchId ? `?branch_id=${auditBranchId}` : '';
-      const res = await api.get(`${BACKEND_URL}/api/audit/transfer-variances${params}`);
-      setVarianceData(res.data);
-    } catch { setVarianceData(null); }
-    setVarianceLoading(false);
-  };
-
-  // ── Transfer detail modal (inline, read-only) ────────────────────────────
-  const [varianceViewTransfer, setVarianceViewTransfer] = useState(null);
-  const [varianceViewLoading, setVarianceViewLoading] = useState(null);
-
-  const openVarianceDetail = async (transferId) => {
-    setVarianceViewLoading(transferId);
-    try {
-      const res = await api.get(`${BACKEND_URL}/api/branch-transfers/${transferId}`);
-      setVarianceViewTransfer(res.data);
-    } catch {
-      toast.error('Failed to load transfer details');
-    }
-    setVarianceViewLoading(null);
   };
 
 
@@ -875,10 +846,6 @@ export default function AuditCenterPage() {
                 {securityFlags.filter(e => !e.acknowledged).length}
               </span>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="variances" data-testid="transfer-variances-tab" className="data-[state=active]:bg-amber-50 data-[state=active]:text-amber-700">
-            <ArrowLeftRight size={14} className="mr-1.5" />
-            Transfer Variances
           </TabsTrigger>
         </TabsList>
 
@@ -2071,127 +2038,6 @@ export default function AuditCenterPage() {
         </TabsContent>
 
 
-        {/* ── TRANSFER VARIANCES ── */}
-        <TabsContent value="variances" className="mt-4 space-y-4">
-          {varianceLoading ? (
-            <div className="text-center py-16 text-slate-400">
-              <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
-              Loading transfer variance data...
-            </div>
-          ) : !varianceData ? (
-            <Card className="border-slate-200">
-              <CardContent className="p-8 text-center text-slate-400">
-                <ArrowLeftRight size={36} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No transfer variance data available.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-slate-200">
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-slate-800 font-mono">{varianceData.summary.total_variance_transfers}</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Transfers with Variances</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-red-200 bg-red-50/30">
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-red-700 font-mono">
-                      {varianceData.summary.total_capital_loss.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                    </p>
-                    <p className="text-[11px] text-red-600 mt-1">Total Capital Loss from Variances</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-amber-200 bg-amber-50/30">
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-amber-700 font-mono">{varianceData.summary.open_incident_tickets}</p>
-                    <p className="text-[11px] text-amber-600 mt-1">Open Incident Tickets</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-amber-200 bg-amber-50/30">
-                  <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold text-amber-700 font-mono">
-                      {varianceData.summary.total_unresolved_loss.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                    </p>
-                    <p className="text-[11px] text-amber-600 mt-1">Unresolved Capital at Risk</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Variance List */}
-              <Card className="border-slate-200">
-                <CardContent className="p-0">
-                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                      <AlertTriangle size={14} className="text-amber-600" />
-                      Transfer Variance History
-                    </h3>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={loadVariances}>
-                      <RefreshCw size={12} className="mr-1" /> Refresh
-                    </Button>
-                  </div>
-                  {varianceData.items.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400">
-                      <Check size={24} className="mx-auto mb-2 text-emerald-400" />
-                      <p className="text-sm">No transfer variances found. All transfers matched perfectly.</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-100">
-                      {varianceData.items.map((item) => (
-                        <div key={item.transfer_id} className="px-4 py-3 hover:bg-slate-50 transition-colors" data-testid={`variance-row-${item.transfer_id}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-mono text-sm font-bold text-slate-700">{item.order_number}</span>
-                                {item.incident_ticket_number ? (
-                                  <a href="/incident-tickets" className="inline-flex items-center gap-1 text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium hover:bg-amber-200 transition-colors"
-                                    data-testid={`variance-ticket-${item.transfer_id}`}>
-                                    <AlertTriangle size={9} /> {item.incident_ticket_number}
-                                  </a>
-                                ) : (
-                                  <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">No ticket</span>
-                                )}
-                                {item.capital_loss > 0 && (
-                                  <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
-                                    Loss: {item.capital_loss.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {item.from_branch_name} <ArrowRight size={10} className="inline text-slate-400" /> {item.to_branch_name}
-                              </p>
-                              {item.dispute_note && (
-                                <p className="text-[10px] text-slate-400 mt-0.5 italic">&quot;{item.dispute_note}&quot;</p>
-                              )}
-                            </div>
-                            <div className="text-right shrink-0 ml-4">
-                              <div className="flex items-center gap-2 text-xs text-slate-500">
-                                {item.shortages_count > 0 && <span className="text-amber-600 font-medium">{item.shortages_count} shortage(s)</span>}
-                                {item.excesses_count > 0 && <span className="text-blue-600 font-medium">{item.excesses_count} excess(es)</span>}
-                              </div>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{item.accepted_at?.slice(0, 10)}</p>
-                              {item.accepted_by_name && <p className="text-[10px] text-slate-400">by {item.accepted_by_name}</p>}
-                              <Button size="sm" variant="outline" className="h-7 text-xs mt-1.5"
-                                onClick={() => openVarianceDetail(item.transfer_id)} data-testid={`view-variance-${item.transfer_id}`}
-                                disabled={varianceViewLoading === item.transfer_id}>
-                                {varianceViewLoading === item.transfer_id
-                                  ? <RefreshCw size={12} className="mr-1 animate-spin" />
-                                  : <Eye size={12} className="mr-1" />
-                                } View
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </TabsContent>
-
       </Tabs>
 
       {/* Acknowledge Dialog */}
@@ -2324,14 +2170,6 @@ export default function AuditCenterPage() {
           </DialogContent>
         </Dialog>
       )}
-
-      {/* Transfer Detail Modal (read-only, for variance view) */}
-      <TransferDetailModal
-        transfer={varianceViewTransfer}
-        open={!!varianceViewTransfer}
-        onOpenChange={(open) => { if (!open) setVarianceViewTransfer(null); }}
-        branches={branches || []}
-      />
     </div>
   );
 }

@@ -1,0 +1,152 @@
+{
+  "summary": "Verified Transfer Variances tab merge from Audit Center to Incident Tickets page. All 10 test scenarios passed. The Incident Tickets page now serves as the single source of truth for transfer discrepancies and incident tracking.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "console_warnings": [
+      {
+        "component": "TransferDetailModal",
+        "issue": "React hydration warning: <tr> cannot be child of <span>, <span> cannot be child of <tbody> - caused by dynamic rendering in items.map()",
+        "priority": "LOW",
+        "note": "Does not affect functionality - carried over from previous version"
+      }
+    ]
+  },
+  "test_results": {
+    "feature_1_incident_tickets_page_loads_with_merged_header": {
+      "status": "PASS",
+      "details": {
+        "header_text": "Incident Tickets & Transfer Variances",
+        "subtitle": "Track, investigate, and resolve transfer discrepancies and losses",
+        "data_testid": "incident-tickets-page"
+      }
+    },
+    "feature_2_summary_cards_populated": {
+      "status": "PASS",
+      "details": {
+        "total_variances": 4,
+        "capital_loss": "₱2,940.00",
+        "active_tickets": 0,
+        "resolved": 2,
+        "unresolved_loss": "₱0.00",
+        "cards_visible": true
+      }
+    },
+    "feature_3_two_main_tabs_exist": {
+      "status": "PASS",
+      "details": {
+        "incident_tickets_tab": {
+          "exists": true,
+          "data_testid": "tickets-main-tab"
+        },
+        "all_transfer_variances_tab": {
+          "exists": true,
+          "data_testid": "variances-main-tab"
+        }
+      }
+    },
+    "feature_4_incident_tickets_tab_functionality": {
+      "status": "PASS",
+      "details": {
+        "status_subtabs": ["Open", "Investigating", "Resolved", "Closed", "All"],
+        "search_input": true,
+        "ticket_table_columns": ["TICKET", "TRANSFER", "ROUTE", "CAPITAL LOSS", "PRIORITY", "STATUS", "ASSIGNED", "DATE"],
+        "ticket_rows_in_closed_tab": 2
+      }
+    },
+    "feature_5_ticket_detail_dialog": {
+      "status": "PASS",
+      "details": {
+        "dialog_opens_on_row_click": true,
+        "shows_ticket_number": "INC-00002",
+        "shows_status_badges": ["closed", "high"],
+        "shows_transfer_order": "BTO-20260301-0059",
+        "shows_route": "Main Branch - Downtown → IPIL BRANCH",
+        "shows_capital_loss": "₱1,050.00",
+        "shows_retail_loss": "₱1,300.00",
+        "shows_recovered": "₱250.00",
+        "shows_variance_items_table": true,
+        "shows_timeline": true,
+        "closed_ticket_hides_action_buttons": true
+      }
+    },
+    "feature_6_ticket_transfer_link_opens_modal_inline": {
+      "status": "PASS",
+      "details": {
+        "transfer_link_clickable": true,
+        "opens_transfer_detail_modal": true,
+        "url_stays_on_incident_tickets": true,
+        "transfer_detail_modal_testid": "transfer-detail-modal"
+      }
+    },
+    "feature_7_all_transfer_variances_tab": {
+      "status": "PASS",
+      "details": {
+        "variance_items_count": 4,
+        "shows_order_numbers": ["BTO-20260301-0060", "BTO-20260301-0059", "BTO-20260227-0054", "BTO-20260227-0053"],
+        "shows_ticket_badges": ["INC-00002", "INC-00001"],
+        "shows_loss_amounts": true,
+        "shows_shortage_counts": true,
+        "view_button_testid_pattern": "view-variance-{transfer_id}"
+      }
+    },
+    "feature_8_variance_view_opens_modal_inline": {
+      "status": "PASS",
+      "details": {
+        "view_buttons_count": 4,
+        "modal_opens_on_click": true,
+        "modal_shows_transfer_details": true,
+        "modal_shows_status_timeline": true,
+        "modal_shows_variance_history": true,
+        "modal_shows_reconciliation_table": true,
+        "url_stays_on_incident_tickets": true
+      }
+    },
+    "feature_9_ticket_badge_click_behavior": {
+      "status": "PASS",
+      "details": {
+        "badge_click_switches_to_tickets_tab": true,
+        "search_populates_with_ticket_number": "INC-00002",
+        "filters_tickets_correctly": true
+      }
+    },
+    "feature_10_audit_center_transfer_variances_removed": {
+      "status": "PASS",
+      "details": {
+        "transfer_variances_tab_exists": false,
+        "transfer_variances_testid_found": false,
+        "remaining_tabs": ["Run Audit", "Discrepancies", "Prepare for Audit", "Audit History", "Security Flags"],
+        "all_expected_tabs_present": true
+      }
+    }
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Minor React hydration warning persists in TransferDetailModal - <span> wrapper around <tr> elements in items.map(). Consider using React.Fragment (<></>) instead of span for mapping table rows."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only test)",
+    "frontend": "100% (10/10 test scenarios passed)"
+  },
+  "test_credentials_used": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325"
+  },
+  "seed_data_creation": "None - used existing variance and ticket data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Transfer Variances tab successfully merged into Incident Tickets page. Key test IDs: incident-tickets-page, tickets-main-tab, variances-main-tab, view-variance-{id}, ticket-row-{id}, ticket-transfer-link, transfer-detail-modal, variance-ticket-{id}. The Audit Center now only has: Run Audit, Discrepancies, Prepare for Audit, Audit History, Security Flags tabs.",
+  "merge_verification": {
+    "original_location": "AuditCenterPage - Transfer Variances tab",
+    "new_location": "IncidentTicketsPage - All Transfer Variances tab",
+    "functionality_preserved": true,
+    "url_behavior": "All actions stay on /incident-tickets - modals open inline",
+    "incident_tickets_as_single_source_of_truth": true
+  }
+}

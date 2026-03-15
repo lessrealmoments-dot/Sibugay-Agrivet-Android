@@ -196,6 +196,20 @@ export default function BranchTransferPage() {
 
   useEffect(() => { if (tab === 'history') loadOrders(); }, [tab, loadOrders]);
 
+  // Auto-open view dialog when ?view=TRANSFER_ID is in URL (from Audit Center etc.)
+  useEffect(() => {
+    const viewId = searchParams.get('view');
+    if (viewId && !viewOrder) {
+      setTab('history');
+      // Fetch the specific transfer and open view dialog
+      api.get(`/branch-transfers/${viewId}`).then(res => {
+        setViewOrder(res.data);
+        searchParams.delete('view');
+        setSearchParams(searchParams, { replace: true });
+      }).catch(() => {});
+    }
+  }, [searchParams]); // eslint-disable-line
+
   // Load incoming stock requests (branch request POs directed at this branch)
   const loadRequests = useCallback(async () => {
     setRequestsLoading(true);

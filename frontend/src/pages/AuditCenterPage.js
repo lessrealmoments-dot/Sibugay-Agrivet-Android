@@ -580,6 +580,11 @@ export default function AuditCenterPage() {
     setVarianceLoading(false);
   };
 
+  const openVarianceDetail = (transferId) => {
+    window.location.href = `/branch-transfers?view=${transferId}`;
+  };
+
+
 
   const acknowledgeFlag = async () => {
     if (!ackDialog) return;
@@ -2155,6 +2160,10 @@ export default function AuditCenterPage() {
                               </div>
                               <p className="text-[10px] text-slate-400 mt-0.5">{item.accepted_at?.slice(0, 10)}</p>
                               {item.accepted_by_name && <p className="text-[10px] text-slate-400">by {item.accepted_by_name}</p>}
+                              <Button size="sm" variant="outline" className="h-7 text-xs mt-1.5"
+                                onClick={() => openVarianceDetail(item.transfer_id)} data-testid={`view-variance-${item.transfer_id}`}>
+                                <Eye size={12} className="mr-1" /> View
+                              </Button>
                             </div>
                           </div>
                         </div>

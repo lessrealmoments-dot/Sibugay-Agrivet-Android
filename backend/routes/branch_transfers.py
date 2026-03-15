@@ -316,10 +316,19 @@ async def create_transfer(data: dict, user=Depends(get_current_user)):
 
 @router.get("/{transfer_id}")
 async def get_transfer(transfer_id: str, user=Depends(get_current_user)):
-    """Get a single branch transfer order."""
+    """Get a single branch transfer order with resolved branch names."""
     order = await db.branch_transfer_orders.find_one({"id": transfer_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Transfer not found")
+    # Resolve branch names if missing
+    if not order.get("from_branch_name"):
+        from_branch = await db.branches.find_one({"id": order.get("from_branch_id")}, {"_id": 0, "name": 1})
+        if from_branch:
+            order["from_branch_name"] = from_branch["name"]
+    if not order.get("to_branch_name"):
+        to_branch = await db.branches.find_one({"id": order.get("to_branch_id")}, {"_id": 0, "name": 1})
+        if to_branch:
+            order["to_branch_name"] = to_branch["name"]
     return order
 
 

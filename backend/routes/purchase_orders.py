@@ -204,10 +204,11 @@ async def list_purchase_orders(
     user=Depends(get_current_user),
     status: Optional[str] = None,
     branch_id: Optional[str] = None,
+    po_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 50
 ):
-    """List all purchase orders with optional status filter. Respects branch isolation."""
+    """List all purchase orders with optional status/type filter. Respects branch isolation."""
     query = {}
     
     # Apply branch filter for data isolation
@@ -216,6 +217,8 @@ async def list_purchase_orders(
     
     if status:
         query["status"] = status
+    if po_type:
+        query["po_type"] = po_type
     
     total = await db.purchase_orders.count_documents(query)
     items = await db.purchase_orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)

@@ -75,11 +75,6 @@ export default function PurchaseOrderPage() {
   const isAdmin = user?.role === 'admin';
   const today = new Date().toISOString().slice(0, 10);
 
-  // ── Source type: external supplier vs internal branch request ──────────
-  const [sourceType, setSourceType] = useState('external'); // 'external' | 'branch_request'
-  const [supplyBranchId, setSupplyBranchId] = useState(''); // for branch_request
-  const [showRetailToggle, setShowRetailToggle] = useState(isAdmin); // admin default ON, manager default OFF
-
   // ── Header state ────────────────────────────────────────────────────────
   const [tab, setTab] = useState('create');
   const [header, setHeader] = useState({
@@ -301,17 +296,14 @@ export default function PurchaseOrderPage() {
   const validate = () => {
     const valid = lines.filter(l => l.product_id);
     if (!valid.length) { toast.error('Add at least one product'); return null; }
-    if (sourceType === 'external' && !header.vendor) { toast.error('Enter supplier name'); return null; }
-    if (sourceType === 'branch_request' && !supplyBranchId) { toast.error('Select the branch to request from'); return null; }
+    if (!header.vendor) { toast.error('Enter supplier name'); return null; }
     if (!currentBranch) { toast.error('Select a branch'); return null; }
     return valid;
   };
 
   const buildPayload = (validLines, extra = {}) => {
     const base = {
-      vendor: sourceType === 'branch_request'
-        ? `Branch Request → ${branches.find(b => b.id === supplyBranchId)?.name || supplyBranchId}`
-        : header.vendor,
+      vendor: header.vendor,
       dr_number: header.dr_number,
       po_number: header.po_number,
       purchase_date: header.purchase_date,
@@ -325,11 +317,6 @@ export default function PurchaseOrderPage() {
       grand_total: computed.grandTotal,
       ...extra,
     };
-    if (sourceType === 'branch_request') {
-      base.po_type = 'branch_request';
-      base.supply_branch_id = supplyBranchId;
-      base.show_retail = showRetailToggle;
-    }
     // Attach inline receipt upload sessions
     if (createReceiptData?.sessionId) {
       base.upload_session_ids = [createReceiptData.sessionId];
@@ -710,41 +697,12 @@ export default function PurchaseOrderPage() {
         {/* ── NEW PO TAB ─────────────────────────────────────────────── */}
         <TabsContent value="create" className="mt-4 space-y-4">
 
-          {/* Source Type Toggle */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <span className="text-xs font-medium text-slate-600">Source:</span>
-            <div className="flex gap-1 bg-white rounded-lg border border-slate-200 p-0.5">
-              <button onClick={() => setSourceType('external')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${sourceType === 'external' ? 'bg-[#1A4D2E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                <Truck size={12} /> External Supplier
-              </button>
-              <button onClick={() => { setSourceType('branch_request'); setHeader(h => ({ ...h, vendor: '' })); }}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${sourceType === 'branch_request' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                <ArrowRight size={12} /> Branch Stock Request
-              </button>
-            </div>
-            {sourceType === 'branch_request' && (
-              <div className="flex items-center gap-2 ml-2">
-                <span className="text-[10px] text-slate-500">Show retail price to supply branch:</span>
-                <button
-                  onClick={() => setShowRetailToggle(v => !v)}
-                  className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${showRetailToggle ? 'bg-[#1A4D2E]' : 'bg-slate-300'}`}>
-                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${showRetailToggle ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
-                </button>
-                <span className="text-[10px] font-medium text-slate-600">
-                  {showRetailToggle ? 'ON (admin/owner)' : 'OFF (manager)'}
-                </span>
-              </div>
-            )}
-          </div>
-
           {/* Header */}
           <Card className="border-slate-200">
             <CardContent className="p-5 space-y-4">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Supplier OR Branch selector */}
-                {sourceType === 'external' ? (
-                  <div className="relative lg:col-span-2" ref={supplierRef}>
+                {/* Supplier */}
+                <div className="relative lg:col-span-2" ref={supplierRef}>
                     <Label className="text-xs text-slate-500">Supplier / Vendor <span className="text-red-500">*</span></Label>
                     <div className="relative mt-1">
                       <Truck size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -775,25 +733,6 @@ export default function PurchaseOrderPage() {
                     </div>
                   )}
                 </div>
-                ) : (
-                  /* Branch Request — pick supply branch */
-                  <div className="lg:col-span-2">
-                    <Label className="text-xs text-slate-500">Request Stock From Branch <span className="text-red-500">*</span></Label>
-                    <Select value={supplyBranchId} onValueChange={setSupplyBranchId}>
-                      <SelectTrigger className="mt-1 h-9" data-testid="supply-branch-select">
-                        <SelectValue placeholder="Select branch to request from..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(branches || []).filter(b => b.id !== currentBranch?.id).map(b => (
-                          <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] text-blue-600 mt-0.5">
-                      That branch gets notified and can generate a Branch Transfer with one click.
-                    </p>
-                  </div>
-                )}
                 <div>
                   <Label className="text-xs text-slate-500">Purchase Date</Label>
                   <Input className="h-9 mt-1" type="date" value={header.purchase_date}
@@ -1026,31 +965,7 @@ export default function PurchaseOrderPage() {
                 onUploaded={(data) => setCreateReceiptData(data)}
               />
 
-              {sourceType === 'branch_request' ? (
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}
-                    className="flex-1 h-14 flex-col gap-0.5">
-                    <Save size={16} /><span className="text-[10px]">Save Draft</span>
-                  </Button>
-                  <Button size="sm" onClick={async () => {
-                    const valid = validate(); if (!valid) return;
-                    setSaving(true);
-                    try {
-                      const res = await api.post('/purchase-orders', buildPayload(valid, { po_type: 'branch_request' }));
-                      toast.success(`Stock request ${res.data.po_number} sent! ${branches.find(b => b.id === supplyBranchId)?.name || ''} has been notified.`);
-                      resetForm(); fetchOrders(); setTab('list');
-                    } catch (e) { toast.error(e.response?.data?.detail || 'Error sending request'); }
-                    setSaving(false);
-                  }} disabled={saving}
-                    className="flex-1 h-14 flex-col gap-0.5 bg-blue-600 hover:bg-blue-700 text-white"
-                    data-testid="send-request-btn">
-                    {saving ? <RefreshCw size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-                    <span className="text-[10px] text-center">Send Stock Request</span>
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                     <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={saving}
                       data-testid="save-draft-btn" className="flex flex-col h-14 gap-0.5">
                       <Save size={16} /><span className="text-[10px] leading-tight text-center">Save Draft</span>
@@ -1075,8 +990,6 @@ export default function PurchaseOrderPage() {
                       ? `Terms pre-set to ${header.terms_label} — click "Terms" to confirm`
                       : 'Both "Receive" options immediately update inventory'}
                   </p>
-                </>
-              )}
             </div>
           </div>
         </TabsContent>

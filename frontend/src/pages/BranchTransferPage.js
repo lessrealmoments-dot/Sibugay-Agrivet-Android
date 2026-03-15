@@ -86,6 +86,16 @@ export default function BranchTransferPage() {
   const [stockRequests, setStockRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [generatingTransfer, setGeneratingTransfer] = useState(null); // request id being processed
+  // ── Request Stock form state ────────────────────────────────────────────
+  const [reqTargetBranch, setReqTargetBranch] = useState('');
+  const [reqRows, setReqRows] = useState([{ id: Date.now(), search: '', product: null, qty: '', matches: [] }]);
+  const [reqNotes, setReqNotes] = useState('');
+  const [reqSaving, setReqSaving] = useState(false);
+  const [reqShowRetail, setReqShowRetail] = useState(true);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [outgoingLoading, setOutgoingLoading] = useState(false);
+  const [requestsView, setRequestsView] = useState('incoming'); // 'incoming' | 'outgoing'
+  const reqSearchTimers = useRef({});
 
   // Sync tab state from URL params (for deep-linking from notifications)
   useEffect(() => {
@@ -235,6 +245,88 @@ export default function BranchTransferPage() {
     }
     setGeneratingTransfer(null);
   };
+
+  // ── Request Stock form helpers ────────────────────────────────────────────
+  const newReqRow = () => ({ id: Date.now() + Math.random(), search: '', product: null, qty: '', matches: [] });
+  const updateReqRow = (id, updates) => setReqRows(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+  const addReqRow = () => setReqRows(prev => [...prev, newReqRow()]);
+  const removeReqRow = (id) => setReqRows(prev => prev.length > 1 ? prev.filter(r => r.id !== id) : prev);
+
+  const handleReqSearch = (rowId, query) => {
+    updateReqRow(rowId, { search: query, product: null });
+    clearTimeout(reqSearchTimers.current[rowId]);
+    if (!query || query.length < 2) { updateReqRow(rowId, { matches: [] }); return; }
+    reqSearchTimers.current[rowId] = setTimeout(async () => {
+      try {
+        const res = await api.get('/products/detail-search', { params: { q: query, branch_id: reqTargetBranch || undefined, limit: 8 } });
+        updateReqRow(rowId, { matches: res.data || [] });
+      } catch { updateReqRow(rowId, { matches: [] }); }
+    }, 300);
+  };
+
+  const selectReqProduct = (rowId, product) => {
+    updateReqRow(rowId, { product, search: product.name, matches: [], qty: reqRows.find(r => r.id === rowId)?.qty || '1' });
+  };
+
+  const resetReqForm = () => {
+    setReqTargetBranch('');
+    setReqRows([newReqRow()]);
+    setReqNotes('');
+  };
+
+  const handleSendRequest = async () => {
+    if (!reqTargetBranch) { toast.error('Select a branch to request stock from'); return; }
+    const validRows = reqRows.filter(r => r.product && parseFloat(r.qty) > 0);
+    if (!validRows.length) { toast.error('Add at least one product with quantity'); return; }
+    const targetBranch = branches.find(b => b.id === reqTargetBranch);
+    setReqSaving(true);
+    try {
+      const items = validRows.map(r => ({
+        product_id: r.product.id,
+        product_name: r.product.name,
+        sku: r.product.sku || '',
+        unit: r.product.unit || '',
+        quantity: parseFloat(r.qty),
+        unit_price: 0,
+        discount_type: 'none',
+        discount_value: 0,
+      }));
+      await api.post('/purchase-orders', {
+        vendor: `Branch Request → ${targetBranch?.name || reqTargetBranch}`,
+        items,
+        po_type: 'branch_request',
+        supply_branch_id: reqTargetBranch,
+        show_retail: reqShowRetail,
+        purchase_date: new Date().toISOString().slice(0, 10),
+        notes: reqNotes,
+      });
+      toast.success(`Stock request sent to ${targetBranch?.name}! They will be notified.`);
+      resetReqForm();
+      setTab('history');
+      setHistoryTab('requests');
+      setRequestsView('outgoing');
+      loadOutgoingRequests();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to send request');
+    }
+    setReqSaving(false);
+  };
+
+  // Load outgoing requests (requests THIS branch sent to other branches)
+  const loadOutgoingRequests = useCallback(async () => {
+    const branchId = selectedBranchId || currentBranch?.id;
+    if (!branchId) return;
+    setOutgoingLoading(true);
+    try {
+      const res = await api.get('/purchase-orders', { params: { po_type: 'branch_request', branch_id: branchId, limit: 100 } });
+      setOutgoingRequests(res.data.purchase_orders || []);
+    } catch { setOutgoingRequests([]); }
+    setOutgoingLoading(false);
+  }, [selectedBranchId, currentBranch]);
+
+  useEffect(() => {
+    if (tab === 'history' && historyTab === 'requests' && requestsView === 'outgoing') loadOutgoingRequests();
+  }, [tab, historyTab, requestsView, loadOutgoingRequests]);
 
   // ── Row helpers ─────────────────────────────────────────────────────────────
   const updateRow = (id, updates) =>
@@ -699,6 +791,7 @@ export default function BranchTransferPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="new"><Plus size={14} className="mr-1" /> New Transfer</TabsTrigger>
+          <TabsTrigger value="request" data-testid="request-stock-tab"><Package size={14} className="mr-1" /> Request Stock</TabsTrigger>
           <TabsTrigger value="history" data-testid="transfer-history-tab"><Clock size={14} className="mr-1" /> Transfers</TabsTrigger>
         </TabsList>
 
@@ -1183,6 +1276,121 @@ export default function BranchTransferPage() {
         </TabsContent>
 
 
+        {/* ── REQUEST STOCK TAB ── */}
+        <TabsContent value="request" className="mt-4 space-y-4">
+          <Card className="border-slate-200">
+            <CardContent className="p-5 space-y-4">
+              <h3 className="text-base font-semibold text-slate-800" style={{ fontFamily: 'Manrope' }}>Request Stock from Another Branch</h3>
+              <p className="text-xs text-slate-500 -mt-2">Send a stock request to another branch. They&apos;ll receive a notification and can generate a transfer.</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Your Branch</label>
+                  <Input className="mt-1 h-9 bg-slate-50" value={currentBranch?.name || '—'} disabled />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Request From Branch <span className="text-red-500">*</span></label>
+                  <Select value={reqTargetBranch} onValueChange={setReqTargetBranch}>
+                    <SelectTrigger className="mt-1 h-9" data-testid="req-target-branch">
+                      <SelectValue placeholder="Select branch..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(branches || []).filter(b => b.id !== currentBranch?.id).map(b => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Show retail toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">Show retail price suggestion to supply branch:</span>
+                <button onClick={() => setReqShowRetail(v => !v)}
+                  className={`relative inline-flex h-5 w-9 rounded-full transition-colors ${reqShowRetail ? 'bg-[#1A4D2E]' : 'bg-slate-300'}`}>
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${reqShowRetail ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+                </button>
+                <span className="text-[10px] font-medium text-slate-600">{reqShowRetail ? 'ON' : 'OFF'}</span>
+              </div>
+
+              {/* Product rows */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-[1fr_100px_60px_40px] gap-2 text-xs font-medium text-slate-500 px-1">
+                  <span>Product</span><span>Qty</span><span>Unit</span><span></span>
+                </div>
+                {reqRows.map((row) => (
+                  <div key={row.id} className="grid grid-cols-[1fr_100px_60px_40px] gap-2 items-start" data-testid={`req-row-${row.id}`}>
+                    <div className="relative">
+                      <Input
+                        className="h-9 text-sm"
+                        value={row.search}
+                        onChange={e => handleReqSearch(row.id, e.target.value)}
+                        placeholder="Search product..."
+                        data-testid={`req-product-search-${row.id}`}
+                      />
+                      {row.matches.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {row.matches.map(p => (
+                            <button key={p.id} onClick={() => selectReqProduct(row.id, p)}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
+                              <span className="truncate">{p.name}</span>
+                              <span className="text-xs text-slate-400 ml-2 shrink-0">{p.sku || ''}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {row.product && (
+                        <div className="text-[10px] text-slate-400 mt-0.5 px-1">{row.product.sku || ''} {row.product.category ? `· ${row.product.category}` : ''}</div>
+                      )}
+                    </div>
+                    <Input
+                      type="number"
+                      className="h-9 text-sm text-center"
+                      value={row.qty}
+                      onChange={e => updateReqRow(row.id, { qty: e.target.value })}
+                      placeholder="0"
+                      min="1"
+                      data-testid={`req-qty-${row.id}`}
+                    />
+                    <span className="h-9 flex items-center text-xs text-slate-500 px-1">{row.product?.unit || '—'}</span>
+                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 text-slate-400 hover:text-red-500"
+                      onClick={() => removeReqRow(row.id)} disabled={reqRows.length <= 1}>
+                      <X size={14} />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="h-8 text-xs w-full border-dashed" onClick={addReqRow} data-testid="req-add-row">
+                  <Plus size={12} className="mr-1" /> Add Product
+                </Button>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-xs font-medium text-slate-500">Notes (optional)</label>
+                <Input className="mt-1 h-9 text-sm" value={reqNotes} onChange={e => setReqNotes(e.target.value)}
+                  placeholder="e.g. Urgent — need by Friday" />
+              </div>
+
+              {/* Summary & Submit */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <div className="text-sm text-slate-600">
+                  <span className="font-medium">{reqRows.filter(r => r.product).length}</span> product(s) ·{' '}
+                  <span className="font-medium">{reqRows.filter(r => r.product).reduce((s, r) => s + (parseFloat(r.qty) || 0), 0)}</span> total units
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="h-10 px-4" onClick={resetReqForm}>Clear</Button>
+                  <Button size="sm" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                    onClick={handleSendRequest} disabled={reqSaving} data-testid="send-stock-request-btn">
+                    {reqSaving ? <RefreshCw size={14} className="animate-spin mr-2" /> : <ArrowRight size={14} className="mr-2" />}
+                    Send Stock Request
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+
         {/* ── TRANSFERS TAB ── */}
         <TabsContent value="history" className="mt-4 space-y-4">
           {/* Status filter pills */}
@@ -1199,7 +1407,7 @@ export default function BranchTransferPage() {
                 { key: 'disputes', label: 'Disputes', dot: 'bg-red-500' },
               ].map(st => {
                 const count = st.key === 'all' ? orders.length
-                  : st.key === 'requests' ? stockRequests.length
+                  : st.key === 'requests' ? (stockRequests.length + outgoingRequests.length)
                   : st.key === 'draft' ? orders.filter(o => o.status === 'draft').length
                   : st.key === 'in_transit' ? orders.filter(o => o.status === 'sent').length
                   : st.key === 'checking' ? orders.filter(o => o.status === 'sent_to_terminal').length
@@ -1211,7 +1419,7 @@ export default function BranchTransferPage() {
                 const needsAttention = (st.key === 'pending' || st.key === 'disputes') && count > 0;
                 return (
                   <button key={st.key}
-                    onClick={() => { setHistoryTab(st.key); if (st.key === 'requests') loadRequests(); }}
+                    onClick={() => { setHistoryTab(st.key); if (st.key === 'requests') { loadRequests(); loadOutgoingRequests(); } }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${
                       isActive
                         ? 'bg-[#1A4D2E] text-white shadow-lg scale-105'
@@ -1232,7 +1440,7 @@ export default function BranchTransferPage() {
                 );
               })}
             </div>
-            <Button variant="outline" size="default" onClick={() => { loadOrders(); loadRequests(); }} disabled={ordersLoading} className="shrink-0 h-10 px-4">
+            <Button variant="outline" size="default" onClick={() => { loadOrders(); loadRequests(); loadOutgoingRequests(); }} disabled={ordersLoading} className="shrink-0 h-10 px-4">
               <RefreshCw size={15} className={`mr-2 ${ordersLoading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
           </div>
@@ -1243,16 +1451,43 @@ export default function BranchTransferPage() {
 
             // ── Stock Requests ──
             if (historyTab === 'requests') {
+              const isIncoming = requestsView === 'incoming';
+              const currentList = isIncoming ? stockRequests : outgoingRequests;
+              const isLoading = isIncoming ? requestsLoading : outgoingLoading;
               return (
                 <div className="space-y-3" data-testid="requests-list">
-                  {requestsLoading && <div className="text-center py-12 text-slate-400"><RefreshCw size={18} className="animate-spin mx-auto mb-2" />Loading requests...</div>}
-                  {!requestsLoading && stockRequests.length === 0 && (
+                  {/* Incoming / Outgoing toggle */}
+                  <div className="flex items-center gap-2 pb-2">
+                    <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
+                      <button onClick={() => { setRequestsView('incoming'); loadRequests(); }}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${isIncoming ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500 hover:text-slate-700'}`}
+                        data-testid="requests-incoming-tab">
+                        Incoming ({stockRequests.length})
+                      </button>
+                      <button onClick={() => { setRequestsView('outgoing'); loadOutgoingRequests(); }}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${!isIncoming ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
+                        data-testid="requests-outgoing-tab">
+                        My Requests ({outgoingRequests.length})
+                      </button>
+                    </div>
+                    <span className="text-xs text-slate-400 ml-2">
+                      {isIncoming ? 'Requests from other branches for your stock' : 'Requests you sent to other branches'}
+                    </span>
+                  </div>
+
+                  {isLoading && <div className="text-center py-12 text-slate-400"><RefreshCw size={18} className="animate-spin mx-auto mb-2" />Loading requests...</div>}
+                  {!isLoading && currentList.length === 0 && (
                     <div className="text-center py-16 text-slate-400">
                       <Package size={36} className="mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">No stock requests for this branch.</p>
+                      <p className="text-sm">{isIncoming ? 'No incoming stock requests.' : 'You haven\'t sent any stock requests.'}</p>
+                      {!isIncoming && <Button size="sm" variant="outline" className="mt-3" onClick={() => setTab('request')}>
+                        <Plus size={12} className="mr-1" /> Create Stock Request
+                      </Button>}
                     </div>
                   )}
-                  {stockRequests.map(req => {
+
+                  {/* Incoming requests */}
+                  {isIncoming && stockRequests.map(req => {
                     const reqBranch = branches.find(b => b.id === req.branch_id);
                     return (
                       <div key={req.id} className="bg-white rounded-xl border-2 border-slate-200 border-l-[5px] border-l-violet-400 p-5 hover:shadow-lg transition-all" data-testid={`request-card-${req.id}`}>
@@ -1284,7 +1519,7 @@ export default function BranchTransferPage() {
                           ))}
                           {req.items?.length > 4 && <span className="text-sm text-slate-400 self-center">+{req.items.length - 4} more</span>}
                         </div>
-                        {req.notes && <p className="text-sm text-slate-500 mt-2 italic">"{req.notes}"</p>}
+                        {req.notes && <p className="text-sm text-slate-500 mt-2 italic">&quot;{req.notes}&quot;</p>}
                         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                           {(req.status === 'requested' || req.status === 'draft') && (
                             <Button size="sm" onClick={() => handleGenerateTransfer(req)} disabled={generatingTransfer === req.id}
@@ -1308,6 +1543,65 @@ export default function BranchTransferPage() {
                             </div>
                           )}
                           {req.status === 'in_progress' && <Badge className="text-xs px-2.5 py-1 bg-amber-100 text-amber-700">Transfer In Progress</Badge>}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Outgoing requests */}
+                  {!isIncoming && outgoingRequests.map(req => {
+                    const supplyBranch = branches.find(b => b.id === req.supply_branch_id);
+                    return (
+                      <div key={req.id} className="bg-white rounded-xl border-2 border-slate-200 border-l-[5px] border-l-blue-400 p-5 hover:shadow-lg transition-all" data-testid={`outgoing-request-${req.id}`}>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2.5">
+                              <span className="font-mono text-base font-bold text-blue-700">{req.po_number}</span>
+                              <Badge className={`text-xs px-2.5 py-0.5 ${
+                                req.status === 'requested' ? 'bg-blue-100 text-blue-700'
+                                : req.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700'
+                                : req.status === 'partially_fulfilled' ? 'bg-yellow-100 text-yellow-700'
+                                : req.status === 'in_progress' ? 'bg-amber-100 text-amber-700'
+                                : 'bg-slate-100 text-slate-600'
+                              }`}>{req.status?.replace('_',' ')}</Badge>
+                            </div>
+                            <p className="text-sm text-slate-500 mt-2 flex items-center gap-2">
+                              <ArrowRight size={14} className="text-blue-400" />
+                              <span className="text-slate-400">Requested from</span>
+                              <span className="font-semibold text-slate-700">{supplyBranch?.name || 'Unknown'}</span>
+                            </p>
+                          </div>
+                          <span className="text-sm text-slate-400">{req.purchase_date}</span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(req.items || []).slice(0, 4).map((item, i) => (
+                            <span key={i} className="text-sm bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 text-slate-600">
+                              {item.product_name} <span className="text-slate-400 font-mono">x{item.quantity}</span>
+                            </span>
+                          ))}
+                          {req.items?.length > 4 && <span className="text-sm text-slate-400 self-center">+{req.items.length - 4} more</span>}
+                        </div>
+                        {req.notes && <p className="text-sm text-slate-500 mt-2 italic">&quot;{req.notes}&quot;</p>}
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-xs text-slate-400">by {req.created_by_name} · {req.created_at?.slice(0, 10)}</span>
+                          <div className="flex items-center gap-2">
+                            {req.status === 'fulfilled' && (
+                              <div className="flex items-center gap-2">
+                                <CheckCircle2 size={16} className="text-emerald-600" />
+                                <span className="text-sm text-emerald-700 font-semibold">Fulfilled</span>
+                                {req.fulfilled_transfer_number && <span className="text-xs text-slate-400">({req.fulfilled_transfer_number})</span>}
+                              </div>
+                            )}
+                            {req.status === 'partially_fulfilled' && (
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle size={16} className="text-yellow-600" />
+                                <span className="text-sm text-yellow-700 font-semibold">Partial</span>
+                                {req.fulfilled_transfer_number && <span className="text-xs text-slate-400">({req.fulfilled_transfer_number})</span>}
+                              </div>
+                            )}
+                            {req.status === 'in_progress' && <Badge className="text-xs px-2.5 py-1 bg-amber-100 text-amber-700">Transfer In Progress</Badge>}
+                            {req.status === 'requested' && <Badge className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700">Awaiting Response</Badge>}
+                          </div>
                         </div>
                       </div>
                     );

@@ -72,6 +72,12 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
    - Re-count (amber dot)
    - Acceptance (green dot) with incident ticket link
 
+### Transfer Variance Modal Fix (Complete — Mar 2026)
+- Extracted `TransferDetailModal.js` as a reusable read-only transfer view component
+- Audit Center "View" button now opens inline popup instead of navigating to Branch Transfers page
+- Shows: order header, status timeline, variance history, reconciliation table, print button
+- BranchTransferPage's existing action-based view dialog remains unchanged
+
 ## NEXT SESSION — Priority Tasks
 
 ### Task 1: Backend Branch Isolation Audit (P1)
@@ -104,6 +110,7 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - `/app/backend/routes/incident_tickets.py` — Incident ticket CRUD
 - `/app/frontend/src/pages/BranchTransferPage.js` — Transfers + Request Stock + Dispute Timeline
 - `/app/frontend/src/pages/AuditCenterPage.js` — Audit Center with Transfer Variances tab
+- `/app/frontend/src/components/TransferDetailModal.js` — Reusable read-only transfer detail modal
 - `/app/frontend/src/pages/IncidentTicketsPage.js` — Ticket list with transfer links
 - `/app/frontend/src/pages/PurchaseOrderPage.js` — External supplier POs only
 - `/app/frontend/src/lib/PrintEngine.js` — Centralized print engine
@@ -112,6 +119,7 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 ## Test Reports
 - `/app/test_reports/iteration_123.json` — Stock Request Migration (100%)
 - `/app/test_reports/iteration_124.json` — Dispute/Ticket Connectivity (100%)
+- `/app/test_reports/iteration_125.json` — Transfer Variance Modal Fix (100%, 6/6 tests)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

@@ -273,7 +273,7 @@ export default function BranchTransferPage() {
     if (!query || query.length < 2) { updateReqRow(rowId, { matches: [] }); return; }
     reqSearchTimers.current[rowId] = setTimeout(async () => {
       try {
-        const res = await api.get('/products/detail-search', { params: { q: query, branch_id: reqTargetBranch || undefined, limit: 8 } });
+        const res = await api.get('/products/search-detail', { params: { q: query, branch_id: reqTargetBranch || undefined, limit: 8 } });
         updateReqRow(rowId, { matches: res.data || [] });
       } catch { updateReqRow(rowId, { matches: [] }); }
     }, 300);

@@ -86,6 +86,13 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Ticket badges on variance items navigate to tickets tab with search
 - Removed Transfer Variances tab from Audit Center (now has: Verification, Transactions, Security Flags)
 
+### Phase 1: Request Stock Dual-Branch Inventory Visibility (Complete — Mar 2026)
+- Added `also_branch_id` param to `/products/search-detail` endpoint for dual-branch stock lookup
+- Product search dropdown now shows stock levels from both your branch and the supplier branch
+- Selected product rows display both stock counts inline
+- Fixed product search endpoint mismatch (`/detail-search` → `/search-detail`)
+- Fixed `branch_id` missing from stock request POST body + backend fallback from JWT
+
 ## NEXT SESSION — Priority Tasks
 
 ### Task 1: Backend Branch Isolation Audit (P1)

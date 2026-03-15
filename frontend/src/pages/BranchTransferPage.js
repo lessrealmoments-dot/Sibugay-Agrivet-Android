@@ -273,7 +273,15 @@ export default function BranchTransferPage() {
     if (!query || query.length < 2) { updateReqRow(rowId, { matches: [] }); return; }
     reqSearchTimers.current[rowId] = setTimeout(async () => {
       try {
-        const res = await api.get('/products/search-detail', { params: { q: query, branch_id: reqTargetBranch || undefined, limit: 8 } });
+        const myBranch = currentBranch?.id || user?.branch_id || '';
+        const res = await api.get('/products/search-detail', {
+          params: {
+            q: query,
+            branch_id: reqTargetBranch || undefined,
+            also_branch_id: myBranch || undefined,
+            limit: 8,
+          }
+        });
         updateReqRow(rowId, { matches: res.data || [] });
       } catch { updateReqRow(rowId, { matches: [] }); }
     }, 300);
@@ -1334,7 +1342,9 @@ export default function BranchTransferPage() {
                 <div className="grid grid-cols-[1fr_100px_60px_40px] gap-2 text-xs font-medium text-slate-500 px-1">
                   <span>Product</span><span>Qty</span><span>Unit</span><span></span>
                 </div>
-                {reqRows.map((row) => (
+                {reqRows.map((row) => {
+                  const targetBranchObj = branches.find(b => b.id === reqTargetBranch);
+                  return (
                   <div key={row.id} className="grid grid-cols-[1fr_100px_60px_40px] gap-2 items-start" data-testid={`req-row-${row.id}`}>
                     <div className="relative">
                       <Input
@@ -1345,18 +1355,41 @@ export default function BranchTransferPage() {
                         data-testid={`req-product-search-${row.id}`}
                       />
                       {row.matches.length > 0 && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                           {row.matches.map(p => (
                             <button key={p.id} onClick={() => selectReqProduct(row.id, p)}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center justify-between">
-                              <span className="truncate">{p.name}</span>
-                              <span className="text-xs text-slate-400 ml-2 shrink-0">{p.sku || ''}</span>
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0"
+                              data-testid={`req-match-${p.id}`}>
+                              <div className="flex items-center justify-between">
+                                <span className="truncate font-medium">{p.name}</span>
+                                <span className="text-[10px] text-slate-400 ml-2 shrink-0 font-mono">{p.sku || ''}</span>
+                              </div>
+                              <div className="flex gap-3 mt-0.5">
+                                {p.also_branch_stock !== undefined && (
+                                  <span className={`text-[10px] font-medium ${p.also_branch_stock > 0 ? 'text-amber-600' : 'text-red-500'}`}>
+                                    You: {p.also_branch_stock} {p.unit || ''}
+                                  </span>
+                                )}
+                                <span className={`text-[10px] font-medium ${(p.available || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                  {targetBranchObj?.name || 'Supplier'}: {p.available || 0} {p.unit || ''}
+                                </span>
+                              </div>
                             </button>
                           ))}
                         </div>
                       )}
                       {row.product && (
-                        <div className="text-[10px] text-slate-400 mt-0.5 px-1">{row.product.sku || ''} {row.product.category ? `· ${row.product.category}` : ''}</div>
+                        <div className="flex items-center gap-3 mt-0.5 px-1">
+                          <span className="text-[10px] text-slate-400">{row.product.sku || ''} {row.product.category ? `· ${row.product.category}` : ''}</span>
+                          {row.product.also_branch_stock !== undefined && (
+                            <span className={`text-[10px] font-semibold ${row.product.also_branch_stock > 0 ? 'text-amber-600' : 'text-red-500'}`}>
+                              Your stock: {row.product.also_branch_stock}
+                            </span>
+                          )}
+                          <span className={`text-[10px] font-semibold ${(row.product.available || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {targetBranchObj?.name || 'Supplier'}: {row.product.available || 0}
+                          </span>
+                        </div>
                       )}
                     </div>
                     <Input
@@ -1374,7 +1407,8 @@ export default function BranchTransferPage() {
                       <X size={14} />
                     </Button>
                   </div>
-                ))}
+                  );
+                })}
                 <Button variant="outline" size="sm" className="h-8 text-xs w-full border-dashed" onClick={addReqRow} data-testid="req-add-row">
                   <Plus size={12} className="mr-1" /> Add Product
                 </Button>

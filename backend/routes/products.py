@@ -123,8 +123,9 @@ async def create_product(data: dict, user=Depends(get_current_user)):
 
 
 @router.get("/search-detail")
-async def search_products_detail(q: str = "", branch_id: Optional[str] = None, user=Depends(get_current_user)):
-    """Enhanced product search with stock, branch prices, and capital reference data."""
+async def search_products_detail(q: str = "", branch_id: Optional[str] = None, also_branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    """Enhanced product search with stock, branch prices, and capital reference data.
+    also_branch_id: optional second branch to include stock levels for (used by Request Stock form)."""
     if not q or len(q) < 1:
         return []
     
@@ -247,6 +248,13 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, u
                 "reserved": reserved_r[0]["t"] if reserved_r else 0,
                 "coming": coming_r[0]["t"] if coming_r else 0,
             }
+        # ── Also-branch stock (for Request Stock dual-view) ──────────────
+        if also_branch_id and also_branch_id != branch_id:
+            also_inv = await db.inventory.find_one(
+                {"product_id": p["id"], "branch_id": also_branch_id}, {"_id": 0}
+            )
+            result["also_branch_stock"] = float(also_inv["quantity"]) if also_inv else 0
+
         results.append(result)
     
     return results

@@ -95,7 +95,31 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ---
 
-## NEXT: QR Workflow Phases 3–6
+### QR Operational Workflows — Phase 3 (Complete — Mar 2026)
+- `POST /api/qr-actions/{code}/receive_payment` — PIN-gated, Cash→cashier wallet, Digital→digital wallet, updates customer AR
+- `ReceivePaymentPanel` inside Tier 2 of DocViewerPage.jsx (reuses Tier 2 unlock PIN)
+- Reflects in Z-report and payment history automatically
+
+### QR Operational Workflows — Phase 4 (Complete — Mar 2026)
+- `POST /api/qr-actions/{code}/transfer_receive` — PIN-gated, delegates to `receive_transfer()` with synthetic user
+- Exact match → inventory moves immediately (status: received). Variance → received_pending, source branch notified
+- `TransferReceivePanel` in DocViewerPage.jsx — locked → PIN → qty inputs → confirm → done
+- `verify_pin` endpoint made generic (works for both invoice and branch_transfer)
+- Branch transfer items in open view now include `product_id`
+
+### QR Operational Workflows — Phase 5 (Complete — Mar 2026)
+- Terminal Doc Code Entry: Search icon in TerminalShell header → type code → navigate to /doc/{code}
+
+### Branch Transfer Security Fixes (Complete — Mar 2026)
+- View modal: "Confirm Receipt" only shows for destination branch (sender cannot see it)
+- View modal: "Verify" button restricted to admin/auditor only
+- Backend: `receive_transfer()` now guards against non-destination-branch users (403)
+
+### admin_totp Removed (Complete — Mar 2026)
+- Merged into standard `totp` method. Removed from PIN_METHODS, QR policy defaults updated.
+
+### PO Bug Fix (Complete — Mar 2026)
+- `setSourceType`/`setSupplyBranchId`/`setShowRetailToggle` missing useState declarations added to PurchaseOrderPage.js
 
 See `/app/memory/ROADMAP.md` for full implementation spec.
 

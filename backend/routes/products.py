@@ -85,7 +85,17 @@ async def list_products(
 async def create_product(data: dict, user=Depends(get_current_user)):
     """Create a new product."""
     check_perm(user, "products", "create")
-    
+
+    # Prevent duplicate product names (case-insensitive)
+    name = data.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Product name is required")
+    name_conflict = await db.products.find_one(
+        {"name": {"$regex": f"^{name}$", "$options": "i"}, "active": True}, {"_id": 0, "name": 1}
+    )
+    if name_conflict:
+        raise HTTPException(status_code=400, detail=f"A product named \"{name_conflict['name']}\" already exists. Product names must be unique.")
+
     sku = data.get("sku", "").strip()
     if sku:
         existing = await db.products.find_one({"sku": sku, "active": True}, {"_id": 0})
@@ -97,7 +107,7 @@ async def create_product(data: dict, user=Depends(get_current_user)):
     product = {
         "id": new_id(),
         "sku": sku,
-        "name": data["name"],
+        "name": name,
         "category": data.get("category", "General"),
         "description": data.get("description", ""),
         "unit": data.get("unit", "Piece"),
@@ -728,6 +738,19 @@ async def update_product(product_id: str, data: dict, user=Depends(get_current_u
                "units_per_parent", "repack_unit", "product_type", "capital_method",
                "reorder_point", "reorder_quantity", "unit_of_measurement", "last_vendor"]
     update = {k: v for k, v in data.items() if k in allowed}
+
+    # Prevent duplicate product names on update (case-insensitive, exclude self)
+    if "name" in update:
+        new_name = update["name"].strip()
+        if not new_name:
+            raise HTTPException(status_code=400, detail="Product name cannot be empty")
+        name_conflict = await db.products.find_one(
+            {"name": {"$regex": f"^{new_name}$", "$options": "i"}, "active": True, "id": {"$ne": product_id}},
+            {"_id": 0, "name": 1}
+        )
+        if name_conflict:
+            raise HTTPException(status_code=400, detail=f"A product named \"{name_conflict['name']}\" already exists. Product names must be unique.")
+        update["name"] = new_name
 
     if "cost_price" in update:
         # Separate permission required to change capital/cost

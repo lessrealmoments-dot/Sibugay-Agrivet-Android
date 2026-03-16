@@ -12,6 +12,12 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
+### Product Name Deduplication (Complete — Feb 2026)
+- Identified 11 product name groups with 66 duplicate records (caused by missing uniqueness constraint)
+- Migration: merged inventory (44 records), updated PO items (74), movements (218) into canonical products
+- Added case-insensitive name uniqueness validation to POST /products and PUT /products/:id
+- Self-update (renaming to same name) correctly allowed; cross-product name conflict blocked
+
 ### Core POS (Complete)
 - Multi-tenant org management, branch management, user roles & permissions
 - Unified sales with walk-in/credit/consignment support

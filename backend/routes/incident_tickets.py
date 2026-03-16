@@ -346,7 +346,111 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
         "created_at": now_iso(),
     })
 
-    return {"message": f"Ticket resolved as {resolution_type}", "status": "resolved"}
+    # ── Phase 3: Auto-generate Journal Entry based on resolution type ──
+    capital_loss = ticket.get("total_capital_loss", 0)
+    je_lines = []
+    je_memo = ""
+
+    if resolution_type == "transit_loss" and capital_loss > 0:
+        je_memo = f"Transit loss: {ticket['ticket_number']} ({ticket.get('order_number', '')}) — charged to {accountable_party}"
+        je_lines = [
+            {"account_code": "1110", "account_name": "Driver/Courier Receivable", "debit": capital_loss, "credit": 0,
+             "memo": f"Receivable from {accountable_party}"},
+            {"account_code": "1200", "account_name": "Inventory", "debit": 0, "credit": capital_loss,
+             "memo": f"Inventory loss - {ticket.get('order_number', '')}"},
+        ]
+
+    elif resolution_type == "write_off" and capital_loss > 0:
+        je_memo = f"Inventory write-off: {ticket['ticket_number']} ({ticket.get('order_number', '')})"
+        je_lines = [
+            {"account_code": "5500", "account_name": "Inventory Loss / Write-off", "debit": capital_loss, "credit": 0,
+             "memo": f"Write-off - {ticket.get('order_number', '')}"},
+            {"account_code": "1200", "account_name": "Inventory", "debit": 0, "credit": capital_loss,
+             "memo": f"Inventory shrinkage - {ticket.get('order_number', '')}"},
+        ]
+
+    elif resolution_type == "insurance_claim" and capital_loss > 0:
+        je_memo = f"Insurance claim: {ticket['ticket_number']} ({ticket.get('order_number', '')}) — filed with {accountable_party}"
+        je_lines = [
+            {"account_code": "1120", "account_name": "Insurance Receivable", "debit": capital_loss, "credit": 0,
+             "memo": f"Claim filed with {accountable_party}"},
+            {"account_code": "1200", "account_name": "Inventory", "debit": 0, "credit": capital_loss,
+             "memo": f"Inventory loss - {ticket.get('order_number', '')}"},
+        ]
+
+    elif resolution_type == "partial_recovery" and capital_loss > 0:
+        recovered = min(recovery_amount, capital_loss)
+        unrecovered = capital_loss - recovered
+        je_memo = f"Partial recovery: {ticket['ticket_number']} — recovered {recovered}, written off {unrecovered}"
+        je_lines = [
+            {"account_code": "1000", "account_name": "Cash - Cashier Drawer", "debit": recovered, "credit": 0,
+             "memo": f"Recovery from {accountable_party}"},
+        ]
+        if unrecovered > 0:
+            je_lines.append(
+                {"account_code": "5500", "account_name": "Inventory Loss / Write-off", "debit": unrecovered, "credit": 0,
+                 "memo": "Unrecovered loss"}
+            )
+        je_lines.append(
+            {"account_code": "1200", "account_name": "Inventory", "debit": 0, "credit": capital_loss,
+             "memo": f"Inventory adjustment - {ticket.get('order_number', '')}"}
+        )
+
+    # sender_error and receiver_error: no journal entry (no financial impact)
+
+    je_id = None
+    if je_lines:
+        from datetime import datetime, timezone
+        from utils.numbering import generate_next_number
+
+        branch_id = ticket.get("to_branch_id", "")
+        je_number = await generate_next_number("JE", branch_id)
+        je_id = new_id()
+
+        journal_entry = {
+            "id": je_id,
+            "je_number": je_number,
+            "entry_type": "incident_adjustment",
+            "entry_type_label": "Incident Resolution Adjustment",
+            "branch_id": branch_id,
+            "effective_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "posted_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "memo": je_memo,
+            "reference_number": ticket.get("ticket_number", ""),
+            "reference_type": "incident_ticket",
+            "product_id": "",
+            "product_name": "",
+            "lines": je_lines,
+            "total_amount": capital_loss,
+            "status": "posted",
+            "authorized_by_id": verifier["verifier_id"],
+            "authorized_by_name": verifier["verifier_name"],
+            "authorized_method": verifier["method"],
+            "created_by_id": user["id"],
+            "created_by_name": user.get("full_name", user.get("username", "")),
+            "created_at": now_iso(),
+            "voided": False,
+            "void_reason": "",
+            "voided_at": "",
+            "voided_by": "",
+            "auto_generated": True,
+            "source_ticket_id": ticket_id,
+        }
+
+        await db.journal_entries.insert_one(journal_entry)
+        del journal_entry["_id"]
+
+        # Link JE back to the ticket
+        await db.incident_tickets.update_one(
+            {"id": ticket_id},
+            {"$set": {"journal_entry_id": je_id, "journal_entry_number": je_number}}
+        )
+
+    return {
+        "message": f"Ticket resolved as {resolution_type}",
+        "status": "resolved",
+        "journal_entry": je_id,
+    }
 
 
 @router.put("/{ticket_id}/close")

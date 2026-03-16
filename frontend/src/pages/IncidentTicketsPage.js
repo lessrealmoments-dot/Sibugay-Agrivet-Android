@@ -512,6 +512,10 @@ export default function IncidentTicketsPage() {
                     <span className="font-semibold text-emerald-700">{selectedTicket.approved_by_name}</span>
                     {selectedTicket.approval_method && <span className="text-[10px] text-slate-400 ml-1">({selectedTicket.approval_method})</span>}
                   </div>}
+                  {selectedTicket.journal_entry_number && <div>
+                    <span className="text-slate-500">Journal Entry:</span>{' '}
+                    <span className="font-mono font-bold text-blue-600">{selectedTicket.journal_entry_number}</span>
+                  </div>}
                   {selectedTicket.sender_confirmed && <div className="col-span-2">
                     <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
                       <ShieldCheck size={12} /> Sender confirmed quantities ({fmtDate(selectedTicket.sender_confirmed_at)})
@@ -533,6 +537,11 @@ export default function IncidentTicketsPage() {
                     )}
                     {selectedTicket.recovery_amount > 0 && (
                       <p className="text-xs text-emerald-700 mt-1 font-medium">Recovery: {formatPHP(selectedTicket.recovery_amount)}</p>
+                    )}
+                    {selectedTicket.journal_entry_number && (
+                      <p className="text-xs text-blue-600 mt-1 font-medium font-mono">
+                        Journal Entry: {selectedTicket.journal_entry_number}
+                      </p>
                     )}
                   </div>
                 )}

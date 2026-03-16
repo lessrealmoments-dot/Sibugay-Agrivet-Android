@@ -23,7 +23,7 @@ router = APIRouter(prefix="/journal-entries", tags=["Journal Entries"])
 
 ENTRY_TYPES = [
     "sale_adjustment", "expense_adjustment", "inventory_adjustment",
-    "price_correction", "fund_correction", "general"
+    "price_correction", "fund_correction", "incident_adjustment", "general"
 ]
 
 ENTRY_TYPE_LABELS = {
@@ -32,6 +32,7 @@ ENTRY_TYPE_LABELS = {
     "inventory_adjustment": "Inventory Adjustment",
     "price_correction": "Price Correction",
     "fund_correction": "Fund Correction",
+    "incident_adjustment": "Incident Resolution Adjustment",
     "general": "General Journal Entry",
 }
 
@@ -41,6 +42,8 @@ ACCOUNTS = [
     {"code": "1010", "name": "Cash - Safe/Vault", "type": "asset"},
     {"code": "1020", "name": "Digital Wallet (GCash/Maya)", "type": "asset"},
     {"code": "1100", "name": "Accounts Receivable", "type": "asset"},
+    {"code": "1110", "name": "Driver/Courier Receivable", "type": "asset"},
+    {"code": "1120", "name": "Insurance Receivable", "type": "asset"},
     {"code": "1200", "name": "Inventory", "type": "asset"},
     {"code": "2000", "name": "Accounts Payable", "type": "liability"},
     {"code": "2100", "name": "Customer Deposits", "type": "liability"},

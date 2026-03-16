@@ -222,6 +222,10 @@ async def view_document_open(code: str):
         balance = (doc.get("grand_total") or 0) - (doc.get("amount_paid") or 0)
         is_paid = balance <= 0 or doc.get("payment_status") == "paid"
 
+        # Resolve branch name
+        branch = await db.branches.find_one({"id": doc.get("branch_id", "")}, {"_id": 0, "name": 1})
+        branch_name = branch.get("name", "") if branch else ""
+
         # Available actions based on state
         available_actions = []
         status = doc.get("status", "")
@@ -249,6 +253,7 @@ async def view_document_open(code: str):
             "order_date": doc.get("order_date", ""),
             "customer_name": doc.get("customer_name", "Walk-in"),
             "branch_id": doc.get("branch_id", ""),
+            "branch_name": branch_name,
             "items": [{"name": i.get("product_name", ""), "qty": i.get("quantity", 0), "price": i.get("rate") or i.get("unit_price") or i.get("price", 0), "total": i.get("total", 0)} for i in (doc.get("items") or [])],
             "subtotal": doc.get("subtotal", 0),
             "discount": doc.get("overall_discount", 0),
@@ -271,6 +276,8 @@ async def view_document_open(code: str):
         doc = await db.purchase_orders.find_one({"id": doc_id}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=404, detail="PO not found")
+        branch = await db.branches.find_one({"id": doc.get("branch_id", "")}, {"_id": 0, "name": 1})
+        branch_name = branch.get("name", "") if branch else ""
         po_status = doc.get("status", "")
         available_actions = []
         if po_status in ("ordered", "draft", "in_progress"):
@@ -282,12 +289,13 @@ async def view_document_open(code: str):
             "number": doc.get("po_number", ""),
             "date": doc.get("purchase_date", ""),
             "supplier_name": doc.get("vendor", ""),
+            "branch_id": doc.get("branch_id", ""),
+            "branch_name": branch_name,
             "items": [{"name": i.get("product_name") or i.get("description", ""), "qty": i.get("quantity", 0), "price": i.get("rate") or i.get("unit_price") or i.get("price", 0), "total": i.get("total", 0)} for i in (doc.get("items") or [])],
             "grand_total": doc.get("grand_total", 0),
             "status": (doc.get("status") or "").replace("_", " ").title(),
             "raw_status": po_status,
             "payment_status": doc.get("payment_status", "unpaid"),
-            "branch_id": doc.get("branch_id", ""),
             "available_actions": available_actions,
         }
 

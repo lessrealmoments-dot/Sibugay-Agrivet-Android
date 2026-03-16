@@ -838,7 +838,9 @@ export default function DocViewerPage() {
             <div className="flex items-center justify-between">
               <div>
                 {basic.doc_type === 'invoice' && <p className="text-sm text-slate-500">Customer: <span className="font-semibold text-slate-800">{basic.customer_name}</span></p>}
+                {basic.doc_type === 'invoice' && basic.branch_name && <p className="text-xs text-slate-400 mt-0.5">Branch: <span className="font-medium text-slate-600">{basic.branch_name}</span></p>}
                 {basic.doc_type === 'purchase_order' && <p className="text-sm text-slate-500">Supplier: <span className="font-semibold text-slate-800">{basic.supplier_name}</span></p>}
+                {basic.doc_type === 'purchase_order' && basic.branch_name && <p className="text-xs text-slate-400 mt-0.5">Branch: <span className="font-medium text-slate-600">{basic.branch_name}</span></p>}
                 {basic.doc_type === 'branch_transfer' && (
                   <div className="flex items-center gap-2 text-sm">
                     <span className="font-semibold text-slate-800">{basic.from_branch}</span>

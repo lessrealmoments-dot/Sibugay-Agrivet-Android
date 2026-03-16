@@ -33,7 +33,7 @@ async def list_pending_releases(
         q,
         {"_id": 0, "id": 1, "invoice_number": 1, "customer_name": 1, "grand_total": 1,
          "stock_release_status": 1, "stock_releases": 1, "created_at": 1,
-         "branch_id": 1, "items": 1}
+         "branch_id": 1, "items": 1, "doc_code": 1}
     ).sort("created_at", -1).limit(200).to_list(200)
 
     # Enrich with reservation summary

@@ -1,6 +1,6 @@
 /**
  * VerifyPinDialog — PIN entry for transaction verification.
- * Supports: Admin PIN, Admin TOTP (6-digit), Auditor PIN
+ * Supports: Admin PIN, TOTP (6-digit time-based), Auditor PIN
  * Optionally records a discrepancy with expected vs found values.
  */
 import { useState, useRef, useEffect } from 'react';

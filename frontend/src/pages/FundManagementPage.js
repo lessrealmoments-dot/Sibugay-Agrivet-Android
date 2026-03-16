@@ -10,7 +10,7 @@
  * Allowed transfers (all require authorization + full audit trail):
  *   Cashier → Safe      Manager PIN
  *   Safe → Cashier      Manager PIN
- *   Safe → Bank         Admin TOTP
+ *   Safe → Bank         TOTP (Time-Based PIN)
  *   Capital (→Cashier)  Admin only
  */
 import { useState, useEffect, useCallback } from 'react';
@@ -60,7 +60,7 @@ const WALLET_META = {
     color: 'text-purple-600',
     bg: 'bg-purple-50',
     border: 'border-purple-200',
-    desc: 'Safe→Bank deposits with Admin TOTP. Balance confidential.',
+    desc: 'Safe→Bank deposits with TOTP (time-based PIN). Balance confidential.',
   },
 };
 
@@ -85,7 +85,7 @@ const TRANSFER_TYPES = [
     key: 'safe_to_bank',
     label: 'Safe → Bank',
     desc: 'Deposit safe balance to bank account',
-    auth: 'Admin TOTP',
+    auth: 'TOTP',
     icon: '🏦',
     from: 'safe', to: 'bank',
   },
@@ -417,7 +417,7 @@ export default function FundManagementPage() {
               {activeTransfer.key === 'safe_to_bank' && (
                 <div>
                   <Label className="text-xs text-slate-600 flex items-center gap-1">
-                    <Shield size={11} /> Admin TOTP Code *
+                    <Shield size={11} /> TOTP Code *
                   </Label>
                   <Input type="password" autoComplete="new-password" value={totpCode} onChange={e => setTotpCode(e.target.value)}
                     placeholder="6-digit authenticator code" className="mt-1 h-9 font-mono text-lg text-center"

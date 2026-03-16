@@ -154,7 +154,7 @@ function StockReleaseManager({ basic, docCode, onStatusChange }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-800">Authorization Required</p>
-          <p className="text-xs text-slate-400">Branch Manager PIN, Admin PIN, or Admin TOTP</p>
+          <p className="text-xs text-slate-400">Branch Manager PIN, Admin PIN, or Time-Based PIN (TOTP)</p>
         </div>
       </div>
       <Input

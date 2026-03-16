@@ -1,7 +1,7 @@
 """
 Price scheme management routes.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from config import db
 from utils import get_current_user, check_perm, now_iso, new_id
 
@@ -19,11 +19,17 @@ async def list_price_schemes(user=Depends(get_current_user)):
 async def create_price_scheme(data: dict, user=Depends(get_current_user)):
     """Create a new price scheme."""
     check_perm(user, "price_schemes", "create")
-    
+
+    key = data.get("key", data["name"].lower().replace(" ", "_"))
+    # Prevent duplicate keys
+    existing = await db.price_schemes.find_one({"key": key, "active": True}, {"_id": 0, "name": 1})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"A price scheme with key \"{key}\" already exists.")
+
     scheme = {
         "id": new_id(),
         "name": data["name"],
-        "key": data.get("key", data["name"].lower().replace(" ", "_")),
+        "key": key,
         "description": data.get("description", ""),
         "calculation_method": data.get("calculation_method", "fixed"),
         "calculation_value": float(data.get("calculation_value", 0)),

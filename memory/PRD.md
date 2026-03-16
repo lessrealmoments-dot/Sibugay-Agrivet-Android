@@ -101,6 +101,19 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Resolution column added to tickets table
 - Backend: /api/incident-tickets/resolve enhanced, /api/incident-tickets/sender-confirm new, /api/incident-tickets/resolution-types new
 
+### Phase 3: Automated Journal Entries & Cash Movement (Complete — Mar 2026)
+- Auto-generates balanced journal entries on incident resolution based on type:
+  - transit_loss: DR 1110 Driver/Courier Receivable, CR 1200 Inventory
+  - write_off: DR 5500 Inventory Loss/Write-off, CR 1200 Inventory
+  - insurance_claim: DR 1120 Insurance Receivable, CR 1200 Inventory
+  - partial_recovery: DR Cash + DR Loss, CR Inventory (split)
+  - sender_error / receiver_error: No JE (no financial impact)
+- Capital Loss summary excludes sender_error tickets (real loss only)
+- PIN authorization required for resolve (admin/manager/TOTP, single input, respects pin policies)
+- Ticket detail shows: Approved by, Charged to, Journal Entry reference
+- New chart of accounts: 1110 Driver/Courier Receivable, 1120 Insurance Receivable
+- New entry type: incident_adjustment
+
 ## NEXT SESSION — Priority Tasks
 
 ### Task 1: Backend Branch Isolation Audit (P1)
@@ -145,6 +158,7 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - `/app/test_reports/iteration_125.json` — Transfer Variance Modal Fix (100%, 6/6 tests)
 - `/app/test_reports/iteration_126.json` — Variance + Tickets Merge (100%, 10/10 tests)
 - `/app/test_reports/iteration_127.json` — Phase 2 Resolution Workflow (100%, 17/17 backend + full frontend)
+- `/app/test_reports/iteration_128.json` — Phase 3 Auto Journal Entries (100%, all features verified)
 
 ## Credentials
 - Super Admin: janmarkeahig@gmail.com / Aa@58798546521325

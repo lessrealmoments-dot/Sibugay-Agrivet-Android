@@ -153,6 +153,11 @@ export default function PurchaseOrderPage() {
   const [capitalChoices, setCapitalChoices] = useState({}); // { product_id: 'last_purchase'|'moving_average' }
   const [capitalPendingPOId, setCapitalPendingPOId] = useState(null);
 
+  // ── Source type / supply branch (branch request form) ────────────────
+  const [sourceType, setSourceType] = useState('external');
+  const [supplyBranchId, setSupplyBranchId] = useState('');
+  const [showRetailToggle, setShowRetailToggle] = useState(isAdmin);
+
   // ── Receipt upload inline (during creation) ─────────────────────────
   const [createReceiptData, setCreateReceiptData] = useState(null); // { sessionId, fileCount }
 

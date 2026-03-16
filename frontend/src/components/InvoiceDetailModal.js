@@ -297,6 +297,7 @@ export default function InvoiceDetailModal({
                     { key: 'detail', label: 'Details', icon: FileText },
                     { key: 'receipts', label: 'Receipts', icon: ImageIcon },
                     ...(payments.length > 0 ? [{ key: 'payments', label: `Payments (${payments.length})`, icon: DollarSign }] : []),
+                    ...(invoice.release_mode === 'partial' ? [{ key: 'releases', label: `Releases (${(invoice.stock_releases || []).length})`, icon: Package }] : []),
                     ...(editHistory.length > 0 || invoice.edit_count > 0 ? [{ key: 'history', label: 'History', icon: History }] : []),
                   ].map(t => (
                     <button key={t.key} data-testid={`section-${t.key}`}
@@ -599,6 +600,62 @@ export default function InvoiceDetailModal({
                                 {pmt.applied_to_interest > 0 && ` · Interest: ${formatPHP(pmt.applied_to_interest)}`}
                                 {pmt.applied_to_penalty > 0 && ` · Penalty: ${formatPHP(pmt.applied_to_penalty)}`}
                               </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* RELEASES section */}
+                {section === 'releases' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm flex items-center gap-2"><Package size={16} /> Stock Release History</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        invoice.stock_release_status === 'fully_released' ? 'bg-emerald-100 text-emerald-700' :
+                        invoice.stock_release_status === 'partially_released' ? 'bg-blue-100 text-blue-700' :
+                        invoice.stock_release_status === 'expired' ? 'bg-slate-200 text-slate-500' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {invoice.stock_release_status === 'fully_released' ? 'Fully Released' :
+                         invoice.stock_release_status === 'partially_released' ? 'Partially Released' :
+                         invoice.stock_release_status === 'expired' ? 'Expired' : 'Not Released'}
+                      </span>
+                    </div>
+                    {invoice.doc_code && (
+                      <a href={`/doc/${invoice.doc_code}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline"
+                        data-testid="open-doc-page-link">
+                        <Package size={12} /> Open release page (shareable link)
+                      </a>
+                    )}
+                    {(invoice.stock_releases || []).length === 0 ? (
+                      <p className="text-slate-400 text-sm text-center py-6">No releases recorded yet</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {(invoice.stock_releases || []).map((r, idx) => (
+                          <div key={idx} className="border border-slate-200 rounded-lg p-3 space-y-2" data-testid={`release-record-${r.release_number}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-slate-800">Release #{r.release_number}</span>
+                              <span className="text-xs text-slate-400">
+                                {r.released_at ? new Date(r.released_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              {r.items.map((it, i) => (
+                                <div key={i} className="flex justify-between text-xs">
+                                  <span className="text-slate-600">{it.product_name}</span>
+                                  <span className="font-semibold">{it.qty_released} {it.unit}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs text-slate-400">
+                              <span>By {r.released_by_name} · <span className="capitalize">{(r.pin_method || '').replace('_', ' ')}</span></span>
+                              <span className={r.remaining_after > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+                                {r.remaining_after > 0 ? `${r.remaining_after} remaining` : 'All released'}
+                              </span>
                             </div>
                           </div>
                         ))}

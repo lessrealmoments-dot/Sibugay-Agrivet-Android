@@ -114,6 +114,16 @@ export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, 
                   <Printer size={16} className="mr-2" /> Thermal (58mm)
                 </Button>
               </div>
+              {invoiceData.release_mode === 'partial' && invoiceData.doc_code && (
+                <Button
+                  data-testid="view-release-history-btn"
+                  variant="outline"
+                  className="w-full h-10 border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={() => window.open(`/doc/${invoiceData.doc_code}`, '_blank')}
+                >
+                  View / Manage Stock Releases
+                </Button>
+              )}
             </div>
           )}
 

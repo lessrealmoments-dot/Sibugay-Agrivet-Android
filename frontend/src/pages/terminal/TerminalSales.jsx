@@ -667,6 +667,16 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
               }} className="w-full h-10" data-testid="print-full-btn">
                 <Printer size={14} className="mr-2" /> Print Full Page
               </Button>
+              {lastSaleData?.release_mode === 'partial' && lastSaleData?.doc_code && (
+                <Button
+                  variant="outline"
+                  className="w-full h-10 border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={() => { window.open(`/doc/${lastSaleData.doc_code}`, '_blank'); }}
+                  data-testid="view-release-history-btn"
+                >
+                  View / Manage Stock Releases
+                </Button>
+              )}
               <Button variant="ghost" onClick={() => { setShowPrintPrompt(false); setLastSaleData(null); }}
                 className="w-full text-slate-500" data-testid="skip-print-btn">
                 Skip

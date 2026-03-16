@@ -121,6 +121,93 @@ function ReleaseStocksPanel({ basic, docCode, onDone }) {
   );
 }
 
+// ── Release History Section ───────────────────────────────────────────────────
+function ReleaseHistorySection({ releases, reservations }) {
+  const [open, setOpen] = useState(false);
+  if (!releases || releases.length === 0) return null;
+
+  const totalOrdered = (reservations || []).reduce((s, r) => s + (r.sold_qty_ordered || 0), 0);
+  const totalReleased = releases.reduce((s, r) => s + (r.total_qty_released || 0), 0);
+
+  return (
+    <div className="bg-white rounded-xl border overflow-hidden" data-testid="release-history">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+        data-testid="release-history-toggle"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
+            <Boxes size={16} className="text-blue-600" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold text-slate-800">Release History</p>
+            <p className="text-xs text-slate-400">
+              {releases.length} batch{releases.length !== 1 ? 'es' : ''} · {totalReleased} of {totalOrdered} units released
+            </p>
+          </div>
+        </div>
+        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-100">
+          <div className="relative px-5 py-4 space-y-0">
+            <div className="absolute left-[2.35rem] top-6 bottom-6 w-px bg-slate-200" />
+            {releases.map((r, idx) => (
+              <div key={idx} className="relative flex gap-4 pb-4 last:pb-0" data-testid={`release-event-${r.release_number}`}>
+                <div className="relative z-10 w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center shrink-0">
+                  <span className="text-[10px] font-bold text-emerald-700">#{r.release_number}</span>
+                </div>
+                <div className="flex-1 bg-slate-50 rounded-lg p-3 min-w-0">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-800">
+                      Release #{r.release_number}
+                      {r.fully_released && (
+                        <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Completed</span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-slate-400 shrink-0">{fmtDateTime(r.released_at)}</p>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {r.items.map((it, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-slate-600 truncate">{it.product_name}</span>
+                        <span className="font-semibold text-slate-800 shrink-0 ml-2">{it.qty_released} {it.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">
+                      By <span className="font-medium text-slate-600">{r.released_by_name}</span>
+                      <span className="mx-1 text-slate-300">·</span>
+                      <span className="text-slate-400 capitalize">{(r.pin_method || '').replace('_', ' ')}</span>
+                    </span>
+                    <span>
+                      {r.remaining_after > 0
+                        ? <span className="text-amber-600">{r.remaining_after} remaining</span>
+                        : <span className="text-emerald-600">All released</span>
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="px-5 pb-4">
+            <div className="bg-slate-50 rounded-lg p-3 flex items-center justify-between text-sm">
+              <span className="text-slate-500">Total released across all batches</span>
+              <span className="font-bold text-slate-800">{totalReleased} / {totalOrdered} units</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
 export default function DocViewerPage() {
   const { code: codeParam } = useParams();
   const navigate = useNavigate();
@@ -285,6 +372,11 @@ export default function DocViewerPage() {
 
         {/* Release Stocks Action */}
         {showReleaseAction && <ReleaseStocksPanel basic={basic} docCode={code?.toUpperCase()} onDone={(s) => setReleaseStatus(s)} />}
+
+        {/* Release History (visible when any releases have been made) */}
+        {basic.release_mode === 'partial' && (basic.stock_releases || []).length > 0 && (
+          <ReleaseHistorySection releases={basic.stock_releases} reservations={basic.reservations} />
+        )}
 
         {/* Tier 2: PIN Full Details */}
         {!fullData ? (

@@ -116,6 +116,30 @@ async def get_unclosed_days(
 
 
 
+async def _get_pending_releases_summary(branch_id: str) -> dict:
+    """Return a summary of invoices with unreleased partial stock for the Z-report warning."""
+    q = {"release_mode": "partial", "stock_release_status": {"$in": ["not_released", "partially_released"]}}
+    if branch_id:
+        q["branch_id"] = branch_id
+    count = await db.invoices.count_documents(q)
+    res_q = {"qty_remaining": {"$gt": 0}}
+    if branch_id:
+        res_q["branch_id"] = branch_id
+    res_agg = await db.sale_reservations.aggregate([
+        {"$match": res_q},
+        {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
+    ]).to_list(1)
+    from datetime import datetime, timezone
+    now_str = datetime.now(timezone.utc).isoformat()
+    overdue = await db.sale_reservations.count_documents({**res_q, "expires_at": {"$lt": now_str}})
+    return {
+        "pending_invoice_count": count,
+        "total_reserved_qty": round(float(res_agg[0]["total"]), 2) if res_agg else 0,
+        "overdue_reservations": overdue,
+        "has_overdue": overdue > 0,
+    }
+
+
 @router.get("/daily-close-preview")
 async def get_daily_close_preview(
     user=Depends(get_current_user),
@@ -424,6 +448,8 @@ async def get_daily_close_preview(
         "safe_to_cashier": safe_to_cashier,
         "cashier_to_safe": cashier_to_safe,
         "net_fund_transfers": net_fund_transfers,
+        # ── Pending stock releases (informational warning) ─────────────────
+        "pending_stock_releases": await _get_pending_releases_summary(branch_id),
     }
 
 

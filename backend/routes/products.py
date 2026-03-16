@@ -229,7 +229,14 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, a
                 inv = await db.inventory.find_one(
                     {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
                 )
-                available = float(inv["quantity"]) if inv else 0
+                inv_qty = float(inv["quantity"]) if inv else 0
+                # Subtract stock held in partial-release reservations
+                res_agg = await db.sale_reservations.aggregate([
+                    {"$match": {"product_id": p["id"], "branch_id": branch_id, "qty_remaining": {"$gt": 0}}},
+                    {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
+                ]).to_list(1)
+                reserved_for_sale = float(res_agg[0]["total"]) if res_agg else 0
+                available = max(0, inv_qty - reserved_for_sale)
             else:
                 # No branch — sum all branches
                 agg = await db.inventory.aggregate([
@@ -263,7 +270,12 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, a
             also_inv = await db.inventory.find_one(
                 {"product_id": p["id"], "branch_id": also_branch_id}, {"_id": 0}
             )
-            result["also_branch_stock"] = float(also_inv["quantity"]) if also_inv else 0
+            also_inv_qty = float(also_inv["quantity"]) if also_inv else 0
+            also_res = await db.sale_reservations.aggregate([
+                {"$match": {"product_id": p["id"], "branch_id": also_branch_id, "qty_remaining": {"$gt": 0}}},
+                {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
+            ]).to_list(1)
+            result["also_branch_stock"] = max(0, also_inv_qty - (float(also_res[0]["total"]) if also_res else 0))
 
         results.append(result)
     
@@ -307,7 +319,12 @@ async def barcode_lookup(barcode: str, branch_id: Optional[str] = None, user=Dep
         inv = await db.inventory.find_one(
             {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
         )
-        available = float(inv["quantity"]) if inv else 0
+        inv_qty = float(inv["quantity"]) if inv else 0
+        res_agg = await db.sale_reservations.aggregate([
+            {"$match": {"product_id": p["id"], "branch_id": branch_id, "qty_remaining": {"$gt": 0}}},
+            {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
+        ]).to_list(1)
+        available = max(0, inv_qty - (float(res_agg[0]["total"]) if res_agg else 0))
     else:
         agg = await db.inventory.aggregate([
             {"$match": {"product_id": p["id"]}},

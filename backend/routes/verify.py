@@ -95,7 +95,7 @@ async def _resolve_pin(pin: str, allowed_methods: list = None, branch_id: str = 
                     "method": "manager_pin",
                 }
 
-    # 3. Admin TOTP (6-digit code)
+    # 3. Admin TOTP (6-digit code) — any TOTP-enabled user
     if (check_all or "totp" in methods) and len(pin) == 6 and pin.isdigit():
         if managers is None:
             managers = await db.users.find(
@@ -115,6 +115,24 @@ async def _resolve_pin(pin: str, allowed_methods: list = None, branch_id: str = 
                 }
     elif (check_all or "totp" in methods):
         logger.info(f"TOTP skipped: len={len(pin)}, isdigit={pin.isdigit()}")
+
+    # 3b. Admin-only TOTP — restricted to admin/owner role (used by QR actions)
+    if ("admin_totp" in (methods or set())) and len(pin) == 6 and pin.isdigit():
+        if managers is None:
+            managers = await db.users.find(
+                {"role": {"$in": ["admin", "manager", "owner"]}, "active": True}, {"_id": 0}
+            ).to_list(50)
+        admin_totp_users = [m for m in managers if m.get("totp_secret") and m.get("totp_enabled") and m.get("role") in ("admin", "owner")]
+        for mgr in admin_totp_users:
+            secret = mgr.get("totp_secret")
+            totp = pyotp.TOTP(secret)
+            if totp.verify(pin, valid_window=1):
+                logger.info(f"PIN matched: admin_totp for user {mgr.get('full_name', mgr.get('username', '?'))}")
+                return {
+                    "verifier_id": mgr["id"],
+                    "verifier_name": mgr.get("full_name", mgr["username"]),
+                    "method": "admin_totp",
+                }
 
     # 4. Auditor PIN
     if check_all or "auditor_pin" in methods:
@@ -138,7 +156,7 @@ async def _resolve_pin(pin: str, allowed_methods: list = None, branch_id: str = 
 #  PIN Policy definitions & resolver
 # ─────────────────────────────────────────────────────────────────────────────
 
-PIN_METHODS = ["admin_pin", "manager_pin", "totp", "auditor_pin"]
+PIN_METHODS = ["admin_pin", "manager_pin", "totp", "admin_totp", "auditor_pin"]
 
 PIN_POLICY_ACTIONS = [
     # Sales & Invoicing
@@ -180,6 +198,12 @@ PIN_POLICY_ACTIONS = [
     # Kiosk / Budget Checker
     {"key": "kiosk_unlock",           "label": "Unlock Kiosk (Budget Checker)",   "module": "System",            "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "kiosk_cost_reveal",      "label": "Reveal Cost in Kiosk",            "module": "System",            "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # QR Operational Workflows
+    {"key": "qr_release_stocks",      "label": "QR — Release Stocks",            "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "admin_totp"]},
+    {"key": "qr_receive_payment",     "label": "QR — Receive Payment",           "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "admin_totp"]},
+    {"key": "qr_view_payment_history","label": "QR — View Payment History",      "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "admin_totp"]},
+    {"key": "qr_po_receive",          "label": "QR — Receive Purchase Order",    "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "admin_totp"]},
+    {"key": "qr_transfer_receive",    "label": "QR — Receive Branch Transfer",   "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "admin_totp"]},
 ]
 
 # Build quick lookup: action_key → default methods

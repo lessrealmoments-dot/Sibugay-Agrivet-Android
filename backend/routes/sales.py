@@ -41,6 +41,9 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     if not items:
         raise HTTPException(status_code=400, detail="No items in sale")
 
+    # Release mode: "full" (deduct immediately) or "partial" (reserve stock)
+    release_mode = data.get("release_mode", "full")
+
     # PIN enforcement for discounted items (pos_discount policy)
     has_discount = any(float(item.get("discount_value", 0)) > 0 for item in items)
     discount_pin = data.get("discount_pin", "")
@@ -88,6 +91,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     # Process items and compute totals
     sale_items = []
     subtotal = 0
+    reservations_to_create = []   # populated only for partial release
 
     for item in items:
         product = products_map.get(item["product_id"])
@@ -110,55 +114,110 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
         line_total = round(qty * rate - disc_amt, 2)
         
-        # Check and deduct inventory
+        # ── Inventory: deduct immediately (full) or reserve (partial) ──────────
         if product.get("is_repack") and product.get("parent_id"):
-            # Repack: deduct from parent
             units_per_parent = product.get("units_per_parent", 1)
             parent_deduction = qty / units_per_parent
             parent_inv = await db.inventory.find_one(
                 {"product_id": product["parent_id"], "branch_id": branch_id}, {"_id": 0}
             )
-            parent_stock = parent_inv["quantity"] if parent_inv else 0
-            available = parent_stock * units_per_parent
-            
-            if available < qty:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient stock for {product['name']}: have {available:.0f}, need {qty:.0f}"
+            parent_stock = float(parent_inv["quantity"]) if parent_inv else 0
+
+            if release_mode == "full":
+                available = parent_stock * units_per_parent
+                if available < qty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for {product['name']}: have {available:.0f}, need {qty:.0f}"
+                    )
+                await db.inventory.update_one(
+                    {"product_id": product["parent_id"], "branch_id": branch_id},
+                    {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
+                    upsert=True
                 )
-            
-            await db.inventory.update_one(
-                {"product_id": product["parent_id"], "branch_id": branch_id},
-                {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
-                upsert=True
-            )
-            await log_movement(
-                product["parent_id"], branch_id, "sale", -parent_deduction, "", inv_number,
-                rate * units_per_parent, user["id"], user.get("full_name", user["username"]),
-                f"Sold as repack: {product['name']} x {qty}"
-            )
+                await log_movement(
+                    product["parent_id"], branch_id, "sale", -parent_deduction, "", inv_number,
+                    rate * units_per_parent, user["id"], user.get("full_name", user["username"]),
+                    f"Sold as repack: {product['name']} x {qty}"
+                )
+            else:
+                # Partial release: check available (stock minus existing reservations)
+                existing_res = await db.sale_reservations.aggregate([
+                    {"$match": {"product_id": product["parent_id"], "branch_id": branch_id, "qty_remaining": {"$gt": 0}}},
+                    {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
+                ]).to_list(1)
+                already_reserved = float(existing_res[0]["total"]) if existing_res else 0
+                available_for_reserve = parent_stock - already_reserved
+                if available_for_reserve < parent_deduction:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for {product['name']}: have {available_for_reserve * units_per_parent:.0f} available (after reservations), need {qty:.0f}"
+                    )
+                parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
+                reservations_to_create.append({
+                    "product_id": product["parent_id"],
+                    "product_name": parent["name"] if parent else product.get("parent_name", ""),
+                    "sold_product_id": product["id"],
+                    "sold_product_name": product["name"],
+                    "sold_qty_ordered": qty,
+                    "sold_qty_released": 0.0,
+                    "sold_qty_remaining": qty,
+                    "sold_unit": product.get("repack_unit", product.get("unit", "")),
+                    "qty_reserved": parent_deduction,
+                    "qty_released": 0.0,
+                    "qty_remaining": parent_deduction,
+                    "units_per_parent": units_per_parent,
+                    "is_repack": True,
+                })
         else:
-            # Regular product
             inv = await db.inventory.find_one(
                 {"product_id": item["product_id"], "branch_id": branch_id}, {"_id": 0}
             )
-            current_stock = inv["quantity"] if inv else 0
-            
-            if current_stock < qty:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient stock for {product['name']}: have {current_stock:.0f}, need {qty:.0f}"
+            current_stock = float(inv["quantity"]) if inv else 0
+
+            if release_mode == "full":
+                if current_stock < qty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for {product['name']}: have {current_stock:.0f}, need {qty:.0f}"
+                    )
+                await db.inventory.update_one(
+                    {"product_id": item["product_id"], "branch_id": branch_id},
+                    {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
+                    upsert=True
                 )
-            
-            await db.inventory.update_one(
-                {"product_id": item["product_id"], "branch_id": branch_id},
-                {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
-                upsert=True
-            )
-            await log_movement(
-                item["product_id"], branch_id, "sale", -qty, "", inv_number,
-                rate, user["id"], user.get("full_name", user["username"])
-            )
+                await log_movement(
+                    item["product_id"], branch_id, "sale", -qty, "", inv_number,
+                    rate, user["id"], user.get("full_name", user["username"])
+                )
+            else:
+                # Partial release: check available (stock minus existing reservations)
+                existing_res = await db.sale_reservations.aggregate([
+                    {"$match": {"product_id": item["product_id"], "branch_id": branch_id, "qty_remaining": {"$gt": 0}}},
+                    {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
+                ]).to_list(1)
+                already_reserved = float(existing_res[0]["total"]) if existing_res else 0
+                available_for_reserve = current_stock - already_reserved
+                if available_for_reserve < qty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for {product['name']}: have {available_for_reserve:.0f} available (after reservations), need {qty:.0f}"
+                    )
+                reservations_to_create.append({
+                    "product_id": item["product_id"],
+                    "product_name": product["name"],
+                    "sold_product_id": item["product_id"],
+                    "sold_product_name": product["name"],
+                    "sold_qty_ordered": qty,
+                    "sold_qty_released": 0.0,
+                    "sold_qty_remaining": qty,
+                    "sold_unit": product.get("unit", ""),
+                    "qty_reserved": qty,
+                    "qty_released": 0.0,
+                    "qty_remaining": qty,
+                    "units_per_parent": 1.0,
+                    "is_repack": False,
+                })
         
         sale_items.append({
             "product_id": item["product_id"],
@@ -275,6 +334,10 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         "cashier_name": user.get("full_name", user["username"]),
         "idempotency_key": idem_key,
         "created_at": now_iso(),
+        # Stock release tracking
+        "release_mode": release_mode,
+        "stock_release_status": "na" if release_mode == "full" else "not_released",
+        "stock_releases": [],
     }
 
     # Mark digital/split invoices as needing receipt upload
@@ -340,6 +403,21 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     
     await db.invoices.insert_one(invoice)
     del invoice["_id"]
+
+    # ── Partial release: create sale_reservations ────────────────────────────
+    if release_mode == "partial" and reservations_to_create:
+        from datetime import timedelta
+        expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+        for r in reservations_to_create:
+            await db.sale_reservations.insert_one({
+                "id": new_id(),
+                "invoice_id": invoice["id"],
+                "invoice_number": invoice["invoice_number"],
+                "branch_id": branch_id,
+                **r,
+                "created_at": now_iso(),
+                "expires_at": expires_at,
+            })
     
     # Update customer balance for credit portion
     if customer_id and balance > 0:

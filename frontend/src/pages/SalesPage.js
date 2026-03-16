@@ -249,6 +249,17 @@ export default function SalesPage() {
                       {s.balance > 0 && s.status !== 'voided' && (
                         <span className="block text-[9px] text-red-600 font-mono mt-0.5">Bal: {formatPHP(s.balance)}</span>
                       )}
+                      {s.release_mode === 'partial' && s.stock_release_status !== 'na' && (
+                        <span className={`block text-[9px] font-medium mt-0.5 ${
+                          s.stock_release_status === 'fully_released' ? 'text-emerald-600' :
+                          s.stock_release_status === 'partially_released' ? 'text-blue-600' :
+                          'text-amber-600'
+                        }`}>
+                          {s.stock_release_status === 'fully_released' ? 'Released' :
+                           s.stock_release_status === 'partially_released' ? 'Part. Released' :
+                           'Unreleased'}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-slate-500 whitespace-nowrap">
                       {s.order_date || (s.created_at ? new Date(s.created_at).toLocaleDateString() : '')}

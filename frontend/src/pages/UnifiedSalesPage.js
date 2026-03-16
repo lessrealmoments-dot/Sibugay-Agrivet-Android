@@ -170,6 +170,7 @@ export default function UnifiedSalesPage() {
   const [amountTendered, setAmountTendered] = useState(0);
   const [partialPayment, setPartialPayment] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [releaseMode, setReleaseMode] = useState('full'); // full | partial
   
   // Reference number prompt
   const [refPrompt, setRefPrompt] = useState({ open: false, number: '', title: '', invoiceData: null });
@@ -858,6 +859,7 @@ export default function UnifiedSalesPage() {
     setPaymentType('cash');
     setAmountTendered(grandTotal);
     setPartialPayment(0);
+    setReleaseMode('full');
     setCheckoutDialog(true);
   };
 
@@ -996,6 +998,7 @@ export default function UnifiedSalesPage() {
       cashier_id: user?.id,
       cashier_name: user?.full_name || user?.username,
       status: balance > 0 ? 'open' : 'paid',
+      release_mode: releaseMode,
       created_at: new Date().toISOString(),
     };
 
@@ -1921,7 +1924,48 @@ export default function UnifiedSalesPage() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Stock Release Mode */}
+            <div className="space-y-2 pt-1">
+              <Label className="text-sm font-semibold text-slate-700">Stock Release</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  data-testid="release-mode-full"
+                  onClick={() => setReleaseMode('full')}
+                  className={`flex flex-col items-start p-3 rounded-lg border-2 text-left transition-all ${
+                    releaseMode === 'full'
+                      ? 'border-[#1A4D2E] bg-emerald-50'
+                      : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  <span className={`text-sm font-semibold ${releaseMode === 'full' ? 'text-[#1A4D2E]' : 'text-slate-700'}`}>
+                    Full Release
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">All items given now</span>
+                </button>
+                <button
+                  data-testid="release-mode-partial"
+                  onClick={() => setReleaseMode('partial')}
+                  className={`flex flex-col items-start p-3 rounded-lg border-2 text-left transition-all ${
+                    releaseMode === 'partial'
+                      ? 'border-amber-500 bg-amber-50'
+                      : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  <span className={`text-sm font-semibold ${releaseMode === 'partial' ? 'text-amber-700' : 'text-slate-700'}`}>
+                    Partial Release
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">Items released via QR</span>
+                </button>
+              </div>
+              {releaseMode === 'partial' && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-1.5">
+                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+                  Stock stays reserved until each batch is scanned and released. Use the invoice QR code to release items.
+                </p>
+              )}
+            </div>
+
+            {/* Action buttons — checkout confirm */}
             <div className="flex gap-2 pt-2">
               <Button variant="outline" className="flex-1" onClick={() => setCheckoutDialog(false)}>Cancel</Button>
               <Button 

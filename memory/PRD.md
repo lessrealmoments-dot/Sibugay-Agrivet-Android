@@ -12,6 +12,15 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
+### QR Operational Workflows — Phase 1 Foundation (Complete — Mar 2026)
+- **Stock Reservation Model**: `release_mode: "full" | "partial"` on all invoices. Partial release reserves stock without deducting inventory until physical handover.
+- **`sale_reservations` collection**: Tracks per-product reservations per invoice, with `qty_reserved/released/remaining` and 30-day expiry.
+- **Available stock calc updated**: `products.py` search-detail and barcode-lookup now subtract active reservations from available stock.
+- **Sales History badges**: Unreleased / Partially Released / Released shown on invoice list.
+- **Z-Report / Close Wizard warning**: Step 1 shows count of unreleased invoices and total reserved qty. Overdue (>30 days) shown in red.
+- **PIN System extended**: Added `admin_totp` method (TOTP restricted to admin/owner role only). Added 5 QR action policies: `qr_release_stocks`, `qr_receive_payment`, `qr_view_payment_history`, `qr_po_receive`, `qr_transfer_receive` — all configurable in Settings → Security → PIN Policies.
+- **`/api/stock-releases`**: New endpoints to list pending releases, summary, and per-invoice detail.
+
 ### Product Name Deduplication (Complete — Feb 2026)
 - Identified 11 product name groups with 66 duplicate records (caused by missing uniqueness constraint)
 - Migration: merged inventory (44 records), updated PO items (74), movements (218) into canonical products

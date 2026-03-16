@@ -851,6 +851,26 @@ export default function CloseWizardPage() {
           {/* ── STEP 1: Sales Log (non-credit only — credit is in Step 2) ── */}
           {step === 1 && (
             <div className="space-y-3">
+              {/* Pending stock releases warning */}
+              {preview?.pending_stock_releases?.pending_invoice_count > 0 && (
+                <div className={`rounded-lg border px-4 py-3 flex items-start gap-3 ${
+                  preview.pending_stock_releases.has_overdue
+                    ? 'bg-red-50 border-red-200'
+                    : 'bg-amber-50 border-amber-200'
+                }`}>
+                  <Package size={16} className={`mt-0.5 shrink-0 ${preview.pending_stock_releases.has_overdue ? 'text-red-500' : 'text-amber-500'}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${preview.pending_stock_releases.has_overdue ? 'text-red-700' : 'text-amber-700'}`}>
+                      {preview.pending_stock_releases.pending_invoice_count} invoice{preview.pending_stock_releases.pending_invoice_count !== 1 ? 's' : ''} with unreleased stock
+                    </p>
+                    <p className={`text-xs mt-0.5 ${preview.pending_stock_releases.has_overdue ? 'text-red-600' : 'text-amber-600'}`}>
+                      {preview.pending_stock_releases.total_reserved_qty} units still reserved.
+                      {preview.pending_stock_releases.has_overdue && ` ${preview.pending_stock_releases.overdue_reservations} overdue (>30 days).`}
+                      {' '}Closing is allowed but review pending releases in Sales History.
+                    </p>
+                  </div>
+                </div>
+              )}
               {(() => {
                 // Digital payment detection — mirrors backend DIGITAL_PAYMENT_METHODS
                 const CASH_METHODS = new Set(['cash', 'check', 'cheque', 'credit', 'partial', 'split']);

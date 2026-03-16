@@ -12,6 +12,20 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
+### Count Sheets — Reserved Stock Fix (Complete — Mar 2026)
+- **Bug fixed**: Snapshot was using only `inventory.quantity` (available), ignoring `reserved_qty`. Counters physically see all stock including reserved items, causing false +surplus variances.
+- **Fix**: `system_quantity = quantity + reserved_qty` (total physical on shelf). Added `system_available_qty` and `system_reserved_qty` fields per item.
+- **Adjustment fix**: When applying adjustments, only updates `quantity = actual_counted - reserved_qty`. Reserved stock stays untouched (managed by release system, not count sheets).
+- **UI**: Count sheet shows `"80 avail + 20 reserved"` sub-note under system qty when reserved stock is present.
+
+### Pending Releases Page (Complete — Mar 2026)
+- New sidebar page under Inventory & Purchasing: `/pending-releases`
+- Summary cards: pending invoices, total reserved qty, overdue count (>30 days)
+- Table: invoice #, customer, date, age badge (green/amber/red), status, items remaining, progress bar
+- Filter by branch (admin) and status (pending only / all)
+- Click any row or external link icon opens the `/doc/{code}` release management page
+- Overdue alert banner with auto-return explanation
+
 ### QR Operational Workflows — Phase 2 Stock Release via QR (Complete — Mar 2026)
 - **Inventory model corrected**: Partial release now deducts `inventory.quantity` immediately at sale (same as full release) AND increments `inventory.reserved_qty`. Physical stock = quantity + reserved_qty. Available to sell = quantity only.
 - **`/api/qr-actions/{code}/release_stocks`**: PIN-gated release action. Decrements `reserved_qty` on release. Idempotent via `release_ref`. Branch-restricted manager PIN enforced.

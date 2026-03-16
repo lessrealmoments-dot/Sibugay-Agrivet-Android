@@ -44,6 +44,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/products',        label: 'Products',        icon: Package,   perm: 'products.view',        offlineOk: 'readonly' },
       { path: '/inventory',       label: 'Inventory',       icon: Warehouse, perm: 'inventory.view',       offlineOk: 'readonly' },
+      { path: '/pending-releases', label: 'Pending Releases', icon: Package, perm: 'inventory.view' },
       { path: '/purchase-orders', label: 'Purchase Orders', icon: Truck,     perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
       { path: '/pay-supplier',    label: 'Pay Supplier',    icon: Building2, perm: 'purchase_orders.view', featureFlag: 'purchase_orders' },
       { path: '/suppliers',       label: 'Suppliers',       icon: Truck,     perm: 'suppliers.view',       featureFlag: 'supplier_management' },

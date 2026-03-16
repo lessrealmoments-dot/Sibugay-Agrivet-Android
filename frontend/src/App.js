@@ -35,6 +35,7 @@ import AccountingPage from './pages/AccountingPage';
 import SettingsPage from './pages/SettingsPage';
 import UserPermissionsPage from './pages/UserPermissionsPage';
 import CountSheetsPage from './pages/CountSheetsPage';
+import PendingReleasesPage from './pages/PendingReleasesPage';
 import AccountsPage from './pages/AccountsPage';
 import EmployeesPage from './pages/EmployeesPage';
 import PaySupplierPage from './pages/PaySupplierPage';
@@ -184,6 +185,7 @@ function AppRoutes() {
       <Route path="/employees" element={<ProtectedRoute><FeatureGate featureKey="employee_management"><EmployeesPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/pay-supplier" element={<ProtectedRoute><FeatureGate featureKey="purchase_orders"><PaySupplierPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/count-sheets" element={<ProtectedRoute><CountSheetsPage /></ProtectedRoute>} />
+      <Route path="/pending-releases" element={<ProtectedRoute><PendingReleasesPage /></ProtectedRoute>} />
       <Route path="/import" element={<ProtectedRoute><ImportPage /></ProtectedRoute>} />
       <Route path="/reports" element={<ProtectedRoute><FeatureGate featureKey="advanced_reports"><ReportsPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/returns" element={<ProtectedRoute><ReturnRefundWizard /></ProtectedRoute>} />

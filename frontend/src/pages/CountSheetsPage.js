@@ -596,6 +596,11 @@ export default function CountSheetsPage() {
                             ) : (
                               item.system_quantity
                             )}
+                            {item.system_reserved_qty > 0 && (
+                              <div className="text-[10px] text-amber-600 font-normal mt-0.5">
+                                {item.system_available_qty} avail + {item.system_reserved_qty} reserved
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">
                             {selectedSheet?.status === 'in_progress' ? (

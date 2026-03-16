@@ -45,7 +45,7 @@ async def generate_count_sheet_number(branch_id: str) -> str:
         try:
             last_num = int(last["count_sheet_number"].split("-")[-1])
             next_num = last_num + 1
-        except:
+        except Exception:
             next_num = 1
     else:
         next_num = 1
@@ -242,7 +242,10 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
             {"product_id": product["id"], "branch_id": branch_id},
             {"_id": 0}
         )
-        system_qty = inv["quantity"] if inv else 0
+        # Available to sell + reserved (pending customer pickup) = total physical on shelf
+        system_available_qty = float(inv["quantity"]) if inv else 0
+        system_reserved_qty = float(inv.get("reserved_qty", 0)) if inv else 0
+        system_qty = system_available_qty + system_reserved_qty
         
         # Get capital price based on source
         capital_price = await get_product_capital_price(product, capital_source, branch_id)
@@ -275,7 +278,10 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
             "sku": product.get("sku", ""),
             "category": product.get("category", "General"),
             "unit": product.get("unit", "Piece"),
-            "system_quantity": round(system_qty, 4),  # Keep precision for calculations
+            # system_quantity = total physical on shelf (available + reserved pending pickup)
+            "system_quantity": round(system_qty, 4),
+            "system_available_qty": round(system_available_qty, 4),
+            "system_reserved_qty": round(system_reserved_qty, 4),
             "system_whole": whole_qty,
             "system_loose": loose_qty,
             "actual_quantity": None,
@@ -495,10 +501,12 @@ async def apply_adjustments(sheet_id: str, data: dict, user=Depends(get_current_
             {"product_id": product_id, "branch_id": branch_id},
             {"_id": 0}
         )
-        current_qty = inv["quantity"] if inv else 0
-        new_qty = item["actual_quantity"]
+        available_before = float(inv["quantity"]) if inv else 0
+        # new available qty = actual_counted - reserved (customer's portion stays reserved)
+        reserved_qty = float(item.get("system_reserved_qty", 0))
+        new_qty = max(0, round(item["actual_quantity"] - reserved_qty, 4))
         
-        # Update inventory
+        # Update only the available quantity; reserved_qty is unchanged (managed by release system)
         if inv:
             await db.inventory.update_one(
                 {"product_id": product_id, "branch_id": branch_id},
@@ -510,15 +518,19 @@ async def apply_adjustments(sheet_id: str, data: dict, user=Depends(get_current_
                 "product_id": product_id,
                 "branch_id": branch_id,
                 "quantity": new_qty,
+                "reserved_qty": 0,
                 "updated_at": now_iso()
             })
         
-        # Log the movement
+        # Log the movement — variance is relative to available quantity (not total physical)
+        available_variance = round(new_qty - available_before, 4)
         await log_movement(
-            product_id, branch_id, "count_adjustment", variance,
+            product_id, branch_id, "count_adjustment", available_variance,
             sheet_id, sheet["count_sheet_number"], 0, user["id"],
             user.get("full_name", user["username"]),
-            f"Count sheet adjustment: {item['system_quantity']} → {item['actual_quantity']}"
+            f"Count sheet adjustment: physical {item['system_quantity']} → {item['actual_quantity']} "
+            f"(available {available_before} → {new_qty}"
+            + (f", {reserved_qty} reserved unchanged)" if reserved_qty > 0 else ")")
         )
         
         adjustments.append({

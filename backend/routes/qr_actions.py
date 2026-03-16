@@ -5,13 +5,12 @@ No login required; all actions are PIN-gated via the existing pin_policy system.
 Supported actions:
   release_stocks   — decrement reserved_qty, mark delivery batches (Phase 2)
   receive_payment  — record payment on invoice (Phase 3)
-  po_receive       — receive a PO via QR (Phase 4)
-  transfer_receive — receive a branch transfer via QR (Phase 5)
+  transfer_receive — receive a branch transfer via QR (Phase 4)
 """
 from fastapi import APIRouter, HTTPException
 from datetime import datetime, timezone, timedelta
 from config import db
-from utils import now_iso, new_id
+from utils import now_iso, new_id, is_digital_payment, update_cashier_wallet, update_digital_wallet
 
 router = APIRouter(prefix="/qr-actions", tags=["QR Actions"])
 
@@ -54,26 +53,35 @@ async def get_qr_context(code: str):
 @router.post("/{code}/verify_pin")
 async def verify_release_pin(code: str, data: dict):
     """
-    Validates a PIN for qr_release_stocks policy against the document's branch.
+    Validates a PIN for the relevant policy based on the document's type and branch.
     Returns { valid: true, verifier_name } or 403.
-    Used to unlock the stock release panel before any action is taken.
+    Used to unlock action panels before any action is taken.
     """
     pin = (data.get("pin") or "").strip()
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
 
     doc_ref, doc_type, doc_id = await _resolve_doc(code)
-    if doc_type != "invoice":
-        raise HTTPException(status_code=400, detail="This QR code is not for an invoice")
 
-    invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0, "branch_id": 1})
-    if not invoice:
-        raise HTTPException(status_code=404, detail="Invoice not found")
+    # Derive action key and branch_id from doc type
+    if doc_type == "invoice":
+        doc = await db.invoices.find_one({"id": doc_id}, {"_id": 0, "branch_id": 1})
+        action_key = "qr_release_stocks"
+    elif doc_type == "branch_transfer":
+        doc = await db.branch_transfer_orders.find_one({"id": doc_id}, {"_id": 0, "to_branch_id": 1})
+        action_key = "qr_transfer_receive"
+        if doc:
+            doc = {"branch_id": doc.get("to_branch_id", "")}
+    else:
+        raise HTTPException(status_code=400, detail=f"No PIN action defined for doc type: {doc_type}")
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
 
     from routes.verify import verify_pin_for_action
-    verifier = await verify_pin_for_action(pin, "qr_release_stocks", branch_id=invoice.get("branch_id", ""))
+    verifier = await verify_pin_for_action(pin, action_key, branch_id=doc.get("branch_id", ""))
     if not verifier:
-        raise HTTPException(status_code=403, detail="Invalid PIN — use branch manager PIN, admin PIN, or admin TOTP")
+        raise HTTPException(status_code=403, detail="Invalid PIN")
 
     return {"valid": True, "verifier_name": verifier["verifier_name"], "method": verifier["method"]}
 
@@ -148,7 +156,7 @@ async def release_stocks(code: str, data: dict):
             continue
         res = res_map.get(spid)
         if not res:
-            raise HTTPException(status_code=400, detail=f"Product not found in this invoice's reservations")
+            raise HTTPException(status_code=400, detail="Product not found in this invoice's reservations")
         if qty_release > res["sold_qty_remaining"] + 0.001:  # float tolerance
             raise HTTPException(
                 status_code=400,
@@ -208,7 +216,6 @@ async def release_stocks(code: str, data: dict):
 
     # Compute new stock_release_status
     all_remaining = sum(r["sold_qty_remaining"] for r in res_map.values())
-    all_ordered = sum(r["sold_qty_ordered"] for r in res_map.values())
     all_released = sum(r["sold_qty_released"] for r in res_map.values())
     if all_remaining <= 0.001:
         new_status = "fully_released"
@@ -256,7 +263,175 @@ async def release_stocks(code: str, data: dict):
     }
 
 
-# ── Expiry Job (called by APScheduler daily) ──────────────────────────────────
+# ── Action: Receive Payment ───────────────────────────────────────────────────
+
+@router.post("/{code}/receive_payment")
+async def receive_payment(code: str, data: dict):
+    """
+    Record a payment on a credit/partial invoice via QR scan.
+    PIN required (qr_receive_payment policy — branch-restricted for managers).
+
+    Body: { pin, amount, method, reference }
+      method: "Cash" | "GCash" | "Maya" | "Bank Transfer" | ...
+    """
+    pin = (data.get("pin") or "").strip()
+    amount = float(data.get("amount", 0))
+    method = (data.get("method") or "Cash").strip()
+    reference = (data.get("reference") or "").strip()
+
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
+
+    doc_ref, doc_type, doc_id = await _resolve_doc(code)
+    if doc_type != "invoice":
+        raise HTTPException(status_code=400, detail="This QR code is not for an invoice")
+
+    invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.get("status") == "voided":
+        raise HTTPException(status_code=400, detail="Cannot receive payment on a voided invoice")
+
+    balance = float(invoice.get("balance", 0))
+    if balance <= 0:
+        raise HTTPException(status_code=400, detail="Invoice is already fully paid")
+    if amount > balance + 0.01:
+        raise HTTPException(status_code=400, detail=f"Amount ₱{amount:,.2f} exceeds balance ₱{balance:,.2f}")
+
+    branch_id = invoice.get("branch_id", "")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "qr_receive_payment", branch_id=branch_id)
+    if not verifier:
+        await _log_action(doc_ref, "receive_payment", None, f"₱{amount:,.2f} PIN failed", result="failed", error="invalid_pin")
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    # Build payment record — same schema as invoices.payments[]
+    interest_owed = float(invoice.get("interest_accrued", 0)) + float(invoice.get("penalties", 0))
+    applied_interest = min(amount, interest_owed)
+    applied_principal = amount - applied_interest
+    new_interest = max(0, round(float(invoice.get("interest_accrued", 0)) - applied_interest, 2))
+    new_balance = round(balance - amount, 2)
+    new_paid = round(float(invoice.get("amount_paid", 0)) + amount, 2)
+    new_status = "paid" if new_balance <= 0 else "partial"
+
+    payment = {
+        "id": new_id(),
+        "amount": amount,
+        "date": now_iso()[:10],
+        "method": method,
+        "fund_source": "digital" if is_digital_payment(method) else "cashier",
+        "reference": reference,
+        "applied_to_interest": applied_interest,
+        "applied_to_principal": applied_principal,
+        "recorded_by": verifier["verifier_name"],
+        "recorded_at": now_iso(),
+    }
+
+    await db.invoices.update_one({"id": doc_id}, {
+        "$set": {
+            "balance": max(0, new_balance),
+            "amount_paid": new_paid,
+            "interest_accrued": new_interest,
+            "status": new_status,
+        },
+        "$push": {"payments": payment}
+    })
+
+    # Route to correct wallet (same logic as record_invoice_payment)
+    ref_text = f"QR Payment — {invoice.get('invoice_number', '')} · {invoice.get('customer_name', 'Walk-in')}"
+    if is_digital_payment(method):
+        await update_digital_wallet(branch_id, amount, ref_text, platform=method, ref_number=reference)
+    else:
+        await update_cashier_wallet(branch_id, amount, ref_text)
+
+    # Update customer AR balance
+    if invoice.get("customer_id"):
+        await db.customers.update_one({"id": invoice["customer_id"]}, {"$inc": {"balance": -amount}})
+
+    await _log_action(doc_ref, "receive_payment", verifier, f"₱{amount:,.2f} {method}")
+
+    return {
+        "success": True,
+        "invoice_number": invoice.get("invoice_number"),
+        "amount_received": amount,
+        "new_balance": max(0, new_balance),
+        "new_status": new_status,
+        "payment": {k: v for k, v in payment.items()},
+        "authorized_by": verifier["verifier_name"],
+        "message": "Invoice fully paid!" if new_status == "paid" else f"Payment recorded. Remaining balance: ₱{max(0, new_balance):,.2f}",
+    }
+
+
+# ── Action: Transfer Receive ──────────────────────────────────────────────────
+
+@router.post("/{code}/transfer_receive")
+async def qr_transfer_receive(code: str, data: dict):
+    """
+    Receive a branch transfer via QR scan.
+    PIN required (qr_transfer_receive policy — restricted to dest branch managers).
+
+    Body: { pin, items: [{product_id, qty_received}], notes }
+
+    Delegates entirely to receive_transfer() which handles:
+      Exact match  → inventory moves immediately → status 'received'
+      Variance     → status 'received_pending', source branch notified
+    """
+    pin = (data.get("pin") or "").strip()
+    items_input = data.get("items", [])
+    notes = (data.get("notes") or "").strip()
+
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required")
+    if not items_input:
+        raise HTTPException(status_code=400, detail="No items provided")
+
+    doc_ref, doc_type, doc_id = await _resolve_doc(code)
+    if doc_type != "branch_transfer":
+        raise HTTPException(status_code=400, detail="This QR code is not for a branch transfer")
+
+    transfer = await db.branch_transfer_orders.find_one({"id": doc_id}, {"_id": 0})
+    if not transfer:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    if transfer.get("status") != "sent":
+        status_label = transfer.get("status", "?").replace("_", " ").title()
+        raise HTTPException(status_code=400, detail=f"Transfer cannot be received — current status: {status_label}")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "qr_transfer_receive", branch_id=transfer.get("to_branch_id", ""))
+    if not verifier:
+        await _log_action(doc_ref, "transfer_receive", None, "PIN failed", result="failed", error="invalid_pin")
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    # Synthetic user built from the PIN verifier — needed by receive_transfer()
+    synthetic_user = {
+        "id": verifier["verifier_id"],
+        "full_name": verifier["verifier_name"],
+        "username": verifier["verifier_name"],
+        "branch_id": transfer.get("to_branch_id", ""),
+        "role": "manager",
+    }
+
+    from routes.branch_transfers import receive_transfer
+    receive_data = {
+        "items": items_input,
+        "notes": notes,
+        "skip_receipt_check": True,
+    }
+
+    result = await receive_transfer(doc_id, receive_data, synthetic_user)
+
+    item_summary = ", ".join(
+        f"{i.get('product_id', '?')} ×{i.get('qty_received', 0)}" for i in items_input[:3]
+    )
+    await _log_action(doc_ref, "transfer_receive", verifier, item_summary)
+
+    return result
+
+
+
 
 async def process_expired_reservations():
     """

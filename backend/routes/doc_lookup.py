@@ -275,7 +275,7 @@ async def view_document_open(code: str):
             "date": doc.get("created_at", ""),
             "from_branch": from_branch.get("name", "") if from_branch else "",
             "to_branch": to_branch.get("name", "") if to_branch else "",
-            "items": [{"name": i.get("product_name", ""), "qty": i.get("qty", 0), "price": i.get("transfer_capital", 0), "total": (i.get("transfer_capital", 0) * i.get("qty", 0))} for i in (doc.get("items") or [])],
+            "items": [{"product_id": i.get("product_id", ""), "name": i.get("product_name", ""), "qty": i.get("qty", 0), "price": i.get("transfer_capital", 0), "total": (i.get("transfer_capital", 0) * i.get("qty", 0))} for i in (doc.get("items") or [])],
             "total": sum(i.get("transfer_capital", 0) * i.get("qty", 0) for i in (doc.get("items") or [])),
             "status": status_labels.get(transfer_status, transfer_status),
             "raw_status": transfer_status,

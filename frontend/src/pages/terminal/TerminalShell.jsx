@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell, Settings, ChevronRight, Unlink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell, Settings, ChevronRight, Unlink, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
@@ -22,12 +23,15 @@ const TABS = [
 ];
 
 export default function TerminalShell({ session, onLogout }) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('sales');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncing, setSyncing] = useState(false);
   const [dataReady, setDataReady] = useState(false);
+  const [docCodeInput, setDocCodeInput] = useState('');
+  const [showDocSearch, setShowDocSearch] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncProgress, setSyncProgress] = useState('');
   const [notifications, setNotifications] = useState([]);
@@ -209,6 +213,34 @@ export default function TerminalShell({ session, onLogout }) {
           <span className="text-xs text-slate-500 border-l border-slate-200 pl-2">{session.branchName}</span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Find by Doc Code */}
+          {showDocSearch ? (
+            <div className="flex items-center gap-1">
+              <input
+                autoFocus
+                type="text"
+                value={docCodeInput}
+                onChange={e => setDocCodeInput(e.target.value.toUpperCase())}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && docCodeInput.trim().length >= 6) navigate(`/doc/${docCodeInput.trim()}`);
+                  if (e.key === 'Escape') { setShowDocSearch(false); setDocCodeInput(''); }
+                }}
+                placeholder="Doc code..."
+                maxLength={10}
+                className="h-7 w-28 text-center font-mono text-sm rounded-lg border border-slate-200 bg-white px-2 uppercase tracking-widest"
+                data-testid="terminal-doc-code-input"
+              />
+              <button onClick={() => { if (docCodeInput.trim().length >= 6) navigate(`/doc/${docCodeInput.trim()}`); }}
+                disabled={docCodeInput.trim().length < 6}
+                className="h-7 px-2 rounded-lg bg-[#1A4D2E] text-white text-xs disabled:opacity-40"
+                data-testid="terminal-doc-code-go-btn">Go</button>
+              <button onClick={() => { setShowDocSearch(false); setDocCodeInput(''); }} className="h-7 px-1.5 rounded-lg border border-slate-200 text-slate-400 text-xs">✕</button>
+            </div>
+          ) : (
+            <button onClick={() => setShowDocSearch(true)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" title="Find by doc code" data-testid="terminal-find-code-btn">
+              <Search size={14} />
+            </button>
+          )}
           {pendingCount > 0 && (
             <span className="bg-amber-100 text-amber-700 text-[10px] font-medium px-2 py-0.5 rounded-full" data-testid="pending-badge">
               {pendingCount} pending

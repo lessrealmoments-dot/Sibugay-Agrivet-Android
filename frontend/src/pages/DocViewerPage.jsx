@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import {
   Lock, FileText, Building2, ArrowRight, CreditCard, CheckCircle2,
   AlertTriangle, Printer, Image, Smartphone, Package, ChevronDown,
-  ShieldCheck, RefreshCw, Search, Boxes
+  ShieldCheck, RefreshCw, Search, Boxes, Banknote, Wifi
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -355,6 +355,358 @@ function StockReleaseManager({ basic, docCode, onStatusChange }) {
 
 
 
+
+// ── Receive Payment Panel (lives inside Tier 2 — PIN already verified) ────────
+function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
+  const [state, setState] = useState('idle'); // idle | form | confirming | done
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState('Cash');
+  const [reference, setReference] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+  const [balance, setBalance] = useState(basic.balance);
+
+  const METHODS = ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Check'];
+  const isDigital = method !== 'Cash' && method !== 'Check';
+
+  const handleConfirm = () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt <= 0) { setError('Enter a valid amount'); return; }
+    if (amt > balance + 0.01) { setError(`Amount exceeds balance ₱${balance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`); return; }
+    setError(''); setState('confirming');
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true); setError('');
+    try {
+      const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/receive_payment`, {
+        pin: storedPin,
+        amount: parseFloat(amount),
+        method,
+        reference,
+      });
+      setResult(res.data);
+      setBalance(res.data.new_balance);
+      if (onPaymentRecorded) onPaymentRecorded(res.data);
+      setState('done');
+    } catch (e) { setError(e.response?.data?.detail || 'Payment failed'); setState('form'); }
+    setSubmitting(false);
+  };
+
+  const php = (v) => `₱${(parseFloat(v) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+
+  if (!basic.available_actions?.includes('receive_payment') && state === 'idle') return null;
+
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-4">
+      {state === 'idle' && (
+        <button onClick={() => setState('form')} data-testid="receive-payment-btn"
+          className="w-full flex items-center justify-between p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 transition-colors">
+          <div className="flex items-center gap-2">
+            <Banknote size={16} className="text-emerald-600" />
+            <span className="text-sm font-semibold text-emerald-800">Receive Payment</span>
+            <span className="text-xs text-emerald-600 font-mono ml-1">{php(balance)} due</span>
+          </div>
+          <ChevronDown size={14} className="text-emerald-400" />
+        </button>
+      )}
+
+      {state === 'form' && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Record Payment</p>
+          <div className="flex gap-2 flex-wrap">
+            {METHODS.map(m => (
+              <button key={m} onClick={() => setMethod(m)} data-testid={`method-${m.toLowerCase().replace(' ', '-')}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${method === m ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
+                {m}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="text-xs text-slate-500 mb-1 block">Amount</label>
+            <input type="text" inputMode="decimal" autoComplete="off"
+              value={amount} onChange={e => setAmount(e.target.value)}
+              placeholder={`Max ${php(balance)}`}
+              className="w-full h-11 text-center text-xl font-bold font-mono rounded-lg border border-input bg-background px-3"
+              data-testid="payment-amount-input" autoFocus />
+            <button onClick={() => setAmount(String(balance))} className="text-xs text-emerald-600 hover:underline mt-1">Full balance</button>
+          </div>
+          {isDigital && (
+            <div>
+              <label className="text-xs text-slate-500 mb-1 block">Reference / Ref No.</label>
+              <input type="text" autoComplete="off" value={reference} onChange={e => setReference(e.target.value)}
+                placeholder="Transaction ref number" data-testid="payment-reference-input"
+                className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+            </div>
+          )}
+          {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setState('idle')} className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Cancel</button>
+            <button onClick={handleConfirm} data-testid="payment-confirm-btn"
+              className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold">
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state === 'confirming' && (
+        <div className="space-y-3">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
+            <p className="text-sm font-semibold text-emerald-800">Confirm Payment</p>
+            <div className="flex justify-between text-sm"><span className="text-slate-500">Amount</span><span className="font-bold text-emerald-700">{php(amount)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-slate-500">Method</span><span className="font-medium">{method}</span></div>
+            {reference && <div className="flex justify-between text-sm"><span className="text-slate-500">Ref #</span><span className="font-mono text-xs">{reference}</span></div>}
+            <div className="flex justify-between text-sm border-t border-emerald-200 pt-2 mt-2">
+              <span className="text-slate-500">New Balance</span>
+              <span className={`font-bold ${parseFloat(amount) >= balance ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {php(Math.max(0, balance - parseFloat(amount)))}
+              </span>
+            </div>
+          </div>
+          {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setState('form')} className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Back</button>
+            <button onClick={handleSubmit} disabled={submitting} data-testid="payment-submit-btn"
+              className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-60">
+              {submitting ? <RefreshCw size={14} className="animate-spin mx-auto" /> : 'Confirm Payment'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state === 'done' && result && (
+        <div className="text-center space-y-2 py-3">
+          <CheckCircle2 size={32} className="text-emerald-500 mx-auto" />
+          <p className="font-semibold text-emerald-700">{result.message}</p>
+          <p className="text-xs text-slate-400">Authorized by {result.authorized_by}</p>
+          {result.new_balance > 0 && (
+            <button onClick={() => { setState('idle'); setAmount(''); setReference(''); }}
+              className="text-xs text-emerald-600 hover:underline mt-1">Record another payment</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ── Transfer Receive Panel (top-level PIN-gated panel for branch transfers) ───
+function TransferReceivePanel({ basic, docCode, onReceived }) {
+  const [state, setState] = useState('locked'); // locked | verifying | unlocked | confirming | done
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifierName, setVerifierName] = useState('');
+  const [verifiedPin, setVerifiedPin] = useState('');
+  const [receiveItems, setReceiveItems] = useState(() =>
+    (basic.items || []).map(i => ({ ...i, input_qty: String(i.qty) }))
+  );
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState(null);
+
+  const php = (v) => `₱${(parseFloat(v) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+  const setQty = (idx, val) => setReceiveItems(prev => prev.map((it, i) => i === idx ? { ...it, input_qty: val } : it));
+
+  const variances = receiveItems.map(it => ({
+    ...it,
+    received: parseFloat(it.input_qty) || 0,
+    diff: (parseFloat(it.input_qty) || 0) - it.qty,
+  }));
+  const hasVariance = variances.some(v => Math.abs(v.diff) > 0.001);
+
+  const handleVerifyPin = async () => {
+    if (!pin) { setPinError('PIN is required'); return; }
+    setVerifying(true); setPinError('');
+    try {
+      const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/verify_pin`, { pin });
+      setVerifierName(res.data.verifier_name);
+      setVerifiedPin(pin);
+      setState('unlocked');
+      setPin('');
+    } catch (e) { setPinError(e.response?.data?.detail || 'Invalid PIN'); }
+    setVerifying(false);
+  };
+
+  const handlePrepare = () => {
+    const bad = receiveItems.find(it => parseFloat(it.input_qty) < 0);
+    if (bad) { setError('Quantities cannot be negative'); return; }
+    setError(''); setState('confirming');
+  };
+
+  const handleConfirm = async () => {
+    setSubmitting(true); setError('');
+    const items = receiveItems.map(it => ({
+      product_id: it.product_id || it.name,
+      qty_received: parseFloat(it.input_qty) || 0,
+    }));
+    try {
+      const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/transfer_receive`, {
+        pin: verifiedPin, items, notes,
+      });
+      setResult(res.data);
+      if (onReceived) onReceived(res.data);
+      setState('done');
+    } catch (e) { setError(e.response?.data?.detail || 'Receive failed'); setState('unlocked'); }
+    setSubmitting(false);
+  };
+
+  if (state === 'locked') return (
+    <button onClick={() => setState('verifying')} data-testid="transfer-receive-btn"
+      className="w-full bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+          <Package size={16} className="text-emerald-600" />
+        </div>
+        <div className="text-left">
+          <p className="text-sm font-semibold text-slate-800">Receive Stocks</p>
+          <p className="text-xs text-slate-400">{basic.items?.length || 0} item{basic.items?.length !== 1 ? 's' : ''} · PIN required</p>
+        </div>
+      </div>
+      <ChevronDown size={16} className="text-slate-400" />
+    </button>
+  );
+
+  if (state === 'verifying') return (
+    <div className="bg-white rounded-xl border-2 border-emerald-200 p-5 space-y-4" data-testid="transfer-pin-prompt">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+          <Lock size={16} className="text-emerald-600" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-800">Manager Authorization Required</p>
+          <p className="text-xs text-slate-400">Manager PIN, Admin PIN, or TOTP</p>
+        </div>
+      </div>
+      <input type="password" autoComplete="one-time-code" value={pin}
+        onChange={e => { setPin(e.target.value); setPinError(''); }}
+        onKeyDown={e => e.key === 'Enter' && handleVerifyPin()}
+        placeholder="Enter PIN" autoFocus
+        className="w-full h-12 text-center text-xl font-mono tracking-widest rounded-lg border border-input bg-background px-3"
+        data-testid="transfer-access-pin" />
+      {pinError && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{pinError}</p>}
+      <div className="flex gap-2">
+        <button onClick={() => { setState('locked'); setPin(''); setPinError(''); }}
+          className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Cancel</button>
+        <button onClick={handleVerifyPin} disabled={verifying || !pin}
+          className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-60"
+          data-testid="transfer-access-confirm-btn">
+          {verifying ? <RefreshCw size={14} className="animate-spin mx-auto" /> : 'Unlock'}
+        </button>
+      </div>
+    </div>
+  );
+
+  if (state === 'confirming') return (
+    <div className="bg-white rounded-xl border-2 border-emerald-300 overflow-hidden" data-testid="transfer-confirm-panel">
+      <div className="px-5 py-3 bg-emerald-50 flex items-center gap-2">
+        <Package size={16} className="text-emerald-600" />
+        <span className="text-sm font-semibold text-emerald-800">Confirm Receipt</span>
+        {hasVariance && <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Variance detected</span>}
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 grid grid-cols-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <span>Product</span><span className="text-center">Ordered</span><span className="text-right">Received</span>
+          </div>
+          {variances.map((it, i) => (
+            <div key={i} className={`px-4 py-2.5 grid grid-cols-3 items-center ${i > 0 ? 'border-t border-slate-100' : ''}`}>
+              <span className="text-sm font-medium text-slate-800 truncate pr-2">{it.name}</span>
+              <span className="text-sm text-slate-500 text-center">{it.qty}</span>
+              <span className={`text-sm font-bold text-right ${Math.abs(it.diff) > 0.001 ? (it.diff < 0 ? 'text-red-600' : 'text-amber-600') : 'text-emerald-600'}`}>
+                {it.received}
+                {Math.abs(it.diff) > 0.001 && <span className="text-[10px] ml-1">({it.diff > 0 ? '+' : ''}{it.diff})</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+        {hasVariance && (
+          <div className="bg-amber-50 rounded-lg p-3 text-xs text-amber-700">
+            Variance will be sent to the source branch for review. Inventory moves only on exact match.
+          </div>
+        )}
+        <p className="text-xs text-slate-400 flex items-center gap-1">
+          <ShieldCheck size={11} className="text-emerald-500" />
+          Authorized by <span className="font-medium text-slate-600 ml-1">{verifierName}</span>
+        </p>
+        {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={() => setState('unlocked')} className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Back</button>
+          <button onClick={handleConfirm} disabled={submitting} data-testid="transfer-final-confirm-btn"
+            className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-60">
+            {submitting ? <RefreshCw size={14} className="animate-spin mx-auto" /> : 'Confirm Receive'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (state === 'done') return (
+    <div className="bg-white rounded-xl border border-slate-200 p-6 text-center space-y-3" data-testid="transfer-receive-done">
+      <CheckCircle2 size={36} className={`mx-auto ${result?.status === 'received_pending' ? 'text-amber-500' : 'text-emerald-500'}`} />
+      <p className="font-semibold text-slate-800">
+        {result?.status === 'received_pending' ? 'Receipt submitted — pending source review' : 'Stocks received successfully!'}
+      </p>
+      <p className="text-sm text-slate-500">{result?.message || ''}</p>
+      {result?.has_variance && (
+        <div className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2">
+          Source branch has been notified about the variance.
+        </div>
+      )}
+    </div>
+  );
+
+  // Unlocked — items form
+  return (
+    <div className="bg-white rounded-xl border-2 border-emerald-100 overflow-hidden" data-testid="transfer-receive-unlocked">
+      <div className="px-5 py-3 bg-emerald-50 flex items-center gap-2">
+        <Package size={16} className="text-emerald-600" />
+        <span className="text-sm font-semibold text-emerald-800">Enter Received Quantities</span>
+        <div className="ml-auto flex items-center gap-1">
+          <ShieldCheck size={12} className="text-emerald-500" />
+          <span className="text-xs text-emerald-600">{verifierName}</span>
+        </div>
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="space-y-2">
+          {receiveItems.map((it, idx) => (
+            <div key={idx} className="rounded-lg border border-slate-200 p-3 bg-white">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-slate-800">{it.name}</p>
+                <span className="text-xs text-slate-400">Ordered: <span className="font-semibold text-slate-600">{it.qty}</span></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 shrink-0">Received:</span>
+                <input type="text" inputMode="decimal" autoComplete="off"
+                  value={it.input_qty}
+                  onChange={e => setQty(idx, e.target.value)}
+                  className="h-9 w-28 text-center font-semibold rounded-md border border-input bg-background text-sm px-3"
+                  data-testid={`receive-qty-${it.product_id || idx}`} />
+                <button onClick={() => setQty(idx, String(it.qty))} className="text-xs text-emerald-600 hover:underline ml-auto shrink-0">All</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <label className="text-xs text-slate-500 mb-1 block">Notes (optional)</label>
+          <input type="text" value={notes} onChange={e => setNotes(e.target.value)} autoComplete="off"
+            placeholder="Any notes about this receipt..."
+            className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+        </div>
+        {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{error}</p>}
+        <button onClick={handlePrepare} data-testid="prepare-receive-btn"
+          className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm">
+          <Package size={14} className="inline mr-2" />Review & Receive
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 export default function DocViewerPage() {
   const { code: codeParam } = useParams();
   const navigate = useNavigate();
@@ -371,6 +723,7 @@ export default function DocViewerPage() {
   const [pinLoading, setPinLoading] = useState(false);
   const [pinError, setPinError] = useState('');
   const [fullData, setFullData] = useState(null);
+  const [unlockedPin, setUnlockedPin] = useState(''); // stored PIN reused for payment
 
   const [terminalSession] = useState(() => getTerminalSession());
   const isTerminal = !!terminalSession;
@@ -398,6 +751,7 @@ export default function DocViewerPage() {
     setPinLoading(true); setPinError('');
     try {
       const res = await axios.post(`${BACKEND}/api/doc/lookup`, { code: code?.toUpperCase(), pin });
+      setUnlockedPin(pin); // store for payment reuse
       setFullData(res.data); setShowPinPrompt(false); setPin('');
     } catch (e) { setPinError(e.response?.data?.detail || 'Invalid PIN'); }
     setPinLoading(false);
@@ -525,6 +879,15 @@ export default function DocViewerPage() {
           />
         )}
 
+        {/* Transfer Receive Panel */}
+        {basic.doc_type === 'branch_transfer' && basic.available_actions?.includes('transfer_receive') && (
+          <TransferReceivePanel
+            basic={basic}
+            docCode={code?.toUpperCase()}
+            onReceived={(r) => setBasic(prev => ({ ...prev, status: r.status === 'received_pending' ? 'Pending Review' : 'Completed', available_actions: [] }))}
+          />
+        )}
+
         {/* Tier 2: PIN Full Details */}
         {!fullData ? (
           <div className="bg-white rounded-xl border overflow-hidden" data-testid="tier2-locked">
@@ -571,6 +934,32 @@ export default function DocViewerPage() {
                     </div>
                   ))}
                 </div>
+                {/* Receive Payment action (uses the already-verified Tier 2 PIN) */}
+                <ReceivePaymentPanel
+                  basic={basic}
+                  docCode={code?.toUpperCase()}
+                  storedPin={unlockedPin}
+                  onPaymentRecorded={(r) => {
+                    setBasic(prev => ({ ...prev, balance: r.new_balance, available_actions: r.new_balance <= 0 ? prev.available_actions?.filter(a => a !== 'receive_payment') : prev.available_actions }));
+                    setFullData(prev => ({ ...prev, payments: [...(prev.payments || []), r.payment] }));
+                  }}
+                />
+              </div>
+            )}
+            {/* Invoice with no prior payments but balance > 0 */}
+            {fullData.doc_type === 'invoice' && !fullData.payments?.length && (
+              <div className="bg-white rounded-xl border p-4">
+                <h3 className="text-sm font-semibold text-slate-700 mb-1 flex items-center gap-2"><CreditCard size={14} /> Payments</h3>
+                <p className="text-xs text-slate-400 mb-2">No payments recorded yet.</p>
+                <ReceivePaymentPanel
+                  basic={basic}
+                  docCode={code?.toUpperCase()}
+                  storedPin={unlockedPin}
+                  onPaymentRecorded={(r) => {
+                    setBasic(prev => ({ ...prev, balance: r.new_balance, available_actions: r.new_balance <= 0 ? prev.available_actions?.filter(a => a !== 'receive_payment') : prev.available_actions }));
+                    setFullData(prev => ({ ...prev, payments: [r.payment] }));
+                  }}
+                />
               </div>
             )}
             {fullData.attached_files?.length > 0 && (

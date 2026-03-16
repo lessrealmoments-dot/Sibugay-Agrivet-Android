@@ -555,6 +555,11 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     if order["status"] not in ["sent", "draft", "sent_to_terminal"]:
         raise HTTPException(status_code=400, detail="Transfer is not in a receivable state")
 
+    # ── Branch guard: only the destination branch can receive ─────────────
+    user_branch = user.get("branch_id", "")
+    if user.get("role") != "admin" and user_branch and user_branch != order.get("to_branch_id", ""):
+        raise HTTPException(status_code=403, detail="Only the destination branch can receive this transfer")
+
     # ── Mandatory receipt check for final receiving ──────────────────────
     upload_session_ids = data.get("upload_session_ids", [])
     if not data.get("skip_receipt_check"):

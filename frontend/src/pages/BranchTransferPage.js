@@ -1907,7 +1907,7 @@ export default function BranchTransferPage() {
                 onClick={() => { setBtViewQROpen(true); }}>
                 <span className="mr-1">📱</span> View on Phone
               </Button>
-              {viewOrder && !viewOrder.verified && (
+              {viewOrder && !viewOrder.verified && (isAdmin || user?.is_auditor) && (
                 <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
                   onClick={() => { setBtVerifyId(viewOrder?.id); setBtVerifyOpen(true); }}>
                   <CheckCircle2 size={12} className="mr-1" /> Verify
@@ -2241,7 +2241,7 @@ export default function BranchTransferPage() {
               </table>
             )}
           </ScrollArea>
-          {(viewOrder?.status === 'sent' || (viewOrder?.status === 'sent_to_terminal' && viewOrder?.to_branch_id === (currentBranch?.id || user?.branch_id))) && (
+          {((viewOrder?.status === 'sent' || viewOrder?.status === 'sent_to_terminal') && viewOrder?.to_branch_id === (currentBranch?.id || user?.branch_id || '')) && (
             <div className="pt-3 border-t space-y-3">
               {/* Incoming price updates preview */}
               {(viewOrder?.repack_price_updates || []).filter(rpu => rpu.new_retail_price).length > 0 && (

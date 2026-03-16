@@ -1,0 +1,213 @@
+<analysis>**original_problem_statement:**
+The user's high-level goal is to create a Mini POS or Kiosk Mode application named AgriSmart Terminal. The core of the recent work revolves around a major architectural enhancement: building a context-aware QR code system to support operational workflows for Purchase Orders, Sales, and Branch Transfers, ensuring deep integration with existing inventory, financial, and security modules.
+
+**PRODUCT REQUIREMENTS:**
+- Implement a phased QR-based workflow for Sales (Partial Payments, Partial Stock Release), Purchase Order Receiving, and Branch Transfer Verification.
+- All QR-based actions must be context-aware, secure (using the existing PIN Policy system), and auditable.
+- Fix data integrity issues, including duplicate product names and price schemes.
+- Ensure all new inventory logic (like stock reservations) is correctly integrated with existing systems, particularly Count Sheets and financial reporting (Z-Reports).
+
+**User's preferred language**: English
+
+**what currently exists?**
+The application now features a foundational QR-based operational workflow. The session began by fixing critical data integrity issues: duplicate product names and price schemes were cleaned up via migration scripts, and uniqueness constraints were added to the backend to prevent recurrence.
+
+Following this, a major architectural discussion led to the implementation of a new stock reservation model. When a sale is marked for Partial Release, the stock is now immediately deducted from sellable inventory () and moved into a new  bucket. This ensures financial and inventory movements are recorded on the same day, while accurately tracking stock that is sold but pending customer pickup.
+
+Building on this foundation, the agent implemented the first QR action:
+- **QR Stock Release (Phase 2):** A new mobile-first page () allows staff to scan an invoice QR code (or enter its 8-character doc code manually). After PIN authorization, they can view release history and record new stock release batches. This action decrements the  and logs the event.
+- **Release History:** A comprehensive release history is now visible on the public QR page, inside the app's invoice details modal, and linked from the POS/Terminal post-sale screens.
+- **Count Sheet Fix:** The inventory counting system was critically patched to understand the new reservation model. It now calculates physical stock as , preventing false surpluses and ensuring adjustments only affect sellable stock.
+- **Pending Releases Page:** A new sidebar page was created for managers to track all orders with items pending release, sorted by urgency.
+
+Finally, a detailed handoff document () was created, outlining the precise implementation plan for the upcoming phases (QR Payments, PO Receiving, Transfer Receiving).
+
+**Last working item**:
+    - Last item agent was working: Creating a detailed handoff document () specifying the architecture and implementation steps for the next phases (3-6) of the QR workflow. This was done after completing the Count Sheet fix and the Pending Releases page.
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y
+    - Which testing method agent to use? The agent tested the latest features (Count Sheet fix and Pending Releases page) with  and . For the upcoming phases, the  should be used upon completion of each phase.
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  - Issue 1: User Verification for Phase 3 incident resolution (PIN auth & auto-journal entries). (P0)
+  - Issue 2: User Verification for the Count Sheet fix and the new Pending Releases page. (P0)
+  - Issue 3: Admin tool to fix broken Purchase Orders in the production database. (P2)
+  - Issue 4: Refactor  monolithic component. (P2)
+  - Issue 5: Address remaining  build warnings. (P2)
+
+  Issues Detail:
+  - Issue 1:
+     - Attempted fixes: The feature was fully implemented in a previous fork, including agent testing.
+     - Next debug checklist: Ask the user to test the incident resolution workflow and confirm that PIN authorization works and journal entries are created correctly.
+     - Why fix this issue and what will be achieved with the fix?: This is a critical financial and security feature that was requested by the user but never formally signed off on.
+     - Status: USER VERIFICATION PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: None
+  - Issue 2:
+     - Attempted fixes: The features were implemented and tested by the agent.
+     - Next debug checklist: Ask the user to test the fixed count sheet workflow (by creating a partial sale and then a count sheet for that product) and review the new Pending Releases page.
+     - Why fix this issue and what will be achieved with the fix?: This confirms that a critical inventory bug is resolved and a new management tool is working as expected.
+     - Status: USER VERIFICATION PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: None
+  - Issue 3:
+     - Attempted fixes: None.
+     - Next debug checklist: Get a sample of a broken PO from the user/production database. Create a secure admin page to list these POs and provide actions to correct corrupted data.
+     - Why fix this issue and what will be achieved with the fix?: Fixes a production data integrity issue.
+     - Status: NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? backend
+     - Blocked on other issue: None
+  - Issue 4:
+     - Attempted fixes: None.
+     - Next debug checklist: Analyze  and identify logical sections that can be broken out into smaller, reusable components.
+     - Why fix this issue and what will be achieved with the fix?: Improves code maintainability, readability, and performance.
+     - Status: NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on other issue: None
+  - Issue 5:
+     - Attempted fixes: None.
+     - Next debug checklist: Run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. or check the development server console. Add the missing dependencies to the dependency arrays of the identified hooks.
+     - Why fix this issue and what will be achieved with the fix?: Prevents potential stale state bugs and aligns with React best practices.
+     - Status: NOT STARTED
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on other issue: None
+
+**In progress Task List**:
+- None.
+
+**Upcoming and Future Tasks**
+- **Upcoming Tasks (P1 - from ROADMAP.md):**
+  - **Phase 3: QR Payment Receive:** Implement  to allow staff to record payments via the mobile QR page.
+  - **Phase 4: PO Receive via QR:** Implement  to allow warehouse staff to finalize PO receipts from their phones.
+  - **Phase 5: Transfer Receive via QR:** Implement  to allow branches to confirm transfer receipts via QR scan.
+  - **Phase 6: QR Document Entry on Terminal:** Add a Find by Doc Code feature to the terminal's quick search.
+- **Future Tasks (P2 - Backlog):**
+  - Visual trail for partial invoices.
+  - Smart Journal Entries for forgotten sales.
+  - Develop native Android  package.
+  - Implement logic for weight-embedded EAN-13 barcodes.
+  - Build an Automated Payment Gateway and a Demo Login System.
+  - Create advanced reporting and user role presets.
+
+**Completed work in this session**
+- **Data Integrity Overhaul:**
+  - Deduplicated  and  and added uniqueness constraints to  endpoints.
+- **QR Workflow Architecture & Implementation:**
+  - **Inventory Model Refactor:** Implemented the immediate deduction to reserved model.  is now sellable stock, while  is stock sold but pending pickup.
+  - **Phase 1 (Fixed) & Phase 2 (Built):** Created the full stock reservation and QR release workflow, including the  router, the  endpoint, and the PIN-gated  mobile page.
+  - **Release History Tracking:** Added release history timelines to the QR page, in-app invoice modals, and post-sale prompts.
+  - **Security Hardening:** Unified the stock release UI behind a single PIN prompt and added a confirmation step.
+- **Critical Bug Fixes:**
+  - **Count Sheets:** Fixed the logic to correctly account for , preventing false surpluses during stock takes.
+  - **UI:** Fixed the Branch Pricing table in product details to respect the active branch filter.
+- **New Feature:**
+  - **Pending Releases Page:** Created a new page at  for tracking all unreleased orders.
+- **Handoff & Planning:**
+  - Created  with detailed specifications for Phases 3-6.
+  - Updated .
+
+**Earlier issues found/mentioned but not fixed**
+   - Corrupted Purchase Order data in the production database requires a custom admin tool for correction.
+   -  uses  instead of .
+
+**Known issue recurrence from previous fork**
+  - **Issue recurrence in previous fork:**  warnings for .
+  - **Recurrence count:** 3+
+  - **Status:** NOT STARTED.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Inventory Accounting Model:** The shift to an immediate deduction to reserved model is the most critical concept.  (sellable) +  (sold, pending pickup) = total physical stock. This simplifies logic while maintaining accuracy.
+- **Delegation Architecture:** The  router acts as a security and routing gateway, delegating business logic to existing modules rather than reimplementing it.
+- **PIN-Gated UI Pattern:** The  component in  establishes a pattern for mobile actions: a single PIN unlock reveals a unified panel for viewing history and performing actions, followed by a confirmation step.
+- **Scheduled Jobs (APScheduler):** A daily job () is now registered to handle the 30-day expiry of abandoned stock reservations.
+
+**key DB schema**
+  - **inventory:** ADDED .
+  - **invoices:** ADDED , , , , .
+  - **count_sheet_items:** ADDED , .
+  - **qr_action_log:** CREATED { , , , ,  }.
+  - **sale_reservations:** This collection's role is now a delivery ledger, not an inventory control mechanism.
+
+**All files of reference**
+- : **CRITICAL.** Contains the full, detailed specification for the upcoming QR workflow Phases 3-6.
+- : Updated product requirements document.
+- : The new central hub for all QR-based operations.
+- : The template for all mobile QR action UIs.
+- : Contains the corrected inventory counting logic.
+
+**Areas that need refactoring**:
+- : A large monolithic component that needs to be broken down.
+- : Still uses  for navigation instead of React Router's .
+
+**key api endpoints**
+- **New Endpoints:**
+  - : Releases a stock batch from a reservation.
+  - : Validates a PIN for a given document context.
+  - : Retrieves all data needed for the mobile QR page.
+  - : Lists all pending releases for the management page.
+- **Modified Endpoints:**
+  - : Now handles , deducting to  and .
+  - : Void logic now correctly handles reversing .
+  - : Now calculates system quantity as .
+  - : Now only adjusts the  (sellable) portion of stock.
+  - : Now includes reservation details and a list of .
+
+**Critical Info for New Agent**
+- **Follow the ROADMAP:** The file  contains the user-approved, detailed plan for Phases 3-6. It is not a suggestion; it is the blueprint for the next tasks. Read it first.
+- **Inventory Model is Key:** Understand the  vs.  model.  is what's on the shelf and available to sell.  is what's on the shelf but already belongs to a customer. Physical stock = . All inventory logic must respect this.
+- **Reuse the QR UI Pattern:** When building the next QR action panels (Payment, PO Receive), reuse the  pattern from : a single PIN-gated component that shows history, forms, and a confirmation step.
+- **Old Verification Pending:** The user has not yet verified the Phase 3 incident resolution feature from a previous fork. This is the highest priority P0 task, alongside verifying the new count sheet fix.
+
+**documents and test reports created in this job**
+  -  (Updated)
+  -  (Created)
+
+**Last 10 User Messages and any pending HUMAN messages**
+1. **User:** Asks for the plan for the next phases to be saved for handoff. (Status: **COMPLETED**)
+2. **User:** Confirms the plan to fix count sheets and add a Pending Releases page. (Status: **COMPLETED**)
+3. **User:** Asks how count sheets handle the new reserved stock, identifying a potential bug. (Status: **RESOLVED**)
+4. **User:** Reports a bug with browser password autocomplete on the release form and requests enhanced security (PIN-gate the history view) and a confirmation step. (Status: **RESOLVED**)
+5. **User:** Asks for release history tracking to be made visible. (Status: **RESOLVED**)
+6. **User:** Confirms the refined inventory model (immediate deduction to ) and gives the go-ahead for implementation. (Status: **RESOLVED**)
+7. **User:** Proposes a better inventory model: deduct from  and add to  immediately at sale time. (Status: **RESOLVED**)
+8. **User:** Clarifies the inventory movement dating and asks for a recommendation on how reservations should affect the ledger. (Status: **RESOLVED**)
+9. **User:** Clarifies rules for reservation expiry and asks for a manual doc code input as a fallback to QR scanning. (Status: **RESOLVED**)
+10. **User:** Asks for a detailed explanation of Phase 2 and its integrations. (Status: **RESOLVED**)
+
+**Project Health Check:**
+- **Broken:** The production issue of corrupted  documents remains unresolved and needs a dedicated admin tool.
+- **Mocked:** None.
+
+**3rd Party Integrations**
+- Cloudflare R2
+- Resend
+- Google Authenticator
+- fpdf2
+- python-barcode
+- jsbarcode
+- html5-qrcode
+- qrcode.react
+
+**Testing status**
+  - Testing agent used after significant changes: NO
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: []
+  - Known regressions: None
+
+**Credentials to test flow:**
+- **Super Admin:**  / 
+- **Company Admin (Owner):**  / 
+- **Manager PIN:** 
+
+**What agent forgot to execute**
+- Nothing was forgotten. The agent successfully navigated a complex architectural refactor based on user feedback, fixed several bugs, implemented new features, and created a clear, actionable plan for the next agent.</analysis>

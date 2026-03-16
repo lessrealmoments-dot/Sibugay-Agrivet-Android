@@ -46,13 +46,36 @@ async def _log_action(doc_ref, action, verifier, payload_summary, result="succes
 
 @router.get("/{code}/context")
 async def get_qr_context(code: str):
-    """
-    Returns document info + available actions for the mobile QR page.
-    No auth required — delegates to doc/view/{code} logic with extras.
-    """
-    # Re-use the open view logic
+    """Returns document info + available actions for the mobile QR page. No auth required."""
     from routes.doc_lookup import view_document_open
     return await view_document_open(code)
+
+
+@router.post("/{code}/verify_pin")
+async def verify_release_pin(code: str, data: dict):
+    """
+    Validates a PIN for qr_release_stocks policy against the document's branch.
+    Returns { valid: true, verifier_name } or 403.
+    Used to unlock the stock release panel before any action is taken.
+    """
+    pin = (data.get("pin") or "").strip()
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required")
+
+    doc_ref, doc_type, doc_id = await _resolve_doc(code)
+    if doc_type != "invoice":
+        raise HTTPException(status_code=400, detail="This QR code is not for an invoice")
+
+    invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0, "branch_id": 1})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "qr_release_stocks", branch_id=invoice.get("branch_id", ""))
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN — use branch manager PIN, admin PIN, or admin TOTP")
+
+    return {"valid": True, "verifier_name": verifier["verifier_name"], "method": verifier["method"]}
 
 
 # ── Action: Release Stocks ─────────────────────────────────────────────────────

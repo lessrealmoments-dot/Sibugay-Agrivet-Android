@@ -18,190 +18,337 @@ function getTerminalSession() {
   try { const s = localStorage.getItem('agrismart_terminal'); return s ? JSON.parse(s) : null; } catch { return null; }
 }
 
-// ── Release Stocks Panel ──────────────────────────────────────────────────────
-function ReleaseStocksPanel({ basic, docCode, onDone }) {
-  const [items, setItems] = useState(() =>
+// ── Unified Stock Release Manager (PIN-gated: history + form + confirmation) ──
+function StockReleaseManager({ basic, docCode, onStatusChange }) {
+  // States: 'locked' | 'verifying' | 'unlocked' | 'confirming' | 'done'
+  const [state, setState] = useState('locked');
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [verifierName, setVerifierName] = useState('');
+  const [verifiedPin, setVerifiedPin] = useState(''); // keep for re-use in release
+  const [verifying, setVerifying] = useState(false);
+
+  const [releaseItems, setReleaseItems] = useState(() =>
     (basic.reservations || []).map(r => ({
       ...r, input_qty: r.sold_qty_remaining > 0 ? String(r.sold_qty_remaining) : '0',
     }))
   );
-  const [pin, setPin] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [done, setDone] = useState(null);
+  const [releaseError, setReleaseError] = useState('');
+  const [releasing, setReleasing] = useState(false);
+  const [confirmItems, setConfirmItems] = useState([]); // items pending confirmation
+  const [releaseResult, setReleaseResult] = useState(null);
+  const [releases, setReleases] = useState(basic.stock_releases || []);
+  const [reservations, setReservations] = useState(basic.reservations || []);
+  const canRelease = (basic.stock_release_status !== 'fully_released') && (basic.stock_release_status !== 'expired') && (basic.status !== 'voided');
 
-  const setQty = (idx, val) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, input_qty: val } : it));
+  const totalOrdered = reservations.reduce((s, r) => s + (r.sold_qty_ordered || 0), 0);
+  const totalReleased = releases.reduce((s, r) => s + (r.total_qty_released || 0), 0);
 
-  const handleRelease = async () => {
-    if (!pin) { setError('PIN is required'); return; }
-    const releaseItems = items
-      .filter(it => parseFloat(it.input_qty || 0) > 0 && it.sold_qty_remaining > 0)
-      .map(it => ({ sold_product_id: it.sold_product_id, qty_release: parseFloat(it.input_qty) }));
-    if (!releaseItems.length) { setError('Enter at least one quantity to release'); return; }
-    setLoading(true); setError('');
-    const releaseRef = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+  const setQty = (idx, val) => setReleaseItems(prev => prev.map((it, i) => i === idx ? { ...it, input_qty: val } : it));
+
+  // Step 1: Verify PIN to unlock
+  const handleVerifyPin = async () => {
+    if (!pin) { setPinError('PIN is required'); return; }
+    setVerifying(true); setPinError('');
     try {
-      const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/release_stocks`, { pin, release_ref: releaseRef, items: releaseItems });
-      setDone(res.data);
-      if (onDone) onDone(res.data.stock_release_status);
-    } catch (e) { setError(e.response?.data?.detail || 'Release failed'); }
-    setLoading(false);
+      const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/verify_pin`, { pin });
+      setVerifierName(res.data.verifier_name);
+      setVerifiedPin(pin);
+      setState('unlocked');
+      setPin('');
+    } catch (e) { setPinError(e.response?.data?.detail || 'Invalid PIN'); }
+    setVerifying(false);
   };
 
-  if (done) return (
-    <div className="bg-white rounded-xl border border-emerald-200 p-6 text-center space-y-3" data-testid="release-done">
-      <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
-      <p className="font-bold text-emerald-700 text-lg">Release #{done.release_number} Recorded</p>
-      <p className="text-sm text-slate-500">Authorized by {done.authorized_by}</p>
-      <div className="space-y-1 text-sm text-left bg-slate-50 rounded-lg p-3">
-        {done.items_released.map((it, i) => (
-          <div key={i} className="flex justify-between">
-            <span className="text-slate-600">{it.product_name}</span>
-            <span className="font-semibold">{it.qty_released} {it.unit}</span>
-          </div>
-        ))}
-      </div>
-      {done.fully_released
-        ? <p className="text-emerald-700 font-semibold text-sm">All stock fully released!</p>
-        : <p className="text-amber-600 text-sm">{done.remaining_qty} units still pending — scan QR again for next batch.</p>
+  // Step 2: Build confirmation list
+  const handlePrepareRelease = () => {
+    const toRelease = releaseItems.filter(it => parseFloat(it.input_qty || 0) > 0 && it.sold_qty_remaining > 0);
+    if (!toRelease.length) { setReleaseError('Enter at least one quantity to release'); return; }
+    for (const it of toRelease) {
+      if (parseFloat(it.input_qty) > it.sold_qty_remaining + 0.001) {
+        setReleaseError(`Cannot release more than remaining for ${it.sold_product_name}`); return;
       }
-    </div>
+    }
+    setReleaseError('');
+    setConfirmItems(toRelease);
+    setState('confirming');
+  };
+
+  // Step 3: Execute release
+  const handleConfirmRelease = async () => {
+    setReleasing(true); setReleaseError('');
+    const releaseRef = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+    const items = confirmItems.map(it => ({ sold_product_id: it.sold_product_id, qty_release: parseFloat(it.input_qty) }));
+    try {
+      const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/release_stocks`, {
+        pin: verifiedPin, release_ref: releaseRef, items,
+      });
+      setReleaseResult(res.data);
+      setReleases(prev => [...prev, {
+        release_number: res.data.release_number,
+        released_at: new Date().toISOString(),
+        released_by_name: res.data.authorized_by,
+        pin_method: 'manager_pin',
+        items: res.data.items_released,
+        total_qty_released: res.data.items_released.reduce((s, i) => s + i.qty_released, 0),
+        remaining_after: res.data.remaining_qty,
+        fully_released: res.data.fully_released,
+      }]);
+      // Update reservations display
+      setReservations(prev => prev.map(r => {
+        const released = items.find(i => i.sold_product_id === r.sold_product_id);
+        if (!released) return r;
+        return { ...r, sold_qty_released: r.sold_qty_released + released.qty_release, sold_qty_remaining: r.sold_qty_remaining - released.qty_release };
+      }));
+      setReleaseItems(prev => prev.map(it => {
+        const released = items.find(i => i.sold_product_id === it.sold_product_id);
+        if (!released) return it;
+        const newRemaining = it.sold_qty_remaining - released.qty_release;
+        return { ...it, sold_qty_remaining: Math.max(0, newRemaining), sold_qty_released: it.sold_qty_released + released.qty_release, input_qty: newRemaining > 0 ? String(newRemaining) : '0' };
+      }));
+      if (onStatusChange) onStatusChange(res.data.stock_release_status);
+      setState('done');
+    } catch (e) { setReleaseError(e.response?.data?.detail || 'Release failed'); setState('unlocked'); }
+    setReleasing(false);
+  };
+
+  const releaseStatusLabel = (s) => ({
+    'not_released': 'Unreleased', 'partially_released': 'Partially Released',
+    'fully_released': 'Fully Released', 'expired': 'Expired',
+  }[s] || s);
+  const releaseStatusColor = (s) => ({
+    'not_released': 'bg-amber-100 text-amber-700', 'partially_released': 'bg-blue-100 text-blue-700',
+    'fully_released': 'bg-emerald-100 text-emerald-700', 'expired': 'bg-slate-200 text-slate-500',
+  }[s] || 'bg-slate-100 text-slate-600');
+
+  // ── Locked button ─────────────────────────────────────────────────────────
+  if (state === 'locked') return (
+    <button onClick={() => setState('verifying')} data-testid="manage-releases-btn"
+      className="w-full bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+          <Lock size={16} className="text-amber-600" />
+        </div>
+        <div className="text-left">
+          <p className="text-sm font-semibold text-slate-800">
+            {canRelease ? 'Release Stocks / View History' : 'View Release History'}
+          </p>
+          <p className="text-xs text-slate-400">
+            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mr-1 ${releaseStatusColor(basic.stock_release_status)}`}>
+              {releaseStatusLabel(basic.stock_release_status)}
+            </span>
+            {releases.length > 0 && `${releases.length} batch${releases.length !== 1 ? 'es' : ''} · ${totalReleased} of ${totalOrdered} units released`}
+          </p>
+        </div>
+      </div>
+      <ChevronDown size={16} className="text-slate-400" />
+    </button>
   );
 
-  return (
-    <div className="bg-white rounded-xl border-2 border-amber-200 overflow-hidden" data-testid="release-stocks-panel">
-      <div className="px-5 py-3 bg-amber-50 flex items-center gap-2">
-        <Boxes size={16} className="text-amber-600" />
-        <span className="text-sm font-semibold text-amber-800">Release Stock</span>
-        <Badge className="text-[10px] bg-amber-100 text-amber-700 border-0 ml-auto">
-          {basic.stock_release_status === 'partially_released' ? 'Partially Released' : 'Unreleased'}
-        </Badge>
+  // ── PIN prompt ────────────────────────────────────────────────────────────
+  if (state === 'verifying') return (
+    <div className="bg-white rounded-xl border-2 border-amber-200 p-5 space-y-4" data-testid="release-pin-prompt">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+          <Lock size={16} className="text-amber-600" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-800">Authorization Required</p>
+          <p className="text-xs text-slate-400">Branch Manager PIN, Admin PIN, or Admin TOTP</p>
+        </div>
       </div>
-      <div className="p-5 space-y-4">
-        <div className="space-y-3">
-          {items.map((it, idx) => {
-            const isFullyDone = it.sold_qty_remaining <= 0;
-            return (
-              <div key={it.sold_product_id} className={`rounded-lg border p-3 ${isFullyDone ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{it.sold_product_name}</p>
-                    <p className="text-xs text-slate-400">Ordered: {it.sold_qty_ordered} {it.sold_unit} · Released: {it.sold_qty_released} · Remaining: {it.sold_qty_remaining}</p>
-                  </div>
-                  {isFullyDone && <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />}
-                </div>
-                {!isFullyDone && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 shrink-0">Release now:</span>
-                    <Input type="number" min="0" max={it.sold_qty_remaining} value={it.input_qty}
-                      onChange={e => setQty(idx, e.target.value)}
-                      className="h-9 text-center font-semibold w-28" data-testid={`release-qty-${it.sold_product_id}`} />
-                    <span className="text-xs text-slate-400">{it.sold_unit}</span>
-                    <button onClick={() => setQty(idx, String(it.sold_qty_remaining))} className="text-xs text-blue-600 hover:underline ml-auto shrink-0">All</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500 flex items-center gap-1"><Lock size={11} /> Branch Manager PIN, Admin PIN, or Admin TOTP</p>
-          <Input type="password" value={pin} onChange={e => { setPin(e.target.value); setError(''); }}
-            onKeyDown={e => e.key === 'Enter' && handleRelease()}
-            placeholder="Enter PIN to confirm release"
-            className="h-11 text-center text-lg font-mono tracking-widest" data-testid="release-pin-input" />
-        </div>
-        {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{error}</p>}
-        <Button className="w-full h-11 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
-          onClick={handleRelease} disabled={loading || !pin} data-testid="confirm-release-btn">
-          {loading ? <RefreshCw size={14} className="animate-spin mr-2" /> : <Boxes size={14} className="mr-2" />}Confirm Release
+      <Input
+        type="password"
+        autoComplete="one-time-code"
+        value={pin}
+        onChange={e => { setPin(e.target.value); setPinError(''); }}
+        onKeyDown={e => e.key === 'Enter' && handleVerifyPin()}
+        placeholder="Enter PIN"
+        className="h-12 text-center text-xl font-mono tracking-widest"
+        autoFocus
+        data-testid="release-access-pin"
+      />
+      {pinError && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{pinError}</p>}
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={() => { setState('locked'); setPin(''); setPinError(''); }}>Cancel</Button>
+        <Button className="flex-1 bg-amber-600 hover:bg-amber-700 text-white" onClick={handleVerifyPin} disabled={verifying || !pin} data-testid="access-confirm-btn">
+          {verifying ? <RefreshCw size={14} className="animate-spin mr-2" /> : <Lock size={14} className="mr-2" />}Access
         </Button>
       </div>
     </div>
   );
-}
 
-// ── Release History Section ───────────────────────────────────────────────────
-function ReleaseHistorySection({ releases, reservations }) {
-  const [open, setOpen] = useState(false);
-  if (!releases || releases.length === 0) return null;
-
-  const totalOrdered = (reservations || []).reduce((s, r) => s + (r.sold_qty_ordered || 0), 0);
-  const totalReleased = releases.reduce((s, r) => s + (r.total_qty_released || 0), 0);
-
-  return (
-    <div className="bg-white rounded-xl border overflow-hidden" data-testid="release-history">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-        data-testid="release-history-toggle"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-            <Boxes size={16} className="text-blue-600" />
+  // ── Confirmation step ─────────────────────────────────────────────────────
+  if (state === 'confirming') return (
+    <div className="bg-white rounded-xl border-2 border-amber-300 overflow-hidden" data-testid="release-confirm-panel">
+      <div className="px-5 py-3 bg-amber-50 flex items-center gap-2">
+        <Boxes size={16} className="text-amber-600" />
+        <span className="text-sm font-semibold text-amber-800">Confirm Stock Release</span>
+      </div>
+      <div className="p-5 space-y-4">
+        <p className="text-sm text-slate-600">You are about to release the following items:</p>
+        <div className="rounded-lg border border-slate-200 overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2 flex justify-between text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <span>Product</span><span>Qty to Release</span>
           </div>
-          <div className="text-left">
-            <p className="text-sm font-semibold text-slate-800">Release History</p>
-            <p className="text-xs text-slate-400">
-              {releases.length} batch{releases.length !== 1 ? 'es' : ''} · {totalReleased} of {totalOrdered} units released
-            </p>
-          </div>
+          {confirmItems.map((it, i) => (
+            <div key={i} className={`px-4 py-3 flex justify-between items-center ${i > 0 ? 'border-t border-slate-100' : ''}`}>
+              <span className="text-sm font-medium text-slate-800">{it.sold_product_name}</span>
+              <span className="text-sm font-bold text-amber-700">{parseFloat(it.input_qty)} {it.sold_unit}</span>
+            </div>
+          ))}
         </div>
-        <ChevronDown size={16} className={`text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+        <p className="text-xs text-slate-400 flex items-center gap-1">
+          <ShieldCheck size={11} className="text-emerald-500" />
+          Authorized by <span className="font-medium text-slate-600 ml-1">{verifierName}</span>
+        </p>
+        {releaseError && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{releaseError}</p>}
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => setState('unlocked')}>Back</Button>
+          <Button className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold" onClick={handleConfirmRelease} disabled={releasing} data-testid="final-confirm-release-btn">
+            {releasing ? <RefreshCw size={14} className="animate-spin mr-2" /> : <CheckCircle2 size={14} className="mr-2" />}Yes, Release
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
-      {open && (
-        <div className="border-t border-slate-100">
-          <div className="relative px-5 py-4 space-y-0">
-            <div className="absolute left-[2.35rem] top-6 bottom-6 w-px bg-slate-200" />
-            {releases.map((r, idx) => (
-              <div key={idx} className="relative flex gap-4 pb-4 last:pb-0" data-testid={`release-event-${r.release_number}`}>
-                <div className="relative z-10 w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-bold text-emerald-700">#{r.release_number}</span>
+  // ── Unlocked: history + form ──────────────────────────────────────────────
+  return (
+    <div className="bg-white rounded-xl border-2 border-amber-100 overflow-hidden" data-testid="release-manager-unlocked">
+      {/* Header */}
+      <div className="px-5 py-3 bg-amber-50 flex items-center gap-2">
+        <Boxes size={16} className="text-amber-600" />
+        <span className="text-sm font-semibold text-amber-800">Stock Releases</span>
+        <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-medium ${releaseStatusColor(basic.stock_release_status)}`}>
+          {releaseStatusLabel(basic.stock_release_status)}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <ShieldCheck size={12} className="text-emerald-500" />
+          <span className="text-xs text-emerald-600">{verifierName}</span>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {/* ── Release History ── */}
+        {releases.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Release History</p>
+            <div className="relative space-y-0">
+              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-slate-200" />
+              {releases.map((r, idx) => (
+                <div key={idx} className="relative flex gap-3 pb-3 last:pb-0" data-testid={`release-event-${r.release_number}`}>
+                  <div className="relative z-10 w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-300 flex items-center justify-center shrink-0">
+                    <span className="text-[10px] font-bold text-emerald-700">#{r.release_number}</span>
+                  </div>
+                  <div className="flex-1 bg-slate-50 rounded-lg p-3 min-w-0">
+                    <div className="flex items-start justify-between gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-slate-800">Release #{r.release_number}</p>
+                      <p className="text-[11px] text-slate-400 shrink-0">{fmtDateTime(r.released_at)}</p>
+                    </div>
+                    <div className="mt-1.5 space-y-1">
+                      {r.items.map((it, i) => (
+                        <div key={i} className="flex justify-between text-xs">
+                          <span className="text-slate-600 truncate">{it.product_name}</span>
+                          <span className="font-semibold text-slate-800 ml-2 shrink-0">{it.qty_released} {it.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-1.5 border-t border-slate-200 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">
+                        By <span className="font-medium text-slate-600">{r.released_by_name}</span>
+                        <span className="mx-1 text-slate-300">·</span>
+                        <span className="capitalize">{(r.pin_method || '').replace('_', ' ')}</span>
+                      </span>
+                      <span className={r.remaining_after > 0 ? 'text-amber-600 font-medium' : 'text-emerald-600 font-medium'}>
+                        {r.remaining_after > 0 ? `${r.remaining_after} remaining` : 'All released'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 bg-slate-50 rounded-lg p-3 min-w-0">
-                  <div className="flex items-start justify-between gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-slate-800">
-                      Release #{r.release_number}
-                      {r.fully_released && (
-                        <span className="ml-2 text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Completed</span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-slate-400 shrink-0">{fmtDateTime(r.released_at)}</p>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {r.items.map((it, i) => (
-                      <div key={i} className="flex justify-between text-xs">
-                        <span className="text-slate-600 truncate">{it.product_name}</span>
-                        <span className="font-semibold text-slate-800 shrink-0 ml-2">{it.qty_released} {it.unit}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-400">
-                      By <span className="font-medium text-slate-600">{r.released_by_name}</span>
-                      <span className="mx-1 text-slate-300">·</span>
-                      <span className="text-slate-400 capitalize">{(r.pin_method || '').replace('_', ' ')}</span>
-                    </span>
-                    <span>
-                      {r.remaining_after > 0
-                        ? <span className="text-amber-600">{r.remaining_after} remaining</span>
-                        : <span className="text-emerald-600">All released</span>
-                      }
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-5 pb-4">
-            <div className="bg-slate-50 rounded-lg p-3 flex items-center justify-between text-sm">
-              <span className="text-slate-500">Total released across all batches</span>
-              <span className="font-bold text-slate-800">{totalReleased} / {totalOrdered} units</span>
+              ))}
+            </div>
+            <div className="mt-3 bg-slate-50 rounded-lg p-3 flex justify-between text-sm">
+              <span className="text-slate-500">Total released</span>
+              <span className="font-bold">{totalReleased} / {totalOrdered} units</span>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {releases.length === 0 && !canRelease && (
+          <p className="text-slate-400 text-sm text-center py-4">No releases recorded yet</p>
+        )}
+
+        {/* ── Release form (only if not fully released) ── */}
+        {canRelease && (
+          <div className={releases.length > 0 ? 'border-t border-slate-100 pt-5' : ''}>
+            {state === 'done' && releaseResult ? (
+              <div className="text-center space-y-2 py-2">
+                <CheckCircle2 size={32} className="text-emerald-500 mx-auto" />
+                <p className="font-semibold text-emerald-700">Release #{releaseResult.release_number} recorded!</p>
+                {releaseResult.fully_released
+                  ? <p className="text-sm text-emerald-600">All stock fully released.</p>
+                  : <p className="text-sm text-amber-600">{releaseResult.remaining_qty} units still pending.</p>
+                }
+                {!releaseResult.fully_released && (
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => { setState('unlocked'); setReleaseResult(null); }}>
+                    Release More
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                  {releases.length > 0 ? 'Next Release' : 'Release Items'}
+                </p>
+                <div className="space-y-3">
+                  {releaseItems.map((it, idx) => {
+                    const done = it.sold_qty_remaining <= 0;
+                    return (
+                      <div key={it.sold_product_id} className={`rounded-lg border p-3 ${done ? 'bg-slate-50 opacity-50' : 'bg-white border-slate-200'}`}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{it.sold_product_name}</p>
+                            <p className="text-xs text-slate-400">
+                              Ordered: {it.sold_qty_ordered} · Released: {it.sold_qty_released} · Remaining: {it.sold_qty_remaining} {it.sold_unit}
+                            </p>
+                          </div>
+                          {done && <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />}
+                        </div>
+                        {!done && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-500 shrink-0">Release now:</span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              value={it.input_qty}
+                              onChange={e => setQty(idx, e.target.value)}
+                              className="h-9 w-28 text-center font-semibold rounded-md border border-input bg-background text-sm px-3"
+                              data-testid={`release-qty-${it.sold_product_id}`}
+                            />
+                            <span className="text-xs text-slate-400">{it.sold_unit}</span>
+                            <button onClick={() => setQty(idx, String(it.sold_qty_remaining))}
+                              className="text-xs text-blue-600 hover:underline ml-auto shrink-0">All</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {releaseError && <p className="text-red-500 text-xs flex items-center gap-1 mt-3"><AlertTriangle size={12} />{releaseError}</p>}
+                <Button
+                  className="w-full mt-4 h-11 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                  onClick={handlePrepareRelease}
+                  data-testid="prepare-release-btn"
+                >
+                  <Boxes size={14} className="mr-2" /> Review & Release
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -312,7 +459,6 @@ export default function DocViewerPage() {
   const statusColor = { 'Fully Paid': 'bg-emerald-100 text-emerald-700', 'Completed': 'bg-emerald-100 text-emerald-700', 'In Transit': 'bg-blue-100 text-blue-700', 'Draft': 'bg-slate-100 text-slate-600', 'On Terminal': 'bg-amber-100 text-amber-700', 'Pending Review': 'bg-yellow-100 text-yellow-700', 'Disputed': 'bg-red-100 text-red-700', 'Cancelled': 'bg-red-100 text-red-600' };
   const sColor = Object.entries(statusColor).find(([k]) => basic.status?.includes(k))?.[1] || 'bg-slate-100 text-slate-600';
   const effectiveReleaseStatus = releaseStatus || basic.stock_release_status;
-  const showReleaseAction = basic.available_actions?.includes('release_stocks') && effectiveReleaseStatus !== 'fully_released' && effectiveReleaseStatus !== 'expired';
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -370,12 +516,13 @@ export default function DocViewerPage() {
           </div>
         </div>
 
-        {/* Release Stocks Action */}
-        {showReleaseAction && <ReleaseStocksPanel basic={basic} docCode={code?.toUpperCase()} onDone={(s) => setReleaseStatus(s)} />}
-
-        {/* Release History (visible when any releases have been made) */}
-        {basic.release_mode === 'partial' && (basic.stock_releases || []).length > 0 && (
-          <ReleaseHistorySection releases={basic.stock_releases} reservations={basic.reservations} />
+        {/* Stock Release Manager (PIN-gated: history + form) */}
+        {basic.release_mode === 'partial' && (
+          <StockReleaseManager
+            basic={basic}
+            docCode={code?.toUpperCase()}
+            onStatusChange={(s) => setReleaseStatus(s)}
+          />
         )}
 
         {/* Tier 2: PIN Full Details */}

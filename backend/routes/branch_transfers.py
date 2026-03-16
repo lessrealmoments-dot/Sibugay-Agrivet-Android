@@ -385,6 +385,17 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
     except Exception:
         pass
 
+    # Auto-generate doc code so QR is ready on the printed transfer slip
+    from routes.doc_lookup import auto_generate_doc_code
+    try:
+        await auto_generate_doc_code(
+            "branch_transfer", transfer_id,
+            org_id=order.get("org_id", ""),
+            created_by=user.get("id", ""),
+        )
+    except Exception:
+        pass  # Non-critical — print still works without QR
+
     return {"message": "Transfer sent", "status": "sent"}
 
 

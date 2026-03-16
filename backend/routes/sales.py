@@ -384,9 +384,17 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     await db.invoices.insert_one(invoice)
     del invoice["_id"]
 
-    # ── Partial release: create sale_reservations + auto-generate doc code ────
+    # ── Auto-generate doc code for every invoice (QR ready at print time) ─────
+    from routes.doc_lookup import auto_generate_doc_code
+    doc_code = await auto_generate_doc_code(
+        "invoice", invoice["id"],
+        org_id=user.get("org_id", user.get("organization_id", "")),
+        created_by=user.get("id", ""),
+    )
+    invoice["doc_code"] = doc_code
+
+    # ── Partial release: create sale_reservations ─────────────────────────────
     if release_mode == "partial" and reservations_to_create:
-        from datetime import timedelta
         expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
         for r in reservations_to_create:
             await db.sale_reservations.insert_one({
@@ -398,20 +406,6 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
                 "created_at": now_iso(),
                 "expires_at": expires_at,
             })
-        # Auto-generate doc code so QR/code is immediately available on the receipt
-        from routes.doc_lookup import _ensure_unique_code
-        doc_code = await _ensure_unique_code()
-        await db.doc_codes.insert_one({
-            "id": new_id(),
-            "code": doc_code,
-            "doc_type": "invoice",
-            "doc_id": invoice["id"],
-            "org_id": user.get("org_id", user.get("organization_id", "")),
-            "created_at": now_iso(),
-            "created_by": user.get("id", ""),
-        })
-        await db.invoices.update_one({"id": invoice["id"]}, {"$set": {"doc_code": doc_code}})
-        invoice["doc_code"] = doc_code
     
     # Update customer balance for credit portion
     if customer_id and balance > 0:

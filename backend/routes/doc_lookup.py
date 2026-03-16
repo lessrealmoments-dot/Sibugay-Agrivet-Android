@@ -6,7 +6,8 @@ PIN-protected lookup for scanning QR codes or entering codes manually.
 from fastapi import APIRouter, HTTPException, Depends
 from config import db
 from utils import get_current_user, now_iso, new_id
-import string, secrets
+import string
+import secrets
 
 router = APIRouter(prefix="/doc", tags=["Document Lookup"])
 
@@ -25,6 +26,39 @@ async def _ensure_unique_code():
         if not existing:
             return code
     raise HTTPException(status_code=500, detail="Could not generate unique code")
+
+
+
+
+async def auto_generate_doc_code(doc_type: str, doc_id: str, org_id: str = "", created_by: str = "") -> str:
+    """
+    Shared helper: generate and store a doc code at document creation time.
+    Idempotent — returns existing code if one already exists.
+    Updates the document's own doc_code field.
+    """
+    existing = await db.doc_codes.find_one({"doc_type": doc_type, "doc_id": doc_id}, {"_id": 0})
+    if existing:
+        return existing["code"]
+
+    code = await _ensure_unique_code()
+    await db.doc_codes.insert_one({
+        "id": new_id(),
+        "code": code,
+        "doc_type": doc_type,
+        "doc_id": doc_id,
+        "org_id": org_id,
+        "created_at": now_iso(),
+        "created_by": created_by,
+    })
+    collection_map = {
+        "invoice": "invoices",
+        "purchase_order": "purchase_orders",
+        "branch_transfer": "branch_transfer_orders",
+    }
+    coll_name = collection_map.get(doc_type)
+    if coll_name:
+        await db[coll_name].update_one({"id": doc_id}, {"$set": {"doc_code": code}})
+    return code
 
 
 @router.post("/generate-code")

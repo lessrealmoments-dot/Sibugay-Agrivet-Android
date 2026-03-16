@@ -383,6 +383,18 @@ async def create_purchase_order(data: dict, user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to save PO: {str(e)}")
     del po["_id"]
 
+    # Auto-generate doc code so QR is ready on the printed PO slip
+    from routes.doc_lookup import auto_generate_doc_code
+    try:
+        doc_code = await auto_generate_doc_code(
+            "purchase_order", po["id"],
+            org_id=user.get("org_id", user.get("organization_id", "")),
+            created_by=user.get("id", ""),
+        )
+        po["doc_code"] = doc_code
+    except Exception:
+        pass  # Non-critical
+
     # ── Branch request: notify supply branch ──────────────────────────────
     if po_type == "branch_request":
         supply_branch_id = data.get("supply_branch_id", "")

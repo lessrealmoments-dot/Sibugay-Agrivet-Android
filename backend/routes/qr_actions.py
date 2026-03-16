@@ -1,0 +1,319 @@
+"""
+QR Actions — context-aware operational actions triggered by scanning a document QR code.
+No login required; all actions are PIN-gated via the existing pin_policy system.
+
+Supported actions:
+  release_stocks   — decrement reserved_qty, mark delivery batches (Phase 2)
+  receive_payment  — record payment on invoice (Phase 3)
+  po_receive       — receive a PO via QR (Phase 4)
+  transfer_receive — receive a branch transfer via QR (Phase 5)
+"""
+from fastapi import APIRouter, HTTPException
+from datetime import datetime, timezone, timedelta
+from config import db
+from utils import now_iso, new_id
+
+router = APIRouter(prefix="/qr-actions", tags=["QR Actions"])
+
+
+async def _resolve_doc(code: str):
+    """Look up doc_code and return (doc_ref, doc_type, doc_id)."""
+    code = code.strip().upper()
+    doc_ref = await db.doc_codes.find_one({"code": code}, {"_id": 0})
+    if not doc_ref:
+        raise HTTPException(status_code=404, detail=f"Document code '{code}' not found")
+    return doc_ref, doc_ref["doc_type"], doc_ref["doc_id"]
+
+
+async def _log_action(doc_ref, action, verifier, payload_summary, result="success", error=None, release_ref=None):
+    await db.qr_action_log.insert_one({
+        "id": new_id(),
+        "doc_code": doc_ref["code"],
+        "doc_type": doc_ref["doc_type"],
+        "doc_id": doc_ref["doc_id"],
+        "action": action,
+        "release_ref": release_ref,
+        "performed_by_name": verifier.get("verifier_name", "") if verifier else "",
+        "pin_method": verifier.get("method", "") if verifier else "",
+        "payload_summary": payload_summary,
+        "result": result,
+        "error": error,
+        "created_at": now_iso(),
+    })
+
+
+# ── Context endpoint (used by mobile page to know what actions are available) ─
+
+@router.get("/{code}/context")
+async def get_qr_context(code: str):
+    """
+    Returns document info + available actions for the mobile QR page.
+    No auth required — delegates to doc/view/{code} logic with extras.
+    """
+    # Re-use the open view logic
+    from routes.doc_lookup import view_document_open
+    return await view_document_open(code)
+
+
+# ── Action: Release Stocks ─────────────────────────────────────────────────────
+
+@router.post("/{code}/release_stocks")
+async def release_stocks(code: str, data: dict):
+    """
+    Release a batch of reserved stock for a partial-release invoice.
+    PIN required (qr_release_stocks policy — branch-restricted for managers).
+
+    Body: {
+      pin: str,
+      release_ref: str (client UUID for idempotency),
+      items: [{ sold_product_id: str, qty_release: float }]
+    }
+    """
+    pin = (data.get("pin") or "").strip()
+    release_ref = (data.get("release_ref") or "").strip()
+    items_input = data.get("items", [])
+
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required")
+    if not items_input:
+        raise HTTPException(status_code=400, detail="No items to release")
+
+    # Resolve document
+    doc_ref, doc_type, doc_id = await _resolve_doc(code)
+    if doc_type != "invoice":
+        raise HTTPException(status_code=400, detail="This QR code is not for an invoice")
+
+    invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    if invoice.get("release_mode") != "partial":
+        raise HTTPException(status_code=400, detail="This invoice uses full release — no stock release needed")
+    if invoice.get("stock_release_status") in ("fully_released", "expired"):
+        raise HTTPException(status_code=400, detail="All stock for this invoice has already been released")
+    if invoice.get("status") == "voided":
+        raise HTTPException(status_code=400, detail="Cannot release stock on a voided invoice")
+
+    # Idempotency check — reject duplicate release_ref
+    if release_ref:
+        already = await db.qr_action_log.find_one(
+            {"doc_id": doc_id, "action": "release_stocks", "release_ref": release_ref, "result": "success"},
+            {"_id": 0}
+        )
+        if already:
+            raise HTTPException(status_code=409, detail="This release was already processed")
+
+    branch_id = invoice.get("branch_id", "")
+
+    # Verify PIN — branch-restricted for managers
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "qr_release_stocks", branch_id=branch_id)
+    if not verifier:
+        await _log_action(doc_ref, "release_stocks", None, "PIN failed", result="failed", error="invalid_pin")
+        raise HTTPException(status_code=403, detail="Invalid PIN — use branch manager PIN, admin PIN, or admin TOTP")
+
+    # Load current reservations keyed by sold_product_id
+    reservations = await db.sale_reservations.find(
+        {"invoice_id": doc_id}, {"_id": 0}
+    ).to_list(100)
+    res_map = {r["sold_product_id"]: r for r in reservations}
+
+    # Validate all items first before touching anything
+    for item in items_input:
+        spid = item.get("sold_product_id")
+        qty_release = float(item.get("qty_release", 0))
+        if qty_release <= 0:
+            continue
+        res = res_map.get(spid)
+        if not res:
+            raise HTTPException(status_code=400, detail=f"Product not found in this invoice's reservations")
+        if qty_release > res["sold_qty_remaining"] + 0.001:  # float tolerance
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot release {qty_release} of {res['sold_product_name']} — only {res['sold_qty_remaining']} remaining"
+            )
+
+    # Apply releases
+    release_items_log = []
+    total_released_this_batch = 0
+
+    for item in items_input:
+        spid = item.get("sold_product_id")
+        qty_release = float(item.get("qty_release", 0))
+        if qty_release <= 0:
+            continue
+
+        res = res_map[spid]
+        inv_product_id = res["product_id"]     # inventory product (parent for repacks)
+        units_per_parent = float(res.get("units_per_parent", 1))
+        qty_release_inv = qty_release / units_per_parent  # in inventory units
+
+        # Decrement reserved_qty on inventory — no quantity change (already deducted at sale)
+        await db.inventory.update_one(
+            {"product_id": inv_product_id, "branch_id": branch_id},
+            {"$inc": {"reserved_qty": -qty_release_inv}, "$set": {"updated_at": now_iso()}}
+        )
+
+        # Update sale_reservation record
+        new_sold_released = res["sold_qty_released"] + qty_release
+        new_sold_remaining = res["sold_qty_remaining"] - qty_release
+        new_qty_released = res["qty_released"] + qty_release_inv
+        new_qty_remaining = res["qty_remaining"] - qty_release_inv
+
+        await db.sale_reservations.update_one(
+            {"invoice_id": doc_id, "sold_product_id": spid},
+            {"$set": {
+                "sold_qty_released": round(new_sold_released, 4),
+                "sold_qty_remaining": round(max(0, new_sold_remaining), 4),
+                "qty_released": round(new_qty_released, 4),
+                "qty_remaining": round(max(0, new_qty_remaining), 4),
+            }}
+        )
+
+        release_items_log.append({
+            "product_id": spid,
+            "product_name": res["sold_product_name"],
+            "qty_released": qty_release,
+            "unit": res.get("sold_unit", ""),
+        })
+        total_released_this_batch += qty_release
+        # Update local map for status check below
+        res_map[spid] = {**res,
+            "sold_qty_released": new_sold_released,
+            "sold_qty_remaining": max(0, new_sold_remaining),
+            "qty_remaining": max(0, new_qty_remaining),
+        }
+
+    # Compute new stock_release_status
+    all_remaining = sum(r["sold_qty_remaining"] for r in res_map.values())
+    all_ordered = sum(r["sold_qty_ordered"] for r in res_map.values())
+    all_released = sum(r["sold_qty_released"] for r in res_map.values())
+    if all_remaining <= 0.001:
+        new_status = "fully_released"
+    elif all_released > 0:
+        new_status = "partially_released"
+    else:
+        new_status = "not_released"
+
+    # Release event record
+    release_number = len(invoice.get("stock_releases", [])) + 1
+    release_event = {
+        "release_number": release_number,
+        "released_at": now_iso(),
+        "released_by_name": verifier["verifier_name"],
+        "pin_method": verifier["method"],
+        "release_ref": release_ref,
+        "items": release_items_log,
+        "total_qty_released": round(total_released_this_batch, 4),
+        "remaining_after": round(all_remaining, 4),
+        "fully_released": new_status == "fully_released",
+    }
+
+    await db.invoices.update_one(
+        {"id": doc_id},
+        {
+            "$set": {"stock_release_status": new_status},
+            "$push": {"stock_releases": release_event},
+        }
+    )
+
+    # Log to qr_action_log
+    summary = ", ".join(f"{i['product_name']} x{i['qty_released']}{i['unit']}" for i in release_items_log)
+    await _log_action(doc_ref, "release_stocks", verifier, summary, release_ref=release_ref)
+
+    return {
+        "success": True,
+        "invoice_number": invoice.get("invoice_number"),
+        "release_number": release_number,
+        "items_released": release_items_log,
+        "stock_release_status": new_status,
+        "remaining_qty": round(all_remaining, 4),
+        "fully_released": new_status == "fully_released",
+        "authorized_by": verifier["verifier_name"],
+        "message": "All stock fully released!" if new_status == "fully_released" else f"Batch {release_number} recorded. {round(all_remaining, 2)} units still pending.",
+    }
+
+
+# ── Expiry Job (called by APScheduler daily) ──────────────────────────────────
+
+async def process_expired_reservations():
+    """
+    Daily job: return unreleased reserved stock to available inventory after 30 days.
+    Logs an expiry_return movement and notifies branch managers.
+    """
+    from utils import log_movement
+    now_str = datetime.now(timezone.utc).isoformat()
+
+    expired = await db.sale_reservations.find(
+        {"qty_remaining": {"$gt": 0}, "expires_at": {"$lt": now_str}},
+        {"_id": 0}
+    ).to_list(1000)
+
+    # Group by invoice
+    from collections import defaultdict
+    by_invoice = defaultdict(list)
+    for r in expired:
+        by_invoice[r["invoice_id"]].append(r)
+
+    for invoice_id, res_list in by_invoice.items():
+        invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+        if not invoice:
+            continue
+        branch_id = invoice.get("branch_id", "")
+        inv_number = invoice.get("invoice_number", "")
+
+        for res in res_list:
+            qty_to_return = float(res["qty_remaining"])
+            if qty_to_return <= 0:
+                continue
+            product_id = res["product_id"]
+
+            # Move reserved_qty back to available quantity
+            await db.inventory.update_one(
+                {"product_id": product_id, "branch_id": branch_id},
+                {"$inc": {"quantity": qty_to_return, "reserved_qty": -qty_to_return},
+                 "$set": {"updated_at": now_iso()}}
+            )
+
+            await log_movement(
+                product_id, branch_id, "expiry_return", qty_to_return,
+                invoice_id, inv_number, 0, "system", "System (Auto-Expiry)",
+                f"30-day reservation expired — {qty_to_return} units returned to stock. Invoice: {inv_number}"
+            )
+
+            # Clear the reservation
+            await db.sale_reservations.update_one(
+                {"invoice_id": invoice_id, "sold_product_id": res["sold_product_id"]},
+                {"$set": {"qty_remaining": 0, "sold_qty_remaining": 0, "expired": True, "expired_at": now_str}}
+            )
+
+        # Update invoice status
+        await db.invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {"stock_release_status": "expired"}}
+        )
+
+        # Notify branch manager
+        managers = await db.users.find(
+            {"branch_id": branch_id, "role": {"$in": ["admin", "manager"]}, "active": True},
+            {"_id": 0, "id": 1}
+        ).to_list(20)
+        admins = await db.users.find(
+            {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+        ).to_list(20)
+        notify_ids = list({u["id"] for u in managers + admins})
+        total_returned = sum(float(r["qty_remaining"]) for r in res_list)
+        if notify_ids:
+            await db.notifications.insert_one({
+                "id": new_id(),
+                "type": "reservation_expired",
+                "title": f"Reserved Stock Expired — {inv_number}",
+                "message": (
+                    f"{total_returned:.2f} units from {inv_number} (customer: {invoice.get('customer_name', 'Walk-in')}) "
+                    f"were not picked up within 30 days and have been returned to available stock."
+                ),
+                "branch_id": branch_id,
+                "metadata": {"invoice_id": invoice_id, "invoice_number": inv_number, "qty_returned": total_returned},
+                "target_user_ids": notify_ids,
+                "read_by": [],
+                "created_at": now_iso(),
+            })

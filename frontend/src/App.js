@@ -146,6 +146,7 @@ function AppRoutes() {
       <Route path="/admin" element={<AdminLoginPage />} />
 
       {/* Document viewer (PIN-protected, no login required) */}
+      <Route path="/doc" element={<DocViewerPage />} />
       <Route path="/doc/:code" element={<DocViewerPage />} />
 
       {/* Super admin panel (protected, requires is_super_admin) */}

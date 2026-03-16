@@ -114,7 +114,10 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
         line_total = round(qty * rate - disc_amt, 2)
         
-        # ── Inventory: deduct immediately (full) or reserve (partial) ──────────
+        # ── Inventory: deduct immediately for BOTH full and partial release ────
+        # Partial release: also moves qty into reserved_qty bucket on same record.
+        # quantity = available to sell. reserved_qty = customer's stock, pending pickup.
+        # quantity + reserved_qty = total physical on shelf (always accurate).
         if product.get("is_repack") and product.get("parent_id"):
             units_per_parent = product.get("units_per_parent", 1)
             parent_deduction = qty / units_per_parent
@@ -122,41 +125,30 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
                 {"product_id": product["parent_id"], "branch_id": branch_id}, {"_id": 0}
             )
             parent_stock = float(parent_inv["quantity"]) if parent_inv else 0
-
-            if release_mode == "full":
-                available = parent_stock * units_per_parent
-                if available < qty:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for {product['name']}: have {available:.0f}, need {qty:.0f}"
-                    )
-                await db.inventory.update_one(
-                    {"product_id": product["parent_id"], "branch_id": branch_id},
-                    {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}},
-                    upsert=True
+            available = parent_stock * units_per_parent
+            if available < qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for {product['name']}: have {available:.0f}, need {qty:.0f}"
                 )
-                await log_movement(
-                    product["parent_id"], branch_id, "sale", -parent_deduction, "", inv_number,
-                    rate * units_per_parent, user["id"], user.get("full_name", user["username"]),
-                    f"Sold as repack: {product['name']} x {qty}"
-                )
-            else:
-                # Partial release: check available (stock minus existing reservations)
-                existing_res = await db.sale_reservations.aggregate([
-                    {"$match": {"product_id": product["parent_id"], "branch_id": branch_id, "qty_remaining": {"$gt": 0}}},
-                    {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
-                ]).to_list(1)
-                already_reserved = float(existing_res[0]["total"]) if existing_res else 0
-                available_for_reserve = parent_stock - already_reserved
-                if available_for_reserve < parent_deduction:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for {product['name']}: have {available_for_reserve * units_per_parent:.0f} available (after reservations), need {qty:.0f}"
-                    )
+            # Deduct from quantity — same for full and partial
+            inv_update = {"$inc": {"quantity": -parent_deduction}, "$set": {"updated_at": now_iso()}}
+            if release_mode == "partial":
+                inv_update["$inc"]["reserved_qty"] = parent_deduction
+            await db.inventory.update_one(
+                {"product_id": product["parent_id"], "branch_id": branch_id},
+                inv_update, upsert=True
+            )
+            await log_movement(
+                product["parent_id"], branch_id, "sale", -parent_deduction, "", inv_number,
+                rate * units_per_parent, user["id"], user.get("full_name", user["username"]),
+                f"Sold as repack: {product['name']} x {qty}"
+            )
+            if release_mode == "partial":
                 parent = await db.products.find_one({"id": product["parent_id"]}, {"_id": 0})
                 reservations_to_create.append({
                     "product_id": product["parent_id"],
-                    "product_name": parent["name"] if parent else product.get("parent_name", ""),
+                    "product_name": parent["name"] if parent else "",
                     "sold_product_id": product["id"],
                     "sold_product_name": product["name"],
                     "sold_qty_ordered": qty,
@@ -174,35 +166,23 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
                 {"product_id": item["product_id"], "branch_id": branch_id}, {"_id": 0}
             )
             current_stock = float(inv["quantity"]) if inv else 0
-
-            if release_mode == "full":
-                if current_stock < qty:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for {product['name']}: have {current_stock:.0f}, need {qty:.0f}"
-                    )
-                await db.inventory.update_one(
-                    {"product_id": item["product_id"], "branch_id": branch_id},
-                    {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}},
-                    upsert=True
+            if current_stock < qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for {product['name']}: have {current_stock:.0f}, need {qty:.0f}"
                 )
-                await log_movement(
-                    item["product_id"], branch_id, "sale", -qty, "", inv_number,
-                    rate, user["id"], user.get("full_name", user["username"])
-                )
-            else:
-                # Partial release: check available (stock minus existing reservations)
-                existing_res = await db.sale_reservations.aggregate([
-                    {"$match": {"product_id": item["product_id"], "branch_id": branch_id, "qty_remaining": {"$gt": 0}}},
-                    {"$group": {"_id": None, "total": {"$sum": "$qty_remaining"}}}
-                ]).to_list(1)
-                already_reserved = float(existing_res[0]["total"]) if existing_res else 0
-                available_for_reserve = current_stock - already_reserved
-                if available_for_reserve < qty:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient stock for {product['name']}: have {available_for_reserve:.0f} available (after reservations), need {qty:.0f}"
-                    )
+            inv_update = {"$inc": {"quantity": -qty}, "$set": {"updated_at": now_iso()}}
+            if release_mode == "partial":
+                inv_update["$inc"]["reserved_qty"] = qty
+            await db.inventory.update_one(
+                {"product_id": item["product_id"], "branch_id": branch_id},
+                inv_update, upsert=True
+            )
+            await log_movement(
+                item["product_id"], branch_id, "sale", -qty, "", inv_number,
+                rate, user["id"], user.get("full_name", user["username"])
+            )
+            if release_mode == "partial":
                 reservations_to_create.append({
                     "product_id": item["product_id"],
                     "product_name": product["name"],

@@ -998,32 +998,81 @@ async def void_invoice(inv_id: str, data: dict, user=Depends(get_current_user)):
         if not product:
             continue
 
+        # For partial-release invoices: only the qty_remaining in reservations
+        # was never physically received by the customer — add that back.
+        # Qty already released (qty_reserved - qty_remaining) is gone (customer has it).
+        # For full-release invoices: all qty goes back (existing behavior).
+        is_partial_release = inv.get("release_mode") == "partial"
+
         if product.get("is_repack") and product.get("parent_id"):
             units_per_parent = product.get("units_per_parent", 1) or 1
             parent_return = qty / units_per_parent
-            await db.inventory.update_one(
-                {"product_id": product["parent_id"], "branch_id": branch_id},
-                {"$inc": {"quantity": parent_return}, "$set": {"updated_at": now_iso()}},
-                upsert=True,
-            )
-            await log_movement(
-                product["parent_id"], branch_id, "void_return", parent_return,
-                inv_id, inv["invoice_number"], 0,
-                user["id"], user.get("full_name", user["username"]),
-                f"Void: {inv['invoice_number']} — {reason}",
-            )
+
+            if is_partial_release:
+                # Only return what's still in reserved_qty (not yet picked up)
+                res = await db.sale_reservations.find_one(
+                    {"invoice_id": inv_id, "product_id": product["parent_id"]}, {"_id": 0}
+                )
+                qty_still_reserved = float(res["qty_remaining"]) if res else 0
+                if qty_still_reserved > 0:
+                    await db.inventory.update_one(
+                        {"product_id": product["parent_id"], "branch_id": branch_id},
+                        {"$inc": {"quantity": qty_still_reserved, "reserved_qty": -qty_still_reserved},
+                         "$set": {"updated_at": now_iso()}},
+                        upsert=True,
+                    )
+                    await log_movement(
+                        product["parent_id"], branch_id, "void_return", qty_still_reserved,
+                        inv_id, inv["invoice_number"], 0,
+                        user["id"], user.get("full_name", user["username"]),
+                        f"Void (unreleased reserved stock): {inv['invoice_number']} — {reason}",
+                    )
+                # Clear the reservation record
+                await db.sale_reservations.delete_many({"invoice_id": inv_id})
+            else:
+                await db.inventory.update_one(
+                    {"product_id": product["parent_id"], "branch_id": branch_id},
+                    {"$inc": {"quantity": parent_return}, "$set": {"updated_at": now_iso()}},
+                    upsert=True,
+                )
+                await log_movement(
+                    product["parent_id"], branch_id, "void_return", parent_return,
+                    inv_id, inv["invoice_number"], 0,
+                    user["id"], user.get("full_name", user["username"]),
+                    f"Void: {inv['invoice_number']} — {reason}",
+                )
         else:
-            await db.inventory.update_one(
-                {"product_id": pid, "branch_id": branch_id},
-                {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}},
-                upsert=True,
-            )
-            await log_movement(
-                pid, branch_id, "void_return", qty,
-                inv_id, inv["invoice_number"], 0,
-                user["id"], user.get("full_name", user["username"]),
-                f"Void: {inv['invoice_number']} — {reason}",
-            )
+            if is_partial_release:
+                res = await db.sale_reservations.find_one(
+                    {"invoice_id": inv_id, "product_id": pid}, {"_id": 0}
+                )
+                qty_still_reserved = float(res["qty_remaining"]) if res else 0
+                if qty_still_reserved > 0:
+                    await db.inventory.update_one(
+                        {"product_id": pid, "branch_id": branch_id},
+                        {"$inc": {"quantity": qty_still_reserved, "reserved_qty": -qty_still_reserved},
+                         "$set": {"updated_at": now_iso()}},
+                        upsert=True,
+                    )
+                    await log_movement(
+                        pid, branch_id, "void_return", qty_still_reserved,
+                        inv_id, inv["invoice_number"], 0,
+                        user["id"], user.get("full_name", user["username"]),
+                        f"Void (unreleased reserved stock): {inv['invoice_number']} — {reason}",
+                    )
+                await db.sale_reservations.delete_many({"invoice_id": inv_id})
+            else:
+                await db.inventory.update_one(
+                    {"product_id": pid, "branch_id": branch_id},
+                    {"$inc": {"quantity": qty}, "$set": {"updated_at": now_iso()}},
+                    upsert=True,
+                )
+                await log_movement(
+                    pid, branch_id, "void_return", qty,
+                    inv_id, inv["invoice_number"], 0,
+                    user["id"], user.get("full_name", user["username"]),
+                    f"Void: {inv['invoice_number']} — {reason}",
+                )
 
     # 4. Reverse cashflow — properly handle ALL payments (initial + subsequent AR)
     # Walk through each payment record to reverse from the correct wallet

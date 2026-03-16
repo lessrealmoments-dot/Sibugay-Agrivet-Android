@@ -12,6 +12,15 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
+### QR Operational Workflows — Phase 2 Stock Release via QR (Complete — Mar 2026)
+- **Inventory model corrected**: Partial release now deducts `inventory.quantity` immediately at sale (same as full release) AND increments `inventory.reserved_qty`. Physical stock = quantity + reserved_qty. Available to sell = quantity only.
+- **`/api/qr-actions/{code}/release_stocks`**: PIN-gated release action. Decrements `reserved_qty` on release. Idempotent via `release_ref`. Branch-restricted manager PIN enforced.
+- **30-day expiry job**: Daily APScheduler job returns `qty_remaining` from `reserved_qty` back to `quantity`. Logs `expiry_return` movement. Notifies branch manager.
+- **Void guard**: Void on partial-release invoice only returns unreleased qty. Clears reservations. Already-released stock correctly treated as gone.
+- **`DocViewerPage` updated**: Shows Release Stock panel when `available_actions` includes `release_stocks`. After release, status updates live. Shows ordered/released/remaining per item with "All" shortcut.
+- **Doc code fallback**: `/doc` (no code) shows text input form. "Enter document code manually" link at bottom of every doc page. Terminal pull still works.
+- **`/doc/view/{code}`** now returns `available_actions[]`, `reservations[]`, `release_mode`, `stock_release_status`.
+
 ### QR Operational Workflows — Phase 1 Foundation (Complete — Mar 2026)
 - **Stock Reservation Model**: `release_mode: "full" | "partial"` on all invoices. Partial release reserves stock without deducting inventory until physical handover.
 - **`sale_reservations` collection**: Tracks per-product reservations per invoice, with `qty_reserved/released/remaining` and 30-day expiry.

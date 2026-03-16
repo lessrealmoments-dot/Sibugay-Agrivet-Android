@@ -187,26 +187,61 @@ async def view_document_open(code: str):
             raise HTTPException(status_code=404, detail="Invoice not found")
         balance = (doc.get("grand_total") or 0) - (doc.get("amount_paid") or 0)
         is_paid = balance <= 0 or doc.get("payment_status") == "paid"
+
+        # Available actions based on state
+        available_actions = []
+        status = doc.get("status", "")
+        if status != "voided":
+            if doc.get("release_mode") == "partial" and doc.get("stock_release_status") not in ("fully_released", "expired"):
+                available_actions.append("release_stocks")
+            if balance > 0:
+                available_actions.append("receive_payment")
+
+        # Fetch reservations for partial-release invoices
+        reservations = []
+        if doc.get("release_mode") == "partial":
+            reservations = await db.sale_reservations.find(
+                {"invoice_id": doc_id}, {"_id": 0,
+                 "sold_product_id": 1, "sold_product_name": 1,
+                 "sold_qty_ordered": 1, "sold_qty_released": 1, "sold_qty_remaining": 1,
+                 "sold_unit": 1, "qty_remaining": 1, "expires_at": 1}
+            ).to_list(100)
+
         return {
             "doc_type": "invoice",
             "doc_id": doc_id,
             "number": doc.get("invoice_number", ""),
             "date": doc.get("created_at") or doc.get("order_date", ""),
+            "order_date": doc.get("order_date", ""),
             "customer_name": doc.get("customer_name", "Walk-in"),
+            "branch_id": doc.get("branch_id", ""),
             "items": [{"name": i.get("product_name", ""), "qty": i.get("quantity", 0), "price": i.get("rate") or i.get("unit_price") or i.get("price", 0), "total": i.get("total", 0)} for i in (doc.get("items") or [])],
             "subtotal": doc.get("subtotal", 0),
             "discount": doc.get("overall_discount", 0),
             "grand_total": doc.get("grand_total", 0),
+            "amount_paid": doc.get("amount_paid", 0),
+            "balance": max(0, balance),
             "status": "Fully Paid" if is_paid else f"Balance: ₱{balance:,.2f}",
+            "payment_status": doc.get("status", ""),
             "payment_method": doc.get("payment_method", "Cash"),
             "payment_type": doc.get("payment_type", "cash"),
             "customer_id": doc.get("customer_id", ""),
+            "release_mode": doc.get("release_mode", "full"),
+            "stock_release_status": doc.get("stock_release_status", "na"),
+            "stock_releases": doc.get("stock_releases", []),
+            "reservations": reservations,
+            "available_actions": available_actions,
         }
 
     elif doc_type == "purchase_order":
         doc = await db.purchase_orders.find_one({"id": doc_id}, {"_id": 0})
         if not doc:
             raise HTTPException(status_code=404, detail="PO not found")
+        po_status = doc.get("status", "")
+        available_actions = []
+        if po_status in ("ordered", "draft", "in_progress"):
+            available_actions.append("po_receive")
+        # received = view only
         return {
             "doc_type": "purchase_order",
             "doc_id": doc_id,
@@ -216,8 +251,10 @@ async def view_document_open(code: str):
             "items": [{"name": i.get("product_name") or i.get("description", ""), "qty": i.get("quantity", 0), "price": i.get("rate") or i.get("unit_price") or i.get("price", 0), "total": i.get("total", 0)} for i in (doc.get("items") or [])],
             "grand_total": doc.get("grand_total", 0),
             "status": (doc.get("status") or "").replace("_", " ").title(),
+            "raw_status": po_status,
             "payment_status": doc.get("payment_status", "unpaid"),
             "branch_id": doc.get("branch_id", ""),
+            "available_actions": available_actions,
         }
 
     elif doc_type == "branch_transfer":
@@ -227,6 +264,10 @@ async def view_document_open(code: str):
         from_branch = await db.branches.find_one({"id": doc.get("from_branch_id")}, {"_id": 0, "name": 1})
         to_branch = await db.branches.find_one({"id": doc.get("to_branch_id")}, {"_id": 0, "name": 1})
         status_labels = {"draft": "Draft", "sent": "In Transit", "sent_to_terminal": "On Terminal", "received_pending": "Pending Review", "received": "Completed", "disputed": "Disputed", "cancelled": "Cancelled"}
+        transfer_status = doc.get("status", "")
+        available_actions = []
+        if transfer_status == "sent":
+            available_actions.append("transfer_receive")
         return {
             "doc_type": "branch_transfer",
             "doc_id": doc_id,
@@ -236,9 +277,10 @@ async def view_document_open(code: str):
             "to_branch": to_branch.get("name", "") if to_branch else "",
             "items": [{"name": i.get("product_name", ""), "qty": i.get("qty", 0), "price": i.get("transfer_capital", 0), "total": (i.get("transfer_capital", 0) * i.get("qty", 0))} for i in (doc.get("items") or [])],
             "total": sum(i.get("transfer_capital", 0) * i.get("qty", 0) for i in (doc.get("items") or [])),
-            "status": status_labels.get(doc.get("status", ""), doc.get("status", "")),
-            "raw_status": doc.get("status", ""),
+            "status": status_labels.get(transfer_status, transfer_status),
+            "raw_status": transfer_status,
             "to_branch_id": doc.get("to_branch_id", ""),
+            "available_actions": available_actions,
         }
 
     raise HTTPException(status_code=400, detail=f"Unknown document type: {doc_type}")

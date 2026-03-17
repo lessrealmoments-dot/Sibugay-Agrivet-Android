@@ -22,7 +22,15 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
-### Core POS (Complete)
+### QR Security Hardening (2026-03-17) — Complete
+- **Gap 1 fixed:** PIN brute-force lockout per doc_code. 5 failures → admin alert; 10 failures → 15-min 429 lockout. Auto-resets on success.
+- **Gap 2 fixed:** `receive_payment` and `transfer_receive` now require idempotency UUID (`payment_ref`, `transfer_ref`) — duplicate submissions rejected with 409.
+- **Gap 3 fixed:** Every QR payment now writes a double-entry journal record (Debit Cash/Digital, Credit AR).
+- **Gap 4 fixed:** `client_ip` and `user_agent` captured on every `qr_action_log` entry.
+- **Gap 5 fixed:** `DocViewerPage.jsx` shows attempts-remaining warning (≤4 left) and a live countdown banner when locked.
+- New functions in `utils/security.py`: `check_qr_lockout`, `log_failed_qr_pin_attempt`, `log_successful_qr_pin_attempt`, `_raise_qr_security_alert`.
+
+
 - Multi-tenant org management, branch management, user roles & permissions
 - Unified sales: walk-in, credit, partial, digital, split payments
 - Purchase orders (external suppliers only), suppliers, branch transfers

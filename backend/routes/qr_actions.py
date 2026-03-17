@@ -2,15 +2,24 @@
 QR Actions — context-aware operational actions triggered by scanning a document QR code.
 No login required; all actions are PIN-gated via the existing pin_policy system.
 
+Security hardening (implemented):
+  - Brute-force lockout: 5 failures → admin alert; 10 failures → 15-min lock (429)
+  - Idempotency keys on receive_payment and transfer_receive
+  - Journal entry written for every QR payment
+  - IP + User-Agent captured on every action log
+
 Supported actions:
   release_stocks   — decrement reserved_qty, mark delivery batches (Phase 2)
   receive_payment  — record payment on invoice (Phase 3)
   transfer_receive — receive a branch transfer via QR (Phase 4)
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from datetime import datetime, timezone, timedelta
 from config import db
 from utils import now_iso, new_id, is_digital_payment, update_cashier_wallet, update_digital_wallet
+from utils.security import (
+    check_qr_lockout, log_failed_qr_pin_attempt, log_successful_qr_pin_attempt,
+)
 
 router = APIRouter(prefix="/qr-actions", tags=["QR Actions"])
 
@@ -24,7 +33,7 @@ async def _resolve_doc(code: str):
     return doc_ref, doc_ref["doc_type"], doc_ref["doc_id"]
 
 
-async def _log_action(doc_ref, action, verifier, payload_summary, result="success", error=None, release_ref=None):
+async def _log_action(doc_ref, action, verifier, payload_summary, result="success", error=None, release_ref=None, client_ip="", user_agent=""):
     await db.qr_action_log.insert_one({
         "id": new_id(),
         "doc_code": doc_ref["code"],
@@ -37,6 +46,8 @@ async def _log_action(doc_ref, action, verifier, payload_summary, result="succes
         "payload_summary": payload_summary,
         "result": result,
         "error": error,
+        "client_ip": client_ip,
+        "user_agent": user_agent,
         "created_at": now_iso(),
     })
 
@@ -51,7 +62,7 @@ async def get_qr_context(code: str):
 
 
 @router.post("/{code}/verify_pin")
-async def verify_release_pin(code: str, data: dict):
+async def verify_release_pin(code: str, data: dict, request: Request):
     """
     Validates a PIN for the relevant policy based on the document's type and branch.
     Returns { valid: true, verifier_name } or 403.
@@ -62,6 +73,17 @@ async def verify_release_pin(code: str, data: dict):
         raise HTTPException(status_code=400, detail="PIN is required")
 
     doc_ref, doc_type, doc_id = await _resolve_doc(code)
+    client_ip  = request.client.host if request.client else ""
+    user_agent = request.headers.get("user-agent", "")
+
+    # ── Lockout check ────────────────────────────────────────────────────────
+    lockout = await check_qr_lockout(doc_ref["code"])
+    if lockout["locked"]:
+        raise HTTPException(status_code=429, detail={
+            "message": "Too many failed attempts. This document is temporarily locked.",
+            "retry_after": lockout["retry_after"],
+            "locked": True,
+        })
 
     # Derive action key and branch_id from doc type
     if doc_type == "invoice":
@@ -78,18 +100,26 @@ async def verify_release_pin(code: str, data: dict):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    from routes.verify import verify_pin_for_action
-    verifier = await verify_pin_for_action(pin, action_key, branch_id=doc.get("branch_id", ""))
-    if not verifier:
-        raise HTTPException(status_code=403, detail="Invalid PIN")
+    branch_id = doc.get("branch_id", "")
 
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, action_key, branch_id=branch_id)
+    if not verifier:
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "verify_pin", client_ip, branch_id)
+        raise HTTPException(status_code=403, detail={
+            "message": "Invalid PIN",
+            "warn": lockout["warn"],
+            "attempts_remaining": max(0, lockout["attempts_remaining"] - 1),
+        })
+
+    await log_successful_qr_pin_attempt(doc_ref["code"], doc_type, "verify_pin", verifier["verifier_name"], client_ip)
     return {"valid": True, "verifier_name": verifier["verifier_name"], "method": verifier["method"]}
 
 
 # ── Action: Release Stocks ─────────────────────────────────────────────────────
 
 @router.post("/{code}/release_stocks")
-async def release_stocks(code: str, data: dict):
+async def release_stocks(code: str, data: dict, request: Request):
     """
     Release a batch of reserved stock for a partial-release invoice.
     PIN required (qr_release_stocks policy — branch-restricted for managers).
@@ -103,6 +133,8 @@ async def release_stocks(code: str, data: dict):
     pin = (data.get("pin") or "").strip()
     release_ref = (data.get("release_ref") or "").strip()
     items_input = data.get("items", [])
+    client_ip  = request.client.host if request.client else ""
+    user_agent = request.headers.get("user-agent", "")
 
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
@@ -113,6 +145,15 @@ async def release_stocks(code: str, data: dict):
     doc_ref, doc_type, doc_id = await _resolve_doc(code)
     if doc_type != "invoice":
         raise HTTPException(status_code=400, detail="This QR code is not for an invoice")
+
+    # ── Lockout check ────────────────────────────────────────────────────────
+    lockout = await check_qr_lockout(doc_ref["code"])
+    if lockout["locked"]:
+        raise HTTPException(status_code=429, detail={
+            "message": "Too many failed attempts. This document is temporarily locked.",
+            "retry_after": lockout["retry_after"],
+            "locked": True,
+        })
 
     invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0})
     if not invoice:
@@ -139,8 +180,14 @@ async def release_stocks(code: str, data: dict):
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_release_stocks", branch_id=branch_id)
     if not verifier:
-        await _log_action(doc_ref, "release_stocks", None, "PIN failed", result="failed", error="invalid_pin")
-        raise HTTPException(status_code=403, detail="Invalid PIN — use branch manager PIN, admin PIN, or admin TOTP")
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "release_stocks", client_ip, branch_id)
+        await _log_action(doc_ref, "release_stocks", None, "PIN failed", result="failed", error="invalid_pin", client_ip=client_ip, user_agent=user_agent)
+        raise HTTPException(status_code=403, detail={
+            "message": "Invalid PIN — use branch manager PIN, admin PIN, or admin TOTP",
+            "warn": lockout["warn"],
+            "attempts_remaining": max(0, lockout["attempts_remaining"] - 1),
+        })
+    await log_successful_qr_pin_attempt(doc_ref["code"], doc_type, "release_stocks", verifier["verifier_name"], client_ip)
 
     # Load current reservations keyed by sold_product_id
     reservations = await db.sale_reservations.find(
@@ -248,7 +295,7 @@ async def release_stocks(code: str, data: dict):
 
     # Log to qr_action_log
     summary = ", ".join(f"{i['product_name']} x{i['qty_released']}{i['unit']}" for i in release_items_log)
-    await _log_action(doc_ref, "release_stocks", verifier, summary, release_ref=release_ref)
+    await _log_action(doc_ref, "release_stocks", verifier, summary, release_ref=release_ref, client_ip=client_ip, user_agent=user_agent)
 
     return {
         "success": True,
@@ -267,7 +314,7 @@ async def release_stocks(code: str, data: dict):
 # ── Generate upload token (public — for mobile payment proof upload) ──────────
 
 @router.post("/{code}/generate-upload-token")
-async def generate_upload_token(code: str, data: dict):
+async def generate_upload_token(code: str, data: dict, request: Request):
     """
     Generate a short-lived upload token for attaching payment proof photos.
     No auth required — doc code + verified PIN is sufficient.
@@ -280,9 +327,21 @@ async def generate_upload_token(code: str, data: dict):
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
 
+    client_ip  = request.client.host if request.client else ""
+    user_agent = request.headers.get("user-agent", "")
+
     doc_ref, doc_type, doc_id = await _resolve_doc(code)
     if doc_type != "invoice":
         raise HTTPException(status_code=400, detail="Upload proof is only available for invoices")
+
+    # ── Lockout check ────────────────────────────────────────────────────────
+    lockout = await check_qr_lockout(doc_ref["code"])
+    if lockout["locked"]:
+        raise HTTPException(status_code=429, detail={
+            "message": "Too many failed attempts. This document is temporarily locked.",
+            "retry_after": lockout["retry_after"],
+            "locked": True,
+        })
 
     invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0, "branch_id": 1})
     if not invoice:
@@ -291,7 +350,12 @@ async def generate_upload_token(code: str, data: dict):
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_receive_payment", branch_id=invoice.get("branch_id", ""))
     if not verifier:
-        raise HTTPException(status_code=403, detail="Invalid PIN")
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "generate_upload_token", client_ip, invoice.get("branch_id", ""))
+        raise HTTPException(status_code=403, detail={
+            "message": "Invalid PIN",
+            "warn": lockout["warn"],
+            "attempts_remaining": max(0, lockout["attempts_remaining"] - 1),
+        })
 
     # Create an upload session pre-linked to this invoice
     import secrets as _secrets
@@ -325,19 +389,22 @@ async def generate_upload_token(code: str, data: dict):
 
 
 @router.post("/{code}/receive_payment")
-async def receive_payment(code: str, data: dict):
+async def receive_payment(code: str, data: dict, request: Request):
     """
     Record a payment on a credit/partial invoice via QR scan.
     PIN required (qr_receive_payment policy — branch-restricted for managers).
 
-    Body: { pin, amount, method, reference }
+    Body: { pin, amount, method, reference, payment_ref (idempotency UUID) }
       method: "Cash" | "GCash" | "Maya" | "Bank Transfer" | ...
     """
-    pin = (data.get("pin") or "").strip()
-    amount = float(data.get("amount", 0))
-    method = (data.get("method") or "Cash").strip()
-    reference = (data.get("reference") or "").strip()
+    pin              = (data.get("pin") or "").strip()
+    amount           = float(data.get("amount", 0))
+    method           = (data.get("method") or "Cash").strip()
+    reference        = (data.get("reference") or "").strip()
     upload_session_id = (data.get("upload_session_id") or "").strip()
+    payment_ref      = (data.get("payment_ref") or "").strip()   # idempotency key
+    client_ip        = request.client.host if request.client else ""
+    user_agent       = request.headers.get("user-agent", "")
 
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
@@ -347,6 +414,15 @@ async def receive_payment(code: str, data: dict):
     doc_ref, doc_type, doc_id = await _resolve_doc(code)
     if doc_type != "invoice":
         raise HTTPException(status_code=400, detail="This QR code is not for an invoice")
+
+    # ── Lockout check ────────────────────────────────────────────────────────
+    lockout = await check_qr_lockout(doc_ref["code"])
+    if lockout["locked"]:
+        raise HTTPException(status_code=429, detail={
+            "message": "Too many failed attempts. This document is temporarily locked.",
+            "retry_after": lockout["retry_after"],
+            "locked": True,
+        })
 
     invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0})
     if not invoice:
@@ -360,42 +436,59 @@ async def receive_payment(code: str, data: dict):
     if amount > balance + 0.01:
         raise HTTPException(status_code=400, detail=f"Amount ₱{amount:,.2f} exceeds balance ₱{balance:,.2f}")
 
+    # ── Idempotency check ────────────────────────────────────────────────────
+    if payment_ref:
+        already = await db.qr_action_log.find_one(
+            {"doc_id": doc_id, "action": "receive_payment",
+             "release_ref": payment_ref, "result": "success"},
+            {"_id": 0},
+        )
+        if already:
+            raise HTTPException(status_code=409, detail="This payment was already processed")
+
     branch_id = invoice.get("branch_id", "")
 
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_receive_payment", branch_id=branch_id)
     if not verifier:
-        await _log_action(doc_ref, "receive_payment", None, f"₱{amount:,.2f} PIN failed", result="failed", error="invalid_pin")
-        raise HTTPException(status_code=403, detail="Invalid PIN")
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "receive_payment", client_ip, branch_id)
+        await _log_action(doc_ref, "receive_payment", None, f"₱{amount:,.2f} PIN failed",
+                          result="failed", error="invalid_pin", client_ip=client_ip, user_agent=user_agent)
+        raise HTTPException(status_code=403, detail={
+            "message": "Invalid PIN",
+            "warn": lockout["warn"],
+            "attempts_remaining": max(0, lockout["attempts_remaining"] - 1),
+        })
+    await log_successful_qr_pin_attempt(doc_ref["code"], doc_type, "receive_payment", verifier["verifier_name"], client_ip)
 
     # Build payment record — same schema as invoices.payments[]
-    interest_owed = float(invoice.get("interest_accrued", 0)) + float(invoice.get("penalties", 0))
-    applied_interest = min(amount, interest_owed)
-    applied_principal = amount - applied_interest
-    new_interest = max(0, round(float(invoice.get("interest_accrued", 0)) - applied_interest, 2))
-    new_balance = round(balance - amount, 2)
-    new_paid = round(float(invoice.get("amount_paid", 0)) + amount, 2)
-    new_status = "paid" if new_balance <= 0 else "partial"
+    interest_owed      = float(invoice.get("interest_accrued", 0)) + float(invoice.get("penalties", 0))
+    applied_interest   = min(amount, interest_owed)
+    applied_principal  = amount - applied_interest
+    new_interest       = max(0, round(float(invoice.get("interest_accrued", 0)) - applied_interest, 2))
+    new_balance        = round(balance - amount, 2)
+    new_paid           = round(float(invoice.get("amount_paid", 0)) + amount, 2)
+    new_status         = "paid" if new_balance <= 0 else "partial"
 
     payment = {
-        "id": new_id(),
-        "amount": amount,
-        "date": now_iso()[:10],
-        "method": method,
-        "fund_source": "digital" if is_digital_payment(method) else "cashier",
-        "reference": reference,
-        "applied_to_interest": applied_interest,
-        "applied_to_principal": applied_principal,
-        "recorded_by": verifier["verifier_name"],
-        "recorded_at": now_iso(),
+        "id":                    new_id(),
+        "amount":                amount,
+        "date":                  now_iso()[:10],
+        "method":                method,
+        "fund_source":           "digital" if is_digital_payment(method) else "cashier",
+        "reference":             reference,
+        "applied_to_interest":   applied_interest,
+        "applied_to_principal":  applied_principal,
+        "recorded_by":           verifier["verifier_name"],
+        "recorded_at":           now_iso(),
     }
 
     await db.invoices.update_one({"id": doc_id}, {
         "$set": {
-            "balance": max(0, new_balance),
-            "amount_paid": new_paid,
+            "balance":          max(0, new_balance),
+            "amount_paid":      new_paid,
             "interest_accrued": new_interest,
-            "status": new_status,
+            "status":           new_status,
         },
         "$push": {"payments": payment}
     })
@@ -411,7 +504,28 @@ async def receive_payment(code: str, data: dict):
     if invoice.get("customer_id"):
         await db.customers.update_one({"id": invoice["customer_id"]}, {"$inc": {"balance": -amount}})
 
-    await _log_action(doc_ref, "receive_payment", verifier, f"₱{amount:,.2f} {method}")
+    # ── Gap 3 fix: Double-entry journal record ───────────────────────────────
+    debit_account  = "Digital Receipts" if is_digital_payment(method) else "Cash on Hand"
+    je = {
+        "id":          new_id(),
+        "date":        now_iso()[:10],
+        "description": f"QR Payment — {invoice.get('invoice_number', '')} | {invoice.get('customer_name', 'Walk-in')} | {method}",
+        "lines": [
+            {"account": debit_account,       "debit": amount, "credit": 0},
+            {"account": "Accounts Receivable", "debit": 0,      "credit": amount},
+        ],
+        "auto":        True,
+        "source":      "qr_receive_payment",
+        "source_ref":  invoice.get("invoice_number", ""),
+        "branch_id":   branch_id,
+        "created_by":  verifier["verifier_name"],
+        "created_at":  now_iso(),
+    }
+    await db.journal_entries.insert_one(je)
+    del je["_id"]
+
+    await _log_action(doc_ref, "receive_payment", verifier, f"₱{amount:,.2f} {method}",
+                      release_ref=payment_ref, client_ip=client_ip, user_agent=user_agent)
 
     # Link upload session if a payment proof was attached
     if upload_session_id:
@@ -421,13 +535,13 @@ async def receive_payment(code: str, data: dict):
         )
 
     return {
-        "success": True,
+        "success":        True,
         "invoice_number": invoice.get("invoice_number"),
         "amount_received": amount,
-        "new_balance": max(0, new_balance),
-        "new_status": new_status,
-        "payment": {k: v for k, v in payment.items()},
-        "authorized_by": verifier["verifier_name"],
+        "new_balance":    max(0, new_balance),
+        "new_status":     new_status,
+        "payment":        {k: v for k, v in payment.items()},
+        "authorized_by":  verifier["verifier_name"],
         "message": "Invoice fully paid!" if new_status == "paid" else f"Payment recorded. Remaining balance: ₱{max(0, new_balance):,.2f}",
     }
 
@@ -435,20 +549,23 @@ async def receive_payment(code: str, data: dict):
 # ── Action: Transfer Receive ──────────────────────────────────────────────────
 
 @router.post("/{code}/transfer_receive")
-async def qr_transfer_receive(code: str, data: dict):
+async def qr_transfer_receive(code: str, data: dict, request: Request):
     """
     Receive a branch transfer via QR scan.
     PIN required (qr_transfer_receive policy — restricted to dest branch managers).
 
-    Body: { pin, items: [{product_id, qty_received}], notes }
+    Body: { pin, items: [{product_id, qty_received}], notes, transfer_ref (idempotency UUID) }
 
     Delegates entirely to receive_transfer() which handles:
       Exact match  → inventory moves immediately → status 'received'
       Variance     → status 'received_pending', source branch notified
     """
-    pin = (data.get("pin") or "").strip()
-    items_input = data.get("items", [])
-    notes = (data.get("notes") or "").strip()
+    pin          = (data.get("pin") or "").strip()
+    items_input  = data.get("items", [])
+    notes        = (data.get("notes") or "").strip()
+    transfer_ref = (data.get("transfer_ref") or "").strip()   # idempotency key
+    client_ip    = request.client.host if request.client else ""
+    user_agent   = request.headers.get("user-agent", "")
 
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
@@ -459,6 +576,15 @@ async def qr_transfer_receive(code: str, data: dict):
     if doc_type != "branch_transfer":
         raise HTTPException(status_code=400, detail="This QR code is not for a branch transfer")
 
+    # ── Lockout check ────────────────────────────────────────────────────────
+    lockout = await check_qr_lockout(doc_ref["code"])
+    if lockout["locked"]:
+        raise HTTPException(status_code=429, detail={
+            "message": "Too many failed attempts. This document is temporarily locked.",
+            "retry_after": lockout["retry_after"],
+            "locked": True,
+        })
+
     transfer = await db.branch_transfer_orders.find_one({"id": doc_id}, {"_id": 0})
     if not transfer:
         raise HTTPException(status_code=404, detail="Transfer not found")
@@ -466,25 +592,42 @@ async def qr_transfer_receive(code: str, data: dict):
         status_label = transfer.get("status", "?").replace("_", " ").title()
         raise HTTPException(status_code=400, detail=f"Transfer cannot be received — current status: {status_label}")
 
+    # ── Idempotency check ────────────────────────────────────────────────────
+    if transfer_ref:
+        already = await db.qr_action_log.find_one(
+            {"doc_id": doc_id, "action": "transfer_receive",
+             "release_ref": transfer_ref, "result": "success"},
+            {"_id": 0},
+        )
+        if already:
+            raise HTTPException(status_code=409, detail="This transfer receive was already processed")
+
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_transfer_receive", branch_id=transfer.get("to_branch_id", ""))
     if not verifier:
-        await _log_action(doc_ref, "transfer_receive", None, "PIN failed", result="failed", error="invalid_pin")
-        raise HTTPException(status_code=403, detail="Invalid PIN")
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "transfer_receive", client_ip, transfer.get("to_branch_id", ""))
+        await _log_action(doc_ref, "transfer_receive", None, "PIN failed",
+                          result="failed", error="invalid_pin", client_ip=client_ip, user_agent=user_agent)
+        raise HTTPException(status_code=403, detail={
+            "message": "Invalid PIN",
+            "warn": lockout["warn"],
+            "attempts_remaining": max(0, lockout["attempts_remaining"] - 1),
+        })
+    await log_successful_qr_pin_attempt(doc_ref["code"], doc_type, "transfer_receive", verifier["verifier_name"], client_ip)
 
     # Synthetic user built from the PIN verifier — needed by receive_transfer()
     synthetic_user = {
-        "id": verifier["verifier_id"],
+        "id":        verifier["verifier_id"],
         "full_name": verifier["verifier_name"],
-        "username": verifier["verifier_name"],
+        "username":  verifier["verifier_name"],
         "branch_id": transfer.get("to_branch_id", ""),
-        "role": "manager",
+        "role":      "manager",
     }
 
     from routes.branch_transfers import receive_transfer
     receive_data = {
-        "items": items_input,
-        "notes": notes,
+        "items":              items_input,
+        "notes":              notes,
         "skip_receipt_check": True,
     }
 
@@ -493,7 +636,8 @@ async def qr_transfer_receive(code: str, data: dict):
     item_summary = ", ".join(
         f"{i.get('product_id', '?')} ×{i.get('qty_received', 0)}" for i in items_input[:3]
     )
-    await _log_action(doc_ref, "transfer_receive", verifier, item_summary)
+    await _log_action(doc_ref, "transfer_receive", verifier, item_summary,
+                      release_ref=transfer_ref, client_ip=client_ip, user_agent=user_agent)
 
     return result
 

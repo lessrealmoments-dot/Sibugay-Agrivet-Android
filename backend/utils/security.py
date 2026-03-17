@@ -1,9 +1,11 @@
 """
 Security tracking: failed PIN/TOTP attempt logging and brute-force alerting.
 
-When a user (cashier, manager, etc.) enters the wrong PIN 5+ times within a
-30-minute window, a security notification is sent to all admins and an audit
-entry is logged — silently, without alerting the employee.
+Two layers:
+ 1. Authenticated users (cashier, manager, etc.) — existing log_failed_pin_attempt
+ 2. Anonymous QR endpoints — log_failed_qr_pin_attempt + check_qr_lockout
+
+When threshold is crossed: security notification to all admins + security_events entry.
 """
 from datetime import datetime, timezone, timedelta
 from config import db
@@ -11,6 +13,12 @@ from utils.helpers import new_id, now_iso
 
 ATTEMPT_THRESHOLD = 5          # alert after this many failures
 WINDOW_MINUTES = 30            # rolling time window
+
+# QR-specific constants (unauthenticated endpoints)
+QR_FAIL_WARN_THRESHOLD   = 5   # alert admins after this many failures per doc_code
+QR_FAIL_LOCK_THRESHOLD   = 10  # lock the doc_code after this many failures
+QR_LOCK_WINDOW_MINUTES   = 15  # rolling window for failure counting
+QR_LOCK_DURATION_MINUTES = 15  # how long a lockout lasts after the last failure
 
 
 async def log_failed_pin_attempt(user: dict, context: str, attempt_type: str):
@@ -135,4 +143,204 @@ async def _raise_security_alert(user_id, user_name, branch_id, failure_count, co
         "target_user_ids":  target_ids,
         "read_by":          [],
         "created_at":       now_iso(),
+    })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  QR-specific brute-force protection (anonymous callers — no user session)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def check_qr_lockout(doc_code: str) -> dict:
+    """
+    Check if a doc_code is currently locked due to too many failed PIN attempts.
+    Counts failures since the last successful attempt (auto-reset on success).
+
+    Returns:
+      { locked, failure_count, retry_after (seconds), warn, attempts_remaining }
+    """
+    window_start = (
+        datetime.now(timezone.utc) - timedelta(minutes=QR_LOCK_WINDOW_MINUTES)
+    ).isoformat()
+
+    # A successful attempt resets the failure counter for this doc_code
+    last_success = await db.pin_attempt_log.find_one(
+        {"doc_code": doc_code, "success": True},
+        {"_id": 0, "attempted_at": 1},
+        sort=[("attempted_at", -1)],
+    )
+    count_from = max(
+        window_start,
+        last_success["attempted_at"] if last_success else window_start,
+    )
+
+    recent_failures = await db.pin_attempt_log.count_documents({
+        "doc_code":     doc_code,
+        "success":      False,
+        "attempted_at": {"$gte": count_from},
+    })
+
+    attempts_remaining = max(0, QR_FAIL_LOCK_THRESHOLD - recent_failures)
+    warn = recent_failures >= QR_FAIL_WARN_THRESHOLD
+
+    if recent_failures < QR_FAIL_LOCK_THRESHOLD:
+        return {
+            "locked": False, "failure_count": recent_failures,
+            "retry_after": 0, "warn": warn,
+            "attempts_remaining": attempts_remaining,
+        }
+
+    # Locked — compute retry_after from the most recent failure
+    latest = await db.pin_attempt_log.find_one(
+        {"doc_code": doc_code, "success": False, "attempted_at": {"$gte": count_from}},
+        {"_id": 0, "attempted_at": 1},
+        sort=[("attempted_at", -1)],
+    )
+    if not latest:
+        return {"locked": False, "failure_count": recent_failures,
+                "retry_after": 0, "warn": True, "attempts_remaining": 0}
+
+    ts = latest["attempted_at"]
+    if ts.endswith("Z"):
+        ts = ts[:-1] + "+00:00"
+    latest_time = datetime.fromisoformat(ts)
+    if latest_time.tzinfo is None:
+        latest_time = latest_time.replace(tzinfo=timezone.utc)
+
+    unlock_time  = latest_time + timedelta(minutes=QR_LOCK_DURATION_MINUTES)
+    retry_after  = max(0, int((unlock_time - datetime.now(timezone.utc)).total_seconds()))
+
+    if retry_after <= 0:
+        return {"locked": False, "failure_count": recent_failures,
+                "retry_after": 0, "warn": True, "attempts_remaining": 0}
+
+    return {"locked": True, "failure_count": recent_failures,
+            "retry_after": retry_after, "warn": True, "attempts_remaining": 0}
+
+
+async def log_failed_qr_pin_attempt(
+    doc_code: str, doc_type: str, action: str,
+    client_ip: str = "", branch_id: str = "",
+):
+    """Log a failed PIN attempt from an unauthenticated QR endpoint."""
+    await db.pin_attempt_log.insert_one({
+        "id":           new_id(),
+        "user_id":      "anonymous",
+        "user_name":    f"Anonymous (QR:{doc_code})",
+        "attempt_type": "qr_action",
+        "context":      f"QR {action} on {doc_type} {doc_code}",
+        "doc_code":     doc_code,
+        "doc_type":     doc_type,
+        "action":       action,
+        "client_ip":    client_ip,
+        "branch_id":    branch_id,
+        "success":      False,
+        "attempted_at": now_iso(),
+    })
+
+    # Recount using the same window used by check_qr_lockout
+    last_success = await db.pin_attempt_log.find_one(
+        {"doc_code": doc_code, "success": True},
+        {"_id": 0, "attempted_at": 1},
+        sort=[("attempted_at", -1)],
+    )
+    window_start = (
+        datetime.now(timezone.utc) - timedelta(minutes=QR_LOCK_WINDOW_MINUTES)
+    ).isoformat()
+    count_from = max(
+        window_start,
+        last_success["attempted_at"] if last_success else window_start,
+    )
+    recent_failures = await db.pin_attempt_log.count_documents({
+        "doc_code": doc_code, "success": False,
+        "attempted_at": {"$gte": count_from},
+    })
+
+    if recent_failures >= QR_FAIL_WARN_THRESHOLD:
+        await _raise_qr_security_alert(
+            doc_code, doc_type, action, client_ip, branch_id, recent_failures
+        )
+
+
+async def log_successful_qr_pin_attempt(
+    doc_code: str, doc_type: str, action: str,
+    verifier_name: str = "", client_ip: str = "",
+):
+    """Log a successful QR PIN — resets the failure counter for this doc_code."""
+    await db.pin_attempt_log.insert_one({
+        "id":           new_id(),
+        "user_id":      "anonymous",
+        "user_name":    verifier_name or "Anonymous",
+        "attempt_type": "qr_action",
+        "context":      f"QR {action} on {doc_code} — SUCCESS",
+        "doc_code":     doc_code,
+        "doc_type":     doc_type,
+        "action":       action,
+        "client_ip":    client_ip,
+        "success":      True,
+        "attempted_at": now_iso(),
+    })
+
+
+async def _raise_qr_security_alert(
+    doc_code: str, doc_type: str, action: str,
+    client_ip: str, branch_id: str, failure_count: int,
+):
+    """Fire a security_events entry + admin notification for QR PIN brute-force."""
+    dedup_window = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    already = await db.security_events.find_one({
+        "doc_code":   doc_code,
+        "event_type": "qr_pin_brute_force",
+        "created_at": {"$gte": dedup_window},
+    })
+    if already:
+        return
+
+    locked   = failure_count >= QR_FAIL_LOCK_THRESHOLD
+    severity = "high" if locked else "medium"
+
+    await db.security_events.insert_one({
+        "id":            new_id(),
+        "event_type":    "qr_pin_brute_force",
+        "user_id":       "anonymous",
+        "user_name":     f"Unknown (IP: {client_ip or 'unknown'})",
+        "doc_code":      doc_code,
+        "doc_type":      doc_type,
+        "action":        action,
+        "client_ip":     client_ip,
+        "branch_id":     branch_id,
+        "failure_count": failure_count,
+        "attempt_type":  "qr_action",
+        "context":       f"QR PIN brute-force on {doc_type} {doc_code}",
+        "severity":      severity,
+        "locked":        locked,
+        "created_at":    now_iso(),
+    })
+
+    admins = await db.users.find(
+        {"role": "admin", "active": True}, {"_id": 0, "id": 1}
+    ).to_list(50)
+
+    severity_label = "URGENT — Document Locked" if locked else "Warning"
+    lock_note      = " The document has been temporarily locked for 15 minutes." if locked else ""
+
+    await db.notifications.insert_one({
+        "id":      new_id(),
+        "type":    "security_alert",
+        "title":   f"QR Security {severity_label}: Wrong PIN on {doc_code}",
+        "message": (
+            f"Someone entered the wrong PIN {failure_count} time(s) on document "
+            f"{doc_code} ({doc_type}) via QR scan. IP: {client_ip or 'unknown'}.{lock_note}"
+        ),
+        "branch_id": branch_id,
+        "metadata": {
+            "doc_code":      doc_code,
+            "doc_type":      doc_type,
+            "client_ip":     client_ip,
+            "failure_count": failure_count,
+            "severity":      severity,
+            "locked":        locked,
+        },
+        "target_user_ids": [a["id"] for a in admins],
+        "read_by":         [],
+        "created_at":      now_iso(),
     })

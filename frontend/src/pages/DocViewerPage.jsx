@@ -14,6 +14,39 @@ const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
 const php = (v) => `₱${(parseFloat(v) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtDateTime = (d) => { try { return new Date(d).toLocaleString('en-PH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return d || ''; } };
 
+// ── Shared: parse lockout error from 429 or 403 response ────────────────────
+function parsePinError(e) {
+  const detail = e.response?.data?.detail;
+  if (e.response?.status === 429 && detail?.locked) {
+    return { locked: true, retryAfter: detail.retry_after || 900, message: detail.message };
+  }
+  if (detail && typeof detail === 'object') {
+    return { locked: false, message: detail.message || 'Invalid PIN', attemptsRemaining: detail.attempts_remaining, warn: detail.warn };
+  }
+  return { locked: false, message: typeof detail === 'string' ? detail : 'Invalid PIN' };
+}
+
+// ── Lockout countdown display ─────────────────────────────────────────────────
+function LockoutBanner({ retryAfter, onExpired }) {
+  const [secs, setSecs] = React.useState(retryAfter);
+  React.useEffect(() => {
+    if (secs <= 0) { onExpired?.(); return; }
+    const t = setTimeout(() => setSecs(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [secs, onExpired]);
+  const m = Math.floor(secs / 60), s = secs % 60;
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-1 text-center" data-testid="lockout-banner">
+      <div className="flex items-center justify-center gap-2 text-red-700 font-semibold text-sm">
+        <Lock size={15} className="text-red-600" /> Document Temporarily Locked
+      </div>
+      <p className="text-xs text-red-500">Too many failed PIN attempts. Unlocks in</p>
+      <p className="text-2xl font-bold font-mono text-red-700">{String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}</p>
+      <p className="text-[10px] text-red-400">All admins have been notified.</p>
+    </div>
+  );
+}
+
 function getTerminalSession() {
   try { const s = localStorage.getItem('agrismart_terminal'); return s ? JSON.parse(s) : null; } catch { return null; }
 }
@@ -22,6 +55,8 @@ function getTerminalSession() {
 function StockReleaseManager({ basic, docCode, onStatusChange }) {
   // States: 'locked' | 'verifying' | 'unlocked' | 'confirming' | 'done'
   const [state, setState] = useState('locked');
+  const [lockout, setLockout] = useState(null); // { retryAfter }
+  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [verifierName, setVerifierName] = useState('');
@@ -56,7 +91,17 @@ function StockReleaseManager({ basic, docCode, onStatusChange }) {
       setVerifiedPin(pin);
       setState('unlocked');
       setPin('');
-    } catch (e) { setPinError(e.response?.data?.detail || 'Invalid PIN'); }
+      setLockout(null); setAttemptsRemaining(null);
+    } catch (e) {
+      const parsed = parsePinError(e);
+      if (parsed.locked) {
+        setLockout({ retryAfter: parsed.retryAfter });
+        setState('locked');
+      } else {
+        setPinError(parsed.message);
+        if (parsed.attemptsRemaining != null) setAttemptsRemaining(parsed.attemptsRemaining);
+      }
+    }
     setVerifying(false);
   };
 
@@ -123,26 +168,33 @@ function StockReleaseManager({ basic, docCode, onStatusChange }) {
 
   // ── Locked button ─────────────────────────────────────────────────────────
   if (state === 'locked') return (
-    <button onClick={() => setState('verifying')} data-testid="manage-releases-btn"
-      className="w-full bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
-          <Lock size={16} className="text-amber-600" />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-semibold text-slate-800">
-            {canRelease ? 'Release Stocks / View History' : 'View Release History'}
-          </p>
-          <p className="text-xs text-slate-400">
-            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mr-1 ${releaseStatusColor(basic.stock_release_status)}`}>
-              {releaseStatusLabel(basic.stock_release_status)}
-            </span>
-            {releases.length > 0 && `${releases.length} batch${releases.length !== 1 ? 'es' : ''} · ${totalReleased} of ${totalOrdered} units released`}
-          </p>
-        </div>
-      </div>
-      <ChevronDown size={16} className="text-slate-400" />
-    </button>
+    <div className="space-y-3">
+      {lockout && (
+        <LockoutBanner retryAfter={lockout.retryAfter} onExpired={() => setLockout(null)} />
+      )}
+      {!lockout && (
+        <button onClick={() => setState('verifying')} data-testid="manage-releases-btn"
+          className="w-full bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+              <Lock size={16} className="text-amber-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-slate-800">
+                {canRelease ? 'Release Stocks / View History' : 'View Release History'}
+              </p>
+              <p className="text-xs text-slate-400">
+                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium mr-1 ${releaseStatusColor(basic.stock_release_status)}`}>
+                  {releaseStatusLabel(basic.stock_release_status)}
+                </span>
+                {releases.length > 0 && `${releases.length} batch${releases.length !== 1 ? 'es' : ''} · ${totalReleased} of ${totalOrdered} units released`}
+              </p>
+            </div>
+          </div>
+          <ChevronDown size={16} className="text-slate-400" />
+        </button>
+      )}
+    </div>
   );
 
   // ── PIN prompt ────────────────────────────────────────────────────────────
@@ -169,8 +221,13 @@ function StockReleaseManager({ basic, docCode, onStatusChange }) {
         data-testid="release-access-pin"
       />
       {pinError && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{pinError}</p>}
+      {attemptsRemaining != null && attemptsRemaining <= 4 && (
+        <p className="text-amber-600 text-xs flex items-center gap-1">
+          <AlertTriangle size={11} /> {attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''} remaining before lockout
+        </p>
+      )}
       <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" onClick={() => { setState('locked'); setPin(''); setPinError(''); }}>Cancel</Button>
+        <Button variant="outline" className="flex-1" onClick={() => { setState('locked'); setPin(''); setPinError(''); setAttemptsRemaining(null); }}>Cancel</Button>
         <Button className="flex-1 bg-amber-600 hover:bg-amber-700 text-white" onClick={handleVerifyPin} disabled={verifying || !pin} data-testid="access-confirm-btn">
           {verifying ? <RefreshCw size={14} className="animate-spin mr-2" /> : <Lock size={14} className="mr-2" />}Access
         </Button>
@@ -410,6 +467,7 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
 
   const handleSubmit = async () => {
     setSubmitting(true); setError('');
+    const paymentRef = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
     try {
       const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/receive_payment`, {
         pin: storedPin,
@@ -417,6 +475,7 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
         method,
         reference,
         upload_session_id: uploadSessionId || undefined,
+        payment_ref: paymentRef,
       });
       setResult(res.data);
       setBalance(res.data.new_balance);
@@ -576,6 +635,8 @@ function TransferReceivePanel({ basic, docCode, onReceived }) {
   const [verifying, setVerifying] = useState(false);
   const [verifierName, setVerifierName] = useState('');
   const [verifiedPin, setVerifiedPin] = useState('');
+  const [lockout, setLockout] = useState(null);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
   const [receiveItems, setReceiveItems] = useState(() =>
     (basic.items || []).map(i => ({ ...i, input_qty: String(i.qty) }))
   );
@@ -603,25 +664,30 @@ function TransferReceivePanel({ basic, docCode, onReceived }) {
       setVerifiedPin(pin);
       setState('unlocked');
       setPin('');
-    } catch (e) { setPinError(e.response?.data?.detail || 'Invalid PIN'); }
+      setLockout(null); setAttemptsRemaining(null);
+    } catch (e) {
+      const parsed = parsePinError(e);
+      if (parsed.locked) {
+        setLockout({ retryAfter: parsed.retryAfter });
+        setState('locked');
+      } else {
+        setPinError(parsed.message);
+        if (parsed.attemptsRemaining != null) setAttemptsRemaining(parsed.attemptsRemaining);
+      }
+    }
     setVerifying(false);
-  };
-
-  const handlePrepare = () => {
-    const bad = receiveItems.find(it => parseFloat(it.input_qty) < 0);
-    if (bad) { setError('Quantities cannot be negative'); return; }
-    setError(''); setState('confirming');
   };
 
   const handleConfirm = async () => {
     setSubmitting(true); setError('');
+    const transferRef = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
     const items = receiveItems.map(it => ({
       product_id: it.product_id || it.name,
       qty_received: parseFloat(it.input_qty) || 0,
     }));
     try {
       const res = await axios.post(`${BACKEND}/api/qr-actions/${docCode}/transfer_receive`, {
-        pin: verifiedPin, items, notes,
+        pin: verifiedPin, items, notes, transfer_ref: transferRef,
       });
       setResult(res.data);
       if (onReceived) onReceived(res.data);
@@ -630,20 +696,33 @@ function TransferReceivePanel({ basic, docCode, onReceived }) {
     setSubmitting(false);
   };
 
+  const handlePrepare = () => {
+    const bad = receiveItems.find(it => parseFloat(it.input_qty) < 0);
+    if (bad) { setError('Quantities cannot be negative'); return; }
+    setError(''); setState('confirming');
+  };
+
   if (state === 'locked') return (
-    <button onClick={() => setState('verifying')} data-testid="transfer-receive-btn"
-      className="w-full bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-          <Package size={16} className="text-emerald-600" />
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-semibold text-slate-800">Receive Stocks</p>
-          <p className="text-xs text-slate-400">{basic.items?.length || 0} item{basic.items?.length !== 1 ? 's' : ''} · PIN required</p>
-        </div>
-      </div>
-      <ChevronDown size={16} className="text-slate-400" />
-    </button>
+    <div className="space-y-3">
+      {lockout && (
+        <LockoutBanner retryAfter={lockout.retryAfter} onExpired={() => setLockout(null)} />
+      )}
+      {!lockout && (
+        <button onClick={() => setState('verifying')} data-testid="transfer-receive-btn"
+          className="w-full bg-white rounded-xl border border-slate-200 px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Package size={16} className="text-emerald-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-slate-800">Receive Stocks</p>
+              <p className="text-xs text-slate-400">{basic.items?.length || 0} item{basic.items?.length !== 1 ? 's' : ''} · PIN required</p>
+            </div>
+          </div>
+          <ChevronDown size={16} className="text-slate-400" />
+        </button>
+      )}
+    </div>
   );
 
   if (state === 'verifying') return (
@@ -664,8 +743,13 @@ function TransferReceivePanel({ basic, docCode, onReceived }) {
         className="w-full h-12 text-center text-xl font-mono tracking-widest rounded-lg border border-input bg-background px-3"
         data-testid="transfer-access-pin" />
       {pinError && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{pinError}</p>}
+      {attemptsRemaining != null && attemptsRemaining <= 4 && (
+        <p className="text-amber-600 text-xs flex items-center gap-1">
+          <AlertTriangle size={11} /> {attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''} remaining before lockout
+        </p>
+      )}
       <div className="flex gap-2">
-        <button onClick={() => { setState('locked'); setPin(''); setPinError(''); }}
+        <button onClick={() => { setState('locked'); setPin(''); setPinError(''); setAttemptsRemaining(null); }}
           className="flex-1 h-10 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50">Cancel</button>
         <button onClick={handleVerifyPin} disabled={verifying || !pin}
           className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold disabled:opacity-60"
@@ -800,6 +884,8 @@ export default function DocViewerPage() {
   const [pinError, setPinError] = useState('');
   const [fullData, setFullData] = useState(null);
   const [unlockedPin, setUnlockedPin] = useState(''); // stored PIN reused for payment
+  const [tier2Lockout, setTier2Lockout] = useState(null);
+  const [tier2AttemptsRemaining, setTier2AttemptsRemaining] = useState(null);
 
   const [terminalSession] = useState(() => getTerminalSession());
   const isTerminal = !!terminalSession;
@@ -827,9 +913,19 @@ export default function DocViewerPage() {
     setPinLoading(true); setPinError('');
     try {
       const res = await axios.post(`${BACKEND}/api/doc/lookup`, { code: code?.toUpperCase(), pin });
-      setUnlockedPin(pin); // store for payment reuse
+      setUnlockedPin(pin);
       setFullData(res.data); setShowPinPrompt(false); setPin('');
-    } catch (e) { setPinError(e.response?.data?.detail || 'Invalid PIN'); }
+      setTier2Lockout(null); setTier2AttemptsRemaining(null);
+    } catch (e) {
+      const parsed = parsePinError(e);
+      if (parsed.locked) {
+        setTier2Lockout({ retryAfter: parsed.retryAfter });
+        setShowPinPrompt(false);
+      } else {
+        setPinError(parsed.message);
+        if (parsed.attemptsRemaining != null) setTier2AttemptsRemaining(parsed.attemptsRemaining);
+      }
+    }
     setPinLoading(false);
   };
 
@@ -969,7 +1065,11 @@ export default function DocViewerPage() {
         {/* Tier 2: PIN Full Details */}
         {!fullData ? (
           <div className="bg-white rounded-xl border overflow-hidden" data-testid="tier2-locked">
-            {!showPinPrompt ? (
+            {tier2Lockout ? (
+              <div className="p-5">
+                <LockoutBanner retryAfter={tier2Lockout.retryAfter} onExpired={() => setTier2Lockout(null)} />
+              </div>
+            ) : !showPinPrompt ? (
               <button onClick={() => setShowPinPrompt(true)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors" data-testid="view-full-details-btn">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center"><Lock size={16} className="text-amber-600" /></div>
@@ -989,8 +1089,13 @@ export default function DocViewerPage() {
                   placeholder="Manager PIN, Admin PIN, or TOTP"
                   className="h-11 text-center text-lg font-mono tracking-widest" autoFocus />
                 {pinError && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{pinError}</p>}
+                {tier2AttemptsRemaining != null && tier2AttemptsRemaining <= 4 && (
+                  <p className="text-amber-600 text-xs flex items-center gap-1">
+                    <AlertTriangle size={11} /> {tier2AttemptsRemaining} attempt{tier2AttemptsRemaining !== 1 ? 's' : ''} remaining before lockout
+                  </p>
+                )}
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1 h-10" onClick={() => { setShowPinPrompt(false); setPin(''); setPinError(''); }}>Cancel</Button>
+                  <Button variant="outline" className="flex-1 h-10" onClick={() => { setShowPinPrompt(false); setPin(''); setPinError(''); setTier2AttemptsRemaining(null); }}>Cancel</Button>
                   <Button className="flex-1 h-10 bg-[#1A4D2E] hover:bg-[#14532d] text-white" onClick={handleUnlockFull} disabled={pinLoading || !pin} data-testid="tier2-unlock-btn">
                     {pinLoading ? 'Verifying...' : 'Unlock'}
                   </Button>

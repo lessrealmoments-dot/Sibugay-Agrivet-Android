@@ -691,7 +691,8 @@ const PrintEngine = {
     const printScript = `
 <script>
 (function() {
-  function doPrint() { window.print(); }
+  var printed = false;
+  function doPrint() { if (printed) return; printed = true; window.print(); }
   var imgs = document.images;
   if (!imgs.length) { doPrint(); return; }
   var remaining = imgs.length;

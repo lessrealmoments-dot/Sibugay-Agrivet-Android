@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import SaleDetailModal from '../components/SaleDetailModal';
 import { toast } from 'sonner';
 import {
   Package, RefreshCw, ExternalLink, AlertTriangle, Search,
@@ -325,6 +326,8 @@ export default function PendingReleasesPage() {
 
   const isAdmin = user?.role === 'admin';
   const effectiveBranch = (branchFilter === '__all__' ? '' : branchFilter) || currentBranch?.id || '';
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -502,7 +505,13 @@ export default function PendingReleasesPage() {
                   return (
                     <TableRow key={inv.id} className={isOverdue ? 'bg-red-50/30' : ''} data-testid={`release-row-${inv.id}`}>
                       <TableCell>
-                        <span className="font-mono text-sm text-blue-600 font-medium">{inv.invoice_number}</span>
+                        <button
+                          className="font-mono text-sm text-blue-600 font-medium hover:underline hover:text-blue-800 text-left"
+                          onClick={() => { setSelectedInvoiceId(inv.id); setInvoiceModalOpen(true); }}
+                          data-testid={`invoice-link-${inv.id}`}
+                        >
+                          {inv.invoice_number}
+                        </button>
                         {inv.doc_code && (
                           <div className="text-[10px] text-slate-400 font-mono mt-0.5">{inv.doc_code}</div>
                         )}
@@ -588,6 +597,14 @@ export default function PendingReleasesPage() {
           handleReleased(id, status);
           if (status === 'fully_released') setReleaseTarget(null);
         }}
+      />
+
+      {/* Invoice Detail Modal — same as Sales History */}
+      <SaleDetailModal
+        open={invoiceModalOpen}
+        onOpenChange={setInvoiceModalOpen}
+        saleId={selectedInvoiceId}
+        onUpdated={fetchData}
       />
     </div>
   );

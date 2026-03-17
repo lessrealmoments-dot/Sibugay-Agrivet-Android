@@ -26,6 +26,15 @@ function parsePinError(e) {
   return { locked: false, message: typeof detail === 'string' ? detail : 'Invalid PIN' };
 }
 
+// Safely extract a string message from any API error response
+function extractDetail(e, fallback = 'Something went wrong') {
+  const d = e?.response?.data?.detail;
+  if (!d) return fallback;
+  if (typeof d === 'string') return d;
+  if (typeof d === 'object') return d.message || fallback;
+  return fallback;
+}
+
 // ── Lockout countdown display ─────────────────────────────────────────────────
 function LockoutBanner({ retryAfter, onExpired }) {
   const [secs, setSecs] = React.useState(retryAfter);
@@ -481,7 +490,7 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
       setBalance(res.data.new_balance);
       if (onPaymentRecorded) onPaymentRecorded(res.data);
       setState('done');
-    } catch (e) { setError(e.response?.data?.detail || 'Payment failed'); setState('form'); }
+    } catch (e) { setError(extractDetail(e, 'Payment failed')); setState('form'); }
     setSubmitting(false);
   };
 
@@ -692,7 +701,7 @@ function TransferReceivePanel({ basic, docCode, onReceived }) {
       setResult(res.data);
       if (onReceived) onReceived(res.data);
       setState('done');
-    } catch (e) { setError(e.response?.data?.detail || 'Receive failed'); setState('unlocked'); }
+    } catch (e) { setError(extractDetail(e, 'Receive failed')); setState('unlocked'); }
     setSubmitting(false);
   };
 
@@ -899,7 +908,7 @@ export default function DocViewerPage() {
     setLoading(true);
     axios.get(`${BACKEND}/api/doc/view/${code?.toUpperCase()}`)
       .then(res => { setBasic(res.data); setReleaseStatus(res.data.stock_release_status); setError(''); })
-      .catch(e => setError(e.response?.data?.detail || 'Document not found'))
+      .catch(e => setError(extractDetail(e, 'Document not found')))
       .finally(() => setLoading(false));
   }, [code]);
 

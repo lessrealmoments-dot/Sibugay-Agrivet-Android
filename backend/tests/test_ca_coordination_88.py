@@ -18,7 +18,7 @@ from datetime import datetime
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    BASE_URL = "https://agrismart-terminal-1.preview.emergentagent.com"
+    BASE_URL = "https://inventory-override.preview.emergentagent.com"
 
 # Test credentials
 TEST_EMAIL = "janmarkeahig@gmail.com"

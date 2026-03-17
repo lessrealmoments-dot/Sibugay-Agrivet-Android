@@ -138,7 +138,20 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - Fixed critical P0 bug: added getDerivedStateFromProps pattern (`prevLayoutKey` guard) so layouts reset synchronously on owner↔branch view switch — no widget collapses after branch change
 - Added CSS for resize handle (bottom-right corner indicator)
 
-### Phase 3 — QR Payment Receive (NEXT UP)
+### Controlled Negative Stock Override (Complete — Mar 2026)
+- Hard stock block replaced with structured 422 `insufficient_stock` response listing all failing items
+- `InsufficientStockModal` in `UnifiedSalesPage.js`: 3 options — Encode PO, Manager Override, Cancel
+- Manager Override requires PIN (`stock_negative_override` policy: manager_pin / admin_pin / totp)
+- Override passes `manager_override_pin` on retry; backend verifies PIN, skips stock guard, allows negative inventory
+- Auto-creates `incident_tickets` record (`ticket_type: "negative_stock_override"`, `status: open`) per overridden item — linked to invoice, records who approved and method
+- Inventory page: negative items show red "Negative — Investigate" badge with red row background
+- Close Wizard Step 1: non-blocking warning banner listing negative items + link to Incident Tickets
+- Count Sheets snapshot: items with negative available qty get `has_negative_stock: true` flag + "⚠ Negative — check open ticket" warning in red
+- Low-stock alert endpoint: `negative_stock` status added, sorts above `out_of_stock`
+- Moving average: completely unaffected (only `purchase`/`transfer_in` movements update MA)
+- Offline: same as before — offline sync already allows negative with `stock_warnings`; online path now consistent
+
+
 `POST /api/qr-actions/{code}/receive_payment`
 - Receives cash/digital payments on invoices via QR scan
 - Routes to existing wallet functions (update_cashier_wallet / update_digital_wallet)

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell, Settings, ChevronRight, Unlink, Search } from 'lucide-react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell, Settings, ChevronRight, Unlink, Search, QrCode, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
@@ -32,12 +32,17 @@ export default function TerminalShell({ session, onLogout }) {
   const [dataReady, setDataReady] = useState(false);
   const [docCodeInput, setDocCodeInput] = useState('');
   const [showDocSearch, setShowDocSearch] = useState(false);
+  const [docSearchResults, setDocSearchResults] = useState([]);
+  const [docSearchLoading, setDocSearchLoading] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncProgress, setSyncProgress] = useState('');
   const [notifications, setNotifications] = useState([]);
   const wsRef = useRef(null);
   const poRefreshRef = useRef(null); // callback to refresh PO list
   const transferRefreshRef = useRef(null);
+  // Global hardware scanner buffer (for H10P Newland HID keyboard wedge)
+  const globalScanBufferRef = useRef('');
+  const globalScanTimerRef = useRef(null);
 
   // Authenticated axios instance
   const [api] = useState(() => {
@@ -51,6 +56,77 @@ export default function TerminalShell({ session, onLogout }) {
     });
     return instance;
   });
+
+  // ── Smart scan helpers ────────────────────────────────────────────────────
+  // Extract 8-char doc code from various input formats (URL, deeplink, raw code)
+  const extractDocCode = (input) => {
+    const t = input.trim();
+    // Full URL containing /doc/CODE
+    const urlMatch = t.match(/\/doc\/([A-Z0-9]{6,10})(?:[?/#]|$)/i);
+    if (urlMatch) return urlMatch[1].toUpperCase();
+    // agrismart:// deep link
+    if (t.toLowerCase().startsWith('agrismart://doc/')) {
+      const code = t.split('agrismart://doc/')[1]?.split(/[?/#]/)[0].toUpperCase();
+      if (/^[A-Z0-9]{6,10}$/.test(code)) return code;
+    }
+    // Raw doc code: 8 uppercase alphanumeric, not all-digits (barcode is all-digits)
+    const upper = t.toUpperCase();
+    if (/^[A-Z0-9]{8}$/.test(upper) && !/^\d+$/.test(upper)) return upper;
+    return null;
+  };
+
+  // Detect invoice/PO/transfer number patterns (e.g. KS-001, PO-2025-001)
+  const looksLikeDocNumber = (input) => /^[A-Z]{1,5}[-/]\d/i.test(input.trim());
+
+  // Search backend by document number
+  const performDocSearch = useCallback(async (query) => {
+    if (!query || query.length < 2) { setDocSearchResults([]); return; }
+    setDocSearchLoading(true);
+    try {
+      const res = await api.get('/doc/search', { params: { q: query, branch_id: session.branchId } });
+      setDocSearchResults(res.data.results || []);
+    } catch { setDocSearchResults([]); }
+    setDocSearchLoading(false);
+  }, [api, session.branchId]);
+
+  // Route any scanned/typed input to the right action
+  const handleSmartInput = useCallback((scanned) => {
+    const docCode = extractDocCode(scanned);
+    if (docCode) {
+      navigate(`/doc/${docCode}?branch=${session.branchId}`);
+      return;
+    }
+    if (looksLikeDocNumber(scanned)) {
+      setDocCodeInput(scanned);
+      setShowDocSearch(true);
+      performDocSearch(scanned);
+      return;
+    }
+    // Falls through — product barcode handled by TerminalSales keyboard listener
+  }, [navigate, session.branchId, performDocSearch]); // eslint-disable-line
+
+  // Global keyboard scanner — intercepts H10P HID hardware scanner output in any tab
+  useEffect(() => {
+    const handleGlobalKey = (e) => {
+      // Only intercept when NOT typing in an input/textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+      if (e.key === 'Enter') {
+        const scanned = globalScanBufferRef.current.trim();
+        globalScanBufferRef.current = '';
+        clearTimeout(globalScanTimerRef.current);
+        if (scanned.length >= 3) handleSmartInput(scanned);
+        return;
+      }
+      if (e.key.length === 1) {
+        globalScanBufferRef.current += e.key;
+        clearTimeout(globalScanTimerRef.current);
+        // Reset buffer after 200ms — scanner fires much faster than human typing
+        globalScanTimerRef.current = setTimeout(() => { globalScanBufferRef.current = ''; }, 200);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => { window.removeEventListener('keydown', handleGlobalKey); clearTimeout(globalScanTimerRef.current); };
+  }, [handleSmartInput]);
 
   // Online/offline detection
   useEffect(() => {
@@ -213,31 +289,66 @@ export default function TerminalShell({ session, onLogout }) {
           <span className="text-xs text-slate-500 border-l border-slate-200 pl-2">{session.branchName}</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Find by Doc Code */}
+          {/* Smart Doc Search — accepts 8-char doc codes, invoice numbers, PO numbers */}
           {showDocSearch ? (
-            <div className="flex items-center gap-1">
-              <input
-                autoFocus
-                type="text"
-                value={docCodeInput}
-                onChange={e => setDocCodeInput(e.target.value.toUpperCase())}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && docCodeInput.trim().length >= 6) navigate(`/doc/${docCodeInput.trim()}`);
-                  if (e.key === 'Escape') { setShowDocSearch(false); setDocCodeInput(''); }
-                }}
-                placeholder="Doc code..."
-                maxLength={10}
-                className="h-7 w-28 text-center font-mono text-sm rounded-lg border border-slate-200 bg-white px-2 uppercase tracking-widest"
-                data-testid="terminal-doc-code-input"
-              />
-              <button onClick={() => { if (docCodeInput.trim().length >= 6) navigate(`/doc/${docCodeInput.trim()}`); }}
-                disabled={docCodeInput.trim().length < 6}
-                className="h-7 px-2 rounded-lg bg-[#1A4D2E] text-white text-xs disabled:opacity-40"
-                data-testid="terminal-doc-code-go-btn">Go</button>
-              <button onClick={() => { setShowDocSearch(false); setDocCodeInput(''); }} className="h-7 px-1.5 rounded-lg border border-slate-200 text-slate-400 text-xs">✕</button>
+            <div className="relative">
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  type="text"
+                  value={docCodeInput}
+                  onChange={e => {
+                    const v = e.target.value.toUpperCase();
+                    setDocCodeInput(v);
+                    // Auto-navigate if it looks like a raw 8-char doc code
+                    const code = v.trim();
+                    if (/^[A-Z0-9]{8}$/.test(code) && !/^\d+$/.test(code)) {
+                      navigate(`/doc/${code}?branch=${session.branchId}`);
+                      setShowDocSearch(false); setDocCodeInput(''); setDocSearchResults([]);
+                      return;
+                    }
+                    performDocSearch(v);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const v = docCodeInput.trim();
+                      if (v.length >= 2) { handleSmartInput(v); setShowDocSearch(false); setDocCodeInput(''); setDocSearchResults([]); }
+                    }
+                    if (e.key === 'Escape') { setShowDocSearch(false); setDocCodeInput(''); setDocSearchResults([]); }
+                  }}
+                  placeholder="Code or invoice #..."
+                  maxLength={20}
+                  className="h-7 w-36 text-center font-mono text-sm rounded-lg border border-slate-200 bg-white px-2 uppercase tracking-widest"
+                  data-testid="terminal-doc-code-input"
+                />
+                {docSearchLoading && <Loader2 size={12} className="animate-spin text-slate-400" />}
+                <button onClick={() => { setShowDocSearch(false); setDocCodeInput(''); setDocSearchResults([]); }} className="h-7 px-1.5 rounded-lg border border-slate-200 text-slate-400 text-xs">
+                  <X size={12} />
+                </button>
+              </div>
+              {/* Search results dropdown */}
+              {docSearchResults.length > 0 && (
+                <div className="absolute top-8 left-0 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden min-w-[240px]" data-testid="doc-search-results">
+                  {docSearchResults.map((r, i) => (
+                    <button key={i} onClick={() => { navigate(`/doc/${r.doc_code}?branch=${session.branchId}`); setShowDocSearch(false); setDocCodeInput(''); setDocSearchResults([]); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-emerald-50 border-b border-slate-50 last:border-0"
+                      data-testid={`doc-search-result-${r.doc_code}`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{r.number}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{r.label}</p>
+                      </div>
+                      <div className="text-right ml-2 shrink-0">
+                        <p className="text-[10px] font-mono text-emerald-700">{r.doc_code}</p>
+                        <p className="text-[9px] text-slate-400 capitalize">{r.doc_type.replace('_', ' ')}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
-            <button onClick={() => setShowDocSearch(true)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" title="Find by doc code" data-testid="terminal-find-code-btn">
+            <button onClick={() => setShowDocSearch(true)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500" title="Find by doc code or invoice number" data-testid="terminal-find-code-btn">
               <Search size={14} />
             </button>
           )}

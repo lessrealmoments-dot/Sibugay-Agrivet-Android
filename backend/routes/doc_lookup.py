@@ -359,3 +359,82 @@ async def get_doc_code_by_ref(doc_type: str, doc_id: str, user=Depends(get_curre
     if doc_ref:
         return {"code": doc_ref["code"]}
     return {"code": None}
+
+
+@router.get("/search")
+async def search_documents(q: str = "", branch_id: str = ""):
+    """
+    Search for documents by invoice number, PO number, or transfer order number.
+    Branch-scoped: only returns results from the specified branch (or transfers involving it).
+    Used by the terminal smart scanner to resolve human-readable numbers to doc codes.
+    """
+    if not q or not branch_id:
+        raise HTTPException(status_code=400, detail="q and branch_id are required")
+
+    q_stripped = q.strip()
+    results = []
+
+    # Search invoices by invoice_number
+    invoices = await db.invoices.find(
+        {"branch_id": branch_id, "invoice_number": {"$regex": q_stripped, "$options": "i"}},
+        {"_id": 0, "id": 1, "invoice_number": 1, "doc_code": 1,
+         "customer_name": 1, "grand_total": 1, "status": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+
+    for inv in invoices:
+        if inv.get("doc_code"):
+            results.append({
+                "doc_type": "invoice",
+                "number": inv.get("invoice_number", ""),
+                "doc_code": inv["doc_code"],
+                "label": inv.get("customer_name", "Walk-in"),
+                "status": inv.get("status", ""),
+                "amount": inv.get("grand_total", 0),
+            })
+
+    # Search purchase orders by po_number
+    pos = await db.purchase_orders.find(
+        {"branch_id": branch_id, "po_number": {"$regex": q_stripped, "$options": "i"}},
+        {"_id": 0, "id": 1, "po_number": 1, "doc_code": 1,
+         "vendor": 1, "grand_total": 1, "status": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+
+    for po in pos:
+        if po.get("doc_code"):
+            results.append({
+                "doc_type": "purchase_order",
+                "number": po.get("po_number", ""),
+                "doc_code": po["doc_code"],
+                "label": po.get("vendor", ""),
+                "status": po.get("status", ""),
+                "amount": po.get("grand_total", 0),
+            })
+
+    # Search branch transfers by order_number or invoice_number (from or to this branch)
+    transfers = await db.branch_transfer_orders.find(
+        {
+            "$and": [
+                {"$or": [{"from_branch_id": branch_id}, {"to_branch_id": branch_id}]},
+                {"$or": [
+                    {"order_number": {"$regex": q_stripped, "$options": "i"}},
+                    {"invoice_number": {"$regex": q_stripped, "$options": "i"}},
+                ]},
+            ]
+        },
+        {"_id": 0, "id": 1, "order_number": 1, "invoice_number": 1,
+         "doc_code": 1, "from_branch_id": 1, "to_branch_id": 1, "status": 1}
+    ).sort("created_at", -1).limit(5).to_list(5)
+
+    for t in transfers:
+        if t.get("doc_code"):
+            number = t.get("order_number") or t.get("invoice_number", "")
+            results.append({
+                "doc_type": "branch_transfer",
+                "number": number,
+                "doc_code": t["doc_code"],
+                "label": f"Transfer {number}",
+                "status": t.get("status", ""),
+                "amount": 0,
+            })
+
+    return {"results": results, "total": len(results)}

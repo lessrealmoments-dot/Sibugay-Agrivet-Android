@@ -187,6 +187,10 @@ PIN_POLICY_ACTIONS = [
     {"key": "qr_view_payment_history","label": "QR — View Payment History",      "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "qr_po_receive",          "label": "QR — Receive Purchase Order",    "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "qr_transfer_receive",    "label": "QR — Receive Branch Transfer",   "module": "QR Operations",     "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Cross-branch QR action — TOTP only (no static manager PIN), prevents PIN leakage
+    {"key": "qr_cross_branch_action", "label": "QR — Cross-Branch Action (TOTP only)", "module": "QR Operations", "defaults": ["totp"]},
+    # Terminal Operations
+    {"key": "terminal_pull",          "label": "Terminal — Pull PO or Transfer", "module": "Terminal",          "defaults": ["admin_pin", "manager_pin", "totp"]},
 ]
 
 # Build quick lookup: action_key → default methods

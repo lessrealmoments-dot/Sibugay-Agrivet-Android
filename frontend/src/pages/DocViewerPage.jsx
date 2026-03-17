@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import {
   Lock, FileText, Building2, ArrowRight, CreditCard, CheckCircle2,
   AlertTriangle, Printer, Image, Smartphone, Package, ChevronDown,
-  ShieldCheck, RefreshCw, Search, Boxes, Banknote, Wifi, Camera, X
+  ShieldCheck, RefreshCw, Search, Boxes, Banknote, Wifi, Camera, X, MapPin
 } from 'lucide-react';
 import axios from 'axios';
+import PrintEngine from '../lib/PrintEngine';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
 const php = (v) => `₱${(parseFloat(v) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -879,13 +880,18 @@ function TransferReceivePanel({ basic, docCode, onReceived }) {
 export default function DocViewerPage() {
   const { code: codeParam } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [manualCode, setManualCode] = useState('');
   const code = codeParam;
+
+  // Terminal branch context — passed as ?branch= when navigating from terminal
+  const terminalBranchId = searchParams.get('branch') || '';
 
   const [basic, setBasic] = useState(null);
   const [loading, setLoading] = useState(!!code);
   const [error, setError] = useState('');
   const [releaseStatus, setReleaseStatus] = useState(null);
+  const [businessInfo, setBusinessInfo] = useState({});
 
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [pin, setPin] = useState('');
@@ -903,6 +909,35 @@ export default function DocViewerPage() {
   const [terminalLoading, setTerminalLoading] = useState(false);
   const [terminalError, setTerminalError] = useState('');
 
+  // Cross-branch: TOTP-only gate for foreign branch documents
+  const [crossBranchPin, setCrossBranchPin] = useState('');
+  const [crossBranchVerifying, setCrossBranchVerifying] = useState(false);
+  const [crossBranchError, setCrossBranchError] = useState('');
+  const [crossBranchVerifiedPin, setCrossBranchVerifiedPin] = useState('');
+  const [crossBranchVerifierName, setCrossBranchVerifierName] = useState('');
+
+  // Detect if this document belongs to a different branch than the terminal
+  const isForeignBranch = useMemo(() => {
+    if (!terminalBranchId || !basic) return false;
+    if (basic.doc_type === 'invoice' || basic.doc_type === 'purchase_order') {
+      return !!(basic.branch_id && basic.branch_id !== terminalBranchId);
+    }
+    if (basic.doc_type === 'branch_transfer') {
+      return !!(basic.to_branch_id && basic.to_branch_id !== terminalBranchId);
+    }
+    return false;
+  }, [basic, terminalBranchId]);
+
+  const crossBranchUnlocked = !!crossBranchVerifiedPin;
+
+  // Fetch business info for printing (use terminal token if available)
+  useEffect(() => {
+    const headers = terminalSession?.token ? { Authorization: `Bearer ${terminalSession.token}` } : {};
+    axios.get(`${BACKEND}/api/settings/business-info`, { headers })
+      .then(r => setBusinessInfo(r.data || {}))
+      .catch(() => {});
+  }, []); // eslint-disable-line
+
   useEffect(() => {
     if (!code) return;
     setLoading(true);
@@ -915,6 +950,42 @@ export default function DocViewerPage() {
   const handleManualLookup = () => {
     const c = manualCode.trim().toUpperCase();
     if (c.length >= 6) navigate(`/doc/${c}`);
+  };
+
+  // Reprint using PrintEngine (proper formatted receipt, not raw window.print)
+  const handleReprint = (format = 'thermal') => {
+    if (!fullData?.document) return;
+    const doc = fullData.document;
+    let docType;
+    if (basic.doc_type === 'invoice') docType = PrintEngine.getDocType(doc);
+    else if (basic.doc_type === 'purchase_order') docType = 'purchase_order';
+    else if (basic.doc_type === 'branch_transfer') docType = 'branch_transfer';
+    else docType = 'order_slip';
+    PrintEngine.print({ type: docType, data: doc, format, businessInfo, docCode: code?.toUpperCase() });
+  };
+
+  // Cross-branch TOTP verification — only 6-digit time-based code accepted
+  const handleCrossBranchVerify = async () => {
+    if (!crossBranchPin || crossBranchPin.length !== 6 || !/^\d+$/.test(crossBranchPin)) {
+      setCrossBranchError('Enter your 6-digit TOTP (time-based code from authenticator app)');
+      return;
+    }
+    setCrossBranchVerifying(true);
+    setCrossBranchError('');
+    try {
+      const res = await axios.post(`${BACKEND}/api/qr-actions/${code?.toUpperCase()}/verify_pin`, { pin: crossBranchPin });
+      setCrossBranchVerifiedPin(crossBranchPin);
+      setCrossBranchVerifierName(res.data.verifier_name);
+      setCrossBranchPin('');
+    } catch (e) {
+      const parsed = parsePinError(e);
+      if (parsed.locked) {
+        setCrossBranchError(`Document locked — try again in ${Math.ceil((parsed.retryAfter || 900) / 60)} min`);
+      } else {
+        setCrossBranchError('Invalid code. Only TOTP (6-digit time-based PIN) is accepted for cross-branch actions.');
+      }
+    }
+    setCrossBranchVerifying(false);
   };
 
   const handleUnlockFull = async () => {
@@ -1054,7 +1125,7 @@ export default function DocViewerPage() {
         </div>
 
         {/* Stock Release Manager (PIN-gated: history + form) */}
-        {basic.release_mode === 'partial' && (
+        {basic.release_mode === 'partial' && (!isForeignBranch || crossBranchUnlocked) && (
           <StockReleaseManager
             basic={basic}
             docCode={code?.toUpperCase()}
@@ -1063,12 +1134,67 @@ export default function DocViewerPage() {
         )}
 
         {/* Transfer Receive Panel */}
-        {basic.doc_type === 'branch_transfer' && basic.available_actions?.includes('transfer_receive') && (
+        {basic.doc_type === 'branch_transfer' && basic.available_actions?.includes('transfer_receive') && (!isForeignBranch || crossBranchUnlocked) && (
           <TransferReceivePanel
             basic={basic}
             docCode={code?.toUpperCase()}
             onReceived={(r) => setBasic(prev => ({ ...prev, status: r.status === 'received_pending' ? 'Pending Review' : 'Completed', available_actions: [] }))}
           />
+        )}
+
+        {/* Cross-Branch TOTP Gate — shown when terminal scans a foreign branch document */}
+        {isForeignBranch && !crossBranchUnlocked && (
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-xl overflow-hidden" data-testid="cross-branch-gate">
+            <div className="px-5 py-3 bg-amber-100 flex items-center gap-2">
+              <MapPin size={15} className="text-amber-700" />
+              <span className="text-sm font-semibold text-amber-800">Cross-Branch Document</span>
+              <Badge className="text-[10px] bg-amber-200 text-amber-800 ml-auto">{basic.branch_name || 'Other Branch'}</Badge>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-amber-700">
+                This document belongs to <span className="font-semibold">{basic.branch_name || 'another branch'}</span>.
+                To take action (receive payment, release stock, etc.), you must verify with your <span className="font-semibold">TOTP time-based code</span>.
+                This prevents PIN leakage and creates a traceable cross-branch audit entry.
+              </p>
+              <Input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={crossBranchPin}
+                maxLength={6}
+                onChange={e => { setCrossBranchPin(e.target.value.replace(/\D/g, '')); setCrossBranchError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleCrossBranchVerify()}
+                placeholder="6-digit TOTP code"
+                className="h-12 text-center text-xl font-mono tracking-widest"
+                data-testid="cross-branch-totp-input"
+              />
+              {crossBranchError && (
+                <p className="text-red-500 text-xs flex items-center gap-1">
+                  <AlertTriangle size={12} />{crossBranchError}
+                </p>
+              )}
+              <Button
+                className="w-full h-11 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                onClick={handleCrossBranchVerify}
+                disabled={crossBranchVerifying || crossBranchPin.length !== 6}
+                data-testid="cross-branch-verify-btn"
+              >
+                {crossBranchVerifying ? <RefreshCw size={14} className="animate-spin mr-2" /> : <ShieldCheck size={14} className="mr-2" />}
+                Verify TOTP to Unlock Actions
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Cross-branch unlock confirmation */}
+        {isForeignBranch && crossBranchUnlocked && (
+          <div className="flex items-center gap-2 px-1 py-2" data-testid="cross-branch-unlocked">
+            <ShieldCheck size={14} className="text-amber-600" />
+            <span className="text-xs text-amber-700 font-medium">
+              Cross-branch actions unlocked — authorized by <span className="font-bold">{crossBranchVerifierName}</span>
+              {' · '}Acting on <span className="font-bold">{basic.branch_name}</span> document from your terminal
+            </span>
+          </div>
         )}
 
         {/* Tier 2: PIN Full Details */}
@@ -1168,9 +1294,14 @@ export default function DocViewerPage() {
                 </div>
               </div>
             )}
-            <Button variant="outline" className="w-full" onClick={() => window.print()} data-testid="reprint-btn">
-              <Printer size={14} className="mr-2" /> Reprint Document
-            </Button>
+            <div className="flex gap-2" data-testid="reprint-buttons">
+              <Button variant="outline" className="flex-1 h-10" onClick={() => handleReprint('thermal')} data-testid="reprint-thermal-btn">
+                <Printer size={14} className="mr-1.5" /> 58mm
+              </Button>
+              <Button variant="outline" className="flex-1 h-10" onClick={() => handleReprint('full_page')} data-testid="reprint-fullpage-btn">
+                <Printer size={14} className="mr-1.5" /> Full Page
+              </Button>
+            </div>
           </div>
         )}
 

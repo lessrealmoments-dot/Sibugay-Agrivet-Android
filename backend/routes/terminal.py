@@ -214,9 +214,11 @@ async def qr_pair_terminal(data: dict):
         await _raw_db.qr_pair_tokens.update_one({"token": token}, {"$set": {"status": "expired"}})
         raise HTTPException(status_code=410, detail="QR code expired — generate a new one on the PC")
 
-    # Create terminal session
+    # Create terminal session — use the initiating user's actual role, never hardcode admin
     terminal_id = new_id()
-    session_token = create_token(doc["user_id"], "admin", org_id=doc.get("organization_id"))
+    initiating_user = await _raw_db.users.find_one({"id": doc["user_id"]}, {"_id": 0, "role": 1})
+    actual_role = initiating_user.get("role", "manager") if initiating_user else "manager"
+    session_token = create_token(doc["user_id"], actual_role, org_id=doc.get("organization_id"))
     session = {
         "id": new_id(), "terminal_id": terminal_id, "code": f"QR-{token[:8]}",
         "branch_id": doc["branch_id"], "branch_name": doc["branch_name"],
@@ -373,7 +375,7 @@ async def list_available_transfers(branch_id: str = None, user=Depends(get_curre
 
 @router.post("/pull-po")
 async def pull_po(data: dict, user=Depends(get_current_user)):
-    """Terminal pulls a PO for checking. Requires PIN verification."""
+    """Terminal pulls a PO for checking. Requires PIN — branch-restricted for managers."""
     po_id = data.get("po_id")
     pin = str(data.get("pin", ""))
     if not po_id:
@@ -381,33 +383,34 @@ async def pull_po(data: dict, user=Depends(get_current_user)):
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
 
-    # Verify PIN
-    from routes.verify import verify_pin_for_action
-    verifier = await verify_pin_for_action(pin, "terminal_pull")
-    if not verifier:
-        raise HTTPException(status_code=403, detail="Invalid PIN — use admin, manager, or time-based PIN")
-
+    # Fetch PO first so we can apply branch restriction to the PIN check
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")
     if po["status"] not in ("draft", "ordered", "in_progress"):
         raise HTTPException(status_code=400, detail=f"Cannot pull PO with status '{po['status']}'")
 
+    # Verify PIN — branch-restricted: manager PIN only works for this PO's branch
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "terminal_pull", branch_id=po.get("branch_id", ""))
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN — use your branch manager PIN, admin PIN, or time-based PIN")
+
     await db.purchase_orders.update_one(
         {"id": po_id},
         {"$set": {
             "status": "sent_to_terminal",
             "sent_to_terminal_at": now_iso(),
-            "sent_to_terminal_by": f"Terminal ({verifier.get('name', 'PIN')})",
+            "sent_to_terminal_by": f"Terminal ({verifier.get('verifier_name', 'PIN')})",
             "pulled_by_terminal": True,
         }}
     )
-    return {"message": f"PO {po.get('po_number', '')} pulled to terminal", "verified_by": verifier.get("name", "")}
+    return {"message": f"PO {po.get('po_number', '')} pulled to terminal", "verified_by": verifier.get("verifier_name", "")}
 
 
 @router.post("/pull-transfer")
 async def pull_transfer(data: dict, user=Depends(get_current_user)):
-    """Terminal pulls a transfer for checking. Requires PIN verification."""
+    """Terminal pulls a transfer for checking. Requires PIN — branch-restricted for managers."""
     transfer_id = data.get("transfer_id")
     pin = str(data.get("pin", ""))
     if not transfer_id:
@@ -415,24 +418,26 @@ async def pull_transfer(data: dict, user=Depends(get_current_user)):
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
 
-    from routes.verify import verify_pin_for_action
-    verifier = await verify_pin_for_action(pin, "terminal_pull")
-    if not verifier:
-        raise HTTPException(status_code=403, detail="Invalid PIN — use admin, manager, or time-based PIN")
-
+    # Fetch transfer first for branch restriction
     transfer = await db.transfers.find_one({"id": transfer_id}, {"_id": 0})
     if not transfer:
         raise HTTPException(status_code=404, detail="Transfer not found")
     if transfer["status"] != "sent":
         raise HTTPException(status_code=400, detail=f"Cannot pull transfer with status '{transfer['status']}'")
 
+    # Branch restriction: manager PIN must belong to the receiving branch (to_branch_id)
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "terminal_pull", branch_id=transfer.get("to_branch_id", ""))
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN — use your branch manager PIN, admin PIN, or time-based PIN")
+
     await db.transfers.update_one(
         {"id": transfer_id},
         {"$set": {
             "status": "sent_to_terminal",
             "sent_to_terminal_at": now_iso(),
-            "sent_to_terminal_by": f"Terminal ({verifier.get('name', 'PIN')})",
+            "sent_to_terminal_by": f"Terminal ({verifier.get('verifier_name', 'PIN')})",
             "pulled_by_terminal": True,
         }}
     )
-    return {"message": f"Transfer {transfer.get('order_number', '')} pulled to terminal", "verified_by": verifier.get("name", "")}
+    return {"message": f"Transfer {transfer.get('order_number', '')} pulled to terminal", "verified_by": verifier.get("verifier_name", "")}

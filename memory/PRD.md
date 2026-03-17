@@ -131,6 +131,13 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 See `/app/memory/ROADMAP.md` for full implementation spec.
 
+### Dashboard Widget Collapse Fix (Complete — Mar 2026)
+- Added `MIN_H_MAP` / `MIN_W_MAP` constants; all layout items now carry `minH`/`minW` guards
+- `validateLayouts()` sanitizes stale/corrupted `localStorage` layouts on load
+- Enabled `isResizable={true}` with `se` resize handles on both Owner & Branch grids
+- Fixed critical P0 bug: added getDerivedStateFromProps pattern (`prevLayoutKey` guard) so layouts reset synchronously on owner↔branch view switch — no widget collapses after branch change
+- Added CSS for resize handle (bottom-right corner indicator)
+
 ### Phase 3 — QR Payment Receive (NEXT UP)
 `POST /api/qr-actions/{code}/receive_payment`
 - Receives cash/digital payments on invoices via QR scan

@@ -1,0 +1,100 @@
+{
+  "summary": "Iteration 130: Frontend testing of P0 dashboard widget collapse bug fix (DashboardPage.js). Tested owner/consolidated view and branch view. Owner dashboard works correctly with all widgets properly sized. Branch dashboard has a RESIDUAL BUG: 6 of 11 widgets collapse to 30x96px (1x1 grid unit) when switching from owner to branch view within the same session. Reset Layout button and page refresh both fix it.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "DashboardPage - Branch View",
+        "issue": "6 branch-specific widgets collapse to 30px height (1 row) × 96px width (1 col) when switching from owner/consolidated view to branch view within the same session. Affected: cash position, ar overview, credits today, ar payments, top products, recent sales.",
+        "selector": ".react-grid-item (height=30, width=96)",
+        "priority": "CRITICAL - P0 bug still partially present"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "LoginPage",
+        "issues": ["Company admin login (jovelyneahig@gmail.com / Aa@050772) returns 401 - credentials may be invalid in this environment. Super admin login works."]
+      }
+    ]
+  },
+  "test_results": {
+    "owner_dashboard": {
+      "status": "PASS",
+      "widgets_count": 10,
+      "collapsed_count": 0,
+      "drag_handles": "8 found",
+      "resize_handles": "10 found",
+      "reset_layout_button": "PASS - visible and clickable",
+      "data_visible": ["Total Sales Today: ₱7,000.00", "Cash Position: ₱2,271,345.25", "Outstanding AR: ₱105,959.62", "Low Stock: 1846", "Audit Health: N/A"]
+    },
+    "branch_dashboard_on_switch": {
+      "status": "FAIL",
+      "scenario": "Switching from owner view to branch view without page refresh",
+      "widgets_count": 11,
+      "collapsed_count": 6,
+      "collapsed_widgets": ["cash position", "ar overview", "credits today", "ar payments", "top products", "recent sales"],
+      "collapse_dimensions": "30px height × 96px width (1 row × 1 col)",
+      "non_collapsed_widgets": ["kpis (114px)", "sales-trends (324px)", "ap (324px)", "pending-reviews (324px)", "payables (282px)"]
+    },
+    "branch_dashboard_after_reset": {
+      "status": "PASS",
+      "scenario": "After clicking Reset Layout button",
+      "widgets_count": 11,
+      "collapsed_count": 0,
+      "cash_position_visible": true,
+      "ar_overview_visible": true,
+      "drag_handles": "10 found",
+      "resize_handles": "11 found"
+    },
+    "branch_dashboard_after_page_refresh": {
+      "status": "PASS",
+      "scenario": "After page refresh while in branch view",
+      "widgets_count": 11,
+      "collapsed_count": 0
+    }
+  },
+  "rca_of_the_issue": {
+    "bug": "layouts useState lazy initializer only runs once on component mount",
+    "explanation": "The layouts state is initialized via: `const [layouts, setLayouts] = useState(() => { ... })`. This lazy initializer executes ONCE when DashboardPage mounts. When the user switches from owner view (isConsolidatedView=true) to branch view (isConsolidatedView=false), the `layoutKey` and `defaultLayout` variables change, but the `layouts` state still holds the old OWNER_DEFAULT_LAYOUT values. Branch-specific widgets (cash-position, ar-overview, credits-today, ar-payments, top-products, recent-sales) are NOT present in OWNER_DEFAULT_LAYOUT, so react-grid-layout places them at default w=1, h=1 positions (30px × 96px).",
+    "why_validateLayouts_didnt_help": "validateLayouts() validates localStorage data on initialization, but the issue is with in-memory state that doesn't reset when the view switches.",
+    "workaround": "User can click 'Reset Layout' button (calls setLayouts(defaultLayout)) or refresh the page",
+    "fix_required": "Add a useEffect that updates layouts state when layoutKey changes: `useEffect(() => { const saved = localStorage.getItem(layoutKey); const loaded = saved ? validateLayouts(JSON.parse(saved), defaultLayout) : defaultLayout; setLayouts(loaded); }, [layoutKey]);`",
+    "reproduction_steps": [
+      "1. Login as super admin (janmarkeahig@gmail.com / Aa@58798546521325)",
+      "2. Dashboard loads in Owner/Consolidated view - all widgets correct",
+      "3. Click branch selector, select any specific branch (e.g., Branch 1)",
+      "4. Branch dashboard appears with 6 widgets collapsed to tiny 30px×96px boxes",
+      "5. Click Reset Layout → all widgets appear correctly"
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_130.json"
+  ],
+  "action_items": [
+    "HIGH PRIORITY: Add useEffect in DashboardPage.js to reset layouts state when layoutKey changes. The layouts useState lazy initializer doesn't re-run when isConsolidatedView changes. Fix: add `useEffect(() => { try { const saved = localStorage.getItem(layoutKey); const loaded = saved ? validateLayouts(JSON.parse(saved), defaultLayout) : defaultLayout; setLayouts(loaded); } catch { setLayouts(defaultLayout); } }, [layoutKey]);` in DashboardPage.js",
+    "LOW: Company admin credentials (jovelyneahig@gmail.com / Aa@050772) return 401 - may need to verify/reset password"
+  ],
+  "critical_code_review_comments": [
+    "DashboardPage.js: The `layouts` useState lazy initializer (line 229-234) only runs once on mount. When `isConsolidatedView` switches, the `layoutKey` and `defaultLayout` change but `layouts` state doesn't update. This causes branch-specific widgets to collapse to w=1,h=1 on owner→branch view switch.",
+    "DashboardPage.js: The validateLayouts() function was correctly implemented to prevent stale localStorage from causing collapse, but it doesn't address the in-memory state reset needed when switching views.",
+    "DashboardPage.js: The fix (MIN_H_MAP, MIN_W_MAP, isResizable, h-full) addresses the localStorage persistence issue but NOT the view-switch issue. The P0 bug is partially fixed.",
+    "Chart warnings: 6x 'width(-1) and height(-1) of chart should be greater than 0' warnings - these may be related to the recharts inside SalesTrendsWidget and BranchComparisonWidget not being properly sized during initial render (likely due to flex container sizing), not the grid collapse bug itself."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only test)",
+    "frontend": "64% (7/11 features pass - Owner dashboard fully working, branch fresh load working, but branch switch from owner view triggers collapse)"
+  },
+  "test_credentials_used": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325",
+    "company_admin": "jovelyneahig@gmail.com / Aa@050772 [FAILS - 401]"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 130 tested the P0 dashboard widget collapse fix. Owner view is fully working. Branch view has a residual bug: switching from owner to branch view within the same session collapses 6 widgets (cash-position, ar-overview, credits-today, ar-payments, top-products, recent-sales). Root cause: layouts useState doesn't reset when isConsolidatedView changes. Fix: add useEffect in DashboardPage.js to update layouts when layoutKey changes. All other features (drag handles, resize handles, Reset Layout button, data display) work correctly."
+}

@@ -27,6 +27,37 @@ import InternalProfitWidget from '../components/dashboard/InternalProfitWidget';
 
 const LAYOUT_KEY = 'agribooks_dashboard_layout';
 
+// Minimum heights per widget to prevent collapsing
+const MIN_H_MAP = {
+  kpis: 3, 'sales-trends': 5, ap: 5, 'branch-comparison': 5,
+  'pending-reviews': 4, branches: 7, payables: 4, alerts: 4,
+  'top-revenue': 4, 'internal-profit': 6, 'cash-position': 5,
+  'ar-overview': 5, 'credits-today': 5, 'ar-payments': 5,
+  'top-products': 4, 'recent-sales': 4,
+};
+const MIN_W_MAP = {
+  kpis: 6, 'sales-trends': 4, ap: 3, 'branch-comparison': 3,
+  'pending-reviews': 4, branches: 6, payables: 3, alerts: 3,
+  'top-revenue': 3, 'internal-profit': 4, 'cash-position': 3,
+  'ar-overview': 4, 'credits-today': 3, 'ar-payments': 3,
+  'top-products': 3, 'recent-sales': 3,
+};
+
+// Validates a saved layout — resets to defaults if any widget is smaller than minH
+function validateLayouts(saved, defaults) {
+  try {
+    const isValid = Object.keys(defaults).every(bp => {
+      if (!saved[bp] || !Array.isArray(saved[bp])) return false;
+      return defaults[bp].every(item => {
+        const s = saved[bp].find(x => x.i === item.i);
+        if (!s) return false;
+        return s.h >= (MIN_H_MAP[item.i] ?? 2) && s.w >= (MIN_W_MAP[item.i] ?? 2);
+      });
+    });
+    return isValid ? saved : defaults;
+  } catch { return defaults; }
+}
+
 // ── Shared small components ──────────────────────────────────────────────────
 
 function KpiCard({ label, value, sub, icon: Icon, color, testId }) {
@@ -121,57 +152,57 @@ function GridWidget({ title, children, className = '' }) {
 // ── DEFAULT LAYOUTS ──────────────────────────────────────────────────────────
 const OWNER_DEFAULT_LAYOUT = {
   lg: [
-    { i: 'kpis', x: 0, y: 0, w: 12, h: 3, static: true },
-    { i: 'sales-trends', x: 0, y: 3, w: 8, h: 8 },
-    { i: 'ap', x: 8, y: 3, w: 4, h: 8 },
-    { i: 'branch-comparison', x: 0, y: 11, w: 6, h: 8 },
-    { i: 'pending-reviews', x: 6, y: 11, w: 6, h: 8 },
-    { i: 'branches', x: 0, y: 19, w: 12, h: 9, static: true },
-    { i: 'payables', x: 0, y: 28, w: 4, h: 7 },
-    { i: 'alerts', x: 4, y: 28, w: 4, h: 7 },
-    { i: 'top-revenue', x: 8, y: 28, w: 4, h: 7 },
-    { i: 'internal-profit', x: 0, y: 35, w: 6, h: 10 },
+    { i: 'kpis', x: 0, y: 0, w: 12, h: 3, static: true, minH: 3, minW: 6 },
+    { i: 'sales-trends', x: 0, y: 3, w: 8, h: 8, minH: 5, minW: 4 },
+    { i: 'ap', x: 8, y: 3, w: 4, h: 8, minH: 5, minW: 3 },
+    { i: 'branch-comparison', x: 0, y: 11, w: 6, h: 8, minH: 5, minW: 3 },
+    { i: 'pending-reviews', x: 6, y: 11, w: 6, h: 8, minH: 4, minW: 4 },
+    { i: 'branches', x: 0, y: 19, w: 12, h: 9, static: true, minH: 7, minW: 6 },
+    { i: 'payables', x: 0, y: 28, w: 4, h: 7, minH: 4, minW: 3 },
+    { i: 'alerts', x: 4, y: 28, w: 4, h: 7, minH: 4, minW: 3 },
+    { i: 'top-revenue', x: 8, y: 28, w: 4, h: 7, minH: 4, minW: 3 },
+    { i: 'internal-profit', x: 0, y: 35, w: 6, h: 10, minH: 6, minW: 4 },
   ],
   md: [
-    { i: 'kpis', x: 0, y: 0, w: 10, h: 3, static: true },
-    { i: 'sales-trends', x: 0, y: 3, w: 10, h: 8 },
-    { i: 'ap', x: 0, y: 11, w: 5, h: 8 },
-    { i: 'branch-comparison', x: 5, y: 11, w: 5, h: 8 },
-    { i: 'pending-reviews', x: 0, y: 19, w: 10, h: 6 },
-    { i: 'branches', x: 0, y: 25, w: 10, h: 12, static: true },
-    { i: 'payables', x: 0, y: 37, w: 5, h: 7 },
-    { i: 'alerts', x: 5, y: 37, w: 5, h: 7 },
-    { i: 'top-revenue', x: 0, y: 44, w: 10, h: 6 },
-    { i: 'internal-profit', x: 0, y: 50, w: 10, h: 10 },
+    { i: 'kpis', x: 0, y: 0, w: 10, h: 3, static: true, minH: 3, minW: 6 },
+    { i: 'sales-trends', x: 0, y: 3, w: 10, h: 8, minH: 5, minW: 4 },
+    { i: 'ap', x: 0, y: 11, w: 5, h: 8, minH: 5, minW: 3 },
+    { i: 'branch-comparison', x: 5, y: 11, w: 5, h: 8, minH: 5, minW: 3 },
+    { i: 'pending-reviews', x: 0, y: 19, w: 10, h: 6, minH: 4, minW: 4 },
+    { i: 'branches', x: 0, y: 25, w: 10, h: 12, static: true, minH: 7, minW: 6 },
+    { i: 'payables', x: 0, y: 37, w: 5, h: 7, minH: 4, minW: 3 },
+    { i: 'alerts', x: 5, y: 37, w: 5, h: 7, minH: 4, minW: 3 },
+    { i: 'top-revenue', x: 0, y: 44, w: 10, h: 6, minH: 4, minW: 3 },
+    { i: 'internal-profit', x: 0, y: 50, w: 10, h: 10, minH: 6, minW: 4 },
   ],
 };
 
 const BRANCH_DEFAULT_LAYOUT = {
   lg: [
-    { i: 'kpis', x: 0, y: 0, w: 12, h: 3, static: true },
-    { i: 'sales-trends', x: 0, y: 3, w: 8, h: 8 },
-    { i: 'cash-position', x: 8, y: 3, w: 4, h: 8 },
-    { i: 'ar-overview', x: 0, y: 11, w: 8, h: 7 },
-    { i: 'ap', x: 8, y: 11, w: 4, h: 7 },
-    { i: 'pending-reviews', x: 0, y: 18, w: 12, h: 5 },
-    { i: 'credits-today', x: 0, y: 23, w: 6, h: 7 },
-    { i: 'ar-payments', x: 6, y: 23, w: 6, h: 7 },
-    { i: 'payables', x: 0, y: 30, w: 4, h: 7 },
-    { i: 'top-products', x: 4, y: 30, w: 4, h: 7 },
-    { i: 'recent-sales', x: 8, y: 30, w: 4, h: 7 },
+    { i: 'kpis', x: 0, y: 0, w: 12, h: 3, static: true, minH: 3, minW: 6 },
+    { i: 'sales-trends', x: 0, y: 3, w: 8, h: 8, minH: 5, minW: 4 },
+    { i: 'cash-position', x: 8, y: 3, w: 4, h: 8, minH: 5, minW: 3 },
+    { i: 'ar-overview', x: 0, y: 11, w: 8, h: 7, minH: 5, minW: 4 },
+    { i: 'ap', x: 8, y: 11, w: 4, h: 7, minH: 5, minW: 3 },
+    { i: 'pending-reviews', x: 0, y: 18, w: 12, h: 5, minH: 4, minW: 4 },
+    { i: 'credits-today', x: 0, y: 23, w: 6, h: 7, minH: 5, minW: 3 },
+    { i: 'ar-payments', x: 6, y: 23, w: 6, h: 7, minH: 5, minW: 3 },
+    { i: 'payables', x: 0, y: 30, w: 4, h: 7, minH: 4, minW: 3 },
+    { i: 'top-products', x: 4, y: 30, w: 4, h: 7, minH: 4, minW: 3 },
+    { i: 'recent-sales', x: 8, y: 30, w: 4, h: 7, minH: 4, minW: 3 },
   ],
   md: [
-    { i: 'kpis', x: 0, y: 0, w: 10, h: 4, static: true },
-    { i: 'sales-trends', x: 0, y: 4, w: 10, h: 8 },
-    { i: 'cash-position', x: 0, y: 12, w: 5, h: 7 },
-    { i: 'ap', x: 5, y: 12, w: 5, h: 7 },
-    { i: 'ar-overview', x: 0, y: 19, w: 10, h: 7 },
-    { i: 'pending-reviews', x: 0, y: 26, w: 10, h: 5 },
-    { i: 'credits-today', x: 0, y: 31, w: 5, h: 7 },
-    { i: 'ar-payments', x: 5, y: 31, w: 5, h: 7 },
-    { i: 'payables', x: 0, y: 38, w: 5, h: 7 },
-    { i: 'top-products', x: 5, y: 38, w: 5, h: 7 },
-    { i: 'recent-sales', x: 0, y: 45, w: 10, h: 6 },
+    { i: 'kpis', x: 0, y: 0, w: 10, h: 4, static: true, minH: 3, minW: 6 },
+    { i: 'sales-trends', x: 0, y: 4, w: 10, h: 8, minH: 5, minW: 4 },
+    { i: 'cash-position', x: 0, y: 12, w: 5, h: 7, minH: 5, minW: 3 },
+    { i: 'ap', x: 5, y: 12, w: 5, h: 7, minH: 5, minW: 3 },
+    { i: 'ar-overview', x: 0, y: 19, w: 10, h: 7, minH: 5, minW: 4 },
+    { i: 'pending-reviews', x: 0, y: 26, w: 10, h: 5, minH: 4, minW: 4 },
+    { i: 'credits-today', x: 0, y: 31, w: 5, h: 7, minH: 5, minW: 3 },
+    { i: 'ar-payments', x: 5, y: 31, w: 5, h: 7, minH: 5, minW: 3 },
+    { i: 'payables', x: 0, y: 38, w: 5, h: 7, minH: 4, minW: 3 },
+    { i: 'top-products', x: 5, y: 38, w: 5, h: 7, minH: 4, minW: 3 },
+    { i: 'recent-sales', x: 0, y: 45, w: 10, h: 6, minH: 4, minW: 3 },
   ],
 };
 
@@ -198,7 +229,7 @@ export default function DashboardPage() {
   const [layouts, setLayouts] = useState(() => {
     try {
       const saved = localStorage.getItem(layoutKey);
-      return saved ? JSON.parse(saved) : defaultLayout;
+      return saved ? validateLayouts(JSON.parse(saved), defaultLayout) : defaultLayout;
     } catch { return defaultLayout; }
   });
 
@@ -377,13 +408,14 @@ export default function DashboardPage() {
           rowHeight={30}
           onLayoutChange={onLayoutChange}
           draggableHandle=".drag-handle"
-          isResizable={false}
+          isResizable={true}
+          resizeHandles={['se']}
           compactType="vertical"
           containerPadding={[0, 0]}
           margin={[12, 12]}
         >
           {Object.entries(ownerWidgets).map(([key, widget]) => (
-            <div key={key}>
+            <div key={key} className="h-full">
               <GridWidget title={key === 'kpis' || key === 'branches' ? null : key.replace(/-/g, ' ')}>
                 {widget}
               </GridWidget>
@@ -624,13 +656,14 @@ export default function DashboardPage() {
         rowHeight={30}
         onLayoutChange={onLayoutChange}
         draggableHandle=".drag-handle"
-        isResizable={false}
+        isResizable={true}
+        resizeHandles={['se']}
         compactType="vertical"
         containerPadding={[0, 0]}
         margin={[12, 12]}
       >
         {Object.entries(branchWidgets).map(([key, widget]) => (
-          <div key={key}>
+          <div key={key} className="h-full">
             <GridWidget title={key === 'kpis' ? null : key.replace(/-/g, ' ')}>
               {widget}
             </GridWidget>

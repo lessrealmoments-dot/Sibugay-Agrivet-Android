@@ -1,0 +1,65 @@
+{
+  "summary": "Iteration 131: P0 dashboard widget collapse bug - FIXED. The previously applied useEffect fix (iteration 130 recommendation) was insufficient due to a stale closure race condition. Applied correct fix using React getDerivedStateFromProps hook pattern. All 11 branch dashboard widgets now properly sized after owner→branch view switch within same session.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "rca_of_the_issue": {
+    "original_useEffect_fix_problem": "The useEffect at line 237-243 had a stale closure on `defaultLayout`. When `layoutKey` changes from 'owner' to 'branch', the useEffect fires but reads `defaultLayout` which may be OWNER_DEFAULT_LAYOUT due to React's closure capture timing. Then `validateLayouts(collapsedBranchLayout, OWNER_DEFAULT_LAYOUT)` checks if OWNER-specific widgets (like branch-comparison) exist in the saved layout - they don't, so isValid=false, BUT it returns OWNER_DEFAULT_LAYOUT instead of BRANCH_DEFAULT_LAYOUT. setLayouts(OWNER_DEFAULT_LAYOUT) triggers another grid render with still-wrong layout → onLayoutChange fires again → second write with collapsed values.",
+    "confirmed_evidence": "localStorage interceptor showed 2 writes both with 6 collapsed widgets (cash-position, ar-overview, credits-today, ar-payments, top-products, recent-sales all at h=1, w=1), proving the cycle: useEffect ran with wrong defaultLayout → setLayouts(OWNER_DEFAULT_LAYOUT) → grid re-renders with wrong layout → onLayoutChange fires again with still-collapsed values.",
+    "root_cause": "The useEffect pattern fires AFTER the grid has already rendered with wrong layouts AND after onLayoutChange has written the collapsed layout to localStorage. Even with validateLayouts, the stale defaultLayout in the closure caused it to return OWNER_DEFAULT_LAYOUT instead of BRANCH_DEFAULT_LAYOUT.",
+    "applied_fix": "Replaced useEffect with React's getDerivedStateFromProps pattern: added `const [prevLayoutKey, setPrevLayoutKey] = useState(layoutKey)` and a synchronous `if (prevLayoutKey !== layoutKey)` guard during render. When layoutKey changes, React immediately re-renders with correct layouts BEFORE any DOM paint, so the grid NEVER renders with wrong layouts and onLayoutChange NEVER writes collapsed values.",
+    "file_changed": "/app/frontend/src/pages/DashboardPage.js lines 236-249",
+    "why_it_works": "Calling setState during render (getDerivedStateFromProps pattern) causes React to immediately discard the current render and re-render with the updated state. This is guaranteed to run before any DOM paint or child effects, so the Responsive grid always receives the correct layouts from the first frame."
+  },
+  "test_results": {
+    "owner_dashboard": {
+      "status": "PASS",
+      "widget_count": 10,
+      "collapsed_count": 0,
+      "resize_handles": 10
+    },
+    "branch_dashboard_after_owner_switch": {
+      "status": "PASS",
+      "widget_count": 11,
+      "collapsed_count": 0,
+      "specifically_checked": {
+        "cash-position": "324px - PASS",
+        "ar-overview": "282px - PASS",
+        "credits-today": "282px - PASS",
+        "ar-payments": "282px - PASS",
+        "top-products": "282px - PASS",
+        "recent-sales": "282px - PASS"
+      },
+      "resize_handles": 11,
+      "localStorage_writes_with_collapsed": 0
+    },
+    "reset_layout_button": {
+      "status": "PASS"
+    }
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_131.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DashboardPage.js: The getDerivedStateFromProps pattern (setState during render) is correct but must be guarded by the prevLayoutKey check to prevent infinite re-render loops. This is properly implemented.",
+    "DashboardPage.js: The old useEffect at lines 237-243 has been replaced. The new pattern (lines 236-249) is strictly better - it prevents any intermediate wrong render, which also means no stale localStorage writes."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/DashboardPage.js"
+  ],
+  "success_rate": {
+    "backend": "N/A (frontend-only test)",
+    "frontend": "100% (all 6 critical widget heights pass, owner dashboard pass, reset layout pass)"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "P0 dashboard widget collapse bug is now FULLY FIXED. The getDerivedStateFromProps pattern in DashboardPage.js (lines 241-249) correctly resets layouts synchronously during render when layoutKey changes. All 11 branch widgets render at proper heights after owner→branch switch. No regression in owner dashboard (10 widgets, 0 collapsed). No further testing needed for this specific bug."
+}

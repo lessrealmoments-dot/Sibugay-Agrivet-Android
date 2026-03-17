@@ -233,6 +233,21 @@ export default function DashboardPage() {
     } catch { return defaultLayout; }
   });
 
+  // Synchronously reset layouts when the view switches (owner ↔ branch).
+  // Uses the "getDerivedStateFromProps" hook pattern: calling setState during render
+  // causes React to immediately re-render with updated state BEFORE painting to DOM,
+  // preventing the grid from ever rendering with the wrong layout (which would trigger
+  // onLayoutChange → write bad data to localStorage before a useEffect could correct it).
+  const [prevLayoutKey, setPrevLayoutKey] = useState(layoutKey);
+  if (prevLayoutKey !== layoutKey) {
+    setPrevLayoutKey(layoutKey);
+    try {
+      const saved = localStorage.getItem(layoutKey);
+      const loaded = saved ? validateLayouts(JSON.parse(saved), defaultLayout) : defaultLayout;
+      setLayouts(loaded);
+    } catch { setLayouts(defaultLayout); }
+  }
+
   const onLayoutChange = (_, allLayouts) => {
     setLayouts(allLayouts);
     localStorage.setItem(layoutKey, JSON.stringify(allLayouts));

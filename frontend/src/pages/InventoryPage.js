@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Card, CardContent } from '../components/ui/card';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 export default function InventoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentBranch } = useAuth();
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
@@ -34,6 +35,8 @@ export default function InventoryPage() {
     } catch { toast.error('Failed to load inventory'); }
   }, [currentBranch, search, lowStock, sortBy, page]);
 
+  // Re-fetch whenever user navigates to this page (location.key changes on every navigation)
+  useEffect(() => { fetchInventory(); }, [location.key]); // eslint-disable-line
   useEffect(() => { fetchInventory(); }, [fetchInventory]);
 
   const totalPages = Math.ceil(total / LIMIT);

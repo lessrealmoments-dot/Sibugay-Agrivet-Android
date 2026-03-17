@@ -17,11 +17,15 @@ export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, 
   const [printing, setPrinting] = useState(false);
 
   const typeLabel = {
-    sale: 'Sales Receipt',
+    sale: 'Transaction',
     po: 'Purchase Order',
     expense: 'Expense',
     invoice: 'Invoice',
   }[type] || 'Transaction';
+
+  const dialogTitle = type === 'sale'
+    ? 'Transaction Recorded Successfully'
+    : `${typeLabel} Created`;
 
   const handleCopy = async () => {
     try {
@@ -76,7 +80,7 @@ export default function ReferenceNumberPrompt({ open, onClose, referenceNumber, 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
             <FileText size={20} className="text-[#1A4D2E]" />
-            {typeLabel} Created
+            {dialogTitle}
           </DialogTitle>
         </DialogHeader>
 

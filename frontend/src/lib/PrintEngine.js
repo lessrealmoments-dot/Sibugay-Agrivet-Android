@@ -10,6 +10,8 @@
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
 
+const TAX_DISCLAIMER = 'THIS DOCUMENT IS NOT VALID FOR CLAIMING INPUT TAX. THIS IS NOT AN OFFICIAL RECEIPT, PLEASE ASK FOR RECEIPT UPON PAYMENT.';
+
 function formatPHP(v) {
   const n = parseFloat(v) || 0;
   return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -240,15 +242,25 @@ function orderSlipFullPage(data, biz, docCode) {
   if (balance > 0 && inv.payment_type === 'credit') html += `<div class="t-row" style="color:#c00;font-weight:600"><span>Balance Due</span><span>${formatPHP(balance)}</span></div>`;
   html += '</div></div>';
 
+  // Acknowledgment + Signature block
+  const today = fmtDate(new Date().toISOString());
+  html += `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;">`;
+  html += `<p style="font-size:10px;color:#444;margin-bottom:28px;line-height:1.5">I acknowledge receipt of the items listed above in good physical condition and complete.</p>`;
+  html += `<div class="sig-row">`;
+  html += `<div class="sig-block"><div class="sig-line"></div><div class="sig-label">Customer Signature</div></div>`;
+  html += `<div class="sig-block"><div class="sig-line"></div><div class="sig-label">Printed Name</div></div>`;
+  html += `<div class="sig-block"><div class="sig-line" style="display:flex;align-items:flex-end;justify-content:center;padding-bottom:2px;font-size:11px;color:#333">${today}</div><div class="sig-label">Date</div></div>`;
+  html += `</div></div>`;
+
   // Footer
-  html += `<div class="page-footer"><div class="thank-you">Thank you for your business!</div>${biz.receipt_footer || 'This is not an official receipt.'}</div>`;
+  html += `<div class="page-footer"><div class="thank-you">Thank you for your business!</div><div style="font-size:8px;font-style:italic;color:#999;margin-top:4px">${TAX_DISCLAIMER}</div></div>`;
   return html;
 }
 
-// ── Trust Receipt ───────────────────────────────────────────────────────────
+// ── Charge Agreement (Credit / Partial Sales) ──────────────────────────────
 function trustReceiptFullPage(data, biz, docCode) {
   const inv = data;
-  let html = buildPageHeader(biz, 'Trust Receipt', inv.invoice_number || '', inv.order_date || inv.created_at, [
+  let html = buildPageHeader(biz, 'Charge Agreement', inv.invoice_number || '', inv.order_date || inv.created_at, [
     inv.terms && inv.terms !== 'COD' ? `Terms: ${inv.terms}` : '',
     inv.due_date ? `Due: ${fmtDate(inv.due_date)}` : '',
   ].filter(Boolean));
@@ -292,8 +304,13 @@ function trustReceiptFullPage(data, biz, docCode) {
     html += `<div style="margin:16px 0;font-size:9px;line-height:1.4;border:1px solid #ddd;padding:10px;border-radius:4px"><div style="font-weight:bold;font-size:10px;margin-bottom:4px;text-transform:uppercase">Terms and Conditions</div><p>${terms}</p></div>`;
   }
 
+  // Disclaimer
+  html += `<div style="margin:16px 0 0;padding:8px 12px;border:1px solid #e0e0e0;border-radius:4px;background:#fafafa;text-align:center">`;
+  html += `<p style="font-size:8px;font-style:italic;color:#888;line-height:1.4">${TAX_DISCLAIMER}</p>`;
+  html += `</div>`;
+
   // Signatures
-  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Trustor (Seller)</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Trustee (Buyer) Signature</div></div></div>';
+  html += '<div class="sig-row"><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Authorized Representative</div></div><div class="sig-block"><div class="sig-line"></div><div class="sig-label">Customer Signature &amp; Printed Name</div></div></div>';
   return html;
 }
 
@@ -512,14 +529,22 @@ function orderSlipThermal(data, biz, docCode) {
   }
   html += '</div>';
   if (docCode) html += qrImgTag(docCode, 80);
-  html += `<div class="footer">${biz.receipt_footer || 'This is not an official receipt.'}<br>Thank you!</div>`;
+  // Acknowledgment
+  const todayThermal = fmtDate(new Date().toISOString());
+  html += '<div class="sep"></div>';
+  html += `<div style="font-size:7px;line-height:1.4;margin:4px 0">I acknowledge receipt of the items listed above in good physical condition and complete.</div>`;
+  html += `<div class="meta-row" style="margin-top:14px"><span class="label">Customer Signature:</span><span>______________</span></div>`;
+  html += `<div class="meta-row" style="margin-top:10px"><span class="label">Printed Name:</span><span>______________</span></div>`;
+  html += `<div class="meta-row" style="margin-top:6px"><span class="label">Date:</span><span>${todayThermal}</span></div>`;
+  html += '<div class="sep"></div>';
+  html += `<div class="footer">${TAX_DISCLAIMER}</div>`;
   return html;
 }
 
 function trustReceiptThermal(data, biz, docCode) {
   const inv = data;
   let html = buildThermalHeader(biz);
-  html += `<div class="doc-title">TRUST RECEIPT</div>`;
+  html += `<div class="doc-title">CHARGE AGREEMENT</div>`;
   html += `<div class="meta-row"><span class="label">No:</span><span>${inv.invoice_number || ''}</span></div>`;
   html += `<div class="meta-row"><span class="label">Date:</span><span>${fmtDate(inv.order_date || inv.created_at)}</span></div>`;
   html += `<div class="meta-row"><span class="label">Customer:</span><span>${inv.customer_name || ''}</span></div>`;
@@ -535,9 +560,9 @@ function trustReceiptThermal(data, biz, docCode) {
   html += '</div>';
   const terms = (biz.trust_receipt_terms || '').replace('{business_name}', biz.business_name || '');
   if (terms) html += `<div class="trust-terms"><div class="terms-title">TERMS</div>${terms}</div>`;
-  html += '<div class="signature-line"><div style="margin-top:20px"></div><div class="line"></div><div class="sig-label">Customer Signature</div></div>';
+  html += '<div class="signature-line"><div style="margin-top:20px"></div><div class="line"></div><div class="sig-label">Customer Signature &amp; Printed Name</div></div>';
   if (docCode) html += qrImgTag(docCode, 80);
-  html += `<div class="footer">${fmtDate(inv.order_date || inv.created_at)}</div>`;
+  html += `<div class="footer">${TAX_DISCLAIMER}</div>`;
   return html;
 }
 

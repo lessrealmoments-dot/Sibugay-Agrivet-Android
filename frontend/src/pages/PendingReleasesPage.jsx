@@ -481,6 +481,7 @@ export default function PendingReleasesPage() {
                 <TableRow className="bg-slate-50">
                   <TableHead className="text-xs uppercase text-slate-500">Invoice</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Customer</TableHead>
+                  {isAdmin && branches.length > 1 && <TableHead className="text-xs uppercase text-slate-500">Branch</TableHead>}
                   <TableHead className="text-xs uppercase text-slate-500">Sale Date</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Age</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
@@ -507,6 +508,11 @@ export default function PendingReleasesPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-sm font-medium">{inv.customer_name || 'Walk-in'}</TableCell>
+                      {isAdmin && branches.length > 1 && (
+                        <TableCell className="text-xs text-slate-500">
+                          {branches.find(b => b.id === inv.branch_id)?.name || '—'}
+                        </TableCell>
+                      )}
                       <TableCell className="text-xs text-slate-500">{fmtDate(inv.created_at)}</TableCell>
                       <TableCell>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${

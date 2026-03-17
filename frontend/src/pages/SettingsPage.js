@@ -987,9 +987,9 @@ export default function SettingsPage() {
             <Card className="border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
-                  Trust Receipt Terms
+                  Charge Agreement Terms
                 </CardTitle>
-                <p className="text-sm text-slate-500">Legal clause printed on trust receipts for credit sales. Use {'{business_name}'} as placeholder.</p>
+                <p className="text-sm text-slate-500">Legal clause printed on Charge Agreements for credit sales. Use {'{business_name}'} as placeholder.</p>
               </CardHeader>
               <CardContent>
                 <textarea

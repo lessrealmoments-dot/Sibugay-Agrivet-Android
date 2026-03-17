@@ -244,11 +244,9 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, a
                 {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
             ]).to_list(1)
 
-            reserved_r = await db.sales.aggregate([
-                {"$match": {"status": "reserved", **({"branch_id": branch_id} if branch_id else {})}},
-                {"$unwind": "$items"},
-                {"$match": {"items.product_id": p["id"]}},
-                {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+            reserved_r = await db.sale_reservations.aggregate([
+                {"$match": {"product_id": p["id"], "qty_remaining": {"$gt": 0}, **({"branch_id": branch_id} if branch_id else {})}},
+                {"$group": {"_id": None, "t": {"$sum": "$qty_remaining"}}}
             ]).to_list(1)
 
             result = {
@@ -635,15 +633,14 @@ async def get_product_detail(product_id: str, branch_id: Optional[str] = None, u
     ]).to_list(1)
     coming = coming_r[0]["t"] if coming_r else 0
     
-    # Calculate reserved (from pending sales) — scoped to branch when provided
-    reserved_match = {"status": "reserved"}
+    # Calculate reserved — qty still pending customer pickup (from sale_reservations)
+    # sale_reservations.qty_remaining > 0 means stock is physically on shelf but belongs to a customer
+    reserved_match = {"qty_remaining": {"$gt": 0}}
     if branch_id:
         reserved_match["branch_id"] = branch_id
-    reserved_r = await db.sales.aggregate([
-        {"$match": reserved_match},
-        {"$unwind": "$items"},
-        {"$match": {"items.product_id": product_id}},
-        {"$group": {"_id": None, "t": {"$sum": "$items.quantity"}}}
+    reserved_r = await db.sale_reservations.aggregate([
+        {"$match": {**reserved_match, "product_id": product_id}},
+        {"$group": {"_id": None, "t": {"$sum": "$qty_remaining"}}}
     ]).to_list(1)
     reserved = reserved_r[0]["t"] if reserved_r else 0
     

@@ -48,6 +48,17 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - PO verification + Transfer receive with variance handling
 - WebSocket real-time notifications, Terminal Pull
 
+### Terminal Smart QR Scan + Branch Security (2026-03-17) — Complete
+- **BUG FIX:** QR pair token no longer hardcodes "admin" role — uses actual initiating user's role
+- **BUG FIX:** `pull-po` and `pull-transfer` PIN are now branch-restricted (manager PINs only work for their branch)
+- **BUG FIX:** Blank receipt reprint from DocViewer fixed — now uses `PrintEngine` with proper 58mm thermal + full-page format instead of `window.print()` on raw HTML
+- **NEW:** `terminal_pull` and `qr_cross_branch_action` added to `PIN_POLICY_ACTIONS`; `qr_cross_branch_action` is TOTP-only (no static manager PIN allowed cross-branch)
+- **NEW:** `GET /api/doc/search?q=...&branch_id=...` endpoint — branch-scoped search by invoice number, PO number, or transfer order number; returns `doc_code` for navigation
+- **NEW:** Global H10P HID keyboard wedge scanner in `TerminalShell` — detects doc codes (8-char alphanumeric), URLs containing doc codes, `agrismart://` deeplinks, and invoice numbers from hardware scanner input; routes to correct action across all tabs
+- **NEW:** Smart doc search in terminal header — accepts invoice/PO/transfer numbers, shows dropdown of matching results with doc codes
+- **NEW:** DocViewerPage cross-branch enforcement — when `?branch=` param doesn't match doc's branch, shows TOTP-only unlock gate; after TOTP verification, actions are unlocked with audit trail
+- **NEW:** Terminal navigation to `/doc/` always passes `?branch=session.branchId` for proper cross-branch detection
+
 ### QR Document Lookup System (Complete — Mar 2026)
 - Unique 8-char doc code per document, QR on every receipt
 - 3-Tier Access Model (Open / PIN / Terminal)

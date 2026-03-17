@@ -362,7 +362,7 @@ async def get_doc_code_by_ref(doc_type: str, doc_id: str, user=Depends(get_curre
 
 
 @router.get("/search")
-async def search_documents(q: str = "", branch_id: str = ""):
+async def search_documents(q: str = "", branch_id: str = "", user=Depends(get_current_user)):
     """
     Search for documents by invoice number, PO number, or transfer order number.
     Branch-scoped: only returns results from the specified branch (or transfers involving it).

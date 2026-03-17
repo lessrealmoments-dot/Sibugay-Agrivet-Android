@@ -144,11 +144,33 @@ async def lookup_document(data: dict):
             customer = await db.customers.find_one(
                 {"id": doc["customer_id"]}, {"_id": 0, "name": 1, "phone": 1, "address": 1, "balance": 1}
             )
+        # Fetch attached files (payment proofs, receipts)
+        uploads = await db.upload_sessions.find(
+            {"record_type": "invoice", "record_id": doc_id, "is_pending": {"$ne": True}},
+            {"_id": 0}
+        ).to_list(20)
+        files = []
+        for u in uploads:
+            session_files = await db.uploaded_files.find(
+                {"session_id": u["id"]}, {"_id": 0}
+            ).to_list(50)
+            if session_files:
+                files.extend(session_files)
+            else:
+                # Files stored inline on the session document (R2 flow)
+                for f in u.get("files", []):
+                    from utils.r2_storage import get_presigned_url
+                    try:
+                        url = await get_presigned_url(f["r2_key"])
+                    except Exception:
+                        url = ""
+                    files.append({"id": f["id"], "filename": f.get("filename", ""), "url": url, "content_type": f.get("content_type", "image/jpeg")})
         return {
             "doc_type": "invoice",
             "document": doc,
             "payments": payments,
             "customer": customer,
+            "attached_files": files,
             "verifier": verifier.get("verifier_name", ""),
         }
 

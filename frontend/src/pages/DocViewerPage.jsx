@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import {
   Lock, FileText, Building2, ArrowRight, CreditCard, CheckCircle2,
   AlertTriangle, Printer, Image, Smartphone, Package, ChevronDown,
-  ShieldCheck, RefreshCw, Search, Boxes, Banknote, Wifi
+  ShieldCheck, RefreshCw, Search, Boxes, Banknote, Wifi, Camera, X
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -367,13 +367,44 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
   const [result, setResult] = useState(null);
   const [balance, setBalance] = useState(basic.balance);
 
+  // Upload proof state (digital only)
+  const [uploadToken, setUploadToken] = useState(null);
+  const [uploadSessionId, setUploadSessionId] = useState(null);
+  const [proofFile, setProofFile] = useState(null); // { name, preview }
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = React.useRef(null);
+
   const METHODS = ['Cash', 'GCash', 'Maya', 'Bank Transfer', 'Check'];
   const isDigital = method !== 'Cash' && method !== 'Check';
+
+  // Generate upload token when digital method selected
+  React.useEffect(() => {
+    if (isDigital && !uploadToken && storedPin && state === 'form') {
+      axios.post(`${BACKEND}/api/qr-actions/${docCode}/generate-upload-token`, { pin: storedPin })
+        .then(res => { setUploadToken(res.data.token); setUploadSessionId(res.data.session_id); })
+        .catch(() => {}); // non-critical — payment still works without proof
+    }
+  }, [isDigital, state]); // eslint-disable-line
+
+  const handleFileCapture = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !uploadToken) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('files', file);
+      await axios.post(`${BACKEND}/api/uploads/upload/${uploadToken}`, formData);
+      setProofFile({ name: file.name, preview: URL.createObjectURL(file) });
+    } catch { setError('Photo upload failed — you can still submit without it'); }
+    setUploading(false);
+    e.target.value = '';
+  };
 
   const handleConfirm = () => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0) { setError('Enter a valid amount'); return; }
     if (amt > balance + 0.01) { setError(`Amount exceeds balance ₱${balance.toLocaleString('en-PH', { minimumFractionDigits: 2 })}`); return; }
+    if (isDigital && !proofFile) { setError('Please attach a screenshot of the transfer before proceeding'); return; }
     setError(''); setState('confirming');
   };
 
@@ -385,6 +416,7 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
         amount: parseFloat(amount),
         method,
         reference,
+        upload_session_id: uploadSessionId || undefined,
       });
       setResult(res.data);
       setBalance(res.data.new_balance);
@@ -417,7 +449,7 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Record Payment</p>
           <div className="flex gap-2 flex-wrap">
             {METHODS.map(m => (
-              <button key={m} onClick={() => setMethod(m)} data-testid={`method-${m.toLowerCase().replace(' ', '-')}`}
+              <button key={m} onClick={() => { setMethod(m); setProofFile(null); }} data-testid={`method-${m.toLowerCase().replace(' ', '-')}`}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${method === m ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}>
                 {m}
               </button>
@@ -434,10 +466,50 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
           </div>
           {isDigital && (
             <div>
-              <label className="text-xs text-slate-500 mb-1 block">Reference / Ref No.</label>
+              <label className="text-xs text-slate-500 mb-1 block">Reference / Ref No. <span className="text-slate-300">(optional)</span></label>
               <input type="text" autoComplete="off" value={reference} onChange={e => setReference(e.target.value)}
                 placeholder="Transaction ref number" data-testid="payment-reference-input"
                 className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm" />
+            </div>
+          )}
+          {/* Transfer receipt photo — REQUIRED for digital payments */}
+          {isDigital && (
+            <div>
+              <label className="text-xs font-medium text-amber-700 mb-1.5 flex items-center gap-1">
+                <Camera size={11} /> Transfer Receipt Screenshot <span className="text-red-500 ml-0.5">*</span>
+              </label>
+              {proofFile ? (
+                <div className="flex items-center gap-3 p-2 rounded-lg border border-emerald-200 bg-emerald-50">
+                  <img src={proofFile.preview} alt="proof" className="w-14 h-14 object-cover rounded-lg border border-emerald-200 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-emerald-700 truncate">{proofFile.name}</p>
+                    <p className="text-[10px] text-emerald-500 flex items-center gap-1"><CheckCircle2 size={10} /> Attached</p>
+                  </div>
+                  <button onClick={() => setProofFile(null)} className="shrink-0 w-7 h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center hover:bg-red-50">
+                    <X size={12} className="text-slate-400" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || !uploadToken}
+                  data-testid="upload-proof-btn"
+                  className="w-full h-14 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 flex items-center justify-center gap-2 text-sm text-amber-700 font-medium hover:border-amber-400 hover:bg-amber-100 transition-all disabled:opacity-40">
+                  {uploading
+                    ? <><RefreshCw size={14} className="animate-spin" /> Uploading...</>
+                    : <><Camera size={16} /> Tap to attach transfer screenshot</>}
+                </button>
+              )}
+              {!proofFile && <p className="text-[10px] text-amber-600 mt-1">Required — attach a screenshot of the transfer confirmation before proceeding.</p>}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleFileCapture}
+                data-testid="proof-file-input"
+              />
             </div>
           )}
           {error && <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12} />{error}</p>}
@@ -458,6 +530,11 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
             <div className="flex justify-between text-sm"><span className="text-slate-500">Amount</span><span className="font-bold text-emerald-700">{php(amount)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-500">Method</span><span className="font-medium">{method}</span></div>
             {reference && <div className="flex justify-between text-sm"><span className="text-slate-500">Ref #</span><span className="font-mono text-xs">{reference}</span></div>}
+            {proofFile && (
+              <div className="flex items-center gap-2 text-xs text-emerald-600 pt-1 border-t border-emerald-100 mt-1">
+                <Camera size={11} /> Transfer receipt attached
+              </div>
+            )}
             <div className="flex justify-between text-sm border-t border-emerald-200 pt-2 mt-2">
               <span className="text-slate-500">New Balance</span>
               <span className={`font-bold ${parseFloat(amount) >= balance ? 'text-emerald-600' : 'text-amber-600'}`}>
@@ -482,7 +559,7 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
           <p className="font-semibold text-emerald-700">{result.message}</p>
           <p className="text-xs text-slate-400">Authorized by {result.authorized_by}</p>
           {result.new_balance > 0 && (
-            <button onClick={() => { setState('idle'); setAmount(''); setReference(''); }}
+            <button onClick={() => { setState('idle'); setAmount(''); setReference(''); setProofFile(null); setUploadToken(null); setUploadSessionId(null); }}
               className="text-xs text-emerald-600 hover:underline mt-1">Record another payment</button>
           )}
         </div>
@@ -490,7 +567,6 @@ function ReceivePaymentPanel({ basic, docCode, storedPin, onPaymentRecorded }) {
     </div>
   );
 }
-
 
 // ── Transfer Receive Panel (top-level PIN-gated panel for branch transfers) ───
 function TransferReceivePanel({ basic, docCode, onReceived }) {

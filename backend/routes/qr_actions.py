@@ -263,7 +263,66 @@ async def release_stocks(code: str, data: dict):
     }
 
 
-# ── Action: Receive Payment ───────────────────────────────────────────────────
+
+# ── Generate upload token (public — for mobile payment proof upload) ──────────
+
+@router.post("/{code}/generate-upload-token")
+async def generate_upload_token(code: str, data: dict):
+    """
+    Generate a short-lived upload token for attaching payment proof photos.
+    No auth required — doc code + verified PIN is sufficient.
+    Called from the mobile ReceivePaymentPanel when a digital payment method is selected.
+
+    Body: { pin }
+    Returns: { token, session_id, upload_url }
+    """
+    pin = (data.get("pin") or "").strip()
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required")
+
+    doc_ref, doc_type, doc_id = await _resolve_doc(code)
+    if doc_type != "invoice":
+        raise HTTPException(status_code=400, detail="Upload proof is only available for invoices")
+
+    invoice = await db.invoices.find_one({"id": doc_id}, {"_id": 0, "branch_id": 1})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "qr_receive_payment", branch_id=invoice.get("branch_id", ""))
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    # Create an upload session pre-linked to this invoice
+    import secrets as _secrets
+    token = _secrets.token_urlsafe(24)
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=2)).isoformat()
+
+    session_doc = {
+        "id": new_id(),
+        "token": token,
+        "token_expires_at": expires_at,
+        "record_type": "invoice",
+        "record_id": doc_id,
+        "is_pending": False,
+        "org_id": doc_ref.get("org_id", ""),
+        "files": [],
+        "file_count": 0,
+        "created_by": verifier["verifier_id"],
+        "created_by_name": verifier["verifier_name"],
+        "created_at": now_iso(),
+        "purpose": "payment_proof",
+    }
+    await db.upload_sessions.insert_one(session_doc)
+
+    return {
+        "token": token,
+        "session_id": session_doc["id"],
+        "expires_at": expires_at,
+    }
+
+
+
 
 @router.post("/{code}/receive_payment")
 async def receive_payment(code: str, data: dict):
@@ -278,6 +337,7 @@ async def receive_payment(code: str, data: dict):
     amount = float(data.get("amount", 0))
     method = (data.get("method") or "Cash").strip()
     reference = (data.get("reference") or "").strip()
+    upload_session_id = (data.get("upload_session_id") or "").strip()
 
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
@@ -352,6 +412,13 @@ async def receive_payment(code: str, data: dict):
         await db.customers.update_one({"id": invoice["customer_id"]}, {"$inc": {"balance": -amount}})
 
     await _log_action(doc_ref, "receive_payment", verifier, f"₱{amount:,.2f} {method}")
+
+    # Link upload session if a payment proof was attached
+    if upload_session_id:
+        await db.upload_sessions.update_one(
+            {"id": upload_session_id, "record_type": "invoice", "record_id": doc_id},
+            {"$set": {"is_pending": False, "linked_at": now_iso(), "linked_payment_ref": reference}}
+        )
 
     return {
         "success": True,

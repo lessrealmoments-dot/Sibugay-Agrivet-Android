@@ -1813,7 +1813,7 @@ export default function UnifiedSalesPage() {
             <DialogTitle style={{ fontFamily: 'Manrope' }}>Payment</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto max-h-[calc(85vh-120px)] pr-1">
             {/* Customer display / quick picker */}
             {selectedCustomer ? (
               <div className="bg-slate-50 rounded-lg p-3">

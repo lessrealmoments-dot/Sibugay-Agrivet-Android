@@ -685,13 +685,32 @@ const PrintEngine = {
     }
 
     const winWidth = format === 'thermal' ? 400 : 900;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title><style>${css}</style></head><body>${body}</body></html>`;
+
+    // Inject a script that waits for all images (QR code) to finish loading
+    // before calling window.print() — eliminates the race with api.qrserver.com
+    const printScript = `
+<script>
+(function() {
+  function doPrint() { window.print(); }
+  var imgs = document.images;
+  if (!imgs.length) { doPrint(); return; }
+  var remaining = imgs.length;
+  function onDone() { remaining--; if (remaining <= 0) doPrint(); }
+  for (var i = 0; i < imgs.length; i++) {
+    if (imgs[i].complete) { onDone(); }
+    else { imgs[i].onload = onDone; imgs[i].onerror = onDone; }
+  }
+  // Safety fallback: print after 6 seconds regardless
+  setTimeout(doPrint, 6000);
+})();
+</script>`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title><style>${css}</style></head><body>${body}${printScript}</body></html>`;
     const win = window.open('', '_blank', `width=${winWidth},height=700`);
     if (!win) { alert('Please allow popups to print'); return; }
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => { win.print(); }, 500);
   },
 
   // Helper to determine doc type from invoice data

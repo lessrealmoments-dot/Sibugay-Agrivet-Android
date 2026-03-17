@@ -282,6 +282,8 @@ async def take_snapshot(sheet_id: str, user=Depends(get_current_user)):
             "system_quantity": round(system_qty, 4),
             "system_available_qty": round(system_available_qty, 4),
             "system_reserved_qty": round(system_reserved_qty, 4),
+            # Flag negative available qty — investigate unencoded PO or override sale
+            "has_negative_stock": system_available_qty < 0,
             "system_whole": whole_qty,
             "system_loose": loose_qty,
             "actual_quantity": None,

@@ -140,6 +140,25 @@ async def _get_pending_releases_summary(branch_id: str) -> dict:
     }
 
 
+async def _get_negative_stock_summary(branch_id: str) -> dict:
+    """Return items with negative inventory for the Z-report warning."""
+    q = {"quantity": {"$lt": 0}}
+    if branch_id:
+        q["branch_id"] = branch_id
+    neg_records = await db.inventory.find(q, {"_id": 0, "product_id": 1, "quantity": 1}).to_list(200)
+    if not neg_records:
+        return {"count": 0, "items": []}
+    pids = [r["product_id"] for r in neg_records]
+    products = await db.products.find({"id": {"$in": pids}}, {"_id": 0, "id": 1, "name": 1}).to_list(200)
+    pmap = {p["id"]: p["name"] for p in products}
+    items = [
+        {"product_id": r["product_id"], "product_name": pmap.get(r["product_id"], r["product_id"]),
+         "quantity": round(float(r["quantity"]), 4)}
+        for r in neg_records
+    ]
+    return {"count": len(items), "items": items}
+
+
 @router.get("/daily-close-preview")
 async def get_daily_close_preview(
     user=Depends(get_current_user),
@@ -450,6 +469,8 @@ async def get_daily_close_preview(
         "net_fund_transfers": net_fund_transfers,
         # ── Pending stock releases (informational warning) ─────────────────
         "pending_stock_releases": await _get_pending_releases_summary(branch_id),
+        # ── Negative stock warning ───────────────────────────────────────────
+        "negative_stock": await _get_negative_stock_summary(branch_id),
     }
 
 
@@ -1706,10 +1727,10 @@ async def get_low_stock_alert(
                 "current_qty": qty,
                 "reorder_point": reorder_pt,
                 "reorder_quantity": product.get("reorder_quantity", 0),
-                "status": "out_of_stock" if qty <= 0 else "low_stock",
+                "status": "negative_stock" if qty < 0 else ("out_of_stock" if qty == 0 else "low_stock"),
             })
 
-    low_stock.sort(key=lambda x: (0 if x["status"] == "out_of_stock" else 1, x["name"]))
+    low_stock.sort(key=lambda x: (0 if x["status"] == "negative_stock" else 1 if x["status"] == "out_of_stock" else 2, x["name"]))
     return low_stock
 
 

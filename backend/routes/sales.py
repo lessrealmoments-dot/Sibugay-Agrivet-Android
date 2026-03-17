@@ -93,6 +93,61 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     subtotal = 0
     reservations_to_create = []   # populated only for partial release
 
+    # ── Manager Override: pre-validate stock before the main loop ─────────────
+    # If any item has insufficient stock, return a structured error so the frontend
+    # can show the override modal. If manager_override_pin is provided, verify it
+    # once here and allow all items to proceed (inventory goes negative — visible,
+    # auditable, and self-healed when the missing PO is later encoded).
+    override_pin = data.get("manager_override_pin", "").strip()
+    override_verifier = None
+    insufficient_items = []
+
+    for item in items:
+        product = products_map.get(item["product_id"])
+        if not product:
+            continue
+        qty = float(item.get("quantity", 0))
+        if product.get("is_repack") and product.get("parent_id"):
+            parent_inv = await db.inventory.find_one(
+                {"product_id": product["parent_id"], "branch_id": branch_id}, {"_id": 0}
+            )
+            parent_stock = float(parent_inv["quantity"]) if parent_inv else 0
+            units_per_parent = product.get("units_per_parent", 1)
+            if (parent_stock * units_per_parent) < qty:
+                insufficient_items.append({
+                    "product_id": product["id"],
+                    "product_name": product["name"],
+                    "system_qty": round(parent_stock * units_per_parent, 2),
+                    "needed_qty": qty,
+                })
+        else:
+            inv = await db.inventory.find_one(
+                {"product_id": item["product_id"], "branch_id": branch_id}, {"_id": 0}
+            )
+            current_stock = float(inv["quantity"]) if inv else 0
+            if current_stock < qty:
+                insufficient_items.append({
+                    "product_id": item["product_id"],
+                    "product_name": product["name"],
+                    "system_qty": round(current_stock, 2),
+                    "needed_qty": qty,
+                })
+
+    if insufficient_items:
+        if not override_pin:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "type": "insufficient_stock",
+                    "items": insufficient_items,
+                    "message": f"Insufficient stock for {len(insufficient_items)} item(s). Manager PIN required to override.",
+                }
+            )
+        from routes.verify import verify_pin_for_action
+        override_verifier = await verify_pin_for_action(override_pin, "stock_negative_override", branch_id=branch_id)
+        if not override_verifier:
+            raise HTTPException(status_code=403, detail="Invalid override PIN — stock exception denied")
+
     for item in items:
         product = products_map.get(item["product_id"])
         if not product:
@@ -126,7 +181,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
             )
             parent_stock = float(parent_inv["quantity"]) if parent_inv else 0
             available = parent_stock * units_per_parent
-            if available < qty:
+            if available < qty and not override_verifier:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Insufficient stock for {product['name']}: have {available:.0f}, need {qty:.0f}"
@@ -166,7 +221,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
                 {"product_id": item["product_id"], "branch_id": branch_id}, {"_id": 0}
             )
             current_stock = float(inv["quantity"]) if inv else 0
-            if current_stock < qty:
+            if current_stock < qty and not override_verifier:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Insufficient stock for {product['name']}: have {current_stock:.0f}, need {qty:.0f}"
@@ -447,7 +502,43 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         split_meta=split_meta,
         partial_meta=partial_meta,
     )
-    
+
+    # ── Auto-create incident tickets for negative-stock overrides ─────────────
+    if override_verifier and insufficient_items:
+        for bad in insufficient_items:
+            ticket_number = f"NSO-{now_iso()[:10].replace('-', '')}-{new_id()[:6].upper()}"
+            await db.incident_tickets.insert_one({
+                "id": new_id(),
+                "ticket_number": ticket_number,
+                "ticket_type": "negative_stock_override",
+                "status": "open",
+                "branch_id": branch_id,
+                "product_id": bad["product_id"],
+                "product_name": bad["product_name"],
+                "qty_before_sale": bad["system_qty"],
+                "qty_sold": bad["needed_qty"],
+                "qty_after_sale": round(bad["system_qty"] - bad["needed_qty"], 4),
+                "invoice_id": invoice["id"],
+                "invoice_number": inv_number,
+                "override_by_id": override_verifier["verifier_id"],
+                "override_by_name": override_verifier["verifier_name"],
+                "override_method": override_verifier["method"],
+                "cashier_id": user["id"],
+                "cashier_name": user.get("full_name", user["username"]),
+                "timeline": [{
+                    "action": "created",
+                    "by_id": user["id"],
+                    "by_name": user.get("full_name", user["username"]),
+                    "detail": f"Auto-generated: negative stock override on {inv_number}. "
+                              f"System had {bad['system_qty']}, sold {bad['needed_qty']}. "
+                              f"Approved by {override_verifier['verifier_name']} ({override_verifier['method']}). "
+                              f"Investigate: unencoded PO, wrong item, count error, or shrinkage.",
+                    "at": now_iso(),
+                }],
+                "created_at": now_iso(),
+                "updated_at": now_iso(),
+            })
+
     return invoice
 
 

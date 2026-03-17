@@ -159,6 +159,7 @@ PIN_POLICY_ACTIONS = [
     {"key": "daily_close",            "label": "Close Day (Z-Report)",            "module": "Daily Operations",  "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "daily_close_batch",      "label": "Batch Close Days",               "module": "Daily Operations",  "defaults": ["admin_pin", "manager_pin", "totp"]},
     # Inventory & Products
+    {"key": "stock_negative_override", "label": "Override Insufficient Stock (Negative Inventory)", "module": "Inventory", "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "inventory_adjust",       "label": "Direct Inventory Correction",     "module": "Inventory",         "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "product_delete",         "label": "Delete Product",                  "module": "Products",          "defaults": ["admin_pin", "totp"]},
     {"key": "price_override",         "label": "Override Branch Price",           "module": "Products",          "defaults": ["admin_pin", "manager_pin", "totp"]},

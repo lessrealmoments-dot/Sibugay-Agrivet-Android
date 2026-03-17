@@ -16,7 +16,8 @@ import SmartProductSearch from '../components/SmartProductSearch';
 import { UnclosedDaysBanner } from '../components/UnclosedDaysBanner';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff,
-  RefreshCw, FileText, Lock, Zap, ClipboardList, AlertTriangle, Shield, CheckCircle2, Smartphone, Camera, Check
+  RefreshCw, FileText, Lock, Zap, ClipboardList, AlertTriangle, Shield, CheckCircle2, Smartphone, Camera, Check,
+  PackageX, ShieldAlert
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -25,6 +26,109 @@ import {
 } from '../lib/offlineDB';
 import { syncPendingSales, startAutoSync, stopAutoSync, newEnvelopeId } from '../lib/syncManager';
 import ReferenceNumberPrompt from '../components/ReferenceNumberPrompt';
+
+// ── Insufficient Stock Override Modal ────────────────────────────────────────
+function InsufficientStockModal({ open, insufficientItems, onOverride, onCancel, onGoPO }) {
+  const [pin, setPin] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleOverride = async () => {
+    if (!pin.trim()) { setError('Manager PIN required'); return; }
+    setSubmitting(true);
+    setError('');
+    try {
+      await onOverride(pin.trim());
+    } catch (e) {
+      const d = e?.response?.data?.detail;
+      setError(typeof d === 'string' ? d : d?.message || 'Invalid PIN — override denied');
+    }
+    setSubmitting(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={() => {}}>
+      <DialogContent className="max-w-md" data-testid="insufficient-stock-modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-amber-700">
+            <PackageX size={18} className="text-amber-600" /> Insufficient Stock
+          </DialogTitle>
+          <DialogDescription>
+            The following item(s) have less system stock than needed.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 my-1">
+          {(insufficientItems || []).map((item, i) => (
+            <div key={i} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm">
+              <span className="font-medium text-slate-800 truncate max-w-[60%]">{item.product_name}</span>
+              <span className="text-amber-700 font-mono text-xs">
+                System: {item.system_qty} · Need: {item.needed_qty}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <button
+            onClick={onGoPO}
+            className="w-full flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors text-left"
+            data-testid="go-encode-po-btn"
+          >
+            <FileText size={16} className="text-blue-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-800">Encode / Receive a Purchase Order first</p>
+              <p className="text-xs text-blue-600">Recommended — encode the missing PO to restore stock</p>
+            </div>
+          </button>
+
+          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={15} className="text-amber-600 shrink-0" />
+              <p className="text-sm font-semibold text-amber-800">Manager Override (Negative Stock)</p>
+            </div>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              Proceeds with sale. Inventory goes negative and a discrepancy ticket is auto-created for investigation.
+            </p>
+            <Input
+              type="password"
+              placeholder="Enter manager PIN"
+              value={pin}
+              onChange={e => { setPin(e.target.value); setError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleOverride()}
+              className="h-9 text-sm font-mono"
+              data-testid="override-pin-input"
+            />
+            {error && (
+              <p className="text-xs text-red-600 flex items-center gap-1" data-testid="override-pin-error">
+                <AlertTriangle size={11} /> {error}
+              </p>
+            )}
+            <Button
+              onClick={handleOverride}
+              disabled={submitting || !pin}
+              className="w-full bg-amber-600 hover:bg-amber-700 text-white h-9 text-sm"
+              data-testid="override-submit-btn"
+            >
+              {submitting ? <RefreshCw size={13} className="animate-spin mr-1" /> : <Shield size={13} className="mr-1" />}
+              Proceed with Override
+            </Button>
+          </div>
+
+          <button
+            onClick={onCancel}
+            className="w-full text-sm text-slate-500 hover:text-slate-700 py-1"
+            data-testid="override-cancel-btn"
+          >
+            Cancel sale
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const EMPTY_LINE = {
   product_id: '', product_name: '', description: '',
@@ -71,6 +175,11 @@ export default function UnifiedSalesPage() {
   const [voidReason, setVoidReason] = useState('');
   const [voidPin, setVoidPin] = useState('');
   const [voidSaving, setVoidSaving] = useState(false);
+
+  // ── Negative stock override modal ────────────────────────────────────────
+  const [stockOverrideModal, setStockOverrideModal] = useState(false);
+  const [insufficientItems, setInsufficientItems] = useState([]);
+  const [pendingSaleData, setPendingSaleData] = useState(null);
 
   // ── Digital payment ───────────────────────────────────────────────────────
   const [digitalPlatform, setDigitalPlatform] = useState('GCash');
@@ -1030,7 +1139,17 @@ export default function UnifiedSalesPage() {
         setDigitalRefNumber('');
         setDigitalSender('');
       } catch (e) {
-        // Save offline if API fails
+        // Insufficient stock — show override modal instead of saving offline
+        const detail = e?.response?.data?.detail;
+        if (e?.response?.status === 422 && detail?.type === 'insufficient_stock') {
+          setInsufficientItems(detail.items || []);
+          setPendingSaleData(saleData);
+          setCheckoutDialog(false);
+          setStockOverrideModal(true);
+          setSaving(false);
+          return;
+        }
+        // Save offline if API fails for other reasons
         await addPendingSale(saleData);
         const count = await getPendingSaleCount();
         setPendingCount(count);
@@ -1061,6 +1180,28 @@ export default function UnifiedSalesPage() {
   const handleEncodingDateChange = useCallback((date) => {
     setHeader(h => ({ ...h, order_date: date }));
   }, []);
+
+  // Handle manager override: retry the pending sale with override PIN
+  const handleStockOverride = async (overridePin) => {
+    if (!pendingSaleData) return;
+    const saleWithOverride = { ...pendingSaleData, manager_override_pin: overridePin };
+    const res = await api.post('/unified-sale', saleWithOverride);
+    const invoiceNum = res.data.invoice_number || res.data.sale_number;
+    toast.success(`Sale ${invoiceNum} completed with manager override. Discrepancy ticket created.`, { duration: 5000 });
+    setStockOverrideModal(false);
+    setPendingSaleData(null);
+    setInsufficientItems([]);
+    clearCart();
+    setPendingCreditSale(null);
+    if ((pendingSaleData.payment_type === 'digital' || pendingSaleData.payment_type === 'split') && res.data.id) {
+      try {
+        const qrRes = await api.post(`${process.env.REACT_APP_BACKEND_URL}/api/uploads/generate-link`, {
+          record_type: 'invoice', record_id: res.data.id,
+        });
+        showReceiptDialog({ invoice_id: res.data.id, invoice_number: invoiceNum, ...qrRes.data });
+      } catch {}
+    }
+  };
 
   return (
     <div className="h-[calc(100vh-80px)] flex flex-col animate-fadeIn" data-testid="unified-sales-page">
@@ -2648,6 +2789,24 @@ export default function UnifiedSalesPage() {
         title={refPrompt.title}
         invoiceData={refPrompt.invoiceData}
         businessInfo={bizInfo}
+      />
+
+      {/* Insufficient Stock Override Modal */}
+      <InsufficientStockModal
+        open={stockOverrideModal}
+        insufficientItems={insufficientItems}
+        onOverride={handleStockOverride}
+        onCancel={() => {
+          setStockOverrideModal(false);
+          setPendingSaleData(null);
+          setInsufficientItems([]);
+        }}
+        onGoPO={() => {
+          setStockOverrideModal(false);
+          setPendingSaleData(null);
+          setInsufficientItems([]);
+          window.location.href = '/purchase-orders';
+        }}
       />
 
     </div>

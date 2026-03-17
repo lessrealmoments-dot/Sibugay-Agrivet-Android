@@ -1,0 +1,63 @@
+{
+  "summary": "Iteration 132: Controlled Negative Stock Override feature tested. All 10 requested test scenarios pass in both backend (8/8 pytest) and UI (Playwright). Feature is fully functional end-to-end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Count Sheets - System quantity column",
+        "issues": ["Negative quantity (e.g., -2) in system column may display as '2' in some viewport widths due to font rendering or right-alignment cutting off the minus sign. The 'Negative — check open ticket' warning is shown correctly in red. Visual only — no functional impact."]
+      }
+    ]
+  },
+  "test_results": {
+    "backend_8_of_8_pass": {
+      "1_insufficient_stock_returns_422": "PASS — 422 with type=insufficient_stock, items=[{product_id, product_name, system_qty, needed_qty}], message",
+      "2_wrong_pin_returns_403": "PASS — 403 with 'Invalid override PIN — stock exception denied'",
+      "3_correct_pin_override_succeeds": "PASS — 200, invoice_number=SI-B1-001020",
+      "4_incident_ticket_created": "PASS — NSO-20260317-3E6527, ticket_type=negative_stock_override, status=open",
+      "5_inventory_shows_negative": "PASS — branch_stock=-1.0 for Animal Feed Deluxe 1kg Branch 1",
+      "6_close_preview_negative_stock": "PASS — negative_stock.count=1, items=[{product_id, product_name, quantity}]",
+      "7_count_sheet_snapshot_flag": "PASS — system_available_qty=-1.0, has_negative_stock=True for Animal Feed Deluxe 1kg",
+      "8_normal_sale_unaffected": "PASS — Branch 2 sale returns 200, invoice SI-B2-001000"
+    },
+    "frontend_all_pass": {
+      "1_insufficient_stock_modal_shown": "PASS — InsufficientStockModal appears on Complete Sale for 0-stock item",
+      "2_modal_3_options": "PASS — 'Encode / Receive a Purchase Order first', 'Manager Override (Negative Stock)', 'Cancel sale' all present",
+      "3_wrong_pin_error_in_modal": "PASS — 'Invalid override PIN — stock exception denied' shown inside modal",
+      "4_correct_pin_completes_sale": "PASS — Modal closes, toast: 'Sale SI-B1-001033 completed with manager override. Discrepancy ticket created.'",
+      "5_incident_tickets_nso_shown": "PASS — Multiple NSO-* tickets with 'Negative Stock' badge, qty change (e.g. 0→-1), manager_pin method, status open",
+      "6_inventory_negative_badge": "PASS — 'Negative — Investigate' badge with red text (-5.00 Pack) and red row background",
+      "7_close_wizard_warning_banner": "PASS — '1 item with negative inventory' red warning shown in Step 1, NOT blocking close",
+      "8_count_sheets_negative_flag": "PASS — '⚠ Negative — check open ticket' warning shown in red for Animal Feed Deluxe 1kg system quantity column"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_negative_stock_override_132.py",
+    "/app/test_reports/pytest/pytest_negative_stock_132.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "sales.py: The override flow correctly handles all inventory types (regular and repack). The pre-validation check (lines 105-149) and the post-sale incident ticket creation (lines 506-540) are correct.",
+    "verify.py: stock_negative_override policy added with defaults=[admin_pin, manager_pin, totp] — correctly aligned with feature requirements (no escalation threshold).",
+    "UnifiedSalesPage.js: InsufficientStockModal catches the 422 error (detail.type==='insufficient_stock') and shows the items list. The handleStockOverride function correctly retries with manager_override_pin appended. Error handling for 403 (wrong PIN) displays error inside modal correctly.",
+    "InventoryPage.js: isNegative check (branchQty < 0) shows red 'Negative — Investigate' badge and bg-red-50/40 row — working correctly.",
+    "CloseWizardPage.js: Negative stock warning only warns (does not block), conforming to spec requirement #3.",
+    "CountSheetsPage.js: has_negative_stock flag from snapshot drives warning display — working correctly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_negative_stock_override_132.py"
+  ],
+  "success_rate": {
+    "backend": "100% (8/8 tests pass)",
+    "frontend": "100% (all 8 UI scenarios pass)"
+  },
+  "seed_data_creation": "Multiple override sales created in Branch 1 during testing (Animal Feed Deluxe 1kg). Inventory is now at -5.00 Pack. Multiple NSO incident tickets (NSO-20260317-*) created as a result of testing. Count sheet CS-2026-0014 created for Branch 1 (in_progress).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 132 tested the 'Controlled Negative Stock Override' feature completely. All backend tests pass (8/8). All UI flows verified: InsufficientStockModal shows on checkout for 0-stock item with 3 options (Encode PO, Manager Override, Cancel), wrong PIN shows error inside modal, correct PIN (521325) completes sale and creates NSO incident ticket. Incident Tickets page shows NSO tickets with 'Negative Stock' badge and qty-change info. Inventory shows 'Negative — Investigate' badge with red row. Close Wizard Step 1 shows amber/red warning banner (non-blocking). Count Sheets show '⚠ Negative — check open ticket'. Dashboard fix from iteration 131 still intact. Branch 1 Animal Feed Deluxe 1kg is now at -5.00 Pack due to testing."
+}

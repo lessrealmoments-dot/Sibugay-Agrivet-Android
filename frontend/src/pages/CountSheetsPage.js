@@ -594,9 +594,16 @@ export default function CountSheetsPage() {
                             {hasRepack ? (
                               formatSplitQty(item.system_whole, item.system_loose, item.unit, repackUnit)
                             ) : (
-                              item.system_quantity
+                              <span className={item.has_negative_stock ? 'text-red-600 font-bold' : ''}>
+                                {item.system_quantity}
+                              </span>
                             )}
-                            {item.system_reserved_qty > 0 && (
+                            {item.has_negative_stock && (
+                              <div className="text-[10px] text-red-600 font-normal mt-0.5 flex items-center gap-0.5">
+                                <span>⚠</span> Negative — check open ticket
+                              </div>
+                            )}
+                            {!item.has_negative_stock && item.system_reserved_qty > 0 && (
                               <div className="text-[10px] text-amber-600 font-normal mt-0.5">
                                 {item.system_available_qty} avail + {item.system_reserved_qty} reserved
                               </div>

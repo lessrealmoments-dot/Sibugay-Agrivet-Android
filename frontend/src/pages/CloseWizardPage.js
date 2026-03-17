@@ -871,6 +871,32 @@ export default function CloseWizardPage() {
                   </div>
                 </div>
               )}
+
+              {/* Negative stock warning */}
+              {preview?.negative_stock?.count > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3" data-testid="close-wizard-negative-stock-warning">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0 text-red-500" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-red-700">
+                      {preview.negative_stock.count} item{preview.negative_stock.count !== 1 ? 's' : ''} with negative inventory
+                    </p>
+                    <p className="text-xs mt-0.5 text-red-600">
+                      These items were sold via manager override. An investigation ticket was auto-created for each.
+                      Check Incident Tickets to resolve (encode missing PO or adjust).
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {(preview.negative_stock.items || []).slice(0, 5).map((item, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-700 rounded px-1.5 py-0.5 font-mono">
+                          {item.product_name} ({item.quantity})
+                        </span>
+                      ))}
+                      {preview.negative_stock.count > 5 && (
+                        <span className="text-[10px] text-red-500">+{preview.negative_stock.count - 5} more</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               {(() => {
                 // Digital payment detection — mirrors backend DIGITAL_PAYMENT_METHODS
                 const CASH_METHODS = new Set(['cash', 'check', 'cheque', 'credit', 'partial', 'split']);

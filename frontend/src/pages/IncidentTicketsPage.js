@@ -361,20 +361,38 @@ export default function IncidentTicketsPage() {
                     </TableCell></TableRow>
                   ) : filtered.map(t => {
                     const rtMeta = RESOLUTION_TYPE_META[t.resolution_type];
+                    const isNegativeStock = t.ticket_type === 'negative_stock_override';
                     return (
                     <TableRow key={t.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedTicket(t)}
                       data-testid={`ticket-row-${t.id}`}>
                       <TableCell className="font-mono text-xs font-bold text-blue-600">{t.ticket_number}</TableCell>
                       <TableCell>
-                        <button className="font-mono text-xs text-blue-600 hover:underline"
-                          onClick={(e) => { e.stopPropagation(); openVarianceDetail(t.transfer_id); }}>
-                          {t.order_number}
-                        </button>
+                        {isNegativeStock ? (
+                          <span className="text-xs font-medium text-red-700">{t.product_name}</span>
+                        ) : (
+                          <button className="font-mono text-xs text-blue-600 hover:underline"
+                            onClick={(e) => { e.stopPropagation(); openVarianceDetail(t.transfer_id); }}>
+                            {t.order_number}
+                          </button>
+                        )}
                       </TableCell>
-                      <TableCell className="text-xs">{t.from_branch_name} &rarr; {t.to_branch_name}</TableCell>
-                      <TableCell className="text-right font-mono font-bold text-red-600">{formatPHP(t.total_capital_loss)}</TableCell>
+                      <TableCell className="text-xs">
+                        {isNegativeStock ? (
+                          <Badge className="bg-red-100 text-red-700 text-[10px]">Negative Stock</Badge>
+                        ) : (
+                          <span>{t.from_branch_name} &rarr; {t.to_branch_name}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-red-600">
+                        {isNegativeStock
+                          ? <span className="text-xs font-mono">{t.qty_before_sale} → {t.qty_after_sale}</span>
+                          : formatPHP(t.total_capital_loss)
+                        }
+                      </TableCell>
                       <TableCell>
-                        {rtMeta ? (
+                        {isNegativeStock ? (
+                          <Badge className="text-[10px] bg-slate-100 text-slate-600">{t.override_method || 'override'}</Badge>
+                        ) : rtMeta ? (
                           <Badge className={`text-[10px] ${rtMeta.bg} ${rtMeta.color}`}>{rtMeta.label}</Badge>
                         ) : (
                           <span className="text-[10px] text-slate-400">{'\u2014'}</span>

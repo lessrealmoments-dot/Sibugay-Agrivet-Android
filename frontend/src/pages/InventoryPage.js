@@ -85,12 +85,13 @@ export default function InventoryPage() {
                 const branchQty = currentBranch 
                   ? (item.derived_from_parent ? item.total_stock : (item.branch_stock?.[currentBranch.id] || 0)) 
                   : item.total_stock;
+                const isNegative = branchQty < 0;
                 const isLow = branchQty <= (item.reorder_point || 10) && branchQty > 0;
-                const isOut = branchQty <= 0;
+                const isOut = branchQty === 0;
                 const isGrouped = sortBy === 'grouped';
                 return (
                   <TableRow key={item.id}
-                    className={`cursor-pointer transition-colors hover:bg-slate-50 ${isGrouped && item.is_repack ? 'bg-amber-50/30' : ''}`}
+                    className={`cursor-pointer transition-colors hover:bg-slate-50 ${isGrouped && item.is_repack ? 'bg-amber-50/30' : ''} ${isNegative ? 'bg-red-50/40' : ''}`}
                     onClick={() => navigate(`/products/${item.id}`)} data-testid={`inv-row-${item.id}`}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -121,7 +122,7 @@ export default function InventoryPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={`font-semibold ${isOut ? 'text-red-600' : isLow ? 'text-amber-600' : ''}`}>
+                      <span className={`font-semibold ${isNegative ? 'text-red-700' : isOut ? 'text-red-600' : isLow ? 'text-amber-600' : ''}`}>
                         {branchQty.toFixed(2)} {item.unit}
                       </span>
                       {item.derived_from_parent && (
@@ -130,7 +131,8 @@ export default function InventoryPage() {
                     </TableCell>
                     <TableCell className="text-right text-slate-500">{item.total_stock?.toFixed(2)}</TableCell>
                     <TableCell>
-                      {isOut ? <Badge className="bg-red-100 text-red-700 text-[10px]">Out of Stock</Badge>
+                      {isNegative ? <Badge className="bg-red-200 text-red-800 text-[10px]">Negative — Investigate</Badge>
+                        : isOut ? <Badge className="bg-red-100 text-red-700 text-[10px]">Out of Stock</Badge>
                         : isLow ? <Badge className="bg-amber-100 text-amber-700 text-[10px]">Low</Badge>
                         : <Badge className="bg-emerald-100 text-emerald-700 text-[10px]">In Stock</Badge>}
                     </TableCell>

@@ -16,7 +16,7 @@ Supported actions:
 from fastapi import APIRouter, HTTPException, Request
 from datetime import datetime, timezone, timedelta
 from config import db
-from utils import now_iso, new_id, is_digital_payment, update_cashier_wallet, update_digital_wallet
+from utils import now_iso, new_id, is_digital_payment, update_cashier_wallet, update_digital_wallet, log_movement
 from utils.security import (
     check_qr_lockout, log_failed_qr_pin_attempt, log_successful_qr_pin_attempt,
 )
@@ -229,6 +229,17 @@ async def release_stocks(code: str, data: dict, request: Request):
         await db.inventory.update_one(
             {"product_id": inv_product_id, "branch_id": branch_id},
             {"$inc": {"reserved_qty": -qty_release_inv}, "$set": {"updated_at": now_iso()}}
+        )
+
+        # Log movement: quantity_change=0 (stock already left at sale time),
+        # reserved_qty_change=-qty_release_inv (reserved stock handed to customer)
+        await log_movement(
+            inv_product_id, branch_id, "sale_release", 0,
+            doc_id, invoice.get("invoice_number", ""),
+            0,  # price already captured at original sale
+            verifier["verifier_id"], verifier["verifier_name"],
+            f"Released to customer: {res['sold_product_name']} x{qty_release} {res.get('sold_unit', '')}",
+            reserved_qty_change=-qty_release_inv,
         )
 
         # Update sale_reservation record
@@ -649,7 +660,7 @@ async def process_expired_reservations():
     Daily job: return unreleased reserved stock to available inventory after 30 days.
     Logs an expiry_return movement and notifies branch managers.
     """
-    from utils import log_movement
+    from utils import log_movement  # already top-level, kept for clarity
     now_str = datetime.now(timezone.utc).isoformat()
 
     expired = await db.sale_reservations.find(

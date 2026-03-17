@@ -16,14 +16,21 @@ def new_id():
     return str(uuid.uuid4())
 
 
-async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_number, price, user_id, user_name, notes=""):
-    """Log a product movement (sale, purchase, adjustment, etc.)."""
+async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_number, price, user_id, user_name, notes="", reserved_qty_change=0):
+    """
+    Log a product movement (sale, purchase, adjustment, transfer, release, etc.).
+
+    qty_change          — change to inventory.quantity  (negative = out, positive = in)
+    reserved_qty_change — change to inventory.reserved_qty (negative = released to customer, positive = reserved at sale)
+                          Defaults to 0 for all existing callers. Only sale_release uses a non-zero value.
+    """
     await db.movements.insert_one({
         "id": new_id(),
         "product_id": product_id,
         "branch_id": branch_id,
         "type": m_type,
         "quantity_change": qty_change,
+        "reserved_qty_change": reserved_qty_change,
         "reference_id": ref_id,
         "reference_number": ref_number,
         "price_at_time": float(price) if price else 0,

@@ -37,5 +37,23 @@
 
     <!-- Permissions -->
 
+    <!-- Internet — load agri-books.com in the WebView -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Camera — QR code scanning and payment proof photos -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
+    <!-- Vibration — haptic feedback when barcode is scanned -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Storage — save/read receipt images and payment proof photos -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Network state — detect online/offline for sync -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
 </manifest>

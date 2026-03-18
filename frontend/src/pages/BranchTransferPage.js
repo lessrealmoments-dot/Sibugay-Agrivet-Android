@@ -270,7 +270,7 @@ export default function BranchTransferPage() {
   const handleReqSearch = (rowId, query) => {
     updateReqRow(rowId, { search: query, product: null });
     clearTimeout(reqSearchTimers.current[rowId]);
-    if (!query || query.length < 2) { updateReqRow(rowId, { matches: [] }); return; }
+    if (!query || query.length < 1) { updateReqRow(rowId, { matches: [] }); return; }
     reqSearchTimers.current[rowId] = setTimeout(async () => {
       try {
         const myBranch = currentBranch?.id || user?.branch_id || '';
@@ -284,7 +284,7 @@ export default function BranchTransferPage() {
         });
         updateReqRow(rowId, { matches: res.data || [] });
       } catch { updateReqRow(rowId, { matches: [] }); }
-    }, 300);
+    }, 200);
   };
 
   const selectReqProduct = (rowId, product) => {

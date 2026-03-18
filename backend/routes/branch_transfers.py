@@ -99,9 +99,12 @@ async def lookup_product_for_transfer(
     user=Depends(get_current_user),
 ):
     """
-    Search products and return all pricing data needed for a transfer row:
-      branch_capital, moving_avg, last_purchase, last_branch_retail (memory).
+    Search products and return all pricing data needed for a transfer row.
+    Optimized: all per-product enrichment calls run in parallel via asyncio.gather().
+    Previously ran 50+ sequential DB queries per search; now runs in ~3 parallel rounds.
     """
+    import asyncio
+
     if not q or len(q) < 1:
         return []
     query = {
@@ -113,13 +116,24 @@ async def lookup_product_for_transfer(
         ]
     }
     products = await db.products.find(query, {"_id": 0}).limit(10).to_list(10)
-    results = []
-    for p in products:
+
+    async def _val(v):
+        """Return a constant value as a coroutine — used in asyncio.gather() for optional calls."""
+        return v
+
+    async def enrich_product(p):
         global_cost = float(p.get("cost_price", 0))
-        branch_capital = float(await get_branch_cost(p, from_branch_id)) if from_branch_id else global_cost
-        last_purchase, moving_avg = await _get_po_refs(p["id"], from_branch_id)
-        memory = await _get_price_memory(p["id"], to_branch_id) if to_branch_id else {}
-        results.append({
+
+        # Run all 3 independent lookups in parallel instead of sequentially
+        branch_capital_raw, po_refs, memory = await asyncio.gather(
+            get_branch_cost(p, from_branch_id) if from_branch_id else _val(global_cost),
+            _get_po_refs(p["id"], from_branch_id),
+            _get_price_memory(p["id"], to_branch_id) if to_branch_id else _val({}),
+        )
+        branch_capital = float(branch_capital_raw)
+        last_purchase, moving_avg = po_refs
+
+        result = {
             "id": p["id"],
             "sku": p["sku"],
             "name": p["name"],
@@ -132,17 +146,16 @@ async def lookup_product_for_transfer(
             "moving_average_ref": moving_avg,
             "last_branch_retail": memory.get("last_retail_price"),
             "last_transfer_capital": memory.get("last_transfer_capital"),
-        })
+        }
 
-        # Enrich with repack children info (for repack pricing at destination)
+        # Enrich with repack children — fetch all at once then parallel price lookups
         repacks = await db.products.find(
             {"parent_id": p["id"], "is_repack": True, "active": True}, {"_id": 0}
         ).to_list(10)
-        repack_info = []
-        for rp in repacks:
+
+        async def enrich_repack(rp):
             units_per_parent = float(rp.get("units_per_parent", 1) or 1)
             capital_per_repack = round(branch_capital / units_per_parent, 4) if units_per_parent > 0 else 0
-            # Current retail at destination
             dest_price_doc = await db.branch_prices.find_one(
                 {"product_id": rp["id"], "branch_id": to_branch_id}, {"_id": 0}
             ) if to_branch_id else None
@@ -151,7 +164,7 @@ async def lookup_product_for_transfer(
                 dest_retail = dest_price_doc.get("prices", {}).get("retail")
             if dest_retail is None:
                 dest_retail = rp.get("prices", {}).get("retail", 0) or 0
-            repack_info.append({
+            return {
                 "id": rp["id"],
                 "name": rp["name"],
                 "sku": rp.get("sku", ""),
@@ -159,9 +172,14 @@ async def lookup_product_for_transfer(
                 "units_per_parent": units_per_parent,
                 "capital_per_repack": capital_per_repack,
                 "current_dest_retail": float(dest_retail),
-            })
-        results[-1]["repacks"] = repack_info
-    return results
+            }
+
+        result["repacks"] = await asyncio.gather(*[enrich_repack(rp) for rp in repacks])
+        return result
+
+    # Run ALL product enrichments in parallel — the key optimization
+    results = await asyncio.gather(*[enrich_product(p) for p in products])
+    return list(results)
 
 
 # ── Transfer order CRUD ───────────────────────────────────────────────────────

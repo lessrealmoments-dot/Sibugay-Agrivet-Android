@@ -257,6 +257,8 @@ export default function UnifiedSalesPage() {
   const [header, setHeader] = useState({
     terms: 'COD', terms_days: 0, customer_po: '', sales_rep_id: '', sales_rep_name: '',
     prefix: 'SI', order_date: new Date().toISOString().slice(0, 10),
+    invoice_date: new Date().toISOString().slice(0, 10),
+    shipping_address: '', location: '', mod: '', check_number: '', req_ship_date: '', notes: '',
   });
   const [freight, setFreight] = useState(0);
   const [overallDiscount, setOverallDiscount] = useState(0);
@@ -723,7 +725,8 @@ export default function UnifiedSalesPage() {
   const removeFromCart = (productId) => setCart(cart.filter(c => c.product_id !== productId));
   const clearCart = () => {
     setCart([]); setLines([{ ...EMPTY_LINE }]); setSelectedCustomer(null); setCustSearch('');
-    setActiveScheme(defaultScheme); // Restore walk-in default when clearing
+    setActiveScheme(defaultScheme);
+    setHeader(h => ({ ...h, shipping_address: '', location: '', mod: '', check_number: '', req_ship_date: '', notes: '', customer_po: '' }));
   };
 
   // Apply a scheme change: updates activeScheme and reprices all open cart/line items
@@ -1086,7 +1089,14 @@ export default function UnifiedSalesPage() {
       sales_rep_name: header.sales_rep_name,
       prefix: header.prefix,
       order_date: header.order_date,
-      invoice_date: today,
+      invoice_date: header.invoice_date || today,
+      // extra order mode fields
+      shipping_address: header.shipping_address || undefined,
+      location: header.location || undefined,
+      mod: header.mod || undefined,
+      check_number: header.check_number || undefined,
+      req_ship_date: header.req_ship_date || undefined,
+      notes: header.notes || undefined,
       // Digital payment routing
       payment_method: actualPaymentType === 'digital' ? digitalPlatform
         : actualPaymentType === 'split' ? 'Split'
@@ -1494,6 +1504,103 @@ export default function UnifiedSalesPage() {
         </Card>
       </div>
 
+      {/* ── Order Mode: Expanded Header ── */}
+      {mode === 'order' && (
+        <div className="px-1 pb-3">
+          <Card className="border-slate-200">
+            <CardContent className="p-0">
+              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+                {/* Left: Contact + Addresses */}
+                <div className="p-3 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Customer Details</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Contact</Label>
+                      <Input className="h-8 text-sm mt-0.5"
+                        value={selectedCustomer?.phone || ''}
+                        placeholder={selectedCustomer ? '' : 'Select customer first'}
+                        readOnly={!!selectedCustomer}
+                        onChange={() => {}} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Phone</Label>
+                      <Input className="h-8 text-sm mt-0.5"
+                        value={selectedCustomer?.phone || ''}
+                        placeholder="—"
+                        readOnly={!!selectedCustomer}
+                        onChange={() => {}} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Billing Address</Label>
+                      <Input className="h-8 text-sm mt-0.5"
+                        value={selectedCustomer?.address || ''}
+                        placeholder="—"
+                        readOnly={!!selectedCustomer}
+                        onChange={() => {}} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Shipping Address</Label>
+                      <Input className="h-8 text-sm mt-0.5" placeholder="(same as billing)"
+                        value={header.shipping_address}
+                        onChange={e => setHeader(h => ({ ...h, shipping_address: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Order Meta */}
+                <div className="p-3 space-y-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Order Info</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Sales Rep</Label>
+                      <Select value={header.sales_rep_id || 'none'} onValueChange={v => {
+                        const u = users.find(x => x.id === v);
+                        setHeader(h => ({ ...h, sales_rep_id: v === 'none' ? '' : v, sales_rep_name: u?.full_name || u?.username || '' }));
+                      }}>
+                        <SelectTrigger className="h-8 text-sm mt-0.5"><SelectValue placeholder="None" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {users.map(u => <SelectItem key={u.id} value={u.id}>{u.full_name || u.username}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Location</Label>
+                      <Input className="h-8 text-sm mt-0.5" value={header.location}
+                        onChange={e => setHeader(h => ({ ...h, location: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Req. Ship Date</Label>
+                      <Input type="date" className="h-8 text-sm mt-0.5" value={header.req_ship_date}
+                        onChange={e => setHeader(h => ({ ...h, req_ship_date: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">MOD</Label>
+                      <Input className="h-8 text-sm mt-0.5" placeholder="e.g. Delivery" value={header.mod}
+                        onChange={e => setHeader(h => ({ ...h, mod: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Check #</Label>
+                      <Input className="h-8 text-sm mt-0.5" value={header.check_number}
+                        onChange={e => setHeader(h => ({ ...h, check_number: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Invoice Date</Label>
+                      <Input type="date" className="h-8 text-sm mt-0.5" value={header.invoice_date}
+                        onChange={e => setHeader(h => ({ ...h, invoice_date: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex gap-4 px-1 overflow-hidden">
         {mode === 'quick' ? (
@@ -1678,11 +1785,12 @@ export default function UnifiedSalesPage() {
                     <thead className="sticky top-0 bg-slate-50 z-10">
                       <tr className="border-b">
                         <th className="text-left px-3 py-2 text-xs uppercase text-slate-500 font-medium w-8">#</th>
-                        <th className="text-left px-3 py-2 text-xs uppercase text-slate-500 font-medium min-w-[280px]">Product</th>
+                        <th className="text-left px-3 py-2 text-xs uppercase text-slate-500 font-medium min-w-[240px]">Item</th>
+                        <th className="text-left px-3 py-2 text-xs uppercase text-slate-500 font-medium min-w-[120px]">Description</th>
                         <th className="text-right px-3 py-2 text-xs uppercase text-slate-500 font-medium w-20">Qty</th>
-                        <th className="text-right px-3 py-2 text-xs uppercase text-slate-500 font-medium w-28">Rate</th>
+                        <th className="text-right px-3 py-2 text-xs uppercase text-slate-500 font-medium w-28">Unit Price</th>
                         <th className="text-right px-3 py-2 text-xs uppercase text-slate-500 font-medium w-28">Discount</th>
-                        <th className="text-right px-3 py-2 text-xs uppercase text-slate-500 font-medium w-28">Amount</th>
+                        <th className="text-right px-3 py-2 text-xs uppercase text-slate-500 font-medium w-28">Sub-Total</th>
                         <th className="w-10"></th>
                       </tr>
                     </thead>
@@ -1712,6 +1820,14 @@ export default function UnifiedSalesPage() {
                                 onCreateNew={() => {}}
                               />
                             )}
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              className="w-full h-8 px-2 text-sm border border-transparent hover:border-slate-200 focus:border-[#1A4D2E] focus:outline-none rounded bg-transparent"
+                              placeholder="—"
+                              value={line.description || ''}
+                              onChange={e => updateLine(i, 'description', e.target.value)}
+                            />
                           </td>
                           <td className="px-3 py-1">
                             <Input
@@ -1774,30 +1890,48 @@ export default function UnifiedSalesPage() {
                   </table>
                 </div>
 
-                {/* Order totals */}
-                <div className="border-t border-slate-100 p-4 bg-slate-50">
-                  <div className="flex justify-end">
-                    <div className="w-72 space-y-2">
-                      <div className="flex justify-between text-sm"><span>Subtotal</span><span>{formatPHP(subtotal)}</span></div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span>Freight</span>
-                        <Input type="number" className="h-7 w-24 text-right" value={freight} onChange={e => setFreight(parseFloat(e.target.value) || 0)} />
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span>Discount</span>
-                        <Input type="number" className="h-7 w-24 text-right" value={overallDiscount} onChange={e => setOverallDiscount(parseFloat(e.target.value) || 0)} />
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{formatPHP(grandTotal)}</span></div>
-                      <Button 
-                        data-testid="checkout-btn"
-                        className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white"
-                        onClick={openCheckout}
-                        disabled={items.length === 0}
-                      >
-                        <CreditCard size={16} className="mr-2" /> Proceed to Payment
-                      </Button>
+                {/* Order bottom — Notes + Totals */}
+                <div className="border-t border-slate-100">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+
+                    {/* Notes */}
+                    <div className="p-3 lg:col-span-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-1.5">Important / Notes</p>
+                      <textarea
+                        className="w-full h-16 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:border-[#1A4D2E] focus:outline-none resize-none"
+                        placeholder="Delivery instructions, special notes..."
+                        value={header.notes || ''}
+                        onChange={e => setHeader(h => ({ ...h, notes: e.target.value }))}
+                      />
                     </div>
+
+                    {/* Totals */}
+                    <div className="p-3">
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Sub-Total</span><span className="font-medium">{formatPHP(subtotal)}</span></div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">Freight</span>
+                          <Input type="number" className="h-7 w-24 text-right" value={freight} onChange={e => setFreight(parseFloat(e.target.value) || 0)} />
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">Discount</span>
+                          <Input type="number" className="h-7 w-24 text-right" value={overallDiscount} onChange={e => setOverallDiscount(parseFloat(e.target.value) || 0)} />
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between font-bold text-base" style={{ fontFamily: 'Manrope' }}>
+                          <span>Total</span><span className="text-[#1A4D2E]">{formatPHP(grandTotal)}</span>
+                        </div>
+                        <Button
+                          data-testid="checkout-btn"
+                          className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white mt-1"
+                          onClick={openCheckout}
+                          disabled={items.length === 0}
+                        >
+                          <CreditCard size={15} className="mr-2" /> Complete & Pay
+                        </Button>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </CardContent>

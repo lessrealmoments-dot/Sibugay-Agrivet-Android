@@ -198,6 +198,15 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         disc_val = float(item.get("discount_value", 0))
         disc_amt = disc_val if disc_type == "amount" else round(qty * rate * disc_val / 100, 2)
         line_total = round(qty * rate - disc_amt, 2)
+
+        # Check capital rule AFTER discount — net price per unit must not fall below capital
+        if qty > 0 and branch_cost > 0:
+            net_per_unit = line_total / qty
+            if net_per_unit < branch_cost:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cannot sell '{product['name']}' — after discount, net price ₱{net_per_unit:.2f}/unit is below capital ₱{branch_cost:.2f}"
+                )
         
         # ── Inventory: deduct immediately for BOTH full and partial release ────
         # Partial release: also moves qty into reserved_qty bucket on same record.

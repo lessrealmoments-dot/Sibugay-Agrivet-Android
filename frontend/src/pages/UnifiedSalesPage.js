@@ -1048,6 +1048,24 @@ export default function UnifiedSalesPage() {
       return;
     }
 
+    // Check for discounts that push net price below capital (Order mode only — Quick has no per-line discount)
+    if (mode === 'order') {
+      const discountBelowCap = lines.find(l => {
+        if (!l.product_id || l.discount_value <= 0) return false;
+        const cap = l.effective_capital || l.cost_price;
+        if (cap <= 0) return false;
+        const netTotal = lineTotal(l);
+        const netPerUnit = l.quantity > 0 ? netTotal / l.quantity : 0;
+        return netPerUnit < cap;
+      });
+      if (discountBelowCap) {
+        const cap = discountBelowCap.effective_capital || discountBelowCap.cost_price;
+        const netPerUnit = discountBelowCap.quantity > 0 ? lineTotal(discountBelowCap) / discountBelowCap.quantity : 0;
+        toast.error(`Cannot sell "${discountBelowCap.product_name}" — after discount, net ₱${netPerUnit.toFixed(2)}/unit is below capital ₱${cap.toFixed(2)}`);
+        return;
+      }
+    }
+
     setPaymentType('cash');
     setAmountTendered(grandTotal);
     setPartialPayment(0);
@@ -2026,12 +2044,27 @@ export default function UnifiedSalesPage() {
                             </div>
                           </td>
                           <td className="px-3 py-1">
-                            <Input
-                              type="number"
-                              className="h-8 text-right w-20"
-                              value={line.discount_value}
-                              onChange={e => updateLine(i, 'discount_value', parseFloat(e.target.value) || 0)}
-                            />
+                            {(() => {
+                              const cap = line.effective_capital || line.cost_price;
+                              const net = line.product_id && line.quantity > 0 && line.discount_value > 0
+                                ? lineTotal(line) / line.quantity : null;
+                              const isBelowCap = net !== null && cap > 0 && net < cap;
+                              return (
+                                <div>
+                                  <Input
+                                    type="number"
+                                    className={`h-8 text-right w-20 ${isBelowCap ? 'border-red-400 bg-red-50 text-red-700' : ''}`}
+                                    value={line.discount_value}
+                                    onChange={e => updateLine(i, 'discount_value', parseFloat(e.target.value) || 0)}
+                                  />
+                                  {isBelowCap && (
+                                    <p className="text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
+                                      <AlertTriangle size={9}/> Net ₱{net.toFixed(2)} &lt; cap ₱{cap.toFixed(2)}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-3 py-1 text-right font-medium">{formatPHP(lineTotal(line))}</td>
                           <td className="px-1">

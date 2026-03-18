@@ -28,6 +28,14 @@ import {
 import PrintEngine from '../lib/PrintEngine';
 import { toast } from 'sonner';
 
+// Smart quantity formatter — shows 6 not 6.0000, shows 5.25 not 5.2500000001
+const fmtQty = (v) => {
+  const n = parseFloat(v);
+  if (isNaN(n)) return '0';
+  const rounded = Math.round(n * 10000) / 10000; // max 4 decimal places
+  return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(2).replace(/\.?0+$/, '');
+};
+
 const STATUS_COLORS = {
   draft: 'bg-slate-100 text-slate-600',
   sent: 'bg-blue-100 text-blue-700',
@@ -1367,11 +1375,11 @@ export default function BranchTransferPage() {
                               <div className="flex gap-3 mt-0.5">
                                 {p.also_branch_stock !== undefined && (
                                   <span className={`text-[10px] font-medium ${p.also_branch_stock > 0 ? 'text-amber-600' : 'text-red-500'}`}>
-                                    You: {p.also_branch_stock} {p.unit || ''}
+                                    You: {fmtQty(p.also_branch_stock)} {p.unit || ''}
                                   </span>
                                 )}
                                 <span className={`text-[10px] font-medium ${(p.available || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                  {targetBranchObj?.name || 'Supplier'}: {p.available || 0} {p.unit || ''}
+                                  {targetBranchObj?.name || 'Supplier'}: {fmtQty(p.available)} {p.unit || ''}
                                 </span>
                               </div>
                             </button>
@@ -1383,11 +1391,11 @@ export default function BranchTransferPage() {
                           <span className="text-[10px] text-slate-400">{row.product.sku || ''} {row.product.category ? `· ${row.product.category}` : ''}</span>
                           {row.product.also_branch_stock !== undefined && (
                             <span className={`text-[10px] font-semibold ${row.product.also_branch_stock > 0 ? 'text-amber-600' : 'text-red-500'}`}>
-                              Your stock: {row.product.also_branch_stock}
+                              Your stock: {fmtQty(row.product.also_branch_stock)}
                             </span>
                           )}
                           <span className={`text-[10px] font-semibold ${(row.product.available || 0) > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                            {targetBranchObj?.name || 'Supplier'}: {row.product.available || 0}
+                            {targetBranchObj?.name || 'Supplier'}: {fmtQty(row.product.available)}
                           </span>
                         </div>
                       )}

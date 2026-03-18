@@ -217,7 +217,7 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, a
             units_per_parent = p.get("units_per_parent", 1)
             result = {
                 **p, **capital_data,
-                "available": parent_stock * units_per_parent,
+                "available": round(parent_stock * units_per_parent, 4),
                 "reserved": 0, "coming": 0,
                 "parent_name": parent["name"] if parent else "",
                 "parent_stock": parent_stock,
@@ -229,13 +229,13 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, a
                 inv = await db.inventory.find_one(
                     {"product_id": p["id"], "branch_id": branch_id}, {"_id": 0}
                 )
-                available = float(inv["quantity"]) if inv else 0
+                available = round(float(inv["quantity"]), 4) if inv else 0
             else:
                 agg = await db.inventory.aggregate([
                     {"$match": {"product_id": p["id"]}},
                     {"$group": {"_id": None, "total": {"$sum": "$quantity"}}}
                 ]).to_list(1)
-                available = float(agg[0]["total"]) if agg else 0
+                available = round(float(agg[0]["total"]), 4) if agg else 0
 
             coming_r = await db.purchase_orders.aggregate([
                 {"$match": {"status": {"$in": ["ordered", "draft"]}, **({"branch_id": branch_id} if branch_id else {})}},
@@ -252,15 +252,15 @@ async def search_products_detail(q: str = "", branch_id: Optional[str] = None, a
             result = {
                 **p, **capital_data,
                 "available": available,
-                "reserved": reserved_r[0]["t"] if reserved_r else 0,
-                "coming": coming_r[0]["t"] if coming_r else 0,
+                "reserved": round(float(reserved_r[0]["t"]), 4) if reserved_r else 0,
+                "coming": round(float(coming_r[0]["t"]), 4) if coming_r else 0,
             }
         # ── Also-branch stock (for Request Stock dual-view) ──────────────
         if also_branch_id and also_branch_id != branch_id:
             also_inv = await db.inventory.find_one(
                 {"product_id": p["id"], "branch_id": also_branch_id}, {"_id": 0}
             )
-            result["also_branch_stock"] = float(also_inv["quantity"]) if also_inv else 0
+            result["also_branch_stock"] = round(float(also_inv["quantity"]), 4) if also_inv else 0
 
         results.append(result)
     

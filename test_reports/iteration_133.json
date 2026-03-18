@@ -57,7 +57,7 @@
       "4_terminal_smart_search_button_in_header": "PASS — terminal-find-code-btn search icon in terminal header",
       "5_terminal_search_input_opens": "PASS — terminal-doc-code-input appears after clicking search button",
       "6_terminal_search_dropdown_results": "PASS — 5 results shown for 'SI-B1' query with invoice numbers and doc codes",
-      "7_terminal_navigation_includes_branch_param": "PASS — URL /doc/8423KQNW?branch=c435277f-9fc7-4d83-83e7-38be5b4423ac confirmed"
+      "7_terminal_navigation_includes_branch_param": "PASS — URL /doc/8423KQNW?branch=smart-qr-scan-1 confirmed"
     }
   },
   "code_review_verified": {

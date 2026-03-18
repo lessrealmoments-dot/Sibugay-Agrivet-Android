@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriSmart Terminal — APK Build Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: white;
+    padding: 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media print {
+    body { padding: 20px; font-size: 11px; }
+    .no-print { display: none; }
+    .page-break { page-break-before: always; }
+    h2 { page-break-after: avoid; }
+    .step-box { page-break-inside: avoid; }
+  }
+
+  /* Print button */
+  .print-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #1A4D2E;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(26,77,46,0.3);
+    z-index: 100;
+  }
+  .print-btn:hover { background: #14532d; }
+
+  /* Header */
+  .doc-header {
+    background: #1A4D2E;
+    color: white;
+    padding: 32px 36px;
+    border-radius: 12px;
+    margin-bottom: 32px;
+  }
+  .doc-header .tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #6ee7b7;
+    margin-bottom: 8px;
+  }
+  .doc-header h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 6px;
+  }
+  .doc-header p {
+    color: #a7f3d0;
+    font-size: 13px;
+  }
+  .doc-header .meta {
+    margin-top: 16px;
+    display: flex;
+    gap: 24px;
+    font-size: 11px;
+    color: #6ee7b7;
+  }
+
+  /* Requirements box */
+  .requirements {
+    background: #fef3c7;
+    border: 1.5px solid #fbbf24;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+  }
+  .requirements h3 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #92400e;
+    margin-bottom: 10px;
+  }
+  .req-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .req-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #78350f;
+  }
+  .req-item .icon { font-size: 14px; }
+
+  /* Phase headers */
+  h2 {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #6b7280;
+    margin: 32px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  h2 .phase-num {
+    background: #1A4D2E;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+    font-size: 10px;
+  }
+
+  /* Step boxes */
+  .step-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+  }
+  .step-box .step-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .step-num {
+    background: #1A4D2E;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .step-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    padding-top: 2px;
+  }
+  .step-body {
+    padding-left: 36px;
+    font-size: 12px;
+    color: #374151;
+  }
+  .step-body p { margin-bottom: 6px; }
+
+  /* Code blocks */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+  pre {
+    font-family: 'JetBrains Mono', monospace;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.7;
+    margin: 8px 0;
+    overflow-x: auto;
+    border-left: 3px solid #10b981;
+  }
+  pre .comment { color: #94a3b8; }
+
+  /* File path */
+  .filepath {
+    font-family: 'JetBrains Mono', monospace;
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    color: #15803d;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    margin: 8px 0;
+    display: block;
+    word-break: break-all;
+  }
+
+  /* Warning / info boxes */
+  .warning {
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #9a3412;
+  }
+  .warning strong { color: #c2410c; }
+
+  .info {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #1e40af;
+  }
+
+  .success {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+    font-size: 12px;
+    color: #166534;
+  }
+
+  /* Errors section */
+  .error-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin: 10px 0;
+  }
+  .error-table th {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .error-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: top;
+  }
+  .error-table tr:last-child td { border-bottom: none; }
+  .error-table td:first-child { color: #dc2626; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .error-table td:last-child code { background: #d1fae5; color: #065f46; }
+
+  /* JSON content block */
+  .json-block {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 16px;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.8;
+    margin: 8px 0;
+    border-left: 3px solid #6366f1;
+  }
+  .json-block .key { color: #93c5fd; }
+  .json-block .str { color: #86efac; }
+  .json-block .num { color: #fda4af; }
+  .json-block .bool { color: #fbbf24; }
+
+  /* Summary flow */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .flow-step {
+    background: #1A4D2E;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .flow-arrow { color: #9ca3af; font-size: 14px; }
+
+  /* Footer */
+  .doc-footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 11px;
+    color: #9ca3af;
+    text-align: center;
+  }
+
+  ol, ul { padding-left: 20px; }
+  ol li, ul li { margin-bottom: 4px; font-size: 12px; }
+  b { font-weight: 600; }
+</style>
+</head>
+<body>
+
+<button class="print-btn no-print" onclick="window.print()">⬇ Save as PDF</button>
+
+<!-- HEADER -->
+<div class="doc-header">
+  <div class="tag">Build Guide · Windows 11</div>
+  <h1>AgriSmart Terminal — APK Build Guide</h1>
+  <p>Step-by-step instructions to build and install the H10P Android terminal app</p>
+  <div class="meta">
+    <span>📱 Target Device: H10P Android 14 POS</span>
+    <span>🌐 App URL: agri-books.com/terminal</span>
+    <span>📦 Output: app-debug.apk</span>
+  </div>
+</div>
+
+<!-- REQUIREMENTS -->
+<div class="requirements">
+  <h3>⚠️ Before You Start — Things You Need Ready</h3>
+  <div class="req-grid">
+    <div class="req-item"><span class="icon">💻</span> Windows 11 computer</div>
+    <div class="req-item"><span class="icon">🌐</span> Stable internet connection</div>
+    <div class="req-item"><span class="icon">📄</span> printer-release.aar file (from Senraise supplier)</div>
+    <div class="req-item"><span class="icon">⏱️</span> About 1–2 hours (mostly waiting for downloads)</div>
+    <div class="req-item"><span class="icon">🔗</span> GitHub repo: github.com/lessrealmoments-dot/Sibugay-Agrivet-supply-tenant</div>
+    <div class="req-item"><span class="icon">📱</span> H10P device + USB cable</div>
+  </div>
+</div>
+
+<!-- PHASE 1 -->
+<h2><span class="phase-num">PHASE 1</span> Install Required Tools</h2>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">1</div>
+    <div class="step-title">Install Git</div>
+  </div>
+  <div class="step-body">
+    <p>If Git is not already installed, download it from:</p>
+    <code>https://git-scm.com/download/win</code>
+    <p style="margin-top:8px">Run the installer → click <b>Next</b> through all screens → <b>Install</b> → <b>Finish</b></p>
+    <p>Then <b>restart your computer</b> after installing.</p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">2</div>
+    <div class="step-title">Install Node.js</div>
+  </div>
+  <div class="step-body">
+    <p>Go to: <code>https://nodejs.org</code></p>
+    <p>Click the big green <b>LTS</b> button → download the <b>.msi</b> file → run it.</p>
+    <p>Click: <b>Next → Next → Next → Install → Finish</b></p>
+    <p style="margin-top:8px"><b>Verify it worked:</b> Open CMD (press Windows key, type <b>cmd</b>, press Enter) and type:</p>
+    <pre>node --version</pre>
+    <p>You should see something like <code>v20.18.0</code> ✅</p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">3</div>
+    <div class="step-title">Install Java 17 (Required by Android Studio)</div>
+  </div>
+  <div class="step-body">
+    <p>Go to: <code>https://adoptium.net/temurin/releases/?version=17</code></p>
+    <p>Select: <b>Version = 17 LTS</b> · <b>OS = Windows</b> · <b>Architecture = x64</b> · <b>Package = JDK</b></p>
+    <p>Download the <b>.msi</b> file → run it → <b>Next → Next → Install → Finish</b></p>
+    <div class="warning">
+      <strong>⚠️ Important:</strong> Do NOT install Java 11 or Java 21. Must be exactly Java 17.
+    </div>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">4</div>
+    <div class="step-title">Install Android Studio</div>
+  </div>
+  <div class="step-body">
+    <p>Go to: <code>https://developer.android.com/studio</code></p>
+    <p>Download the latest version (should say <b>Android Studio Ladybug</b> or newer — 2024.x or later).</p>
+    <p>Run the installer → <b>Next → Next → Install → Finish</b> → let it launch.</p>
+    <p style="margin-top:8px">In the setup wizard:</p>
+    <ul>
+      <li>Select <b>"Do not import settings"</b></li>
+      <li>Choose <b>"Standard"</b> installation</li>
+      <li>Click <b>Next → Finish</b></li>
+      <li>Wait for the Android SDK to download (<b>2–4 GB</b> — get a coffee ☕)</li>
+    </ul>
+    <div class="warning">
+      <strong>⚠️ Version matters:</strong> Must be Android Studio Ladybug (2024.2.x) or newer. Older versions will fail.
+    </div>
+  </div>
+</div>
+
+<!-- PHASE 2 -->
+<h2 class="page-break"><span class="phase-num">PHASE 2</span> Download the Code</h2>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">5</div>
+    <div class="step-title">Open Command Prompt (CMD)</div>
+  </div>
+  <div class="step-body">
+    <p>Press the <b>Windows key</b> on your keyboard → type <b>cmd</b> → press <b>Enter</b></p>
+    <p>A black window opens. This is your Command Prompt.</p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">6</div>
+    <div class="step-title">Go to Documents Folder</div>
+  </div>
+  <div class="step-body">
+    <p>Type this exactly and press <b>Enter</b>:</p>
+    <pre>cd "C:\Users\Sibugay Agrivet\Documents"</pre>
+    <p>The line now shows: <code>C:\Users\Sibugay Agrivet\Documents></code></p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">7</div>
+    <div class="step-title">Clone the Repository from GitHub</div>
+  </div>
+  <div class="step-body">
+    <p>Type this exactly and press <b>Enter</b>:</p>
+    <pre>git clone https://github.com/lessrealmoments-dot/Sibugay-Agrivet-supply-tenant "SIBUGAY AGRICULTURAL SUPPLY ANDROID APP"</pre>
+    <p>You will see lines like "Receiving objects: 100%" — wait for it to finish.</p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">8</div>
+    <div class="step-title">Go Into the Project</div>
+  </div>
+  <div class="step-body">
+    <p>Type these two commands one by one, pressing <b>Enter</b> after each:</p>
+    <pre>cd "SIBUGAY AGRICULTURAL SUPPLY ANDROID APP"
+cd frontend</pre>
+    <p>Your CMD now shows:</p>
+    <code>C:\Users\Sibugay Agrivet\Documents\SIBUGAY AGRICULTURAL SUPPLY ANDROID APP\frontend></code>
+  </div>
+</div>
+
+<!-- PHASE 3 -->
+<h2><span class="phase-num">PHASE 3</span> Set Up the Project</h2>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">9</div>
+    <div class="step-title">Install Project Dependencies</div>
+  </div>
+  <div class="step-body">
+    <p>Still in CMD (you should be in the <b>frontend</b> folder), type:</p>
+    <pre>npm install --legacy-peer-deps</pre>
+    <p>Wait for it to finish. You'll see a lot of text — that's normal. Wait until the <code>></code> prompt comes back.</p>
+    <div class="info">ℹ️ The <code>--legacy-peer-deps</code> flag is needed to skip a minor version conflict. It's safe.</div>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">10</div>
+    <div class="step-title">Copy the Printer SDK File</div>
+  </div>
+  <div class="step-body">
+    <p>Open <b>File Explorer</b> and navigate to:</p>
+    <span class="filepath">C:\Users\Sibugay Agrivet\Documents\SIBUGAY AGRICULTURAL SUPPLY ANDROID APP\frontend\android\app\libs</span>
+    <p>You will see a file called <b>README.txt</b> inside. Copy your <b>printer-release.aar</b> file (from your Senraise SDK folder) into this <b>libs</b> folder.</p>
+    <p>After this, the <b>libs</b> folder should contain:</p>
+    <pre>📁 libs
+   📄 README.txt
+   📄 printer-release.aar   ← you just added this</pre>
+    <div class="warning"><strong>⚠️ Critical:</strong> Without this file, the build will fail with an error about missing printer-release.</div>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">11</div>
+    <div class="step-title">Create the App Config File</div>
+  </div>
+  <div class="step-body">
+    <p>In <b>File Explorer</b>, navigate to:</p>
+    <span class="filepath">C:\Users\Sibugay Agrivet\Documents\SIBUGAY AGRICULTURAL SUPPLY ANDROID APP\frontend\android\app\src\main</span>
+    <p>Check if a folder called <b>assets</b> exists. If not, <b>right-click → New → Folder</b> and name it <b>assets</b>.</p>
+    <p style="margin-top:8px">Open the <b>assets</b> folder. <b>Right-click → New → Text Document</b>. Name it:</p>
+    <code>capacitor.config.json</code>
+    <p style="margin-top:8px">⚠️ Make sure it ends in <b>.json</b> not <b>.json.txt</b>. Enable file extensions via <b>View → File name extensions</b> in File Explorer to check.</p>
+    <p style="margin-top:8px"><b>Right-click the file → Open with → Notepad.</b> Delete everything and paste this:</p>
+    <div class="json-block">
+{<br>
+&nbsp;&nbsp;<span class="key">"appId"</span>: <span class="str">"com.agribooks.terminal"</span>,<br>
+&nbsp;&nbsp;<span class="key">"appName"</span>: <span class="str">"AgriSmart Terminal"</span>,<br>
+&nbsp;&nbsp;<span class="key">"webDir"</span>: <span class="str">"build"</span>,<br>
+&nbsp;&nbsp;<span class="key">"server"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"url"</span>: <span class="str">"https://agri-books.com/terminal"</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"cleartext"</span>: <span class="bool">false</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"androidScheme"</span>: <span class="str">"https"</span><br>
+&nbsp;&nbsp;},<br>
+&nbsp;&nbsp;<span class="key">"android"</span>: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"captureInput"</span>: <span class="bool">true</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"webContentsDebuggingEnabled"</span>: <span class="bool">false</span>,<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"backgroundColor"</span>: <span class="str">"#1A4D2E"</span><br>
+&nbsp;&nbsp;}<br>
+}
+    </div>
+    <p>Press <b>Ctrl + S</b> to save. Close Notepad.</p>
+  </div>
+</div>
+
+<!-- PHASE 4 -->
+<h2 class="page-break"><span class="phase-num">PHASE 4</span> Build the APK in Android Studio</h2>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">12</div>
+    <div class="step-title">Open the Android Project</div>
+  </div>
+  <div class="step-body">
+    <p>Open <b>Android Studio</b> → click <b>Open</b> (NOT "New Project")</p>
+    <p>Navigate to and select the <b>android</b> folder:</p>
+    <span class="filepath">C:\Users\Sibugay Agrivet\Documents\SIBUGAY AGRICULTURAL SUPPLY ANDROID APP\frontend\android</span>
+    <p>Click <b>OK</b>.</p>
+    <p style="margin-top:8px">If a pop-up asks <b>"Trust and open Gradle project?"</b> → click <b>Trust Project</b></p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">13</div>
+    <div class="step-title">Set Java 17 as the Gradle JDK</div>
+  </div>
+  <div class="step-body">
+    <p>In Android Studio: <b>File → Project Structure → SDK Location</b></p>
+    <p>Find the <b>Gradle JDK</b> dropdown. Select the option that says <b>jbr-17</b>, <b>temurin-17</b>, or any option with <b>17</b> in the name.</p>
+    <p>Click <b>OK</b>.</p>
+    <div class="warning"><strong>⚠️ Do NOT select "Embedded JDK" if it shows version 11.</strong> That will cause a build error.</div>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">14</div>
+    <div class="step-title">Wait for Gradle Sync</div>
+  </div>
+  <div class="step-body">
+    <p>At the bottom of Android Studio, a progress bar says <b>"Gradle sync in progress..."</b></p>
+    <p>Wait for it to disappear completely — first time takes <b>5–10 minutes</b> (downloads build tools).</p>
+    <p>When done, the bottom status bar shows no errors.</p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">15</div>
+    <div class="step-title">Build the APK</div>
+  </div>
+  <div class="step-body">
+    <p>In the menu bar: <b>Build → Build Bundle(s) / APK(s) → Build APK(s)</b></p>
+    <p>Wait 1–3 minutes. A progress bar appears at the bottom.</p>
+    <div class="success">
+      ✅ When done, a notification appears bottom-right: <b>"Build successful"</b><br>
+      Click the word <b>"locate"</b> — it opens the folder with your APK file.
+    </div>
+    <p style="margin-top:8px">Your APK is at:</p>
+    <span class="filepath">frontend\android\app\build\outputs\apk\debug\app-debug.apk</span>
+  </div>
+</div>
+
+<!-- PHASE 5 -->
+<h2><span class="phase-num">PHASE 5</span> Install on H10P Device</h2>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">16</div>
+    <div class="step-title">Allow Unknown Sources on H10P</div>
+  </div>
+  <div class="step-body">
+    <p>On your H10P device:</p>
+    <ol>
+      <li>Open <b>Settings</b></li>
+      <li>Go to <b>Security</b> (or Privacy)</li>
+      <li>Find and enable <b>"Install Unknown Apps"</b> or <b>"Unknown Sources"</b></li>
+    </ol>
+    <p><i>This allows installing apps from outside the Google Play Store.</i></p>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">17</div>
+    <div class="step-title">Copy APK to H10P</div>
+  </div>
+  <div class="step-body">
+    <ol>
+      <li>Connect H10P to your computer via <b>USB cable</b></li>
+      <li>On H10P screen: drag down notifications → tap <b>"USB"</b> → select <b>"File Transfer"</b></li>
+      <li>On your computer: open <b>File Explorer</b> → find the H10P device on the left side</li>
+      <li>Open it → go to <b>Internal Storage → Download</b></li>
+      <li>Copy <b>app-debug.apk</b> into that folder</li>
+    </ol>
+  </div>
+</div>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">18</div>
+    <div class="step-title">Install the APK</div>
+  </div>
+  <div class="step-body">
+    <ol>
+      <li>On H10P: open <b>File Manager</b> (or Files app)</li>
+      <li>Go to <b>Downloads</b></li>
+      <li>Tap <b>app-debug.apk</b></li>
+      <li>Tap <b>Install</b></li>
+      <li>Tap <b>Open</b> when finished</li>
+    </ol>
+  </div>
+</div>
+
+<!-- PHASE 6 -->
+<h2><span class="phase-num">PHASE 6</span> First Launch & Pairing</h2>
+
+<div class="step-box">
+  <div class="step-header">
+    <div class="step-num">19</div>
+    <div class="step-title">Pair the Terminal to Your Branch</div>
+  </div>
+  <div class="step-body">
+    <ol>
+      <li>Open <b>AgriSmart Terminal</b> on the H10P — it shows a screen with a <b>6-character code</b></li>
+      <li>On your <b>PC browser</b>, go to <b>https://agri-books.com</b> and log in</li>
+      <li>Go to <b>Settings → Connect Terminal</b></li>
+      <li>Type in the 6-character code → select your branch → confirm</li>
+      <li>The H10P switches to the <b>Sales tab</b> — you're live! ✅</li>
+    </ol>
+    <div class="success">
+      ✅ You now have: Sales with barcode scanner · PO Check · Branch Transfers · QR Scanner with instant reprint
+    </div>
+  </div>
+</div>
+
+<!-- COMMON ERRORS -->
+<h2 class="page-break"><span class="phase-num">ERRORS</span> Common Problems & Fixes</h2>
+
+<table class="error-table">
+  <tr>
+    <th>Error Message</th>
+    <th>Fix</th>
+  </tr>
+  <tr>
+    <td>npm error ERESOLVE unable to resolve dependency tree</td>
+    <td>Run <code>npm install --legacy-peer-deps</code> instead of <code>npm install</code></td>
+  </tr>
+  <tr>
+    <td>class file version 61.0, only recognizes up to 55.0</td>
+    <td>Install Java 17 from adoptium.net → set Gradle JDK to <code>temurin-17</code> in Project Structure</td>
+  </tr>
+  <tr>
+    <td>Incompatible AGP version, latest supported is AGP 7.2.1</td>
+    <td>Update Android Studio to latest version (Ladybug 2024.x or newer)</td>
+  </tr>
+  <tr>
+    <td>capacitor.settings.gradle does not exist</td>
+    <td>Pull latest code: <code>git pull</code> then retry Gradle sync</td>
+  </tr>
+  <tr>
+    <td>Failed to resolve: project :capacitor-cordova-android-plugins</td>
+    <td>Pull latest code: <code>git pull</code> — fixed version is in the repo</td>
+  </tr>
+  <tr>
+    <td>Could not resolve printer-release (aar)</td>
+    <td>Copy <code>printer-release.aar</code> from Senraise SDK into <code>android/app/libs/</code></td>
+  </tr>
+  <tr>
+    <td>Webpage not available — localhost</td>
+    <td>Create <code>capacitor.config.json</code> manually (see Step 11) then Clean Build + Rebuild</td>
+  </tr>
+  <tr>
+    <td>App opens to full website instead of terminal</td>
+    <td>Make sure URL in <code>capacitor.config.json</code> ends with <code>/terminal</code></td>
+  </tr>
+  <tr>
+    <td>Build fails after any change</td>
+    <td><b>Build → Clean Project</b> → then <b>Build → Build APK(s)</b></td>
+  </tr>
+  <tr>
+    <td>Printer says "service not connected"</td>
+    <td>Ask Senraise supplier for <code>recieptservice.apk</code> and install it on H10P first</td>
+  </tr>
+</table>
+
+<!-- UPDATING -->
+<h2><span class="phase-num">UPDATES</span> How to Update the App in the Future</h2>
+
+<div class="info">
+  <p><b>Web app updates</b> (new features, bug fixes): Just deploy to agri-books.com — the APK picks them up automatically on next launch. No APK rebuild needed.</p>
+  <br>
+  <p><b>Printer plugin updates</b>: Rebuild the APK and reinstall on H10P.</p>
+</div>
+
+<p style="margin-top:12px;font-size:12px;color:#374151">To deploy web app updates to Hostinger, SSH in and run:</p>
+<pre>cd /var/www/agribooks && git pull origin main
+cd frontend && yarn install && yarn build
+cd /var/www/agribooks && supervisorctl restart agribooks-backend</pre>
+
+<!-- SUMMARY FLOW -->
+<h2><span class="phase-num">SUMMARY</span> Quick Reference Flow</h2>
+
+<div class="flow">
+  <span class="flow-step">Install Tools</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">git clone repo</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">npm install --legacy-peer-deps</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Copy printer-release.aar → libs/</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Create capacitor.config.json</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Open android/ in Android Studio</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Set JDK to Java 17</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Build APK</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Install on H10P</span>
+  <span class="flow-arrow">→</span>
+  <span class="flow-step">Pair & Go Live ✅</span>
+</div>
+
+<!-- FOOTER -->
+<div class="doc-footer">
+  <p>AgriSmart Terminal · Sibugay Agrivet Supply · agri-books.com</p>
+  <p style="margin-top:4px">GitHub: github.com/lessrealmoments-dot/Sibugay-Agrivet-supply-tenant</p>
+</div>
+
+</body>
+</html>

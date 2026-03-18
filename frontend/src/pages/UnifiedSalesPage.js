@@ -1225,6 +1225,7 @@ export default function UnifiedSalesPage() {
       {mainTab === 'sale' && currentBranch?.id && (
         <UnclosedDaysBanner
           branchId={currentBranch.id}
+          currentDate={header.order_date}
           onDateSelect={handleEncodingDateChange}
           className="mx-1 mb-2"
         />

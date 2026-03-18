@@ -59,6 +59,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - **NEW:** DocViewerPage cross-branch enforcement — when `?branch=` param doesn't match doc's branch, shows TOTP-only unlock gate; after TOTP verification, actions are unlocked with audit trail
 - **NEW:** Terminal navigation to `/doc/` always passes `?branch=session.branchId` for proper cross-branch detection
 
+### Scan-to-Reprint QuickScan Sheet (2026-03-18) — Complete
+- When the H10P Newland scanner reads a document QR code, a bottom sheet appears INSTANTLY
+- Shows: doc number, customer/supplier, amount, status, item count
+- **Three actions:** [Print 58mm Thermal] [Print Full Page] [View / Take Action]
+- Reprint happens directly without navigating away — no PIN needed for reprinting
+- Uses `PrintEngine` with `basicDocToPrintData()` transformer to map public doc view fields to PrintEngine format
+- Falls back to doc viewer navigation if doc not found
+
 ### QR Document Lookup System (Complete — Mar 2026)
 - Unique 8-char doc code per document, QR on every receipt
 - 3-Tier Access Model (Open / PIN / Terminal)

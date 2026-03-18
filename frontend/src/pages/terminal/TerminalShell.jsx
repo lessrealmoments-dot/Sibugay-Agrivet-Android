@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, LogOut, RefreshCw, Bell, Settings, ChevronRight, Unlink, Search, QrCode, X, Loader2 } from 'lucide-react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
 import TerminalTransfers from './TerminalTransfers';
 import axios from 'axios';
+import PrintEngine from '../../lib/PrintEngine';
 import {
   cacheProducts, getProducts, cacheCustomers,
   cachePriceSchemes, cacheInventory,
@@ -15,6 +16,59 @@ import { syncPendingSales, startAutoSync, stopAutoSync } from '../../lib/syncMan
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const WS_URL = BACKEND_URL.replace(/^http/, 'ws');
+const fmtPHP = (v) => `₱${(parseFloat(v) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`;
+
+// Transform basic doc data (from /api/doc/view/:code) into PrintEngine-compatible format
+function basicDocToPrintData(basic) {
+  if (!basic) return {};
+  if (basic.doc_type === 'invoice') {
+    return {
+      invoice_number: basic.number,
+      customer_name: basic.customer_name,
+      order_date: basic.order_date || basic.date,
+      created_at: basic.date,
+      items: (basic.items || []).map(i => ({
+        product_name: i.name, quantity: i.qty, rate: i.price, total: i.total, discount_amount: 0,
+      })),
+      subtotal: basic.subtotal,
+      overall_discount: basic.discount || 0,
+      grand_total: basic.grand_total,
+      amount_paid: basic.amount_paid,
+      balance: basic.balance,
+      payment_method: basic.payment_method,
+      payment_type: basic.payment_type,
+    };
+  }
+  if (basic.doc_type === 'purchase_order') {
+    return {
+      po_number: basic.number,
+      purchase_date: basic.date,
+      vendor: basic.supplier_name,
+      status: basic.raw_status || basic.status,
+      items: (basic.items || []).map(i => ({
+        product_name: i.name, quantity: i.qty, unit_price: i.price, total: i.total,
+      })),
+      subtotal: basic.grand_total,
+      grand_total: basic.grand_total,
+      payment_status: basic.payment_status,
+    };
+  }
+  if (basic.doc_type === 'branch_transfer') {
+    return {
+      order_number: basic.number,
+      created_at: basic.date,
+      from_branch_name: basic.from_branch,
+      to_branch_name: basic.to_branch,
+      status: basic.raw_status || basic.status,
+      items: (basic.items || []).map(i => ({
+        product_name: i.name, qty: i.qty, transfer_capital: i.price, branch_retail: 0,
+      })),
+    };
+  }
+  return basic;
+}
+
+
 
 const TABS = [
   { key: 'sales', label: 'Sales', icon: ShoppingCart, color: 'text-emerald-600 bg-emerald-50' },
@@ -34,6 +88,9 @@ export default function TerminalShell({ session, onLogout }) {
   const [showDocSearch, setShowDocSearch] = useState(false);
   const [docSearchResults, setDocSearchResults] = useState([]);
   const [docSearchLoading, setDocSearchLoading] = useState(false);
+  // Quick scan sheet — shown when hardware scanner reads a doc QR code
+  const [quickScanDoc, setQuickScanDoc] = useState(null);  // { basic, code, loading }
+  const [businessInfo, setBusinessInfo] = useState({});
   const [pendingCount, setPendingCount] = useState(0);
   const [syncProgress, setSyncProgress] = useState('');
   const [notifications, setNotifications] = useState([]);
@@ -90,10 +147,20 @@ export default function TerminalShell({ session, onLogout }) {
   }, [api, session.branchId]);
 
   // Route any scanned/typed input to the right action
-  const handleSmartInput = useCallback((scanned) => {
+  const handleSmartInput = useCallback(async (scanned) => {
     const docCode = extractDocCode(scanned);
     if (docCode) {
-      navigate(`/doc/${docCode}?branch=${session.branchId}`);
+      // Show QuickScan sheet — fetch basic doc info and offer Reprint or View options
+      setQuickScanDoc({ code: docCode, basic: null, loading: true });
+      try {
+        const res = await axios.get(`${BACKEND_URL}/api/doc/view/${docCode}`, {
+          headers: { Authorization: `Bearer ${session.token}` },
+        });
+        setQuickScanDoc({ code: docCode, basic: res.data, loading: false });
+      } catch {
+        setQuickScanDoc(null);
+        navigate(`/doc/${docCode}?branch=${session.branchId}`);
+      }
       return;
     }
     if (looksLikeDocNumber(scanned)) {
@@ -103,7 +170,7 @@ export default function TerminalShell({ session, onLogout }) {
       return;
     }
     // Falls through — product barcode handled by TerminalSales keyboard listener
-  }, [navigate, session.branchId, performDocSearch]); // eslint-disable-line
+  }, [navigate, session.branchId, session.token, performDocSearch]); // eslint-disable-line
 
   // Global keyboard scanner — intercepts H10P HID hardware scanner output in any tab
   useEffect(() => {
@@ -226,6 +293,8 @@ export default function TerminalShell({ session, onLogout }) {
         setSyncProgress('');
         setDataReady(true);
         toast.success(`Data synced — ${posRes.data.products?.length || 0} products loaded`);
+        // Fetch business info for receipt printing
+        api.get('/settings/business-info').then(r => setBusinessInfo(r.data || {})).catch(() => {});
       } catch (e) {
         console.error('Sync failed:', e);
         await loadOfflineData();
@@ -491,6 +560,127 @@ export default function TerminalShell({ session, onLogout }) {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── QuickScan Sheet — shown when hardware scanner reads a doc QR code ── */}
+      {quickScanDoc && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" data-testid="quickscan-sheet">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setQuickScanDoc(null)} />
+          {/* Sheet */}
+          <div className="relative bg-white rounded-t-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-slate-300" />
+            </div>
+
+            {quickScanDoc.loading ? (
+              <div className="px-5 py-8 flex flex-col items-center gap-3">
+                <RefreshCw size={24} className="animate-spin text-emerald-500" />
+                <p className="text-sm text-slate-500">Loading document...</p>
+                <p className="text-xs font-mono text-slate-400">{quickScanDoc.code}</p>
+              </div>
+            ) : quickScanDoc.basic ? (
+              <div className="px-5 pb-6 space-y-4">
+                {/* Doc header */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                      {quickScanDoc.basic.doc_type === 'invoice' ? 'Sales Receipt'
+                        : quickScanDoc.basic.doc_type === 'purchase_order' ? 'Purchase Order'
+                        : 'Branch Transfer'}
+                    </p>
+                    <p className="text-xl font-bold text-slate-900 mt-0.5" data-testid="quickscan-doc-number">
+                      {quickScanDoc.basic.number}
+                    </p>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {quickScanDoc.basic.customer_name || quickScanDoc.basic.supplier_name
+                        || `${quickScanDoc.basic.from_branch} → ${quickScanDoc.basic.to_branch}`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold font-mono text-[#1A4D2E]" data-testid="quickscan-doc-amount">
+                      {fmtPHP(quickScanDoc.basic.grand_total || quickScanDoc.basic.total || 0)}
+                    </p>
+                    {quickScanDoc.basic.balance > 0 && (
+                      <p className="text-xs text-red-500 font-semibold">
+                        Balance: {fmtPHP(quickScanDoc.basic.balance)}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-400 mt-0.5">{quickScanDoc.basic.branch_name}</p>
+                  </div>
+                </div>
+
+                {/* Status + item count */}
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
+                    {quickScanDoc.basic.status}
+                  </span>
+                  <span className="text-slate-400">
+                    {quickScanDoc.basic.items?.length || 0} item(s)
+                  </span>
+                  <span className="text-slate-300">·</span>
+                  <span className="font-mono text-slate-400 text-[10px]">{quickScanDoc.code}</span>
+                </div>
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-2 gap-2" data-testid="quickscan-actions">
+                  <button
+                    onClick={() => {
+                      const printData = basicDocToPrintData(quickScanDoc.basic);
+                      const docType = quickScanDoc.basic.doc_type === 'invoice'
+                        ? PrintEngine.getDocType(printData)
+                        : quickScanDoc.basic.doc_type === 'purchase_order' ? 'purchase_order' : 'branch_transfer';
+                      PrintEngine.print({ type: docType, data: printData, format: 'thermal', businessInfo, docCode: quickScanDoc.code });
+                      setQuickScanDoc(null);
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#1A4D2E] text-white font-semibold text-sm active:scale-95 transition-transform"
+                    data-testid="quickscan-print-thermal"
+                  >
+                    <Printer size={15} /> Print 58mm
+                  </button>
+                  <button
+                    onClick={() => {
+                      const printData = basicDocToPrintData(quickScanDoc.basic);
+                      const docType = quickScanDoc.basic.doc_type === 'invoice'
+                        ? PrintEngine.getDocType(printData)
+                        : quickScanDoc.basic.doc_type === 'purchase_order' ? 'purchase_order' : 'branch_transfer';
+                      PrintEngine.print({ type: docType, data: printData, format: 'full_page', businessInfo, docCode: quickScanDoc.code });
+                      setQuickScanDoc(null);
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold text-sm active:scale-95 transition-transform"
+                    data-testid="quickscan-print-fullpage"
+                  >
+                    <FileText size={15} /> Full Page
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigate(`/doc/${quickScanDoc.code}?branch=${session.branchId}`);
+                      setQuickScanDoc(null);
+                    }}
+                    className="col-span-2 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-medium text-sm active:scale-95 transition-transform"
+                    data-testid="quickscan-view-doc"
+                  >
+                    <ExternalLink size={14} /> View / Take Action
+                  </button>
+                  <button
+                    onClick={() => setQuickScanDoc(null)}
+                    className="col-span-2 py-2.5 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+                    data-testid="quickscan-close"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-5 py-8 text-center space-y-3">
+                <CheckCircle2 size={28} className="text-slate-300 mx-auto" />
+                <p className="text-sm text-slate-500">Document not found</p>
+                <button onClick={() => setQuickScanDoc(null)} className="text-xs text-slate-400 hover:underline">Close</button>
+              </div>
+            )}
           </div>
         </div>
       )}

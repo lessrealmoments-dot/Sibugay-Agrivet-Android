@@ -1572,6 +1572,20 @@ export default function UnifiedSalesPage() {
                     <Label className="text-xs text-slate-500">Customer PO</Label>
                     <Input className="h-9" value={header.customer_po} onChange={e => setHeader(h => ({ ...h, customer_po: e.target.value }))} />
                   </div>
+                  <div className="w-36">
+                    <Label className="text-xs text-[#1A4D2E] font-semibold flex items-center gap-1">
+                      Sale Date
+                      <span className="text-[9px] normal-case font-normal text-slate-400">(reports)</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      className="h-9 border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] font-medium text-[#1A4D2E]"
+                      value={header.order_date}
+                      min={floorDate || undefined}
+                      onChange={e => handleEncodingDateChange(e.target.value)}
+                      data-testid="sale-date-input"
+                    />
+                  </div>
                 </>
               )}
             </div>
@@ -1676,19 +1690,6 @@ export default function UnifiedSalesPage() {
                       <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Check #</Label>
                       <Input className="h-8 text-sm mt-0.5" value={header.check_number}
                         onChange={e => setHeader(h => ({ ...h, check_number: e.target.value }))} />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] text-[#1A4D2E] font-semibold uppercase tracking-wide flex items-center gap-1">
-                        Sale Date
-                        <span className="text-[9px] normal-case font-normal text-slate-400">(affects reports)</span>
-                      </Label>
-                      <Input
-                        type="date"
-                        className="h-8 text-sm mt-0.5 border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] font-medium text-[#1A4D2E]"
-                        value={header.order_date}
-                        min={floorDate || undefined}
-                        onChange={e => handleEncodingDateChange(e.target.value)}
-                      />
                     </div>
                   </div>
                 </div>

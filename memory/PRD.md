@@ -159,6 +159,16 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 ### PO Bug Fix (Complete — Mar 2026)
 - `setSourceType`/`setSupplyBranchId`/`setShowRetailToggle` missing useState declarations added to PurchaseOrderPage.js
 
+### Sales Order Redesign & Security Hardening (Complete — Mar 2026)
+- **UI Redesign:** Order mode form in `UnifiedSalesPage.js` matches inFlow layout
+- **Date as Single Source of Truth:** Removed `invoice_date`, `order_date` is sole controller for reports
+- **Timezone Fix:** Default date uses browser's local time (PHT), not UTC
+- **Synchronized Date UI:** Sale Date field and Unclosed Days banner are perfectly synced
+- **Closed-Day Guard:** Frontend + backend block sales on formally closed days (Z-report finalized)
+- **Floor-Date Guard (System Start):** Backend rejects dates before the branch's earliest operational date. Frontend `min` attribute on date input. Prevents encoding sales before the system existed.
+- **Collapsible Order Header:** Customer Details & Order Info section is collapsible (collapsed by default), giving more vertical space to the product entry table
+- **Editable Customer Info:** Contact/Phone and Billing Address fields are editable when a customer is selected. Pre-checkout dialog asks "Save to customer record?" or "Use for this order only?" before proceeding to payment.
+
 See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ### Dashboard Widget Collapse Fix (Complete — Mar 2026)
@@ -209,12 +219,16 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 
+### P1
+- Cross-branch payment wallet routing (cash at receiving branch's wallet)
+- Admin tool for corrupted POs in production DB
+
 ### P2
 - Visual trail for partial invoices (linked payment transactions)
 - Smart Journal Entries for forgotten/back-dated sales
-- Admin tool for corrupted POs in production DB
 - Refactor SuperAdminPage.jsx (monolithic, 1000+ lines)
 - Fix react-hooks/exhaustive-deps ESLint warnings (3 remaining)
+- Update AdminLoginPage.jsx to use useNavigate
 
 ### P3 (Future)
 - Native Android APK (Capacitor wrap, thermal printer, Newland scanner SDK)

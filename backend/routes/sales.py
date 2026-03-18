@@ -29,6 +29,20 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     branch_id = data.get("branch_id")
     if not branch_id:
         raise HTTPException(status_code=400, detail="Branch ID required")
+
+    # ── Closed-day guard ─────────────────────────────────────────────────────
+    # Block sales encoding on days that have already been formally closed.
+    # A closed day's Z-report is final — new sales there would be invisible.
+    order_date = data.get("order_date", now_iso()[:10])
+    closed_day = await db.daily_closings.find_one(
+        {"branch_id": branch_id, "date": order_date, "status": "closed"},
+        {"_id": 0, "date": 1}
+    )
+    if closed_day:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot encode sales for {order_date} — this day is already closed. Sales on closed days won't appear in Z-reports."
+        )
     
     # Idempotency check — prevent duplicate transactions from offline sync
     idem_key = data.get("idempotency_key")

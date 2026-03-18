@@ -268,6 +268,9 @@ export default function UnifiedSalesPage() {
   });
   const [freight, setFreight] = useState(0);
   const [overallDiscount, setOverallDiscount] = useState(0);
+
+  // Closed-day enforcement
+  const [lastCloseDate, setLastCloseDate] = useState(null);
   
   // Default price scheme for walk-in customers
   const [defaultScheme, setDefaultScheme] = useState('retail');
@@ -1192,10 +1195,20 @@ export default function UnifiedSalesPage() {
     setHeader(h => ({ ...h, terms: label, terms_days: t?.days || 0 }));
   };
 
-  // Handle date selection from unclosed days banner
+  // Returns true if the given date is on or before the last closed day
+  const isDateClosed = useCallback((date) => {
+    if (!lastCloseDate) return false;
+    return date <= lastCloseDate;
+  }, [lastCloseDate]);
+
+  // Handle date selection from unclosed days banner OR the Sale Date field
   const handleEncodingDateChange = useCallback((date) => {
+    if (isDateClosed(date)) {
+      toast.error(`${date} is already closed. Sales on closed days won't appear in Z-reports.`, { duration: 5000 });
+      return; // reject — don't update order_date
+    }
     setHeader(h => ({ ...h, order_date: date }));
-  }, []);
+  }, [isDateClosed]);
 
   // Handle manager override: retry the pending sale with override PIN
   const handleStockOverride = async (overridePin) => {
@@ -1227,6 +1240,7 @@ export default function UnifiedSalesPage() {
           branchId={currentBranch.id}
           currentDate={header.order_date}
           onDateSelect={handleEncodingDateChange}
+          onDataLoaded={({ last_close_date }) => setLastCloseDate(last_close_date)}
           className="mx-1 mb-2"
         />
       )}
@@ -1604,7 +1618,7 @@ export default function UnifiedSalesPage() {
                         type="date"
                         className="h-8 text-sm mt-0.5 border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] font-medium text-[#1A4D2E]"
                         value={header.order_date}
-                        onChange={e => setHeader(h => ({ ...h, order_date: e.target.value }))}
+                        onChange={e => handleEncodingDateChange(e.target.value)}
                       />
                     </div>
                   </div>

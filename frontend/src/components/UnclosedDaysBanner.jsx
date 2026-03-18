@@ -7,7 +7,7 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-export function UnclosedDaysBanner({ branchId, currentDate, onDateSelect, className = '' }) {
+export function UnclosedDaysBanner({ branchId, currentDate, onDateSelect, onDataLoaded, className = '' }) {
   const [unclosedDays, setUnclosedDays] = useState([]);
   const [lastCloseDate, setLastCloseDate] = useState(null);
   const [open, setOpen] = useState(false);
@@ -26,6 +26,7 @@ export function UnclosedDaysBanner({ branchId, currentDate, onDateSelect, classN
       const days = res.data.unclosed_days || [];
       setUnclosedDays(days);
       setLastCloseDate(res.data.last_close_date);
+      if (onDataLoaded) onDataLoaded({ last_close_date: res.data.last_close_date, unclosed_days: days });
     } catch {
       // silently fail
     } finally {

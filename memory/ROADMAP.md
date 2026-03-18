@@ -186,8 +186,14 @@ Production DB has corrupted `purchase_orders` documents. Build a secure admin pa
 ### P2 — Refactor `SuperAdminPage.jsx`
 1000+ line monolithic component. Break into smaller modules.
 
-### P3 — Native Android APK
-Capacitor wrap for terminal app with thermal printer + Newland scanner SDK.
+### P3 — Cross-Branch Payment Wallet Routing ⚠️ DEFERRED BY USER
+When a customer pays at Branch B for an invoice from Branch A (cross-branch payment via QR), the current system records cash into Branch A's wallet (the invoice's branch). The correct behavior is:
+- Cash received at Branch B → goes into Branch B's cashier wallet
+- An inter-branch settlement entry is created (Branch B owes Branch A the amount)
+- Journal entry: `Debit: Branch B Cash | Credit: Inter-Branch Payable to Branch A`
+- The audit trail already captures the cross-branch event via TOTP verification
+- **Note:** This is a financial correctness improvement. Currently, the cross-branch TOTP gate and audit are in place. Wallet routing fix is the next step.
+- **User instruction:** "remember this for now, we will get back to it"
 
 ### P3 — Weight-Embedded EAN-13 Barcodes
 Decode price/weight from standard grocery weight barcodes.

@@ -28,12 +28,13 @@ import {
 import PrintEngine from '../lib/PrintEngine';
 import { toast } from 'sonner';
 
-// Smart quantity formatter — shows 6 not 6.0000, shows 5.25 not 5.2500000001
+// Smart quantity formatter — display max 3 decimal places, no trailing zeros.
+// Raw precision is preserved in the database — this is display only.
+// Examples: 5.999999997 → "6", 1.333333 → "1.333", 6.0 → "6", 5.25 → "5.25"
 const fmtQty = (v) => {
   const n = parseFloat(v);
   if (isNaN(n)) return '0';
-  const rounded = Math.round(n * 10000) / 10000; // max 4 decimal places
-  return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(2).replace(/\.?0+$/, '');
+  return parseFloat(n.toFixed(3)).toString();
 };
 
 const STATUS_COLORS = {

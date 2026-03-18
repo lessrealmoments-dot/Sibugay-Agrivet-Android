@@ -17,7 +17,7 @@ import { UnclosedDaysBanner } from '../components/UnclosedDaysBanner';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, X, Wifi, WifiOff,
   RefreshCw, FileText, Lock, Zap, ClipboardList, AlertTriangle, Shield, CheckCircle2, Smartphone, Camera, Check,
-  PackageX, ShieldAlert
+  PackageX, ShieldAlert, ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -271,6 +271,15 @@ export default function UnifiedSalesPage() {
 
   // Closed-day enforcement
   const [lastCloseDate, setLastCloseDate] = useState(null);
+  const [floorDate, setFloorDate] = useState(null); // earliest operational date — blocks dates before this
+
+  // Order header collapse
+  const [headerCollapsed, setHeaderCollapsed] = useState(true);
+
+  // Editable customer fields (overrides for this order)
+  const [custEdits, setCustEdits] = useState({ phone: '', address: '', shipping_address: '' });
+  const [custEdited, setCustEdited] = useState(false); // true if user changed customer info
+  const [custSaveDialog, setCustSaveDialog] = useState(false); // "Save to record?" dialog
   
   // Default price scheme for walk-in customers
   const [defaultScheme, setDefaultScheme] = useState('retail');
@@ -735,6 +744,8 @@ export default function UnifiedSalesPage() {
   const clearCart = () => {
     setCart([]); setLines([{ ...EMPTY_LINE }]); setSelectedCustomer(null); setCustSearch('');
     setActiveScheme(defaultScheme);
+    setCustEdits({ phone: '', address: '', shipping_address: '' });
+    setCustEdited(false);
     setHeader(h => ({ ...h, shipping_address: '', location: '', mod: '', check_number: '', req_ship_date: '', notes: '', customer_po: '' }));
   };
 
@@ -883,6 +894,8 @@ export default function UnifiedSalesPage() {
       setSelectedCustomer(c);
       setCustSearch(c.name);
       setCustDropdownOpen(false);
+      setCustEdits({ phone: c.phone || '', address: c.address || '', shipping_address: '' });
+      setCustEdited(false);
       applySchemeChange(c.price_scheme || 'retail'); // Reprice cart for customer's scheme
     }
   };
@@ -981,7 +994,40 @@ export default function UnifiedSalesPage() {
     setAmountTendered(grandTotal);
     setPartialPayment(0);
     setReleaseMode('full');
+
+    // If customer info was edited, ask whether to save first
+    if (selectedCustomer && custEdited) {
+      setCustSaveDialog(true);
+      return;
+    }
+
     setCheckoutDialog(true);
+  };
+
+  // After customer save dialog choice, proceed to checkout
+  const proceedToCheckoutAfterCustSave = () => {
+    setCustSaveDialog(false);
+    setCheckoutDialog(true);
+  };
+
+  const saveCustomerEditsAndCheckout = async () => {
+    if (!selectedCustomer) { proceedToCheckoutAfterCustSave(); return; }
+    try {
+      const update = {};
+      if (custEdits.phone !== (selectedCustomer.phone || '')) update.phone = custEdits.phone;
+      if (custEdits.address !== (selectedCustomer.address || '')) update.address = custEdits.address;
+      if (Object.keys(update).length > 0) {
+        const res = await api.put(`/customers/${selectedCustomer.id}`, update);
+        const updated = { ...selectedCustomer, ...update };
+        setSelectedCustomer(updated);
+        setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, ...update } : c));
+        toast.success(`${selectedCustomer.name}'s info updated`);
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Failed to update customer');
+    }
+    setCustEdited(false);
+    proceedToCheckoutAfterCustSave();
   };
 
   // Handle credit sale with approval
@@ -1081,9 +1127,9 @@ export default function UnifiedSalesPage() {
       branch_id: currentBranch.id,
       customer_id: selectedCustomer?.id || null,
       customer_name: selectedCustomer?.name || custSearch || 'Walk-in',
-      customer_contact: selectedCustomer?.phone || '',
-      customer_phone: selectedCustomer?.phone || '',
-      customer_address: selectedCustomer?.address || '',
+      customer_contact: selectedCustomer ? (custEdits.phone || selectedCustomer.phone || '') : '',
+      customer_phone: selectedCustomer ? (custEdits.phone || selectedCustomer.phone || '') : '',
+      customer_address: selectedCustomer ? (custEdits.address || selectedCustomer.address || '') : '',
       items: saleItems,
       subtotal,
       freight,
@@ -1195,20 +1241,25 @@ export default function UnifiedSalesPage() {
     setHeader(h => ({ ...h, terms: label, terms_days: t?.days || 0 }));
   };
 
-  // Returns true if the given date is on or before the last closed day
+  // Returns true if the given date is blocked (on/before last closed day OR before floor date)
   const isDateClosed = useCallback((date) => {
+    if (floorDate && date < floorDate) return true;
     if (!lastCloseDate) return false;
     return date <= lastCloseDate;
-  }, [lastCloseDate]);
+  }, [lastCloseDate, floorDate]);
 
   // Handle date selection from unclosed days banner OR the Sale Date field
   const handleEncodingDateChange = useCallback((date) => {
+    if (floorDate && date < floorDate) {
+      toast.error(`${date} is before the system start date (${floorDate}). Cannot encode sales before the system existed.`, { duration: 5000 });
+      return;
+    }
     if (isDateClosed(date)) {
       toast.error(`${date} is already closed. Sales on closed days won't appear in Z-reports.`, { duration: 5000 });
       return; // reject — don't update order_date
     }
     setHeader(h => ({ ...h, order_date: date }));
-  }, [isDateClosed]);
+  }, [isDateClosed, floorDate]);
 
   // Handle manager override: retry the pending sale with override PIN
   const handleStockOverride = async (overridePin) => {
@@ -1240,7 +1291,10 @@ export default function UnifiedSalesPage() {
           branchId={currentBranch.id}
           currentDate={header.order_date}
           onDateSelect={handleEncodingDateChange}
-          onDataLoaded={({ last_close_date }) => setLastCloseDate(last_close_date)}
+          onDataLoaded={({ last_close_date, floor_date }) => {
+            setLastCloseDate(last_close_date);
+            if (floor_date) setFloorDate(floor_date);
+          }}
           className="mx-1 mb-2"
         />
       )}
@@ -1525,54 +1579,68 @@ export default function UnifiedSalesPage() {
         </Card>
       </div>
 
-      {/* ── Order Mode: Expanded Header ── */}
+      {/* ── Order Mode: Expanded Header (Collapsible) ── */}
       {mode === 'order' && (
-        <div className="px-1 pb-3">
+        <div className="px-1 pb-2">
           <Card className="border-slate-200">
             <CardContent className="p-0">
-              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
+              {/* Toggle bar */}
+              <button
+                onClick={() => setHeaderCollapsed(h => !h)}
+                className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-slate-400 hover:bg-slate-50 transition-colors"
+                data-testid="order-header-toggle"
+              >
+                <span>{selectedCustomer ? `${selectedCustomer.name} — Details & Order Info` : 'Customer Details & Order Info'}</span>
+                <ChevronDown size={14} className={`transition-transform ${headerCollapsed ? '' : 'rotate-180'}`} />
+              </button>
+
+              {!headerCollapsed && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 border-t border-slate-100">
                 {/* Left: Contact + Addresses */}
                 <div className="p-3 space-y-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Customer Details</p>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Contact</Label>
+                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Contact / Phone</Label>
                       <Input className="h-8 text-sm mt-0.5"
-                        value={selectedCustomer?.phone || ''}
-                        placeholder={selectedCustomer ? '' : 'Select customer first'}
-                        readOnly={!!selectedCustomer}
-                        onChange={() => {}} />
+                        data-testid="cust-phone-input"
+                        value={selectedCustomer ? custEdits.phone : ''}
+                        placeholder={selectedCustomer ? 'Add phone...' : 'Select customer first'}
+                        disabled={!selectedCustomer}
+                        onChange={e => {
+                          setCustEdits(p => ({ ...p, phone: e.target.value }));
+                          setCustEdited(true);
+                        }}
+                      />
                     </div>
-                    <div>
-                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Phone</Label>
-                      <Input className="h-8 text-sm mt-0.5"
-                        value={selectedCustomer?.phone || ''}
-                        placeholder="—"
-                        readOnly={!!selectedCustomer}
-                        onChange={() => {}} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Billing Address</Label>
                       <Input className="h-8 text-sm mt-0.5"
-                        value={selectedCustomer?.address || ''}
-                        placeholder="—"
-                        readOnly={!!selectedCustomer}
-                        onChange={() => {}} />
+                        data-testid="cust-address-input"
+                        value={selectedCustomer ? custEdits.address : ''}
+                        placeholder={selectedCustomer ? 'Add address...' : '—'}
+                        disabled={!selectedCustomer}
+                        onChange={e => {
+                          setCustEdits(p => ({ ...p, address: e.target.value }));
+                          setCustEdited(true);
+                        }}
+                      />
                     </div>
-                    <div>
-                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Shipping Address</Label>
-                      <Input className="h-8 text-sm mt-0.5" placeholder="(same as billing)"
-                        value={header.shipping_address}
-                        onChange={e => setHeader(h => ({ ...h, shipping_address: e.target.value }))} />
-                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Shipping Address</Label>
+                    <Input className="h-8 text-sm mt-0.5" placeholder="(same as billing)"
+                      data-testid="cust-shipping-input"
+                      value={custEdits.shipping_address || header.shipping_address}
+                      onChange={e => {
+                        setCustEdits(p => ({ ...p, shipping_address: e.target.value }));
+                        setHeader(h => ({ ...h, shipping_address: e.target.value }));
+                      }}
+                    />
                   </div>
                 </div>
 
                 {/* Right: Order Meta */}
                 <div className="p-3 space-y-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Order Info</p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Sales Rep</Label>
@@ -1618,12 +1686,14 @@ export default function UnifiedSalesPage() {
                         type="date"
                         className="h-8 text-sm mt-0.5 border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] font-medium text-[#1A4D2E]"
                         value={header.order_date}
+                        min={floorDate || undefined}
                         onChange={e => handleEncodingDateChange(e.target.value)}
                       />
                     </div>
                   </div>
                 </div>
               </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -2519,6 +2589,46 @@ export default function UnifiedSalesPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Customer Info Save Dialog */}
+      <Dialog open={custSaveDialog} onOpenChange={(o) => { if (!o) { proceedToCheckoutAfterCustSave(); } }}>
+        <DialogContent className="sm:max-w-sm" data-testid="cust-save-dialog">
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'Manrope' }}>Save Customer Changes?</DialogTitle>
+            <DialogDescription>
+              You edited {selectedCustomer?.name}'s info. Save to their permanent record?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {custEdits.phone !== (selectedCustomer?.phone || '') && (
+              <div className="bg-slate-50 rounded-lg px-3 py-2 text-sm">
+                <span className="text-slate-400">Phone:</span>{' '}
+                <span className="line-through text-slate-400 mr-1">{selectedCustomer?.phone || '(empty)'}</span>
+                <span className="text-[#1A4D2E] font-medium">{custEdits.phone || '(empty)'}</span>
+              </div>
+            )}
+            {custEdits.address !== (selectedCustomer?.address || '') && (
+              <div className="bg-slate-50 rounded-lg px-3 py-2 text-sm">
+                <span className="text-slate-400">Address:</span>{' '}
+                <span className="line-through text-slate-400 mr-1">{selectedCustomer?.address || '(empty)'}</span>
+                <span className="text-[#1A4D2E] font-medium">{custEdits.address || '(empty)'}</span>
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={proceedToCheckoutAfterCustSave} data-testid="cust-save-skip">
+                This order only
+              </Button>
+              <Button
+                className="flex-1 bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                onClick={saveCustomerEditsAndCheckout}
+                data-testid="cust-save-permanent"
+              >
+                Save to record
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

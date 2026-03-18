@@ -26,7 +26,7 @@ export function UnclosedDaysBanner({ branchId, currentDate, onDateSelect, onData
       const days = res.data.unclosed_days || [];
       setUnclosedDays(days);
       setLastCloseDate(res.data.last_close_date);
-      if (onDataLoaded) onDataLoaded({ last_close_date: res.data.last_close_date, unclosed_days: days });
+      if (onDataLoaded) onDataLoaded({ last_close_date: res.data.last_close_date, unclosed_days: days, floor_date: res.data.floor_date });
     } catch {
       // silently fail
     } finally {

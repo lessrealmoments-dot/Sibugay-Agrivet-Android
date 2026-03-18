@@ -106,12 +106,35 @@ async def get_unclosed_days(
 
         current += timedelta(days=1)
 
+    # Compute the earliest operational date (system floor) for this branch.
+    # Sales cannot be encoded before this date — the system didn't exist yet.
+    floor_date = None
+    earliest_dates = []
+    earliest_sale_any = await db.sales_log.find_one(
+        {"branch_id": branch_id}, {"_id": 0, "date": 1}, sort=[("date", 1)]
+    )
+    earliest_expense_any = await db.expenses.find_one(
+        {"branch_id": branch_id}, {"_id": 0, "date": 1}, sort=[("date", 1)]
+    )
+    earliest_invoice_any = await db.invoices.find_one(
+        {"branch_id": branch_id}, {"_id": 0, "order_date": 1}, sort=[("order_date", 1)]
+    )
+    if earliest_sale_any and earliest_sale_any.get("date"):
+        earliest_dates.append(earliest_sale_any["date"])
+    if earliest_expense_any and earliest_expense_any.get("date"):
+        earliest_dates.append(earliest_expense_any["date"])
+    if earliest_invoice_any and earliest_invoice_any.get("order_date"):
+        earliest_dates.append(earliest_invoice_any["order_date"])
+    if earliest_dates:
+        floor_date = min(earliest_dates)
+
     return {
         "last_close_date": last_close_date,
         "last_drawer_float": last_drawer,
         "unclosed_days": unclosed,
         "total_unclosed": len(unclosed),
         "today": today,
+        "floor_date": floor_date,
     }
 
 

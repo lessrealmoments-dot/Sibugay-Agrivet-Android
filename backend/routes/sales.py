@@ -43,6 +43,22 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
             status_code=403,
             detail=f"Cannot encode sales for {order_date} — this day is already closed. Sales on closed days won't appear in Z-reports."
         )
+
+    # ── Floor-date guard ──────────────────────────────────────────────────────
+    # Block sales on dates before the system's first operational day for this
+    # branch. This prevents encoding to dates when the system didn't exist yet.
+    earliest_dates = []
+    for coll, field in [(db.sales_log, "date"), (db.expenses, "date"), (db.invoices, "order_date")]:
+        doc = await coll.find_one({"branch_id": branch_id}, {"_id": 0, field: 1}, sort=[(field, 1)])
+        if doc and doc.get(field):
+            earliest_dates.append(doc[field])
+    if earliest_dates:
+        floor_date = min(earliest_dates)
+        if order_date < floor_date:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Cannot encode sales for {order_date} — this date is before the system start date ({floor_date})."
+            )
     
     # Idempotency check — prevent duplicate transactions from offline sync
     idem_key = data.get("idempotency_key")

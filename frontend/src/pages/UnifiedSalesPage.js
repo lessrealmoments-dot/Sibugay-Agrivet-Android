@@ -138,6 +138,13 @@ const EMPTY_LINE = {
   discount_type: 'amount', discount_value: 0, is_repack: false,
 };
 
+// Returns today's date in YYYY-MM-DD using LOCAL time (not UTC), so it always
+// shows the correct Philippine date regardless of server timezone.
+const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function UnifiedSalesPage() {
   const { currentBranch, user, effectiveBranchId } = useAuth();
   
@@ -148,7 +155,7 @@ export default function UnifiedSalesPage() {
   const [mainTab, setMainTab] = useState('sale');
 
   // ── Sales History ────────────────────────────────────────────────────────
-  const [historyDate, setHistoryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [historyDate, setHistoryDate] = useState(localToday());
   const [historySearch, setHistorySearch] = useState('');
   const [historyList, setHistoryList] = useState([]);
   const [historyTotals, setHistoryTotals] = useState(null);
@@ -256,8 +263,7 @@ export default function UnifiedSalesPage() {
   // Order header
   const [header, setHeader] = useState({
     terms: 'COD', terms_days: 0, customer_po: '', sales_rep_id: '', sales_rep_name: '',
-    prefix: 'SI', order_date: new Date().toISOString().slice(0, 10),
-    invoice_date: new Date().toISOString().slice(0, 10),
+    prefix: 'SI', order_date: localToday(),
     shipping_address: '', location: '', mod: '', check_number: '', req_ship_date: '', notes: '',
   });
   const [freight, setFreight] = useState(0);
@@ -1038,7 +1044,7 @@ export default function UnifiedSalesPage() {
     
     const saleId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const envelopeId = newEnvelopeId(); // separate idempotency key for resilient sync
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     
     // Calculate amounts
     const splitCashAmt = parseFloat(splitCash || 0);
@@ -1089,7 +1095,7 @@ export default function UnifiedSalesPage() {
       sales_rep_name: header.sales_rep_name,
       prefix: header.prefix,
       order_date: header.order_date,
-      invoice_date: header.invoice_date || today,
+      invoice_date: header.order_date,
       // extra order mode fields
       shipping_address: header.shipping_address || undefined,
       location: header.location || undefined,
@@ -1589,9 +1595,16 @@ export default function UnifiedSalesPage() {
                         onChange={e => setHeader(h => ({ ...h, check_number: e.target.value }))} />
                     </div>
                     <div>
-                      <Label className="text-[10px] text-slate-400 uppercase tracking-wide">Invoice Date</Label>
-                      <Input type="date" className="h-8 text-sm mt-0.5" value={header.invoice_date}
-                        onChange={e => setHeader(h => ({ ...h, invoice_date: e.target.value }))} />
+                      <Label className="text-[10px] text-[#1A4D2E] font-semibold uppercase tracking-wide flex items-center gap-1">
+                        Sale Date
+                        <span className="text-[9px] normal-case font-normal text-slate-400">(affects reports)</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        className="h-8 text-sm mt-0.5 border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] font-medium text-[#1A4D2E]"
+                        value={header.order_date}
+                        onChange={e => setHeader(h => ({ ...h, order_date: e.target.value }))}
+                      />
                     </div>
                   </div>
                 </div>

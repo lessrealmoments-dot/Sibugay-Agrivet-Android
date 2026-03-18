@@ -2,15 +2,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertTriangle, Calendar, ChevronDown, Check } from 'lucide-react';
 import { api } from '../contexts/AuthContext';
 
+const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export function UnclosedDaysBanner({ branchId, onDateSelect, className = '' }) {
   const [unclosedDays, setUnclosedDays] = useState([]);
   const [lastCloseDate, setLastCloseDate] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState(localToday());
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
 
   const fetchUnclosedDays = useCallback(async () => {
     if (!branchId) return;

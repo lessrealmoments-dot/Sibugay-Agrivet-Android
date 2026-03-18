@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../componen
 import { toast } from 'sonner';
 import { formatPHP } from '../../lib/utils';
 import PrintEngine from '../../lib/PrintEngine';
+import PrintBridge from '../../lib/PrintBridge';
 import {
   getProducts, getCustomers, getPriceSchemes,
   addPendingSale, getPendingSaleCount, getInventoryItem, getBranchPrice,
@@ -656,13 +657,13 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
             <p className="text-xs text-slate-500">Would you like to print a receipt?</p>
             <div className="space-y-2 pt-1">
               <Button onClick={() => {
-                PrintEngine.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'thermal', businessInfo });
+                PrintBridge.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'thermal', businessInfo });
                 setShowPrintPrompt(false); setLastSaleData(null);
               }} className="w-full bg-[#1A4D2E] hover:bg-[#15412a] text-white h-11" data-testid="print-thermal-btn">
                 <Printer size={16} className="mr-2" /> Print Receipt (58mm)
               </Button>
               <Button variant="outline" onClick={() => {
-                PrintEngine.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'full_page', businessInfo });
+                PrintBridge.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'full_page', businessInfo });
                 setShowPrintPrompt(false); setLastSaleData(null);
               }} className="w-full h-10" data-testid="print-full-btn">
                 <Printer size={14} className="mr-2" /> Print Full Page

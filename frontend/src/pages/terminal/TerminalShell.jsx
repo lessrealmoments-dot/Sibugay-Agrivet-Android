@@ -7,6 +7,7 @@ import TerminalPOCheck from './TerminalPOCheck';
 import TerminalTransfers from './TerminalTransfers';
 import axios from 'axios';
 import PrintEngine from '../../lib/PrintEngine';
+import PrintBridge from '../../lib/PrintBridge';
 import {
   cacheProducts, getProducts, cacheCustomers,
   cachePriceSchemes, cacheInventory,
@@ -633,7 +634,7 @@ export default function TerminalShell({ session, onLogout }) {
                       const docType = quickScanDoc.basic.doc_type === 'invoice'
                         ? PrintEngine.getDocType(printData)
                         : quickScanDoc.basic.doc_type === 'purchase_order' ? 'purchase_order' : 'branch_transfer';
-                      PrintEngine.print({ type: docType, data: printData, format: 'thermal', businessInfo, docCode: quickScanDoc.code });
+                      PrintBridge.print({ type: docType, data: printData, format: 'thermal', businessInfo, docCode: quickScanDoc.code });
                       setQuickScanDoc(null);
                     }}
                     className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-[#1A4D2E] text-white font-semibold text-sm active:scale-95 transition-transform"
@@ -647,7 +648,7 @@ export default function TerminalShell({ session, onLogout }) {
                       const docType = quickScanDoc.basic.doc_type === 'invoice'
                         ? PrintEngine.getDocType(printData)
                         : quickScanDoc.basic.doc_type === 'purchase_order' ? 'purchase_order' : 'branch_transfer';
-                      PrintEngine.print({ type: docType, data: printData, format: 'full_page', businessInfo, docCode: quickScanDoc.code });
+                      PrintBridge.print({ type: docType, data: printData, format: 'full_page', businessInfo, docCode: quickScanDoc.code });
                       setQuickScanDoc(null);
                     }}
                     className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold text-sm active:scale-95 transition-transform"

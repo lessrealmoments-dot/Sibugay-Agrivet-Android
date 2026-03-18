@@ -654,6 +654,44 @@ const PrintEngine = {
    * @param {object} opts.businessInfo - From /settings/business-info
    * @param {string} opts.docCode - Unique document QR code (optional)
    */
+
+  /**
+   * generateHtml — returns the receipt HTML string WITHOUT opening a window or printing.
+   * Used by PrintBridge when running in Capacitor native mode (H10P APK).
+   * The HTML is passed to the native H10PPrinterPlugin which renders it to Bitmap.
+   */
+  generateHtml({ type, data, format = 'thermal', businessInfo = {}, docCode = '' }) {
+    const css = format === 'thermal' ? thermalCSS : fullPageCSS;
+    let body = '';
+    switch (type) {
+      case 'order_slip':
+        body = format === 'thermal' ? orderSlipThermal(data, businessInfo, docCode) : orderSlipFullPage(data, businessInfo, docCode);
+        break;
+      case 'trust_receipt':
+        body = format === 'thermal' ? trustReceiptThermal(data, businessInfo, docCode) : trustReceiptFullPage(data, businessInfo, docCode);
+        break;
+      case 'purchase_order':
+        body = format === 'thermal' ? purchaseOrderThermal(data, businessInfo, docCode) : purchaseOrderFullPage(data, businessInfo, docCode);
+        break;
+      case 'branch_transfer':
+        body = format === 'thermal' ? branchTransferThermal(data, businessInfo, docCode) : branchTransferFullPage(data, businessInfo, docCode);
+        break;
+      case 'expense_voucher':
+        body = expenseVoucherFullPage(data, businessInfo, docCode);
+        break;
+      case 'return_slip':
+        body = format === 'thermal' ? returnSlipThermal(data, businessInfo, docCode) : returnSlipFullPage(data, businessInfo, docCode);
+        break;
+      case 'statement':
+        body = statementFullPage(data, businessInfo, docCode);
+        break;
+      default:
+        body = format === 'thermal' ? orderSlipThermal(data, businessInfo, docCode) : orderSlipFullPage(data, businessInfo, docCode);
+    }
+    // No window.print() script — the native plugin handles printing
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>${css}</style></head><body>${body}</body></html>`;
+  },
+
   print({ type, data, format = 'thermal', businessInfo = {}, docCode = '' }) {
     const css = format === 'thermal' ? thermalCSS : fullPageCSS;
     let body = '';

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import PrintEngine from '../lib/PrintEngine';
+import PrintBridge from '../lib/PrintBridge';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
 const php = (v) => `₱${(parseFloat(v) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -961,7 +962,7 @@ export default function DocViewerPage() {
     else if (basic.doc_type === 'purchase_order') docType = 'purchase_order';
     else if (basic.doc_type === 'branch_transfer') docType = 'branch_transfer';
     else docType = 'order_slip';
-    PrintEngine.print({ type: docType, data: doc, format, businessInfo, docCode: code?.toUpperCase() });
+    PrintBridge.print({ type: docType, data: doc, format, businessInfo, docCode: code?.toUpperCase() });
   };
 
   // Cross-branch TOTP verification — only 6-digit time-based code accepted

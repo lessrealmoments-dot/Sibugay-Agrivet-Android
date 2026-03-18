@@ -59,7 +59,18 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - **NEW:** DocViewerPage cross-branch enforcement — when `?branch=` param doesn't match doc's branch, shows TOTP-only unlock gate; after TOTP verification, actions are unlocked with audit trail
 - **NEW:** Terminal navigation to `/doc/` always passes `?branch=session.branchId` for proper cross-branch detection
 
-### Scan-to-Reprint QuickScan Sheet (2026-03-18) — Complete
+### Capacitor APK Wrapper + H10P Printer SDK (2026-03-18) — Complete
+- **Capacitor setup**: `@capacitor/core@6` + `@capacitor/android@6` installed, `capacitor.config.ts` created in live-URL mode (always loads `https://agri-books.com`, no APK rebuild for web updates)
+- **Android project generated**: `frontend/android/` — full Capacitor Android project structure
+- **H10P Printer AIDL files**: `PrinterInterface.aidl`, `PSAMCallback.aidl`, `PSAMData.aidl` placed in correct AIDL directory (`recieptservice.com.recieptservice` package)
+- **Native plugin**: `H10PPrinterPlugin.java` — binds to `recieptservice.com.recieptservice.service.PrinterService`, renders HTML→Bitmap via headless WebView, calls `printer.beginWork()` → `printer.printBitmap(bitmap)` → `printer.endWork()`
+- **PrintBridge.js**: environment-aware router — detects `Capacitor.isNativePlatform()`, routes to SDK on H10P or `window.print()` on browser
+- **H10PPrinterPlugin.js**: Capacitor JS interface with web browser fallback
+- **PrintEngine.js**: added `generateHtml()` method (returns HTML without print script, used by PrintBridge for native path)
+- **Terminal print call sites updated**: `TerminalSales.jsx`, `TerminalShell.jsx`, `DocViewerPage.jsx` — all use `PrintBridge.print()` instead of `PrintEngine.print()`
+- **PWA manifest updated**: `start_url: /terminal`, `orientation: portrait` — ready for "Add to Home Screen"
+- **Build guide**: `frontend/ANDROID_BUILD_GUIDE.md` — complete step-by-step APK build instructions
+- **AAR placeholder**: `android/app/libs/README.txt` — user must copy `printer-release.aar` here before building
 - When the H10P Newland scanner reads a document QR code, a bottom sheet appears INSTANTLY
 - Shows: doc number, customer/supplier, amount, status, item count
 - **Three actions:** [Print 58mm Thermal] [Print Full Page] [View / Take Action]

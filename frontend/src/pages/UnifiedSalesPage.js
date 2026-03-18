@@ -675,6 +675,64 @@ export default function UnifiedSalesPage() {
     toast.success('Sale re-opened — original date preserved for interest calculation');
   };
 
+  // ── Mode switching with item transfer ────────────────────────────────────
+  const switchMode = (newMode) => {
+    if (newMode === mode) return;
+
+    if (newMode === 'order' && cart.length > 0) {
+      // Quick → Order: copy cart items into order lines
+      const newLines = cart.map(c => ({
+        product_id: c.product_id,
+        product_name: c.product_name,
+        description: '',
+        quantity: c.quantity,
+        rate: c.price,
+        original_rate: c.original_price ?? c.price,
+        cost_price: c.cost_price || 0,
+        moving_average_cost: c.moving_average_cost || 0,
+        last_purchase_cost: c.last_purchase_cost || 0,
+        effective_capital: c.effective_capital || c.cost_price || 0,
+        capital_method: c.capital_method || 'manual',
+        discount_type: 'amount',
+        discount_value: 0,
+        is_repack: c.is_repack || false,
+      }));
+      newLines.push({ ...EMPTY_LINE }); // trailing empty row
+      setLines(newLines);
+    }
+
+    if (newMode === 'quick') {
+      const filledLines = lines.filter(l => l.product_id);
+      const hasDiscount = filledLines.some(l => l.discount_value > 0);
+      if (hasDiscount) {
+        toast.error('Cannot switch to Quick mode — per-line discounts exist. Remove them or stay in Order mode.');
+        return;
+      }
+      if (filledLines.length > 0) {
+        // Order → Quick: copy lines into cart
+        const newCart = filledLines.map(l => ({
+          product_id: l.product_id,
+          product_name: l.product_name,
+          sku: '',
+          price: l.rate,
+          quantity: l.quantity,
+          total: l.quantity * l.rate,
+          unit: '',
+          is_repack: l.is_repack || false,
+          cost_price: l.cost_price || 0,
+          moving_average_cost: l.moving_average_cost || 0,
+          last_purchase_cost: l.last_purchase_cost || 0,
+          effective_capital: l.effective_capital || l.cost_price || 0,
+          capital_method: l.capital_method || 'manual',
+          original_price: l.original_rate ?? l.rate,
+        }));
+        setCart(newCart);
+      }
+    }
+
+    setMode(newMode);
+  };
+
   // Filter products
   useEffect(() => {
     if (!search) { setFilteredProducts(allProducts); return; }
@@ -1326,7 +1384,7 @@ export default function UnifiedSalesPage() {
           {mainTab === 'sale' && (
             <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
               <button
-                onClick={() => setMode('quick')}
+                onClick={() => switchMode('quick')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   mode === 'quick' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'
                 }`}
@@ -1335,7 +1393,7 @@ export default function UnifiedSalesPage() {
                 <Zap size={14} /> Quick
               </button>
               <button
-                onClick={() => setMode('order')}
+                onClick={() => switchMode('order')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   mode === 'order' ? 'bg-white shadow-sm text-[#1A4D2E]' : 'text-slate-500 hover:text-slate-700'
                 }`}

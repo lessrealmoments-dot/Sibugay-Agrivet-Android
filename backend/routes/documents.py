@@ -298,7 +298,7 @@ async def compliance_summary(
     if branch_id:
         query["branch_id"] = branch_id
 
-    docs = await db.business_documents.find(query, {"_id": 0, "category": 1, "sub_category": 1, "coverage_months": 1, "valid_until": 1, "period_type": 1}).to_list(5000)
+    docs = await db.business_documents.find(query, {"_id": 0, "category": 1, "sub_category": 1, "sub_category_label": 1, "coverage_months": 1, "valid_until": 1, "period_type": 1}).to_list(5000)
 
     monthly_coverage = {}
     expiring = []

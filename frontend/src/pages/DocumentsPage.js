@@ -77,6 +77,9 @@ export default function DocumentsPage() {
   // QR dialog
   const [qrDialog, setQrDialog] = useState(false);
 
+  // Compliance summary
+  const [compliance, setCompliance] = useState(null);
+
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/documents/categories`, {
@@ -92,7 +95,7 @@ export default function DocumentsPage() {
       const params = new URLSearchParams();
       if (selectedCategory) params.set('category', selectedCategory);
       if (selectedSubCategory) params.set('sub_category', selectedSubCategory);
-      if (selectedBranchId) params.set('branch_id', selectedBranchId);
+      if (selectedBranchId && selectedBranchId !== 'all') params.set('branch_id', selectedBranchId);
       if (selectedYear) params.set('year', selectedYear);
       if (search) params.set('search', search);
       params.set('limit', '100');
@@ -114,6 +117,19 @@ export default function DocumentsPage() {
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
   useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
+
+  const fetchCompliance = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ year: selectedYear });
+      if (selectedBranchId && selectedBranchId !== 'all') params.set('branch_id', selectedBranchId);
+      const res = await fetch(`${API}/api/documents/compliance/summary?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setCompliance(await res.json());
+    } catch {}
+  }, [token, selectedYear, selectedBranchId]);
+
+  useEffect(() => { fetchCompliance(); }, [fetchCompliance]);
 
   const handleDelete = async (docId) => {
     if (!window.confirm('Delete this document and all its files?')) return;
@@ -205,6 +221,11 @@ export default function DocumentsPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Compliance Dashboard — visible on root view */}
+      {!selectedCategory && !search && compliance && (
+        <ComplianceDashboard compliance={compliance} categories={categories} year={selectedYear} />
+      )}
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1 text-sm" data-testid="doc-breadcrumb">
@@ -409,6 +430,135 @@ export default function DocumentsPage() {
     </div>
   );
 }
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Compliance Dashboard — at-a-glance filing status + expiry alerts
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TRACKED_MONTHLY = [
+  { key: 'sss_contributions', label: 'SSS', barColor: 'bg-blue-400' },
+  { key: 'philhealth_contributions', label: 'PhilHealth', barColor: 'bg-emerald-400' },
+  { key: 'pagibig_contributions', label: 'Pag-IBIG', barColor: 'bg-amber-400' },
+  { key: '1601c', label: 'BIR 1601-C', barColor: 'bg-purple-400' },
+  { key: '0619e', label: 'BIR 0619-E', barColor: 'bg-purple-400' },
+  { key: '2550m', label: 'BIR 2550M', barColor: 'bg-purple-400' },
+];
+
+function ComplianceDashboard({ compliance, categories, year }) {
+  if (!compliance) return null;
+
+  const { monthly_coverage, expiring_soon, expired } = compliance;
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+  const hasAnyData = Object.keys(monthly_coverage).length > 0 || expiring_soon.length > 0 || expired.length > 0;
+
+  // Calculate how many months should be filed (up to current month for current year, all 12 for past years)
+  const isCurrentYear = year === new Date().getFullYear();
+  const expectedMonths = isCurrentYear ? currentMonth : 12;
+
+  return (
+    <div className="space-y-3" data-testid="compliance-dashboard">
+      {/* Expiry Alerts */}
+      {expired.length > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg" data-testid="expired-alert">
+          <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-red-700">Expired Documents ({expired.length})</p>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {expired.map((e, i) => (
+                <Badge key={i} variant="destructive" className="text-[10px]">
+                  {e.sub_category_label} — expired {e.valid_until}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {expiring_soon.length > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg" data-testid="expiring-alert">
+          <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-semibold text-amber-700">Expiring Soon ({expiring_soon.length})</p>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {expiring_soon.map((e, i) => (
+                <Badge key={i} className="text-[10px] bg-amber-100 text-amber-700">
+                  {e.sub_category_label} — {e.days_left}d left (expires {e.valid_until})
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly Filing Tracker */}
+      {(hasAnyData || isCurrentYear) && (
+        <Card data-testid="monthly-tracker">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Monthly Filing Tracker — {year}</h3>
+              <span className="text-[10px] text-muted-foreground">
+                {isCurrentYear ? `Through ${MONTH_NAMES[currentMonth - 1]}` : 'Full Year'}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {TRACKED_MONTHLY.map(({ key, label, barColor }) => {
+                const covered = monthly_coverage[key] || [];
+                const filedCount = covered.filter(m => m <= expectedMonths).length;
+                const pct = expectedMonths > 0 ? Math.round((filedCount / expectedMonths) * 100) : 0;
+                const allFiled = filedCount >= expectedMonths;
+
+                return (
+                  <div key={key} className="flex items-center gap-3" data-testid={`tracker-${key}`}>
+                    <span className="text-xs font-medium w-24 shrink-0">{label}</span>
+                    <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden relative">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          allFiled ? 'bg-emerald-500' : pct > 0 ? barColor : 'bg-slate-200'
+                        }`}
+                        style={{ width: `${Math.max(pct, 2)}%` }}
+                      />
+                      <div className="absolute inset-0 flex items-center px-2">
+                        <div className="flex gap-[3px]">
+                          {Array.from({ length: 12 }, (_, i) => {
+                            const m = i + 1;
+                            const isFiled = covered.includes(m);
+                            const isPast = m <= expectedMonths;
+                            return (
+                              <div
+                                key={m}
+                                className={`w-[6px] h-[6px] rounded-full ${
+                                  isFiled ? 'bg-emerald-600' :
+                                  isPast ? 'bg-red-400' :
+                                  'bg-slate-300'
+                                }`}
+                                title={`${MONTH_NAMES[i]} — ${isFiled ? 'Filed' : isPast ? 'Missing' : 'Upcoming'}`}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                    <span className={`text-[11px] font-semibold w-16 text-right ${allFiled ? 'text-emerald-600' : filedCount > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                      {filedCount}/{expectedMonths}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-4 mt-3 pt-2 border-t text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600" /> Filed</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Missing</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-300" /> Upcoming</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 
 
 // ─────────────────────────────────────────────────────────────────────────────

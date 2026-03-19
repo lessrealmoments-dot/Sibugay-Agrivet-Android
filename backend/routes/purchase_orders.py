@@ -13,7 +13,7 @@ from utils import (
     get_current_user, check_perm, now_iso, new_id, 
     log_movement, update_cashier_wallet, record_safe_movement,
     get_branch_filter, apply_branch_filter, ensure_branch_access,
-    generate_next_number, check_idempotency,
+    generate_next_number, check_idempotency, ensure_org_context,
 )
 
 logger = logging.getLogger("purchase_orders")
@@ -30,6 +30,9 @@ async def _apply_po_inventory(po: dict, user: dict, capital_choices: dict = None
     if capital_choices is None:
         capital_choices = {}
     branch_id = po.get("branch_id", "")
+
+    # Ensure org context for super admin
+    await ensure_org_context(branch_id=branch_id, org_id=po.get("organization_id"))
     po_number = po.get("po_number", "unknown")
 
     for idx, item in enumerate(po.get("items", [])):

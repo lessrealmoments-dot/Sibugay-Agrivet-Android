@@ -5,10 +5,10 @@ Manages the 3-price model: Branch Capital → Transfer Capital → Branch Retail
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone
-from config import db
+from config import db, _raw_db, get_org_context, set_org_context
 from utils import (
     get_current_user, check_perm, now_iso, new_id,
-    log_movement, get_branch_cost
+    log_movement, get_branch_cost, ensure_org_context
 )
 
 router = APIRouter(prefix="/branch-transfers", tags=["Branch Transfers"])
@@ -280,6 +280,10 @@ async def create_transfer(data: dict, user=Depends(get_current_user)):
     if not items:
         raise HTTPException(status_code=400, detail="No items in transfer")
 
+    # Ensure org context for super admin
+    if not get_org_context():
+        await ensure_org_context(branch_id=from_branch_id)
+
     count = await db.branch_transfer_orders.count_documents({})
     order_number = f"BTO-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(count + 1).zfill(4)}"
 
@@ -358,6 +362,11 @@ async def send_transfer(transfer_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Transfer not found")
     if order["status"] != "draft":
         raise HTTPException(status_code=400, detail="Only draft orders can be sent")
+
+    # Ensure org context for super admin
+    if not get_org_context():
+        org_id = order.get("organization_id")
+        await ensure_org_context(branch_id=order["from_branch_id"], org_id=org_id)
 
     await db.branch_transfer_orders.update_one(
         {"id": transfer_id},
@@ -589,6 +598,11 @@ async def receive_transfer(transfer_id: str, data: dict, user=Depends(get_curren
     if user.get("role") != "admin" and user_branch and user_branch != order.get("to_branch_id", ""):
         raise HTTPException(status_code=403, detail="Only the destination branch can receive this transfer")
 
+    # Ensure org context is set for super admins acting on tenant data
+    if not get_org_context():
+        org_id = order.get("organization_id")
+        await ensure_org_context(branch_id=order.get("to_branch_id"), org_id=org_id)
+
     # ── Mandatory receipt check for final receiving ──────────────────────
     upload_session_ids = data.get("upload_session_ids", [])
     if not data.get("skip_receipt_check"):
@@ -791,6 +805,11 @@ async def _apply_receipt(order, items, shortages, excesses, from_branch_id, to_b
       - transfer_capital >= current_dest_capital → use transfer_capital
       - transfer_capital < current_dest_capital  → use moving_average (cushion the drop)
     """
+    # Ensure org context is set — super admins have None, which causes tenant writes
+    # to omit organization_id. Resolve from the transfer order or branch.
+    if not get_org_context():
+        await ensure_org_context(branch_id=to_branch_id, org_id=order.get("organization_id"))
+
     if capital_choices is None:
         capital_choices = {}
     for item in items:
@@ -1017,6 +1036,11 @@ async def accept_receipt(transfer_id: str, data: dict, user=Depends(get_current_
     user_branch = user.get("branch_id")
     if user.get("role") != "admin" and user_branch and user_branch != order["from_branch_id"]:
         raise HTTPException(status_code=403, detail="Only the source branch can accept this receipt")
+
+    # Ensure org context for super admin
+    if not get_org_context():
+        org_id = order.get("organization_id")
+        await ensure_org_context(branch_id=order["from_branch_id"], org_id=org_id)
 
     from_branch_id = order["from_branch_id"]
     to_branch_id = order["to_branch_id"]
@@ -1279,3 +1303,66 @@ async def cancel_transfer(transfer_id: str, user=Depends(get_current_user)):
         {"id": transfer_id}, {"$set": {"status": "cancelled", "cancelled_at": now_iso()}}
     )
     return {"message": "Transfer cancelled"}
+
+
+
+@router.post("/admin/fix-orphaned-movements")
+async def fix_orphaned_movements(user=Depends(get_current_user)):
+    """Fix movements that were created without organization_id (super admin bug).
+    Looks up the correct org from the branch_id on each movement."""
+    if user.get("role") != "admin" and not user.get("is_super_admin"):
+        raise HTTPException(status_code=403, detail="Admin required")
+
+    # Find movements without organization_id
+    orphaned = await _raw_db.movements.find(
+        {"organization_id": {"$exists": False}},
+        {"_id": 1, "branch_id": 1, "reference_number": 1, "type": 1}
+    ).to_list(10000)
+
+    if not orphaned:
+        return {"message": "No orphaned movements found", "fixed": 0}
+
+    # Build branch → org mapping
+    branch_ids = list({m.get("branch_id") for m in orphaned if m.get("branch_id")})
+    branches = await _raw_db.branches.find(
+        {"id": {"$in": branch_ids}},
+        {"_id": 0, "id": 1, "organization_id": 1}
+    ).to_list(100)
+    branch_org_map = {b["id"]: b.get("organization_id") for b in branches}
+
+    fixed = 0
+    for m in orphaned:
+        org_id = branch_org_map.get(m.get("branch_id"))
+        if org_id:
+            await _raw_db.movements.update_one(
+                {"_id": m["_id"]},
+                {"$set": {"organization_id": org_id}}
+            )
+            fixed += 1
+
+    # Also fix other tenant collections with missing org_id
+    other_collections = ["capital_changes", "branch_transfer_orders", "inventory",
+                         "branch_prices", "branch_transfer_price_memory", "notifications",
+                         "audit_log", "incident_tickets", "business_documents"]
+    other_fixed = {}
+    for col_name in other_collections:
+        col = _raw_db[col_name]
+        orphaned_docs = await col.find(
+            {"organization_id": {"$exists": False}},
+            {"_id": 1, "branch_id": 1}
+        ).to_list(10000)
+        count = 0
+        for doc in orphaned_docs:
+            org_id = branch_org_map.get(doc.get("branch_id"))
+            if org_id:
+                await col.update_one({"_id": doc["_id"]}, {"$set": {"organization_id": org_id}})
+                count += 1
+        if count > 0:
+            other_fixed[col_name] = count
+
+    return {
+        "message": f"Fixed {fixed} orphaned movements",
+        "movements_fixed": fixed,
+        "other_collections_fixed": other_fixed,
+        "total_orphaned_checked": len(orphaned),
+    }

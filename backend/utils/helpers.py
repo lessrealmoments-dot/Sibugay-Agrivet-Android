@@ -3,7 +3,7 @@ Common helper functions used across the application.
 """
 import uuid
 from datetime import datetime, timezone, timedelta
-from config import db
+from config import db, _raw_db, get_org_context, set_org_context
 
 
 def now_iso():
@@ -16,6 +16,20 @@ def new_id():
     return str(uuid.uuid4())
 
 
+async def ensure_org_context(branch_id: str = None, org_id: str = None):
+    """Ensure org context is set. Super admins have None — resolve from branch or explicit org_id.
+    Call this at the start of any write operation that could be triggered by a super admin."""
+    if get_org_context():
+        return  # Already set
+    if org_id:
+        set_org_context(org_id)
+        return
+    if branch_id:
+        branch = await _raw_db.branches.find_one({"id": branch_id}, {"_id": 0, "organization_id": 1})
+        if branch and branch.get("organization_id"):
+            set_org_context(branch["organization_id"])
+
+
 async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_number, price, user_id, user_name, notes="", reserved_qty_change=0):
     """
     Log a product movement (sale, purchase, adjustment, transfer, release, etc.).
@@ -24,6 +38,9 @@ async def log_movement(product_id, branch_id, m_type, qty_change, ref_id, ref_nu
     reserved_qty_change — change to inventory.reserved_qty (negative = released to customer, positive = reserved at sale)
                           Defaults to 0 for all existing callers. Only sale_release uses a non-zero value.
     """
+    # Ensure org context — super admin operations would otherwise create orphaned records
+    await ensure_org_context(branch_id=branch_id)
+
     await db.movements.insert_one({
         "id": new_id(),
         "product_id": product_id,

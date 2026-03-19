@@ -8,7 +8,7 @@ from utils import (
     get_current_user, check_perm, has_perm, now_iso, new_id,
     log_movement, log_sale_items, update_cashier_wallet,
     update_digital_wallet, is_digital_payment, get_branch_cost,
-    generate_next_number, check_idempotency,
+    generate_next_number, check_idempotency, ensure_org_context,
 )
 
 router = APIRouter(tags=["Sales"])
@@ -29,6 +29,9 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     branch_id = data.get("branch_id")
     if not branch_id:
         raise HTTPException(status_code=400, detail="Branch ID required")
+
+    # Ensure org context for super admin
+    await ensure_org_context(branch_id=branch_id)
 
     # ── Closed-day guard ─────────────────────────────────────────────────────
     # Block sales encoding on days that have already been formally closed.

@@ -195,7 +195,7 @@ export default function TerminalShell({ session, onLogout }) {
       qrScannerRef.current = scanner;
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 8, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
+        { fps: 10 },
         (decodedText) => {
           const now = Date.now();
           if (decodedText === qrLastScanRef.current.code && now - qrLastScanRef.current.time < QR_SCAN_COOLDOWN) return;
@@ -654,13 +654,8 @@ export default function TerminalShell({ session, onLogout }) {
           </div>
 
           {/* Scanner view */}
-          <div className="flex-1 flex items-center justify-center relative">
+          <div className="flex-1 relative overflow-hidden">
             <div id="terminal-qr-scanner-view" className="w-full h-full" />
-            {/* Scanning indicator */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-              <span className="text-xs text-white/80">Scanning...</span>
-            </div>
           </div>
         </div>
       )}

@@ -171,14 +171,14 @@ Cashier on terminal can type a doc code (e.g., `K7EFPTZQ`) to open any document'
 
 ## Other Backlog (Non-QR)
 
-### P0 — Permission Enforcement Phase 2 (NEXT)
-Wire up all remaining dead permission toggles. Detailed spec in PRD.md.
+### P0 — Permission Enforcement Phase 2 ✅ COMPLETE
+All dead permission toggles wired up. Completed Mar 2026.
 1. `products.view_cost` — hide cost/capital in Sales + Products when OFF
 2. `customers.view_balance` — hide AR balance info when OFF
 3. `customers.manage_credit` — gate credit limit editing separately
 4. `reports.export` — hide print/export buttons when OFF
-5. `reports.view_profit` — **NEW: build Profit Report** (revenue - capital, margin %) and gate behind this permission
-6. `accounting.generate_interest/penalty` — remap to proper permission keys
+5. `reports.view_profit` — **BUILT: Product Profit Report** (revenue - capital, margin %) gated behind this permission
+6. `accounting.generate_interest/penalty` — remapped to proper permission keys
 
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries) was completed but user never confirmed. Ask user to verify before proceeding.

@@ -178,6 +178,14 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - **Audit trail: `discount_audit_log` collection** — Every sale with discounts or price overrides is logged with full detail (who, what, how much, which items).
 - **Reports: Discounts tab** — New tab in /reports with date/branch/group-by filters. Shows total discounts, price overrides, by customer or employee, with drill-down detail.
 
+### Permission Enforcement Phase 2 (Complete — Mar 2026)
+- **`products.view_cost`** — Cost column in Products table + Cost Price/Capital field in edit dialog hidden when OFF. Avg ₱, Last ₱, below-capital warnings in Sales page hidden when OFF.
+- **`customers.view_balance`** — Balance & Credit Limit columns in Customers table hidden when OFF. Balance/Limit display in Sales page customer dropdown and checkout hidden when OFF.
+- **`customers.manage_credit`** — Credit Limit, Interest Rate, Grace Period fields in Customer form disabled when OFF (separate from customers.edit).
+- **`reports.export`** — Print buttons on AR Aging, Sales, Expense, and Profit report tabs hidden when OFF.
+- **`reports.view_profit`** — NEW: Product Profitability Report tab in /reports. Shows revenue, cost, profit, margin per product. Sortable by profit/revenue/margin/qty. Gated behind this permission.
+- **`accounting.generate_interest` / `generate_penalty`** — Remapped from `create_expense` to their own dedicated permission keys.
+
 See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ### Dashboard Widget Collapse Fix (Complete — Mar 2026)
@@ -224,20 +232,6 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 ---
 
 ## Prioritized Backlog
-
-### P0 — Next: Permission Enforcement Phase 2
-Wire up all dead permission toggles (Team → Permissions) to actual system behavior:
-1. **`products.view_cost`** — Hide cost/capital references (Avg ₱, Last ₱, below-capital warnings) in Sales screen + Products page when OFF
-2. **`customers.view_balance`** — Hide AR balance and credit limit info in Sales screen, customer dropdown, customer list when OFF
-3. **`customers.manage_credit`** — Disable credit limit + interest rate fields in customer form when OFF (separate from `customers.edit`)
-4. **`reports.export`** — Hide Print/Export buttons on all report tabs when OFF
-5. **`reports.view_profit`** — Build a Profit Report (revenue minus capital per item, margin %) and gate it behind this permission
-6. **`accounting.generate_interest` / `generate_penalty`** — Remap to their proper permission keys instead of sharing `create_expense`
-
-**Files to change:**
-- Frontend: `UnifiedSalesPage.js`, `ProductsPage.js`, `CustomersPage.js`, `ReportsPage.js` — add `hasPerm()` checks to conditionally hide/disable UI elements
-- Backend: `accounting.py` — remap interest/penalty endpoints
-- Backend: `reports.py` — new profit report endpoint
 
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.

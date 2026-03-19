@@ -31,7 +31,9 @@ const getSaleTypeBadge = (inv) => {
 };
 
 export default function CustomersPage() {
-  const { currentBranch } = useAuth();
+  const { currentBranch, hasPerm } = useAuth();
+  const canViewBalance = hasPerm('customers', 'view_balance');
+  const canManageCredit = hasPerm('customers', 'manage_credit');
   const [customers, setCustomers] = useState([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -158,8 +160,8 @@ export default function CustomersPage() {
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Phone</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Price Scheme</TableHead>
                 {!currentBranch && <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Branch</TableHead>}
-                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Balance</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Credit Limit</TableHead>
+                {canViewBalance && <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Balance</TableHead>}
+                {canViewBalance && <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Credit Limit</TableHead>}
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -174,10 +176,12 @@ export default function CustomersPage() {
                   {!currentBranch && (
                     <TableCell className="text-xs text-slate-400">{c.branch_id ? c.branch_id.slice(0, 6) + '…' : '—'}</TableCell>
                   )}
+                  {canViewBalance && (
                   <TableCell className="text-right">
                     <span className={c.balance > 0 ? 'text-red-600 font-semibold' : 'text-emerald-600'}>{formatPHP(c.balance || 0)}</span>
                   </TableCell>
-                  <TableCell className="text-right">{formatPHP(c.credit_limit || 0)}</TableCell>
+                  )}
+                  {canViewBalance && <TableCell className="text-right">{formatPHP(c.credit_limit || 0)}</TableCell>}
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" data-testid={`view-customer-${c.id}`} onClick={() => openHistory(c)} title="View Transactions">
@@ -198,7 +202,7 @@ export default function CustomersPage() {
                 </TableRow>
               ))}
               {!customers.length && (
-                <TableRow><TableCell colSpan={currentBranch ? 6 : 7} className="text-center py-8 text-slate-400">
+                <TableRow><TableCell colSpan={currentBranch ? (4 + (canViewBalance ? 2 : 0)) : (5 + (canViewBalance ? 2 : 0))} className="text-center py-8 text-slate-400">
                   {currentBranch ? `No customers for ${currentBranch.name} yet` : 'No customers found'}
                 </TableCell></TableRow>
               )}
@@ -244,15 +248,30 @@ export default function CustomersPage() {
               </div>
               <div>
                 <Label>Credit Limit</Label>
-                <Input data-testid="customer-credit-input" type="number" value={form.credit_limit} onChange={e => setForm({ ...form, credit_limit: parseFloat(e.target.value) || 0 })} />
+                <Input data-testid="customer-credit-input" type="number" value={form.credit_limit}
+                  onChange={e => setForm({ ...form, credit_limit: parseFloat(e.target.value) || 0 })}
+                  disabled={!canManageCredit}
+                  className={!canManageCredit ? 'bg-slate-100 cursor-not-allowed opacity-60' : ''}
+                  title={!canManageCredit ? 'No permission to manage credit' : ''}
+                />
               </div>
               <div>
                 <Label>Interest (%/mo)</Label>
-                <Input type="number" step="0.1" value={form.interest_rate} onChange={e => setForm({ ...form, interest_rate: parseFloat(e.target.value) || 0 })} />
+                <Input type="number" step="0.1" value={form.interest_rate}
+                  onChange={e => setForm({ ...form, interest_rate: parseFloat(e.target.value) || 0 })}
+                  disabled={!canManageCredit}
+                  className={!canManageCredit ? 'bg-slate-100 cursor-not-allowed opacity-60' : ''}
+                  title={!canManageCredit ? 'No permission to manage credit' : ''}
+                />
               </div>
               <div>
                 <Label>Grace Period (days)</Label>
-                <Input type="number" value={form.grace_period} onChange={e => setForm({ ...form, grace_period: parseInt(e.target.value) || 7 })} placeholder="7" />
+                <Input type="number" value={form.grace_period}
+                  onChange={e => setForm({ ...form, grace_period: parseInt(e.target.value) || 7 })} placeholder="7"
+                  disabled={!canManageCredit}
+                  className={!canManageCredit ? 'bg-slate-100 cursor-not-allowed opacity-60' : ''}
+                  title={!canManageCredit ? 'No permission to manage credit' : ''}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2">

@@ -151,6 +151,8 @@ export default function UnifiedSalesPage() {
   // Permission flags for discount/price editing
   const canDiscount = hasPerm('sales', 'give_discount');
   const canSellBelowCost = hasPerm('sales', 'sell_below_cost');
+  const canViewCost = hasPerm('products', 'view_cost');
+  const canViewBalance = hasPerm('customers', 'view_balance');
   
   // Mode: 'quick' or 'order'
   const [mode, setMode] = useState('quick');
@@ -1585,7 +1587,7 @@ export default function UnifiedSalesPage() {
                         onMouseDown={() => selectCustomer(c.id)}>
                         <span className="font-medium">{c.name}</span>
                         <span className="text-xs text-slate-400 ml-2">{c.phone || ''}</span>
-                        {c.balance > 0 && <Badge variant="outline" className="ml-2 text-[10px] text-red-600">Bal: {formatPHP(c.balance)}</Badge>}
+                        {canViewBalance && c.balance > 0 && <Badge variant="outline" className="ml-2 text-[10px] text-red-600">Bal: {formatPHP(c.balance)}</Badge>}
                       </button>
                     ))}
                     {custSearch && !customers.find(c => c.name.toLowerCase() === custSearch.toLowerCase()) && (
@@ -1609,16 +1611,20 @@ export default function UnifiedSalesPage() {
                       Override
                     </Badge>
                   )}
+                  {canViewBalance && (
                   <div>
                     <span className="text-xs text-slate-500">Balance:</span>
                     <span className={`ml-1 font-medium ${selectedCustomer.balance > 0 ? 'text-red-600' : ''}`}>
                       {formatPHP(selectedCustomer.balance || 0)}
                     </span>
                   </div>
+                  )}
+                  {canViewBalance && (
                   <div>
                     <span className="text-xs text-slate-500">Limit:</span>
                     <span className="ml-1 font-medium">{formatPHP(selectedCustomer.credit_limit || 0)}</span>
                   </div>
+                  )}
                 </div>
               )}
 
@@ -1892,7 +1898,7 @@ export default function UnifiedSalesPage() {
                               type="number"
                               className={`w-24 h-7 text-sm text-right px-2 border rounded focus:outline-none focus:ring-1 focus:ring-[#1A4D2E]/30 ${
                                 item.price <= 0 ? 'border-amber-400 bg-amber-50 text-amber-700'
-                                : (item.effective_capital || item.cost_price) > 0 && item.price < (item.effective_capital || item.cost_price) ? 'border-red-300 bg-red-50 text-red-600'
+                                : canViewCost && (item.effective_capital || item.cost_price) > 0 && item.price < (item.effective_capital || item.cost_price) ? 'border-red-300 bg-red-50 text-red-600'
                                 : 'border-slate-200'
                               }`}
                               value={item.price}
@@ -1911,7 +1917,7 @@ export default function UnifiedSalesPage() {
                           {item.price <= 0 && (
                             <p className="text-[10px] text-amber-600 flex items-center gap-1"><AlertTriangle size={9}/> Set price before checkout</p>
                           )}
-                          {item.price > 0 && (item.effective_capital || item.cost_price) > 0 && item.price < (item.effective_capital || item.cost_price) && (
+                          {canViewCost && item.price > 0 && (item.effective_capital || item.cost_price) > 0 && item.price < (item.effective_capital || item.cost_price) && (
                             <p className="text-[10px] text-red-600 flex items-center gap-1">
                               <AlertTriangle size={9}/> Below capital ₱{(item.effective_capital || item.cost_price).toFixed(2)}
                               {item.capital_method && item.capital_method !== 'manual' && (
@@ -1920,7 +1926,7 @@ export default function UnifiedSalesPage() {
                             </p>
                           )}
                           {/* Capital reference — always visible when product has PO history */}
-                          {(item.moving_average_cost > 0 || item.last_purchase_cost > 0) && (
+                          {canViewCost && (item.moving_average_cost > 0 || item.last_purchase_cost > 0) && (
                             <div className="flex items-center gap-2 text-[10px] mt-0.5">
                               {item.moving_average_cost > 0 && (
                                 <span className={`${item.price > 0 && item.price < item.moving_average_cost ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
@@ -2028,7 +2034,7 @@ export default function UnifiedSalesPage() {
                                 type="number"
                                 className={`h-8 text-right w-24 ${
                                   line.product_id && line.rate <= 0 ? 'border-amber-400 bg-amber-50'
-                                  : line.product_id && (line.effective_capital || line.cost_price) > 0 && line.rate > 0 && line.rate < (line.effective_capital || line.cost_price) ? 'border-red-300 bg-red-50 text-red-700'
+                                  : canViewCost && line.product_id && (line.effective_capital || line.cost_price) > 0 && line.rate > 0 && line.rate < (line.effective_capital || line.cost_price) ? 'border-red-300 bg-red-50 text-red-700'
                                   : ''
                                 }`}
                                 value={line.rate}
@@ -2038,7 +2044,7 @@ export default function UnifiedSalesPage() {
                                 title={!canDiscount ? 'No permission to change prices' : ''}
                               />
                               {/* Capital reference — shown when a product is selected */}
-                              {line.product_id && (line.moving_average_cost > 0 || line.last_purchase_cost > 0) && (
+                              {canViewCost && line.product_id && (line.moving_average_cost > 0 || line.last_purchase_cost > 0) && (
                                 <div className="flex flex-col gap-0.5 mt-0.5">
                                   {line.moving_average_cost > 0 && (
                                     <span className={`text-[10px] ${line.rate > 0 && line.rate < line.moving_average_cost ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
@@ -2059,7 +2065,7 @@ export default function UnifiedSalesPage() {
                               const cap = line.effective_capital || line.cost_price;
                               const net = line.product_id && line.quantity > 0 && line.discount_value > 0
                                 ? lineTotal(line) / line.quantity : null;
-                              const isBelowCap = net !== null && cap > 0 && net < cap;
+                              const isBelowCap = canViewCost && net !== null && cap > 0 && net < cap;
                               return (
                                 <div>
                                   <Input
@@ -2168,8 +2174,8 @@ export default function UnifiedSalesPage() {
                   </button>
                 </div>
                 <div className="flex gap-4 mt-1 text-xs text-slate-500">
-                  <span>Balance: <span className={selectedCustomer.balance > 0 ? 'text-red-600 font-medium' : ''}>{formatPHP(selectedCustomer.balance || 0)}</span></span>
-                  <span>Limit: {formatPHP(selectedCustomer.credit_limit || 0)}</span>
+                  {canViewBalance && <span>Balance: <span className={selectedCustomer.balance > 0 ? 'text-red-600 font-medium' : ''}>{formatPHP(selectedCustomer.balance || 0)}</span></span>}
+                  {canViewBalance && <span>Limit: {formatPHP(selectedCustomer.credit_limit || 0)}</span>}
                 </div>
               </div>
             ) : (
@@ -2203,7 +2209,7 @@ export default function UnifiedSalesPage() {
                           >
                             <span className="font-medium truncate">{c.name}</span>
                             <span className="text-[10px] text-slate-400 shrink-0 ml-2">
-                              {c.balance > 0 ? `AR: ${formatPHP(c.balance)}` : ''}
+                              {canViewBalance && c.balance > 0 ? `AR: ${formatPHP(c.balance)}` : ''}
                             </span>
                           </button>
                         ))

@@ -1382,7 +1382,7 @@ async def get_customer_open_invoices(customer_id: str, user=Depends(get_current_
 async def generate_interest_invoice(customer_id: str, data: dict, user=Depends(get_current_user)):
     """Calculate accrued interest for all overdue invoices and create one consolidated interest invoice.
     Accepts optional rate_override to use instead of customer default, and save_rate to persist it."""
-    check_perm(user, "accounting", "create_expense")
+    check_perm(user, "accounting", "generate_interest")
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -1467,7 +1467,7 @@ async def generate_interest_invoice(customer_id: str, data: dict, user=Depends(g
 @router.post("/customers/{customer_id}/generate-penalty")
 async def generate_penalty_invoice(customer_id: str, data: dict, user=Depends(get_current_user)):
     """Generate a one-time penalty invoice for all overdue invoices not yet penalized."""
-    check_perm(user, "accounting", "create_expense")
+    check_perm(user, "accounting", "generate_penalty")
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")

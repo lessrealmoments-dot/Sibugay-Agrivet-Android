@@ -19,6 +19,7 @@ import { TotpVerifyDialog } from '../components/TotpVerifyDialog';
 export default function ProductsPage() {
   const navigate = useNavigate();
   const { currentBranch, user, hasPerm } = useAuth();
+  const canViewCost = hasPerm('products', 'view_cost');
   const canEditCost = hasPerm('products', 'edit_cost');
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
@@ -493,7 +494,7 @@ export default function ProductsPage() {
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Product Name</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Category</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Unit</TableHead>
-                <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Cost</TableHead>
+                {canViewCost && <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium text-right">Cost</TableHead>}
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Barcode</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium">Type</TableHead>
                 <TableHead className="text-xs uppercase tracking-wider text-slate-500 font-medium w-32">Actions</TableHead>
@@ -512,7 +513,7 @@ export default function ProductsPage() {
                   </TableCell>
                   <TableCell className="text-slate-500">{p.category}</TableCell>
                   <TableCell>{p.unit}</TableCell>
-                  <TableCell className="text-right font-mono">{formatPHP(p.cost_price)}</TableCell>
+                  {canViewCost && <TableCell className="text-right font-mono">{formatPHP(p.cost_price)}</TableCell>}
                   <TableCell>
                     {p.barcode ? (
                       <code className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-600">{p.barcode}</code>
@@ -609,6 +610,7 @@ export default function ProductsPage() {
                 <Label>Unit</Label>
                 <Input data-testid="product-unit-input" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Box, Bag, Bottle, Pack" />
               </div>
+              {canViewCost && (
               <div>
                 <Label className="flex items-center gap-1.5">
                   Cost Price / Capital
@@ -631,6 +633,7 @@ export default function ProductsPage() {
                   <p className="text-[10px] text-amber-600 mt-0.5">No permission to edit capital</p>
                 )}
               </div>
+              )}
             </div>
             <div className="grid grid-cols-3 gap-4">
               <div>

@@ -358,3 +358,101 @@ async def discount_audit_report(
             "period": {"from": d_from, "to": d_to},
         },
     }
+
+
+
+# ==================== PRODUCT PROFIT REPORT ====================
+@router.get("/reports/product-profit")
+async def product_profit_report(
+    branch_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """
+    Product Profitability Report: revenue, cost, profit, and margin per product.
+    Uses invoice items with their recorded cost_price at time of sale.
+    """
+    check_perm(user, "reports", "view_profit")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if not date_from:
+        date_from = datetime.now(timezone.utc).strftime("%Y-%m-01")
+    if not date_to:
+        date_to = today
+
+    inv_query = {
+        "order_date": {"$gte": date_from, "$lte": date_to},
+        "status": {"$ne": "voided"},
+        "sale_type": {"$nin": ["interest_charge", "penalty_charge"]},
+    }
+    branch_filter = await get_branch_filter(user, branch_id)
+    inv_query = apply_branch_filter(inv_query, branch_filter)
+
+    invoices = await db.invoices.find(
+        inv_query, {"_id": 0, "items": 1, "invoice_number": 1, "order_date": 1}
+    ).to_list(5000)
+
+    # Aggregate per product
+    product_map = {}
+    for inv in invoices:
+        for item in inv.get("items", []):
+            pid = item.get("product_id") or item.get("product_name", "unknown")
+            qty = float(item.get("quantity", 0))
+            revenue = float(item.get("total", 0))
+            cost_per_unit = float(item.get("cost_price", 0))
+            total_cost = round(cost_per_unit * qty, 2)
+
+            if pid not in product_map:
+                product_map[pid] = {
+                    "product_id": pid,
+                    "product_name": item.get("product_name", "Unknown"),
+                    "category": item.get("category", ""),
+                    "is_repack": item.get("is_repack", False),
+                    "total_qty": 0,
+                    "total_revenue": 0.0,
+                    "total_cost": 0.0,
+                    "transactions": 0,
+                }
+
+            product_map[pid]["total_qty"] += qty
+            product_map[pid]["total_revenue"] = round(product_map[pid]["total_revenue"] + revenue, 2)
+            product_map[pid]["total_cost"] = round(product_map[pid]["total_cost"] + total_cost, 2)
+            product_map[pid]["transactions"] += 1
+
+    # Calculate profit and margin
+    rows = []
+    grand_revenue = 0.0
+    grand_cost = 0.0
+    grand_profit = 0.0
+
+    for p in product_map.values():
+        profit = round(p["total_revenue"] - p["total_cost"], 2)
+        margin = round((profit / p["total_revenue"]) * 100, 2) if p["total_revenue"] > 0 else 0.0
+        rows.append({
+            **p,
+            "profit": profit,
+            "margin_pct": margin,
+        })
+        grand_revenue += p["total_revenue"]
+        grand_cost += p["total_cost"]
+        grand_profit += profit
+
+    # Sort by profit desc
+    rows.sort(key=lambda x: x["profit"], reverse=True)
+
+    grand_margin = round((grand_profit / grand_revenue) * 100, 2) if grand_revenue > 0 else 0.0
+
+    return {
+        "date_from": date_from,
+        "date_to": date_to,
+        "rows": rows,
+        "summary": {
+            "total_revenue": round(grand_revenue, 2),
+            "total_cost": round(grand_cost, 2),
+            "total_profit": round(grand_profit, 2),
+            "overall_margin_pct": grand_margin,
+            "product_count": len(rows),
+            "loss_making_count": sum(1 for r in rows if r["profit"] < 0),
+        },
+    }

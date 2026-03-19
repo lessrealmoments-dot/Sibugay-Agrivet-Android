@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import {
   BarChart3, ChevronDown, ChevronRight, Printer,
-  TrendingUp, AlertCircle, DollarSign, Calendar, RefreshCw, Filter, UserCheck, AlertTriangle, Percent
+  TrendingUp, AlertCircle, DollarSign, Calendar, RefreshCw, Filter, UserCheck, AlertTriangle, Percent, TrendingDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SaleDetailModal from '../components/SaleDetailModal';
@@ -48,7 +48,7 @@ function PrintButton({ onClick }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  AR AGING TAB
 // ─────────────────────────────────────────────────────────────────────────────
-function ArAgingReport({ branches, selectedBranchId }) {
+function ArAgingReport({ branches, selectedBranchId, canExport }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [branchFilter, setBranchFilter] = useState(selectedBranchId || 'all');
@@ -157,7 +157,7 @@ function ArAgingReport({ branches, selectedBranchId }) {
           <RefreshCw size={13} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </Button>
         <div className="ml-auto">
-          <PrintButton onClick={handlePrint} />
+          {canExport && <PrintButton onClick={handlePrint} />}
         </div>
       </div>
 
@@ -260,7 +260,7 @@ function ArAgingReport({ branches, selectedBranchId }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  SALES REPORT TAB
 // ─────────────────────────────────────────────────────────────────────────────
-function SalesReport({ branches, selectedBranchId }) {
+function SalesReport({ branches, selectedBranchId, canExport }) {
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
   const todayStr = today.toISOString().slice(0, 10);
@@ -369,7 +369,7 @@ function SalesReport({ branches, selectedBranchId }) {
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant={view === 'summary' ? 'default' : 'outline'} onClick={() => setView('summary')} data-testid="sales-summary-view">Summary</Button>
           <Button size="sm" variant={view === 'transactions' ? 'default' : 'outline'} onClick={() => setView('transactions')} data-testid="sales-transactions-view">Transactions</Button>
-          <PrintButton onClick={handlePrint} />
+          {canExport && <PrintButton onClick={handlePrint} />}
         </div>
       </div>
 
@@ -530,7 +530,7 @@ function SalesReport({ branches, selectedBranchId }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  EXPENSE REPORT TAB
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpenseReport({ branches, selectedBranchId }) {
+function ExpenseReport({ branches, selectedBranchId, canExport }) {
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
   const todayStr = today.toISOString().slice(0, 10);
@@ -658,7 +658,7 @@ function ExpenseReport({ branches, selectedBranchId }) {
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant={view === 'summary' ? 'default' : 'outline'} onClick={() => setView('summary')} data-testid="expense-summary-view">Summary</Button>
           <Button size="sm" variant={view === 'detail' ? 'default' : 'outline'} onClick={() => setView('detail')} data-testid="expense-detail-view">Detail</Button>
-          <PrintButton onClick={handlePrint} />
+          {canExport && <PrintButton onClick={handlePrint} />}
         </div>
       </div>
 
@@ -1146,10 +1146,225 @@ function DiscountAuditReport({ branches, selectedBranchId }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  PRODUCT PROFIT REPORT TAB
+// ─────────────────────────────────────────────────────────────────────────────
+function ProductProfitReport({ branches, selectedBranchId, canExport }) {
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [dateFrom, setDateFrom] = useState(firstOfMonth);
+  const [dateTo, setDateTo] = useState(todayStr);
+  const [branchFilter, setBranchFilter] = useState(selectedBranchId || 'all');
+  const [sortKey, setSortKey] = useState('profit'); // profit | revenue | margin | qty
+  const { canViewAllBranches } = useAuth();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ date_from: dateFrom, date_to: dateTo });
+      if (branchFilter && branchFilter !== 'all') params.set('branch_id', branchFilter);
+      const res = await api.get(`${BACKEND_URL}/api/reports/product-profit?${params}`);
+      setData(res.data);
+    } catch (e) {
+      toast.error('Failed to load profit data');
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo, branchFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const sorted = (data?.rows || []).slice().sort((a, b) => {
+    if (sortKey === 'profit') return b.profit - a.profit;
+    if (sortKey === 'revenue') return b.total_revenue - a.total_revenue;
+    if (sortKey === 'margin') return b.margin_pct - a.margin_pct;
+    if (sortKey === 'qty') return b.total_qty - a.total_qty;
+    return 0;
+  });
+
+  const handlePrint = () => {
+    if (!data) return;
+    const win = window.open('', '_blank');
+    const s = data.summary || {};
+    win.document.write(`
+      <html><head><title>Product Profit Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
+        h2 { color: #1A4D2E; margin-bottom: 4px; }
+        .sub { color: #666; margin-bottom: 16px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #1A4D2E; color: white; padding: 6px 10px; text-align: left; font-size: 11px; }
+        td { padding: 5px 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
+        tr:nth-child(even) td { background: #f9fafb; }
+        .num { text-align: right; font-family: monospace; }
+        .total-row td { font-weight: bold; background: #f1f5f9; border-top: 2px solid #94a3b8; }
+        .loss { color: #dc2626; }
+      </style></head><body>
+      <h2>AgriBooks — Product Profit Report</h2>
+      <div class="sub">${data.date_from} to ${data.date_to} | ${s.product_count || 0} products | Overall Margin: ${s.overall_margin_pct || 0}%</div>
+      <table>
+        <thead><tr>
+          <th>Product</th>
+          <th class="num">Qty</th>
+          <th class="num">Revenue</th>
+          <th class="num">Cost</th>
+          <th class="num">Profit</th>
+          <th class="num">Margin</th>
+        </tr></thead>
+        <tbody>
+          ${sorted.map(r => `<tr>
+            <td>${r.product_name}${r.is_repack ? ' (R)' : ''}</td>
+            <td class="num">${r.total_qty}</td>
+            <td class="num">${formatPHP(r.total_revenue)}</td>
+            <td class="num">${formatPHP(r.total_cost)}</td>
+            <td class="num ${r.profit < 0 ? 'loss' : ''}">${formatPHP(r.profit)}</td>
+            <td class="num ${r.margin_pct < 0 ? 'loss' : ''}">${r.margin_pct.toFixed(1)}%</td>
+          </tr>`).join('')}
+          <tr class="total-row">
+            <td>TOTAL</td>
+            <td></td>
+            <td class="num">${formatPHP(s.total_revenue || 0)}</td>
+            <td class="num">${formatPHP(s.total_cost || 0)}</td>
+            <td class="num ${s.total_profit < 0 ? 'loss' : ''}">${formatPHP(s.total_profit || 0)}</td>
+            <td class="num">${s.overall_margin_pct || 0}%</td>
+          </tr>
+        </tbody>
+      </table>
+      </body></html>
+    `);
+    win.document.close();
+    win.print();
+  };
+
+  const s = data?.summary || {};
+
+  return (
+    <div className="space-y-4" data-testid="profit-report-tab">
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div><label className="text-[10px] text-slate-500 uppercase font-medium">From</label>
+          <Input type="date" className="h-8 w-36 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} data-testid="profit-date-from" /></div>
+        <div><label className="text-[10px] text-slate-500 uppercase font-medium">To</label>
+          <Input type="date" className="h-8 w-36 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} data-testid="profit-date-to" /></div>
+        {canViewAllBranches && (
+          <Select value={branchFilter} onValueChange={setBranchFilter}>
+            <SelectTrigger className="w-44 h-8 text-xs" data-testid="profit-branch-filter"><SelectValue placeholder="All Branches" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Branches</SelectItem>
+              {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        <Button size="sm" onClick={load} disabled={loading} className="bg-[#1A4D2E] hover:bg-[#15402A] text-white" data-testid="profit-run-btn">
+          <Filter size={13} className="mr-1.5" /> Run Report
+        </Button>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
+          <RefreshCw size={13} className={`mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+        <div className="ml-auto">
+          {canExport && <PrintButton onClick={handlePrint} />}
+        </div>
+      </div>
+
+      {/* KPI */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <KpiCard label="Total Revenue" value={formatPHP(s.total_revenue || 0)} accent="emerald" sub={`${data?.date_from || ''} → ${data?.date_to || ''}`} />
+        <KpiCard label="Total Cost" value={formatPHP(s.total_cost || 0)} accent="slate" />
+        <KpiCard label="Gross Profit" value={formatPHP(s.total_profit || 0)} accent={s.total_profit >= 0 ? 'emerald' : 'red'} />
+        <KpiCard label="Overall Margin" value={`${s.overall_margin_pct || 0}%`} accent="blue" sub={`${s.product_count || 0} products`} />
+        <KpiCard label="Loss-Making" value={s.loss_making_count || 0} accent={s.loss_making_count > 0 ? 'red' : 'emerald'} sub={s.loss_making_count > 0 ? 'Need review' : 'All profitable'} />
+      </div>
+
+      {/* Sort */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-slate-500">Sort by:</span>
+        {[
+          { k: 'profit', l: 'Profit' }, { k: 'revenue', l: 'Revenue' },
+          { k: 'margin', l: 'Margin %' }, { k: 'qty', l: 'Quantity' },
+        ].map(s => (
+          <Button key={s.k} size="sm" variant={sortKey === s.k ? 'default' : 'outline'}
+            onClick={() => setSortKey(s.k)} className="h-7 text-xs" data-testid={`sort-${s.k}`}>{s.l}</Button>
+        ))}
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardHeader className="py-3 px-4 bg-slate-50 border-b">
+          <CardTitle className="text-sm font-semibold text-slate-700">Product Profitability Detail</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table data-testid="profit-table">
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead>Product</TableHead>
+                <TableHead className="text-right">Qty Sold</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Profit</TableHead>
+                <TableHead className="text-right">Margin %</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sorted.map((r, i) => (
+                <TableRow key={r.product_id} className={r.profit < 0 ? 'bg-red-50/50' : ''}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {r.is_repack && <span className="w-4 border-l-2 border-b-2 border-slate-300 h-3 inline-block" />}
+                      <span className="font-medium text-sm">{r.product_name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">{r.total_qty}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{formatPHP(r.total_revenue)}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-slate-500">{formatPHP(r.total_cost)}</TableCell>
+                  <TableCell className={`text-right font-mono text-sm font-semibold ${r.profit < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {formatPHP(r.profit)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span className={`font-mono text-sm ${r.margin_pct < 0 ? 'text-red-600' : r.margin_pct < 15 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {r.margin_pct.toFixed(1)}%
+                      </span>
+                      <div className="w-12 bg-slate-100 rounded-full h-1.5">
+                        <div className={`h-1.5 rounded-full ${r.margin_pct < 0 ? 'bg-red-400' : r.margin_pct < 15 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                          style={{ width: `${Math.min(Math.max(r.margin_pct, 0), 100)}%` }} />
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {sorted.length > 0 && (
+                <TableRow className="bg-slate-100 font-bold border-t-2 border-slate-300">
+                  <TableCell>TOTAL ({data?.summary?.product_count || 0} products)</TableCell>
+                  <TableCell />
+                  <TableCell className="text-right font-mono">{formatPHP(data?.summary?.total_revenue || 0)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatPHP(data?.summary?.total_cost || 0)}</TableCell>
+                  <TableCell className={`text-right font-mono ${(data?.summary?.total_profit || 0) < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                    {formatPHP(data?.summary?.total_profit || 0)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{data?.summary?.overall_margin_pct || 0}%</TableCell>
+                </TableRow>
+              )}
+              {!loading && sorted.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-slate-400 py-10">No sales data found for this period.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const { branches, selectedBranchId } = useAuth();
+  const { branches, selectedBranchId, hasPerm } = useAuth();
+  const canExport = hasPerm('reports', 'export');
+  const canViewProfit = hasPerm('reports', 'view_profit');
 
   return (
     <div className="p-6 space-y-5 max-w-7xl mx-auto">
@@ -1160,7 +1375,7 @@ export default function ReportsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-slate-800" style={{ fontFamily: 'Manrope' }}>Reports</h1>
-          <p className="text-xs text-slate-500">AR Aging · Sales · Expenses · CA Summary · Discounts</p>
+          <p className="text-xs text-slate-500">AR Aging · Sales · Expenses · CA Summary · Discounts{canViewProfit ? ' · Profit' : ''}</p>
         </div>
       </div>
 
@@ -1181,18 +1396,23 @@ export default function ReportsPage() {
           <TabsTrigger value="discounts" data-testid="tab-discounts" className="text-sm">
             <Percent size={14} className="mr-1.5" /> Discounts
           </TabsTrigger>
+          {canViewProfit && (
+            <TabsTrigger value="profit" data-testid="tab-profit" className="text-sm">
+              <TrendingDown size={14} className="mr-1.5" /> Profit
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="ar-aging">
-          <ArAgingReport branches={branches || []} selectedBranchId={selectedBranchId} />
+          <ArAgingReport branches={branches || []} selectedBranchId={selectedBranchId} canExport={canExport} />
         </TabsContent>
 
         <TabsContent value="sales">
-          <SalesReport branches={branches || []} selectedBranchId={selectedBranchId} />
+          <SalesReport branches={branches || []} selectedBranchId={selectedBranchId} canExport={canExport} />
         </TabsContent>
 
         <TabsContent value="expenses">
-          <ExpenseReport branches={branches || []} selectedBranchId={selectedBranchId} />
+          <ExpenseReport branches={branches || []} selectedBranchId={selectedBranchId} canExport={canExport} />
         </TabsContent>
 
         <TabsContent value="ca-summary">
@@ -1202,6 +1422,12 @@ export default function ReportsPage() {
         <TabsContent value="discounts">
           <DiscountAuditReport branches={branches || []} selectedBranchId={selectedBranchId} />
         </TabsContent>
+
+        {canViewProfit && (
+          <TabsContent value="profit">
+            <ProductProfitReport branches={branches || []} selectedBranchId={selectedBranchId} canExport={canExport} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

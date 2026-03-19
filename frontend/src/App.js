@@ -46,6 +46,7 @@ import ReturnRefundWizard from './pages/ReturnRefundWizard';
 import AuditCenterPage from './pages/AuditCenterPage';
 import TeamPage from './pages/TeamPage';
 import UploadPage from './pages/UploadPage';
+import DocUploadPage from './pages/DocUploadPage';
 import ViewReceiptsPage from './pages/ViewReceiptsPage';
 import BackupManagementPage from './pages/BackupManagementPage';
 import IncidentTicketsPage from './pages/IncidentTicketsPage';
@@ -200,6 +201,7 @@ function AppRoutes() {
       <Route path="/scanner/:sessionId" element={<MobileScannerPage />} />
       {/* Public upload page — no auth, token-based */}
       <Route path="/upload/:token" element={<UploadPage />} />
+      <Route path="/doc-upload/:token" element={<DocUploadPage />} />
       {/* Public view-receipts page — no auth, token-based */}
       <Route path="/view-receipts/:token" element={<ViewReceiptsPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -124,8 +124,8 @@ def _get_org_id() -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/categories")
-async def get_categories(user=Depends(get_current_user)):
-    """Return all document categories and sub-categories."""
+async def get_categories():
+    """Return all document categories and sub-categories. Public — static data, no DB access."""
     return CATEGORIES
 
 

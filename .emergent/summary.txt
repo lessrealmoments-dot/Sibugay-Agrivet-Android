@@ -1,70 +1,72 @@
 <analysis>**original_problem_statement:**
-The user initially reported three problems with the sales order page ():
-1.  **UI Obscurity:** The product search/entry area was not clearly visible due to other screen elements.
-2.  **Date Validation Loophole:** The system allowed encoding sales on dates before the company's existence or on days that were already financially closed. The user requested that the first-ever closed day be treated as the system's floor date.
-3.  **Static Customer Info:** Customer details (contact, address, etc.) on the order form were not editable.
-
-Following the resolution of these issues, the user initiated a series of feature requests focused on improving workflows, security, and auditing:
-1.  **Seamless Mode Switching:** Allow cashiers to switch from Quick sale mode to Order mode, carrying over all items in the cart, to enable per-line discounts. The reverse (Order to Quick) should be blocked if per-line discounts have been applied.
-2.  **Capital-Aware Discounts:** Prevent any discount (per-line or overall) that would cause an item's net sale price to fall below its capital cost.
-3.  **Comprehensive Audit Trail & Permissions:**
-    *   Track all discounts and price overrides in an audit log.
-    *   Create a new report to analyze this discount data.
-    *   Add a Discount Flag to the Smart Audit Center to detect suspicious discount patterns.
-    *   Create and enforce new user permissions to control who can give discounts and sell below cost.
-    *   Audit all existing system permissions to identify and eventually implement any dead (unenforced) permissions.
-4.  **Future Task:** Create a new Product Profit Report.
+The user initiated a series of feature requests and bug fixes for the terminal application:
+1.  **QR Scanner:** Add a QR code scanner to the terminal's floating mode selector on the left side ().
+2.  **Camera Scanner Size:** The barcode camera scanner in the main sales view () was taking up too much screen space.
+3.  **Scanner Functionality:** After initial resizing attempts, the sales barcode scanner stopped detecting barcodes, and the new QR scanner had an undesirable white aiming box.
+4.  **White Screen Crash:** After checking out a sale in the terminal, the screen would turn completely white, traced to an unhandled API error response.
+5.  **Stock Visibility:** The terminal lacked visibility into product inventory levels. The user requested color-coded stock badges in search results and stock indicators on cart items.
+6.  **Insufficient Stock Handling:** The user requested a proper workflow for handling sales with insufficient stock, mirroring the desktop POS by implementing a manager PIN override that creates an incident ticket.
+7.  **Incident Ticket System Overhaul:** The user requested a complete overhaul of the incident ticket system to support different ticket types and improve usability:
+    *   **Numbering:** Standardize ticket numbering to .
+    *   **Filtering:** Implement correct branch-based filtering (Managers see their branch's tickets, Admins see all).
+    *   **Adaptive UI:** Redesign the ticket detail view to be adaptive, showing context-specific information for negative stock tickets vs. transfer variance tickets.
+    *   **Link PO Enhancement:** Add the ability to search for and link a Purchase Order when resolving a negative stock ticket.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The application now has a significantly enhanced and more secure sales workflow.
--   **Sales Page UI/UX Fixes:**
-    -   The customer/order info header is now collapsible, providing more space for product entry.
-    -   The Sale Date field was moved to the top header for better visibility.
-    -   Customer contact/phone fields are now editable directly in the form, with a dialog to prompt the user to save changes to the customer's permanent record.
--   **Date Security:** A floor date (the earliest operational day) is enforced on both the backend and frontend, preventing sales from being back-dated to pre-system dates or closed days.
--   **Seamless Mode Switching:** Users can switch from 'Quick' to 'Order' mode, seamlessly transferring all cart items. A guard prevents switching back to 'Quick' if any per-line discounts have been applied in 'Order' mode.
--   **Capital & Discount Guards:** A robust, multi-layered validation system is in place. The frontend provides real-time warnings (red borders, helper text) and a final checkout block, while the backend definitively rejects any sale where a discount causes the net price of an item to drop below its capital cost.
--   **Phase 1 of Audit & Permission System:**
-    -   New permissions (, ) are created and fully enforced on the backend () and frontend (disabling UI elements).
-    -   A new  collection has been created. All discounts and price overrides are now logged with details (who, what, when, how much).
-    -   A new Discounts tab has been added to the  page, allowing analysis of discount data by branch, date, customer, and employee.
-    -   The  center now features a Discount Flag in its Activity section, providing smart analysis of discount patterns.
+The terminal application is now significantly more robust and feature-rich.
+-   **QR & Barcode Scanners:**
+    -   A Scan QR option is now in the  floating mode selector, opening a full-screen, box-free camera view for scanning document QR codes.
+    -   The  barcode scanner has been redesigned into a compact, horizontally-clipped strip. This provides a high-resolution camera feed for accurate scanning without obstructing the UI.
+-   **Stock Management & Override Flow:**
+    -   The terminal now displays color-coded stock badges in product search results (green/amber/red) and shows available stock on cart items.
+    -   When a sale would result in negative inventory, an Insufficient Stock modal now appears, prompting for a manager PIN to authorize the override. A successful override creates an incident ticket.
+    -   A bug causing a white screen crash on checkout (due to unhandled API errors) has been fixed.
+-   **Adaptive Incident Ticket System:**
+    -   The ticket system has been completely redesigned to handle different s.
+    -   Ticket numbering is now standardized (e.g., ).
+    -   Branch filtering works correctly for both managers and admins.
+    -   The ticket detail view is adaptive, showing relevant information and resolution options for  tickets (product info, sale details, investigation guide) versus  tickets.
+    -   A Link PO feature has been added, allowing users to search for and attach a PO to a ticket during resolution, providing a clear audit trail.
 
 **Last working item**:
-    - Last item agent was working: As per the user's request, the agent updated the  and  files to reflect the plan for the next session (Phase 2 of permissions and the new Product Profit Report) in preparation for the user to fork the project.
-    - Status: FINISHED
+    - Last item agent was working: The agent implemented the Link PO enhancement for the incident ticket system and then executed a full end-to-end test of the entire incident ticket workflow using the testing subagent.
+    - Status: USER VERIFICATION PENDING
     - Agent Testing Done: Y
-    - Which testing method agent to use? NA
+    - Which testing method agent to use? User verification is the next step. No further testing is needed from the agent at this time.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: User verification for all features implemented in this session is pending. (P0)
+  - Issue 1: User verification for all terminal and incident ticket features is pending. (P0)
 
   Issues Detail:
   - Issue 1:
-     - Attempted fixes: N/A. The user has deferred testing until after the fork.
-     - Next debug checklist: User needs to test the following:
-       1. The three initial bug fixes (collapsible header, date guard, editable customer info).
-       2. Switching from 'Quick' to 'Order' mode and back.
-       3. The new discount guards (frontend and backend).
-       4. The new Discounts report tab.
-       5. The new discount flags in the Audit Center.
-       6. The enforcement of  for a user without that permission.
-     - Why fix this issue and what will be achieved with the fix?: To confirm the successful implementation of multiple critical features and security enhancements.
+     - Attempted fixes: N/A. The features have been implemented and tested by the agent.
+     - Next debug checklist: The user needs to test the entire flow on their device:
+        1.  Create a sale in the terminal that causes negative stock.
+        2.  Verify the Insufficient Stock modal appears with correct product info.
+        3.  Enter a manager PIN to authorize the override.
+        4.  Confirm the sale completes and a ticket is created.
+        5.  Navigate to the Incident Tickets page.
+        6.  Verify the new ticket appears with the correct  number.
+        7.  Open the ticket and confirm the adaptive detail view shows product/sale info.
+        8.  Initiate resolution, select Unencoded PO, and use the new feature to search for and link a PO.
+        9.  Complete the resolution with a PIN.
+        10. Verify the ticket status changes to resolved and the linked PO number is visible in the detail view.
+        11. Test the Scan QR button in the terminal mode selector.
+        12. Test the compact barcode scanner in the terminal sales view.
+     - Why fix this issue and what will be achieved with the fix?: To confirm the successful implementation of a complex, multi-part feature set and close the loop on the user's requests.
      - Status: USER VERIFICATION PENDING
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? N/A
      - Blocked on other issue: None
 
 **In progress Task List**:
- - None. Phase 1 of the audit/permission system is complete. Phase 2 is an upcoming task.
+ - None.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P0: Phase 2 - Implement Dead Permissions:** Activate and enforce the dead permissions identified in the recent audit (, , etc.) by adding checks in the relevant backend APIs and conditionally rendering/disabling UI elements in the frontend.
-    - **P0: New Report - Product Profitability:** Create a new report that details product profit margins.
     - **P1:** Cross-branch payment wallet routing (cash recorded at receiving branch's wallet).
     - **P1:** Build an admin tool to fix corrupted Purchase Orders.
     - **P2:** Refactor .
@@ -79,29 +81,28 @@ The application now has a significantly enhanced and more secure sales workflow.
     - Create advanced reporting and user role presets.
 
 **Completed work in this session**
-- **Sales Order UI/UX Fixes:**
-  - Implemented a collapsible header in  to maximize screen space for product entry.
-  - Made customer phone and contact details editable, adding a save-confirmation dialog.
-  - Relocated the 'Sale Date' field to the main header for constant visibility.
-- **Security & Workflow Enhancements:**
-  - Implemented a floor date guard in  and  to block sales on closed or pre-system-start dates.
-  - Created a seamless mode-switching feature in  to transfer cart items between 'Quick' and 'Order' modes.
-  - Added robust capital-aware discount validation in  (backend) and  (frontend) to prevent sales below cost.
-- **Audit & Permissions System (Phase 1):**
-  - Created and enforced new permissions (, ) in  and .
-  - Implemented a new  by adding logging logic to  and .
-  - Built a new  endpoint in .
-  - Created a corresponding Discounts report tab with full filtering capabilities in .
-- **Smart Audit Center Enhancement:**
-  - Added a Discount Flag feature by updating  in  and adding new UI components and logic to .
-- **Project Management:**
-  - Performed a full audit of all system permissions to identify enforced vs. dead permissions.
-  - Updated  and  with the plan for the next fork session.
+- **Terminal UI/UX & Bug Fixes:**
+  - Implemented a Scan QR option with a full-screen camera in .
+  - Redesigned the  barcode scanner into a compact, high-resolution clipped strip.
+  - Fixed a critical bug in  that caused a white screen crash on checkout by properly parsing structured API error messages.
+- **Terminal Stock Management Flow:**
+  - Added color-coded stock visibility badges to product search results in .
+  - Added available stock indicators to cart items.
+  - Implemented the full Insufficient Stock override flow, including a manager PIN modal that creates an incident ticket upon success.
+- **Incident Ticket System Overhaul:**
+  - Standardized ticket numbering to  in .
+  - Implemented correct branch-based filtering for tickets in  and .
+  - Created an adaptive ticket detail view in  that renders different layouts and information based on the .
+  - Implemented adaptive resolution options and corresponding journal entries in .
+  - Added a Link PO feature to the resolution workflow in  and .
+- **Testing & Project Management:**
+  - Successfully ran two major test suites using , verifying both the Phase 2 permissions and the full incident ticket flow.
+  - Updated  and  after each major feature completion.
 
 **Earlier issues found/mentioned but not fixed**
--   **P1:** Admin tool to fix broken Purchase Orders (from previous fork).
--   **P2:** Refactor monolithic  component (from previous fork).
--   **P2:** Update  to use  instead of  (from previous fork).
+-   **P1:** An admin tool is still needed to fix historically corrupted Purchase Orders.
+-   **P2:**  needs to be refactored from a monolithic component.
+-   **P2:**  still uses  instead of .
 
 **Known issue recurrence from previous fork**
   - **Issue recurrence in previous fork:**  warnings for .
@@ -112,84 +113,78 @@ The application now has a significantly enhanced and more secure sales workflow.
 
 
 **Key Technical Concepts**
--   **State-Driven UI:** Using React state (, ) to dynamically alter the UI, making it more interactive and space-efficient.
--   **Multi-Layered Validation:** Implementing security and business rules at multiple levels (frontend real-time feedback, frontend checkout block, and final backend API rejection) for a robust user experience and ironclad data integrity.
--   **Shared Business Logic:** Consolidating the  function and  endpoint to serve both 'Quick' and 'Order' modes, ensuring consistency in data handling, numbering, and stock updates.
--   **Centralized Permission Handling:** Using the  context's  function to consistently enable/disable UI features based on user roles and permissions.
--   **Audit Logging:** Creating a new, dedicated  collection to record specific, high-risk user actions (discounts, overrides) for targeted analysis, separate from the general .
--   **Data Aggregation for Reporting:** Using MongoDB aggregation pipelines in the backend () to efficiently group and summarize audit data for the frontend reports.
+-   **Adaptive UI:** Using conditional rendering based on  to show different layouts, data, and actions within a single component ().
+-   **Clipped High-Resolution Video:** Wrapping the  video feed in a clipped container () to create a compact UI for the scanner without sacrificing the camera's resolution or detection accuracy.
+-   **Robust Error Handling:** Fixing a UI-crashing bug by parsing structured error objects from the backend and extracting the user-facing  string before passing it to the  toast library.
+-   **Extensible Systems:** Designing the incident ticket system so that new ticket types can be added with unique UI views and resolution logic by extending the patterns established in  and .
+-   **Stateful Resolution Flow:** Managing complex dialog state in React to guide the user through a multi-step resolution process, including searching for and selecting a PO to link to a ticket.
 
 **key DB schema**
--   **daily_closings**: Used to determine the  for sales.
--   **users**: Contains the  object that is now being more thoroughly enforced.
--   **discount_audit_log**: **NEW**. Stores detailed records of every discount or price override given. Fields: , , , , , , , , , .
+-   **incident_tickets**: **MODIFIED**
+    -   New tickets are created with a standardized  (e.g., ).
+    -   The schema now includes optional  and  fields, populated upon resolution.
+    -   The  field is used for filtering  tickets.
 
 **changes in tech stack**
 -   None.
 
 **All files of reference**
--   : The central hub for all sales workflow changes.
--   : The core backend endpoint for sales, now with enhanced validation.
--   : Location of the new discount report.
--   : Contains the new discount report API.
--   : Location of the new audit flags.
--   : Contains the logic to compute audit flags.
--   : The source of truth for all user permission definitions.
--    & : The planning documents for the next session.
+-   
+-   
+-   
+-   
+-   
+-   
+-   
 
 **Areas that need refactoring**:
--   : Remains a monolithic component.
--   : Still uses  for navigation.
+-   : Remains a large, monolithic component.
+-   : Still uses an outdated navigation method.
 
 **key api endpoints**
--   : **HEAVILY MODIFIED**. Now validates against floor date, checks for  and  permissions, rejects discounts that go below capital, and writes to the .
--   : **MODIFIED**. Now returns a .
--   : **NEW**. Provides aggregated data for the discount report.
--   : **MODIFIED**. The response for the 'activity' section now includes detailed discount analytics.
+-   : **MODIFIED**. Now creates  with a standardized  when a negative stock override occurs.
+-   : **MODIFIED**. Now correctly filters by  based on the user's role and selection.
+-   : **HEAVILY MODIFIED**. Handles adaptive resolution types, accepts a , creates corresponding journal entries, and validates PINs against the correct branch.
 
 **Critical Info for New Agent**
--   The user has approved a plan to continue work after a fork. Your first task is to begin **Phase 2** of the permissions implementation, which involves activating the dead permissions identified in the recent audit. Refer to the plan laid out in the  message ().
--   After completing Phase 2, the next task is to build the Product Profit Report as outlined in the  file.
--   All features implemented in this session (sales page fixes, mode switching, discount guards, audit reports) are pending user verification. Be prepared to address feedback on them.
--   The permissions system has been significantly enhanced. All new UI features that involve sensitive actions should check permissions using the  function from the  context. Backend endpoints must use the  utility.
+-   The immediate next step is to **await user verification** for the extensive terminal and incident ticket changes. The user needs to perform a full end-to-end test on their device.
+-   The  library requires a full-resolution video feed for reliable scanning. When creating compact scanner UIs, use the established clipped container CSS pattern to avoid performance degradation.
+-   The incident ticket system is now designed to be adaptive. When adding new ticket types, follow the existing pattern of creating a unique , defining its resolution options, and adding a corresponding conditional view in .
 
 **documents and test reports created in this job**
 -   
 -   
--    (updated)
--    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Let's go with phase 2. (Status: **RESOLVED**, this is the next task).
-2.  **User:** we can proceed with all this after we fork. DOn't skip step 5. Let's just make a report that has report profit after. encode this in the roadmap as our next movement. I will fork after and we will continue from there (Status: **RESOLVED**, roadmap was updated).
-3.  **User:** yes. Sounds about right. On phase 2 we will confirm first if any of this if this permission is relevant in our system (Status: **RESOLVED**, acknowledged in the plan).
-4.  **User:** Perfect. Let's do this by phase with full integration in mind. While you're at it check if the permissions in team page is fully respected and connected to the actual system we are using. I am worried that some of this only affects module that are no longer being used. (Status: **RESOLVED**, a full audit was performed).
-5.  **User:** Yes, add it somewhere in team page -> permissions -> select user -> and toggle switch. find where to place it properly. Yes. This should be done. connect this also with our audit and reports. Let's trace how much total discount a customer had, how much the employee discount have etc. Let's see if we have a way to smartly integrate it for easy audit trail. research and give me a solution. (Status: **RESOLVED**, Phase 1 was implemented).
-6.  **User:** great now on our audit side I need to check something. We tract total discount per account right? also total price change per account? We are also able to enable or disable the capacity to manually change the price on order right? Via teams and permission toggle? (Status: **RESOLVED**, agent investigated and proposed a solution).
-7.  **User:** Need to confirm the truth about pricing. Our smart price checker is still active where we get notified if the capital is higher than the retail. Also regarding discounts. We should not allow discounts that will lower our total price to the total capital per item. (Status: **RESOLVED**, guards were implemented).
-8.  **User:** Oh yeah. I need to reconfirm something. The quick and order mode use the same sequence at checkout right? and use the same model? We were able to properly set up quick. I just wanna make sure we are using the same truth. (Status: **RESOLVED**, agent confirmed they use the same endpoint and data model).
-9.  **User:** Is it possible on sales to move from quick to order mode? ...Give me your plan... (Status: **RESOLVED**, feature was planned and implemented).
-10. **User:** before I test anything, can you transfer that sales date to the line of the customer name on top. On the right side of Customer PO. (Status: **RESOLVED**, UI was changed as requested).
+1.  **User:** Approved the Link PO enhancement and requested verification of the full incident ticket flow. (Status: **RESOLVED**, agent implemented and tested).
+2.  **User:** Approved the agent's proposal for an adaptive incident ticket system. (Status: **RESOLVED**, agent proceeded with implementation).
+3.  **User:** Pointed out that the incident ticket viewer is not suitable for different error types and asked the agent to research a better approach. (Status: **RESOLVED**, agent proposed an adaptive UI).
+4.  **User:** Detailed requirements for the incident ticket system: better numbering, correct branch filtering, and manager PIN authorization. (Status: **RESOLVED**, all implemented).
+5.  **User:** Requested stock visibility on the terminal and a manager override flow for insufficient stock. (Status: **RESOLVED**, all implemented).
+6.  **User:** Reported the terminal screen turns white after checkout. (Status: **RESOLVED**, agent found and fixed the bug).
+7.  **User:** Stated a preference for a clipped scanner view that only detects barcodes in the visible area. (Status: **RESOLVED**, agent explained  already does this).
+8.  **User:** Reported the resized sales camera scanner doesn't work and the quality is low. (Status: **RESOLVED**, agent diagnosed the issue and implemented a clipped container solution).
+9.  **User:** Reported the sales scanner isn't working and the QR scanner has an unwanted white box. (Status: **RESOLVED**, agent fixed both issues).
+10. **User:** Asked if an APK update is needed to see the terminal changes. (Status: **RESOLVED**, agent explained why it's not needed due to live URL mode).
 
 **Project Health Check:**
 -   **Broken:**
-    -   The production issue of corrupted  documents remains unresolved and requires a dedicated admin tool to be built.
+    -   An admin tool to fix historically corrupted  documents has been requested but not yet built.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
--   **Senraise H10P Printer SDK:** Integrated via a custom native Java Capacitor plugin. (No changes this session).
+-   ****: A client-side library used for all camera-based barcode and QR code scanning in the application.
 
 **Testing status**
   - Testing agent used after significant changes: YES
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: No
-  - Known regressions: None identified.
+  - Test files created: No new pytest files were created by the agent, but the testing agent () was used to generate test reports for two major feature sets.
+  - Known regressions: None.
 
 **Credentials to test flow:**
 -   **Super Admin:**  / 
--   **Company Admin (Owner):**  / 
 -   **Manager PIN:** 
--   **Cashier (No Discount Perm):** A cashier role user needs to be tested to confirm the  permission is enforced.
+-   **Cashier (with pairing):** A terminal paired to a branch is required to test the full flow.
 
 **What agent forgot to execute**
--   The agent successfully followed all user directives in this session, including the final request to update planning documents before forking. No tasks were overlooked.</analysis>
+-   The agent successfully implemented all user requests and enhancements in a logical sequence. No tasks were forgotten.</analysis>

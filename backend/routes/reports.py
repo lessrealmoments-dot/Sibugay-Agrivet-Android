@@ -269,3 +269,92 @@ async def expense_report(
         "daily": daily,
         "expenses": expenses,
     }
+
+
+
+# ==================== DISCOUNT & PRICE OVERRIDE REPORT ====================
+@router.get("/reports/discount-audit")
+async def discount_audit_report(
+    branch_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    group_by: Optional[str] = "customer",  # customer | cashier | detail
+    user=Depends(get_current_user),
+):
+    """
+    Discount & Price Override audit report.
+    Groups by customer or cashier, or returns full detail list.
+    """
+    check_perm(user, "reports", "view")
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    first_of_month = datetime.now(timezone.utc).replace(day=1).strftime("%Y-%m-%d")
+    d_from = date_from or first_of_month
+    d_to = date_to or today
+
+    query = {"date": {"$gte": d_from, "$lte": d_to}}
+    if branch_id:
+        query["branch_id"] = branch_id
+
+    logs = await db.discount_audit_log.find(query, {"_id": 0}).sort("date", -1).to_list(2000)
+
+    if group_by == "detail":
+        # Flatten: one row per item per invoice
+        rows = []
+        for log in logs:
+            for item in log.get("items", []):
+                rows.append({
+                    "date": log["date"],
+                    "invoice_number": log["invoice_number"],
+                    "customer_name": log["customer_name"],
+                    "customer_id": log.get("customer_id"),
+                    "cashier_name": log["cashier_name"],
+                    "cashier_id": log["cashier_id"],
+                    "product_name": item["product_name"],
+                    "original_price": item.get("original_price", 0),
+                    "sold_price": item.get("sold_price", 0),
+                    "discount_amount": item.get("discount_amount", 0),
+                    "quantity": item.get("quantity", 0),
+                    "net_per_unit": item.get("net_per_unit", 0),
+                    "capital": item.get("capital", 0),
+                    "type": item.get("type", ""),
+                })
+        return {"rows": rows, "total_rows": len(rows)}
+
+    # Group by customer or cashier
+    key_field = "customer_name" if group_by == "customer" else "cashier_name"
+    id_field = "customer_id" if group_by == "customer" else "cashier_id"
+    groups = {}
+    for log in logs:
+        k = log.get(key_field, "Unknown")
+        kid = log.get(id_field)
+        if k not in groups:
+            groups[k] = {"name": k, "id": kid, "total_discount": 0, "total_price_diff": 0, "transaction_count": 0, "invoices": []}
+        groups[k]["total_discount"] += log.get("total_discount", 0)
+        groups[k]["total_price_diff"] += log.get("total_price_override_diff", 0)
+        groups[k]["transaction_count"] += 1
+        groups[k]["invoices"].append({
+            "invoice_number": log["invoice_number"],
+            "date": log["date"],
+            "total_discount": log.get("total_discount", 0),
+            "grand_total": log.get("grand_total", 0),
+        })
+
+    # Sort by total discount descending
+    sorted_groups = sorted(groups.values(), key=lambda g: g["total_discount"], reverse=True)
+    for g in sorted_groups:
+        g["total_discount"] = round(g["total_discount"], 2)
+        g["total_price_diff"] = round(g["total_price_diff"], 2)
+
+    grand_total_discount = round(sum(g["total_discount"] for g in sorted_groups), 2)
+    grand_total_price_diff = round(sum(g["total_price_diff"] for g in sorted_groups), 2)
+
+    return {
+        "groups": sorted_groups,
+        "summary": {
+            "total_discount": grand_total_discount,
+            "total_price_overrides": grand_total_price_diff,
+            "total_transactions": len(logs),
+            "period": {"from": d_from, "to": d_to},
+        },
+    }

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import {
   BarChart3, ChevronDown, ChevronRight, Printer,
-  TrendingUp, AlertCircle, DollarSign, Calendar, RefreshCw, Filter, UserCheck, AlertTriangle
+  TrendingUp, AlertCircle, DollarSign, Calendar, RefreshCw, Filter, UserCheck, AlertTriangle, Percent
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SaleDetailModal from '../components/SaleDetailModal';
@@ -946,6 +946,206 @@ function CaSummaryReport({ branches, selectedBranchId }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  DISCOUNT & PRICE OVERRIDE REPORT
+// ─────────────────────────────────────────────────────────────────────────────
+function DiscountAuditReport({ branches, selectedBranchId }) {
+  const [branchId, setBranchId] = useState(selectedBranchId || '');
+  const [dateFrom, setDateFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [groupBy, setGroupBy] = useState('customer');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [expandedIdx, setExpandedIdx] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = { date_from: dateFrom, date_to: dateTo, group_by: groupBy };
+      if (branchId) params.branch_id = branchId;
+      const res = await api.get('/reports/discount-audit', { params });
+      setData(res.data);
+      setExpandedIdx(null);
+    } catch { toast.error('Failed to load discount report'); }
+    setLoading(false);
+  }, [dateFrom, dateTo, groupBy, branchId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div className="space-y-4" data-testid="discount-audit-tab">
+      {/* Filters */}
+      <Card className="border-slate-200">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase font-medium">From</label>
+              <Input type="date" className="h-8 w-36 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase font-medium">To</label>
+              <Input type="date" className="h-8 w-36 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase font-medium">Branch</label>
+              <Select value={branchId || 'all'} onValueChange={v => setBranchId(v === 'all' ? '' : v)}>
+                <SelectTrigger className="h-8 w-40 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {(branches || []).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-500 uppercase font-medium">Group By</label>
+              <Select value={groupBy} onValueChange={setGroupBy}>
+                <SelectTrigger className="h-8 w-36 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">By Customer</SelectItem>
+                  <SelectItem value="cashier">By Employee</SelectItem>
+                  <SelectItem value="detail">All Details</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" size="sm" className="h-8" onClick={load} disabled={loading}>
+              <RefreshCw size={13} className={loading ? 'animate-spin mr-1' : 'mr-1'} /> Refresh
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Summary Cards */}
+      {data?.summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="border-slate-200"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-500 uppercase font-medium">Total Discounts</p>
+            <p className="text-lg font-bold text-red-600 font-mono">{formatPHP(data.summary.total_discount)}</p>
+          </CardContent></Card>
+          <Card className="border-slate-200"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-500 uppercase font-medium">Price Overrides</p>
+            <p className="text-lg font-bold text-amber-600 font-mono">{formatPHP(data.summary.total_price_overrides)}</p>
+          </CardContent></Card>
+          <Card className="border-slate-200"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-500 uppercase font-medium">Transactions</p>
+            <p className="text-lg font-bold text-slate-700">{data.summary.total_transactions}</p>
+          </CardContent></Card>
+          <Card className="border-slate-200"><CardContent className="p-3">
+            <p className="text-[10px] text-slate-500 uppercase font-medium">Period</p>
+            <p className="text-sm font-medium text-slate-700">{data.summary.period?.from} to {data.summary.period?.to}</p>
+          </CardContent></Card>
+        </div>
+      )}
+
+      {/* Grouped View */}
+      {groupBy !== 'detail' && data?.groups && (
+        <Card className="border-slate-200">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="w-8"></TableHead>
+                  <TableHead>{groupBy === 'customer' ? 'Customer' : 'Employee'}</TableHead>
+                  <TableHead className="text-right">Transactions</TableHead>
+                  <TableHead className="text-right text-red-700">Total Discount</TableHead>
+                  <TableHead className="text-right text-amber-700">Price Override Diff</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.groups.length === 0 && (
+                  <TableRow><TableCell colSpan={5} className="text-center text-slate-400 py-8">No discounts in this period</TableCell></TableRow>
+                )}
+                {data.groups.map((g, idx) => (
+                  <Collapsible key={idx} open={expandedIdx === idx} onOpenChange={o => setExpandedIdx(o ? idx : null)} asChild>
+                    <>
+                      <CollapsibleTrigger asChild>
+                        <TableRow className="cursor-pointer hover:bg-slate-50">
+                          <TableCell>{expandedIdx === idx ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</TableCell>
+                          <TableCell className="font-medium">{g.name || 'Walk-in'}</TableCell>
+                          <TableCell className="text-right">{g.transaction_count}</TableCell>
+                          <TableCell className="text-right font-mono text-red-600">{formatPHP(g.total_discount)}</TableCell>
+                          <TableCell className="text-right font-mono text-amber-600">{formatPHP(g.total_price_diff)}</TableCell>
+                        </TableRow>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent asChild>
+                        <TableRow>
+                          <TableCell colSpan={5} className="bg-slate-50 px-8 py-2">
+                            <div className="space-y-1">
+                              {(g.invoices || []).map((inv, j) => (
+                                <div key={j} className="flex items-center justify-between text-xs">
+                                  <span className="font-mono text-blue-700">{inv.invoice_number}</span>
+                                  <span className="text-slate-400">{inv.date}</span>
+                                  <span className="text-red-600 font-mono">-{formatPHP(inv.total_discount)}</span>
+                                  <span className="text-slate-600 font-mono">{formatPHP(inv.grand_total)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      </CollapsibleContent>
+                    </>
+                  </Collapsible>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Detail View */}
+      {groupBy === 'detail' && data?.rows && (
+        <Card className="border-slate-200">
+          <CardContent className="p-0">
+            <div className="overflow-auto max-h-[60vh]">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Cashier</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead className="text-right">Original</TableHead>
+                    <TableHead className="text-right">Sold At</TableHead>
+                    <TableHead className="text-right text-red-700">Discount</TableHead>
+                    <TableHead>Type</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.rows.length === 0 && (
+                    <TableRow><TableCell colSpan={9} className="text-center text-slate-400 py-8">No discounts in this period</TableCell></TableRow>
+                  )}
+                  {data.rows.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs">{r.date}</TableCell>
+                      <TableCell className="font-mono text-xs text-blue-700">{r.invoice_number}</TableCell>
+                      <TableCell className="text-xs">{r.customer_name}</TableCell>
+                      <TableCell className="text-xs">{r.cashier_name}</TableCell>
+                      <TableCell className="text-xs font-medium">{r.product_name}</TableCell>
+                      <TableCell className="text-right text-xs font-mono">{formatPHP(r.original_price)}</TableCell>
+                      <TableCell className="text-right text-xs font-mono">{formatPHP(r.sold_price)}</TableCell>
+                      <TableCell className="text-right text-xs font-mono text-red-600">{formatPHP(r.discount_amount)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`text-[9px] ${
+                          r.type === 'line_discount' ? 'text-red-600 border-red-200' :
+                          r.type === 'price_override' ? 'text-amber-600 border-amber-200' :
+                          r.type === 'overall_discount' ? 'text-purple-600 border-purple-200' :
+                          'text-slate-500'
+                        }`}>
+                          {r.type === 'line_discount' ? 'Discount' : r.type === 'price_override' ? 'Price Change' : r.type === 'overall_discount' ? 'Overall' : r.type}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  MAIN PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
@@ -960,7 +1160,7 @@ export default function ReportsPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-slate-800" style={{ fontFamily: 'Manrope' }}>Reports</h1>
-          <p className="text-xs text-slate-500">AR Aging · Sales · Expenses · CA Summary</p>
+          <p className="text-xs text-slate-500">AR Aging · Sales · Expenses · CA Summary · Discounts</p>
         </div>
       </div>
 
@@ -978,6 +1178,9 @@ export default function ReportsPage() {
           <TabsTrigger value="ca-summary" data-testid="tab-ca-summary" className="text-sm">
             <UserCheck size={14} className="mr-1.5" /> CA Summary
           </TabsTrigger>
+          <TabsTrigger value="discounts" data-testid="tab-discounts" className="text-sm">
+            <Percent size={14} className="mr-1.5" /> Discounts
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="ar-aging">
@@ -994,6 +1197,10 @@ export default function ReportsPage() {
 
         <TabsContent value="ca-summary">
           <CaSummaryReport branches={branches || []} selectedBranchId={selectedBranchId} />
+        </TabsContent>
+
+        <TabsContent value="discounts">
+          <DiscountAuditReport branches={branches || []} selectedBranchId={selectedBranchId} />
         </TabsContent>
       </Tabs>
     </div>

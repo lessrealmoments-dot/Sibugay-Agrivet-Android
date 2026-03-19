@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from datetime import datetime, timezone, timedelta
 from config import db
 from utils import (
-    get_current_user, check_perm, now_iso, new_id,
+    get_current_user, check_perm, has_perm, now_iso, new_id,
     log_movement, log_sale_items, update_cashier_wallet,
     update_digital_wallet, is_digital_payment, get_branch_cost,
     generate_next_number, check_idempotency,
@@ -71,6 +71,19 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     if not items:
         raise HTTPException(status_code=400, detail="No items in sale")
 
+    # ── Permission guard: discounts ──────────────────────────────────────────
+    can_discount = has_perm(user, "sales", "give_discount")
+    if not can_discount:
+        overall_disc_val = float(data.get("overall_discount", 0))
+        if overall_disc_val > 0:
+            raise HTTPException(status_code=403, detail="You do not have permission to apply discounts.")
+        for item in items:
+            if float(item.get("discount_value", 0)) > 0:
+                raise HTTPException(status_code=403, detail=f"You do not have permission to apply discounts (item: {item.get('product_name', '')}).")
+
+    # ── Permission guard: sell below cost ────────────────────────────────────
+    can_sell_below = has_perm(user, "sales", "sell_below_cost")
+
     # Release mode: "full" (deduct immediately) or "partial" (reserve stock)
     release_mode = data.get("release_mode", "full")
 
@@ -122,6 +135,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     sale_items = []
     subtotal = 0
     reservations_to_create = []   # populated only for partial release
+    discount_audit_entries = []   # populated for discount/price override audit trail
 
     # ── Manager Override: pre-validate stock before the main loop ─────────────
     # If any item has insufficient stock, return a structured error so the frontend
@@ -188,7 +202,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         
         # Check capital rule using branch-specific cost (falls back to global cost)
         branch_cost = await get_branch_cost(product, branch_id)
-        if rate > 0 and rate < branch_cost:
+        if not can_sell_below and rate > 0 and rate < branch_cost:
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot sell '{product['name']}' at ₱{rate:.2f} — below capital ₱{branch_cost:.2f}"
@@ -200,13 +214,32 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         line_total = round(qty * rate - disc_amt, 2)
 
         # Check capital rule AFTER discount — net price per unit must not fall below capital
-        if qty > 0 and branch_cost > 0:
+        if not can_sell_below and qty > 0 and branch_cost > 0:
             net_per_unit = line_total / qty
             if net_per_unit < branch_cost:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Cannot sell '{product['name']}' — after discount, net price ₱{net_per_unit:.2f}/unit is below capital ₱{branch_cost:.2f}"
                 )
+        
+        # Track discount/price override data for audit log
+        scheme_price = product.get("prices", {}).get(data.get("price_scheme", "retail"), rate)
+        if disc_amt > 0 or rate != scheme_price:
+            discount_audit_entries.append({
+                "product_id": item["product_id"],
+                "product_name": product["name"],
+                "original_price": scheme_price,
+                "sold_price": rate,
+                "discount_type": disc_type,
+                "discount_value": disc_val,
+                "discount_amount": disc_amt,
+                "quantity": qty,
+                "net_per_unit": round(line_total / qty, 2) if qty > 0 else 0,
+                "capital": branch_cost,
+                "type": "price_override" if rate != scheme_price and disc_amt == 0
+                    else "line_discount" if disc_amt > 0 and rate == scheme_price
+                    else "discount_and_override",
+            })
         
         # ── Inventory: deduct immediately for BOTH full and partial release ────
         # Partial release: also moves qty into reserved_qty bucket on same record.
@@ -541,6 +574,41 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
         split_meta=split_meta,
         partial_meta=partial_meta,
     )
+
+    # ── Discount / Price Override Audit Log ───────────────────────────────────
+    overall_disc = float(data.get("overall_discount", 0))
+    if overall_disc > 0:
+        discount_audit_entries.append({
+            "product_id": None, "product_name": "(Overall Discount)",
+            "original_price": 0, "sold_price": 0,
+            "discount_type": "amount", "discount_value": overall_disc,
+            "discount_amount": overall_disc, "quantity": 1,
+            "net_per_unit": 0, "capital": 0,
+            "type": "overall_discount",
+        })
+    if discount_audit_entries:
+        cashier_id = user["id"]
+        cashier_name = user.get("full_name", user.get("username", ""))
+        customer_id = data.get("customer_id")
+        total_discount = sum(e["discount_amount"] for e in discount_audit_entries)
+        total_price_diff = sum(abs(e["original_price"] - e["sold_price"]) * e["quantity"]
+                               for e in discount_audit_entries if e["type"] != "overall_discount")
+        await db.discount_audit_log.insert_one({
+            "id": new_id(),
+            "invoice_id": invoice["id"],
+            "invoice_number": inv_number,
+            "branch_id": branch_id,
+            "date": log_date,
+            "customer_id": customer_id,
+            "customer_name": customer_name,
+            "cashier_id": cashier_id,
+            "cashier_name": cashier_name,
+            "items": discount_audit_entries,
+            "total_discount": round(total_discount, 2),
+            "total_price_override_diff": round(total_price_diff, 2),
+            "grand_total": grand_total,
+            "created_at": now_iso(),
+        })
 
     # ── Auto-create incident tickets for negative-stock overrides ─────────────
     if override_verifier and insufficient_items:

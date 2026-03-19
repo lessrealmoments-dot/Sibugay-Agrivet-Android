@@ -146,7 +146,11 @@ const localToday = () => {
 };
 
 export default function UnifiedSalesPage() {
-  const { currentBranch, user, effectiveBranchId } = useAuth();
+  const { currentBranch, user, effectiveBranchId, hasPerm } = useAuth();
+  
+  // Permission flags for discount/price editing
+  const canDiscount = hasPerm('sales', 'give_discount');
+  const canSellBelowCost = hasPerm('sales', 'sell_below_cost');
   
   // Mode: 'quick' or 'order'
   const [mode, setMode] = useState('quick');
@@ -1037,32 +1041,35 @@ export default function UnifiedSalesPage() {
     }
 
     // Check for below-capital items — uses effective_capital (respects product's capital_method)
-    const belowCostItem = mode === 'quick'
-      ? cart.find(c => (c.effective_capital || c.cost_price) > 0 && c.price < (c.effective_capital || c.cost_price))
-      : lines.find(l => l.product_id && (l.effective_capital || l.cost_price) > 0 && l.rate > 0 && l.rate < (l.effective_capital || l.cost_price));
-    if (belowCostItem) {
-      const p = belowCostItem.price ?? belowCostItem.rate;
-      const cap = belowCostItem.effective_capital || belowCostItem.cost_price;
-      const method = (belowCostItem.capital_method || 'manual').replace('_', ' ');
-      toast.error(`Cannot sell "${belowCostItem.product_name}" at ₱${p.toFixed(2)} — below capital ₱${cap.toFixed(2)} (${method})`);
-      return;
-    }
-
-    // Check for discounts that push net price below capital (Order mode only — Quick has no per-line discount)
-    if (mode === 'order') {
-      const discountBelowCap = lines.find(l => {
-        if (!l.product_id || l.discount_value <= 0) return false;
-        const cap = l.effective_capital || l.cost_price;
-        if (cap <= 0) return false;
-        const netTotal = lineTotal(l);
-        const netPerUnit = l.quantity > 0 ? netTotal / l.quantity : 0;
-        return netPerUnit < cap;
-      });
-      if (discountBelowCap) {
-        const cap = discountBelowCap.effective_capital || discountBelowCap.cost_price;
-        const netPerUnit = discountBelowCap.quantity > 0 ? lineTotal(discountBelowCap) / discountBelowCap.quantity : 0;
-        toast.error(`Cannot sell "${discountBelowCap.product_name}" — after discount, net ₱${netPerUnit.toFixed(2)}/unit is below capital ₱${cap.toFixed(2)}`);
+    // Only block if user does NOT have sell_below_cost permission
+    if (!canSellBelowCost) {
+      const belowCostItem = mode === 'quick'
+        ? cart.find(c => (c.effective_capital || c.cost_price) > 0 && c.price < (c.effective_capital || c.cost_price))
+        : lines.find(l => l.product_id && (l.effective_capital || l.cost_price) > 0 && l.rate > 0 && l.rate < (l.effective_capital || l.cost_price));
+      if (belowCostItem) {
+        const p = belowCostItem.price ?? belowCostItem.rate;
+        const cap = belowCostItem.effective_capital || belowCostItem.cost_price;
+        const method = (belowCostItem.capital_method || 'manual').replace('_', ' ');
+        toast.error(`Cannot sell "${belowCostItem.product_name}" at ₱${p.toFixed(2)} — below capital ₱${cap.toFixed(2)} (${method})`);
         return;
+      }
+
+      // Check for discounts that push net price below capital (Order mode only)
+      if (mode === 'order') {
+        const discountBelowCap = lines.find(l => {
+          if (!l.product_id || l.discount_value <= 0) return false;
+          const cap = l.effective_capital || l.cost_price;
+          if (cap <= 0) return false;
+          const netTotal = lineTotal(l);
+          const netPerUnit = l.quantity > 0 ? netTotal / l.quantity : 0;
+          return netPerUnit < cap;
+        });
+        if (discountBelowCap) {
+          const cap = discountBelowCap.effective_capital || discountBelowCap.cost_price;
+          const netPerUnit = discountBelowCap.quantity > 0 ? lineTotal(discountBelowCap) / discountBelowCap.quantity : 0;
+          toast.error(`Cannot sell "${discountBelowCap.product_name}" — after discount, net ₱${netPerUnit.toFixed(2)}/unit is below capital ₱${cap.toFixed(2)}`);
+          return;
+        }
       }
     }
 
@@ -1896,6 +1903,8 @@ export default function UnifiedSalesPage() {
                               }}
                               onFocus={e => e.target.select()}
                               min="0" step="0.01"
+                              readOnly={!canDiscount}
+                              title={!canDiscount ? 'No permission to change prices' : ''}
                             />
                             <span className="text-xs font-semibold text-[#1A4D2E] text-right flex-1">{formatPHP(item.total)}</span>
                           </div>
@@ -2025,6 +2034,8 @@ export default function UnifiedSalesPage() {
                                 value={line.rate}
                                 onChange={e => updateLine(i, 'rate', parseFloat(e.target.value) || 0)}
                                 onBlur={() => handleRateBlur(lines[i])}
+                                readOnly={!canDiscount}
+                                title={!canDiscount ? 'No permission to change prices' : ''}
                               />
                               {/* Capital reference — shown when a product is selected */}
                               {line.product_id && (line.moving_average_cost > 0 || line.last_purchase_cost > 0) && (
@@ -2053,9 +2064,11 @@ export default function UnifiedSalesPage() {
                                 <div>
                                   <Input
                                     type="number"
-                                    className={`h-8 text-right w-20 ${isBelowCap ? 'border-red-400 bg-red-50 text-red-700' : ''}`}
+                                    className={`h-8 text-right w-20 ${isBelowCap ? 'border-red-400 bg-red-50 text-red-700' : ''} ${!canDiscount ? 'bg-slate-100 cursor-not-allowed' : ''}`}
                                     value={line.discount_value}
                                     onChange={e => updateLine(i, 'discount_value', parseFloat(e.target.value) || 0)}
+                                    disabled={!canDiscount}
+                                    title={!canDiscount ? 'No discount permission' : ''}
                                   />
                                   {isBelowCap && (
                                     <p className="text-[10px] text-red-600 mt-0.5 flex items-center gap-0.5">
@@ -2105,7 +2118,7 @@ export default function UnifiedSalesPage() {
                         </div>
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-500">Discount</span>
-                          <Input type="number" className="h-7 w-24 text-right" value={overallDiscount} onChange={e => setOverallDiscount(parseFloat(e.target.value) || 0)} />
+                          <Input type="number" className={`h-7 w-24 text-right ${!canDiscount ? 'bg-slate-100 cursor-not-allowed' : ''}`} value={overallDiscount} onChange={e => setOverallDiscount(parseFloat(e.target.value) || 0)} disabled={!canDiscount} />
                         </div>
                         <Separator />
                         <div className="flex justify-between font-bold text-base" style={{ fontFamily: 'Manrope' }}>

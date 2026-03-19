@@ -219,6 +219,7 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **Backend:** `routes/documents.py` (12 endpoints). Collections: `business_documents`, `doc_upload_tokens`
 - **Frontend:** `pages/DocumentsPage.js` with UploadDialog, PreviewDialog, EditDialog, QRUploadDialog, MonthlyGrid
 - **Phase 2 — QR Phone Upload Page:** `pages/DocUploadPage.js` at public route `/doc-upload/:token` — mobile-friendly upload (Take Photo / Browse Files), shows category/type/months context, single-use 15-min tokens, success/error states
+- **Context-aware dialogs:** Upload Dialog and QR Upload Dialog auto-pre-fill category/sub-category from current folder navigation. Upload Dialog includes inline "Upload via Phone Instead" QR code generator.
 
 - Added `MIN_H_MAP` / `MIN_W_MAP` constants; all layout items now carry `minH`/`minW` guards
 - `validateLayouts()` sanitizes stale/corrupted `localStorage` layouts on load

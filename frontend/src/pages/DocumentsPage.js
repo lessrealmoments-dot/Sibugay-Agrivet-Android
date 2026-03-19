@@ -402,6 +402,8 @@ export default function DocumentsPage() {
           token={token}
           branchId={selectedBranchId}
           year={selectedYear}
+          preselectedCategory={selectedCategory}
+          preselectedSubCategory={selectedSubCategory}
         />
       )}
     </div>
@@ -533,6 +535,9 @@ function UploadDialog({ open, onClose, categories, token, branchId, year, presel
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [qrMode, setQrMode] = useState(false);
+  const [qrData, setQrData] = useState(null);
+  const [generatingQr, setGeneratingQr] = useState(false);
 
   const subCatDef = category && subCategory ? categories[category]?.sub_categories?.[subCategory] : null;
   const periodType = subCatDef?.period_type || 'one_time';
@@ -588,6 +593,31 @@ function UploadDialog({ open, onClose, categories, token, branchId, year, presel
     } catch { toast.error('Upload failed'); }
     finally { setUploading(false); }
   };
+
+  const handleGenerateQR = async () => {
+    if (!category || !subCategory) return toast.error('Select a category and type first');
+    setGeneratingQr(true);
+    try {
+      const res = await fetch(`${API}/api/documents/qr-upload-token`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category,
+          sub_category: subCategory,
+          branch_id: branchId || '',
+          year: docYear,
+          coverage_months: coverageMonths,
+        }),
+      });
+      if (res.ok) {
+        setQrData(await res.json());
+        setQrMode(true);
+      } else { toast.error('Failed to generate QR code'); }
+    } catch { toast.error('Failed to generate QR code'); }
+    finally { setGeneratingQr(false); }
+  };
+
+  const qrUploadUrl = qrData ? `${API}/doc-upload/${qrData.token}` : '';
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -763,6 +793,49 @@ function UploadDialog({ open, onClose, categories, token, branchId, year, presel
           >
             {uploading ? 'Uploading...' : `Upload ${files.length} File${files.length !== 1 ? 's' : ''}`}
           </Button>
+
+          {/* QR phone upload option */}
+          {!qrMode ? (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+              <div className="relative flex justify-center text-xs"><span className="bg-white px-2 text-muted-foreground">or</span></div>
+            </div>
+          ) : null}
+
+          {!qrMode ? (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleGenerateQR}
+              disabled={generatingQr || !category || !subCategory}
+              data-testid="upload-qr-btn"
+            >
+              {generatingQr ? 'Generating...' : (
+                <><QrCode className="h-4 w-4 mr-1.5" /> Upload via Phone Instead</>
+              )}
+            </Button>
+          ) : (
+            <div className="text-center space-y-3 p-3 bg-slate-50 rounded-xl border" data-testid="upload-qr-inline">
+              <p className="text-sm font-medium">Scan with your phone to upload</p>
+              <div className="bg-white p-3 rounded-xl border inline-block mx-auto">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUploadUrl)}`}
+                  alt="QR Code"
+                  className="w-40 h-40"
+                />
+              </div>
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                <p><strong>{categories[category]?.label}</strong> / {categories[category]?.sub_categories?.[subCategory]?.label}</p>
+                {coverageMonths.length > 0 && (
+                  <p>Coverage: {coverageMonths.map(m => MONTH_NAMES[m-1]?.slice(0,3)).join(', ')}</p>
+                )}
+                <p>Expires in 15 minutes</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => { setQrMode(false); setQrData(null); }}>
+                Back to computer upload
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -1045,9 +1118,9 @@ function EditDialog({ doc, token, categories, onClose, onSuccess }) {
 //  QR Upload Dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
-function QRUploadDialog({ open, onClose, categories, token, branchId, year }) {
-  const [category, setCategory] = useState('');
-  const [subCategory, setSubCategory] = useState('');
+function QRUploadDialog({ open, onClose, categories, token, branchId, year, preselectedCategory, preselectedSubCategory }) {
+  const [category, setCategory] = useState(preselectedCategory || '');
+  const [subCategory, setSubCategory] = useState(preselectedSubCategory || '');
   const [coverageMonths, setCoverageMonths] = useState([]);
   const [qrData, setQrData] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -1097,7 +1170,15 @@ function QRUploadDialog({ open, onClose, categories, token, branchId, year }) {
         <div className="space-y-4 mt-2">
           {!qrData ? (
             <>
-              <p className="text-xs text-muted-foreground">Select the document type. A QR code will be generated for phone scanning.</p>
+              {category && subCategory ? (
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs">
+                  <p className="text-blue-600 font-medium">Pre-filled from your current folder:</p>
+                  <p className="text-blue-800 font-semibold mt-0.5">{categories[category]?.label} / {categories[category]?.sub_categories?.[subCategory]?.label}</p>
+                  <p className="text-blue-500 mt-0.5">You can change it below if needed.</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Select the document type. A QR code will be generated for phone scanning.</p>
+              )}
 
               <Select value={category} onValueChange={v => { setCategory(v); setSubCategory(''); }}>
                 <SelectTrigger data-testid="qr-category-select">

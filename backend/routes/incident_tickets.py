@@ -11,7 +11,7 @@ from utils import get_current_user, check_perm, now_iso, new_id
 
 router = APIRouter(prefix="/incident-tickets", tags=["Incident Tickets"])
 
-RESOLUTION_TYPES = {
+TRANSFER_RESOLUTION_TYPES = {
     "transit_loss": "Transit Loss — goods lost during transport",
     "sender_error": "Sender Error — sender miscounted, no actual loss",
     "receiver_error": "Receiver Error — receiver miscounted, corrected",
@@ -19,6 +19,15 @@ RESOLUTION_TYPES = {
     "insurance_claim": "Insurance Claim — claimed from logistics provider",
     "partial_recovery": "Partial Recovery — partial compensation received",
 }
+
+STOCK_RESOLUTION_TYPES = {
+    "unencoded_po": "Unencoded PO — supplier delivered but PO was never entered",
+    "count_error": "Count Error — last physical count was wrong, corrected",
+    "wrong_item": "Wrong Item — wrong product was sold or scanned",
+    "shrinkage": "Shrinkage — actual loss (theft, damage, expiry)",
+}
+
+RESOLUTION_TYPES = {**TRANSFER_RESOLUTION_TYPES, **STOCK_RESOLUTION_TYPES}
 
 
 @router.get("")
@@ -89,8 +98,12 @@ async def incident_summary(user=Depends(get_current_user)):
 
 
 @router.get("/resolution-types")
-async def get_resolution_types(user=Depends(get_current_user)):
-    """Return available resolution types for the resolve dialog."""
+async def get_resolution_types(user=Depends(get_current_user), ticket_type: Optional[str] = None):
+    """Return available resolution types, optionally filtered by ticket type."""
+    if ticket_type == "negative_stock_override":
+        return [{"value": k, "label": v} for k, v in STOCK_RESOLUTION_TYPES.items()]
+    if ticket_type and ticket_type != "negative_stock_override":
+        return [{"value": k, "label": v} for k, v in TRANSFER_RESOLUTION_TYPES.items()]
     return [{"value": k, "label": v} for k, v in RESOLUTION_TYPES.items()]
 
 
@@ -278,7 +291,7 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
         raise HTTPException(status_code=400, detail="Authorization PIN required")
 
     from routes.verify import verify_pin_for_action
-    verifier = await verify_pin_for_action(pin, "incident_resolve", branch_id=ticket.get("to_branch_id"))
+    verifier = await verify_pin_for_action(pin, "incident_resolve", branch_id=ticket.get("to_branch_id") or ticket.get("branch_id"))
     if not verifier:
         raise HTTPException(status_code=403, detail="Invalid PIN — authorization denied")
 
@@ -400,14 +413,24 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
              "memo": f"Inventory adjustment - {ticket.get('order_number', '')}"}
         )
 
-    # sender_error and receiver_error: no journal entry (no financial impact)
+    # sender_error, receiver_error, unencoded_po, count_error, wrong_item: no journal entry (no financial impact — stock self-corrects)
+
+    # shrinkage: write off (same as write_off but for negative stock context)
+    elif resolution_type == "shrinkage" and capital_loss > 0:
+        je_memo = f"Shrinkage write-off: {ticket['ticket_number']} — {ticket.get('product_name', '')} ({resolution_note})"
+        je_lines = [
+            {"account_code": "5500", "account_name": "Inventory Loss / Write-off", "debit": capital_loss, "credit": 0,
+             "memo": f"Shrinkage - {ticket.get('product_name', '')}"},
+            {"account_code": "1200", "account_name": "Inventory", "debit": 0, "credit": capital_loss,
+             "memo": f"Inventory shrinkage - {ticket.get('invoice_number', '')}"},
+        ]
 
     je_id = None
     if je_lines:
         from datetime import datetime, timezone
         from utils.numbering import generate_next_number
 
-        branch_id = ticket.get("to_branch_id", "")
+        branch_id = ticket.get("to_branch_id") or ticket.get("branch_id", "")
         je_number = await generate_next_number("JE", branch_id)
         je_id = new_id()
 

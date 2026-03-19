@@ -188,7 +188,18 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ### Terminal QR Scanner + Camera Fix (Complete — Mar 2026)
 - **QR Scanner in mode selector:** New "Scan QR" option in the floating terminal mode selector (bottom-left nudge). Opens full-screen camera scanner for document QR codes. Uses `html5-qrcode`. When a doc QR is scanned, stops camera and shows the existing QuickScan bottom sheet (print thermal/full page, view/take action). Also handles doc number patterns and product barcodes.
-- **Camera scanner size fix:** Reduced the barcode camera scanner in TerminalSales from `minHeight: 200` to `maxHeight: 120` with a narrower `qrbox` (220×80, aspect 2.5), so it no longer consumes half the screen.
+- **Camera scanner size fix:** Barcode camera in TerminalSales uses clipped container (140px visible window over full-res video) so it only shows the scanning strip. Full camera resolution preserved for detection.
+- **Stock visibility in terminal:** Search results show color-coded stock badges (green/amber/red). Cart items show available quantity with amber highlight when exceeding stock.
+- **Insufficient stock override:** Terminal now shows a proper modal (like desktop) when stock is short, with manager PIN override option. White screen crash fixed — structured error objects no longer passed to toast.
+
+### Adaptive Incident Ticket System (Complete — Mar 2026)
+- **Ticket numbering:** New tickets use `IT-{BranchCode}-{Sequence}` (e.g., `IT-B1-001000`) via standard `generate_next_number`.
+- **Branch-scoped ticket list:** Admin on "All Branches" sees all tickets; specific branch shows only that branch's tickets.
+- **Adaptive detail view:** Ticket detail dialog detects `ticket_type` and renders context-appropriate layout:
+  - **Transfer variance:** Transfer link, route, sent/received items table, sender confirm button
+  - **Negative stock override:** Product, branch, invoice, stock before/after, cashier, override approver. Investigation guide with 4 root causes.
+- **New resolution types for stock tickets:** `unencoded_po`, `count_error`, `wrong_item`, `shrinkage` — each with contextual help text and appropriate journal entry generation.
+- **Resolve dialog is ticket-type-aware:** Shows only relevant resolution options (stock types for stock tickets, transfer types for transfer tickets).
 
 See `/app/memory/ROADMAP.md` for full implementation spec.
 

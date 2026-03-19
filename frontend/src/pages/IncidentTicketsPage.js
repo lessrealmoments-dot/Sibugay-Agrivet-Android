@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import {
   AlertTriangle, CheckCircle2, Clock, Search, MessageSquare, UserCheck,
   XCircle, FileText, ArrowRight, Eye, RefreshCw, ArrowLeftRight, Check,
-  ShieldCheck, Truck, PackageX, Receipt, Scale
+  ShieldCheck, Truck, PackageX, Receipt, Scale, ClipboardCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 import TransferDetailModal from '../components/TransferDetailModal';
@@ -39,6 +39,11 @@ const RESOLUTION_TYPE_META = {
   write_off: { icon: PackageX, color: 'text-slate-600', bg: 'bg-slate-50', label: 'Write Off' },
   insurance_claim: { icon: Receipt, color: 'text-purple-600', bg: 'bg-purple-50', label: 'Insurance Claim' },
   partial_recovery: { icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', label: 'Partial Recovery' },
+  // Negative stock resolution types
+  unencoded_po: { icon: ClipboardCheck, color: 'text-blue-600', bg: 'bg-blue-50', label: 'Unencoded PO' },
+  count_error: { icon: Scale, color: 'text-amber-600', bg: 'bg-amber-50', label: 'Count Error' },
+  wrong_item: { icon: XCircle, color: 'text-orange-600', bg: 'bg-orange-50', label: 'Wrong Item' },
+  shrinkage: { icon: PackageX, color: 'text-red-600', bg: 'bg-red-50', label: 'Shrinkage' },
 };
 
 export default function IncidentTicketsPage() {
@@ -517,41 +522,85 @@ export default function IncidentTicketsPage() {
                   <FileText size={18} />
                   {selectedTicket.ticket_number}
                   <Badge className={`text-[10px] ${STATUS_COLORS[selectedTicket.status]}`}>{selectedTicket.status}</Badge>
-                  <Badge className={`text-[10px] ${PRIORITY_COLORS[selectedTicket.priority]}`}>{selectedTicket.priority}</Badge>
+                  {selectedTicket.ticket_type === 'negative_stock_override'
+                    ? <Badge className="text-[10px] bg-red-100 text-red-700">Negative Stock</Badge>
+                    : <Badge className={`text-[10px] ${PRIORITY_COLORS[selectedTicket.priority]}`}>{selectedTicket.priority}</Badge>
+                  }
                   {rt && <Badge className={`text-[10px] ${rt.bg} ${rt.color}`}>{rt.label}</Badge>}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                {/* Header info */}
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-slate-500">Transfer:</span>{' '}
-                    <button className="font-mono font-bold text-blue-600 hover:underline" data-testid="ticket-transfer-link"
-                      onClick={() => { setSelectedTicket(null); openVarianceDetail(selectedTicket.transfer_id); }}>
-                      {selectedTicket.order_number}
-                    </button>
-                  </div>
-                  <div><span className="text-slate-500">Route:</span> {selectedTicket.from_branch_name} &rarr; {selectedTicket.to_branch_name}</div>
-                  <div><span className="text-slate-500">Capital Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_capital_loss)}</span></div>
-                  <div><span className="text-slate-500">Retail Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_retail_loss)}</span></div>
-                  {selectedTicket.assigned_to_name && <div><span className="text-slate-500">Assigned:</span> {selectedTicket.assigned_to_name}</div>}
-                  {selectedTicket.recovery_amount > 0 && <div><span className="text-slate-500">Recovered:</span> <span className="text-emerald-600 font-bold">{formatPHP(selectedTicket.recovery_amount)}</span></div>}
-                  {selectedTicket.accountable_party && <div><span className="text-slate-500">Charged to:</span> <span className="font-semibold text-red-600">{selectedTicket.accountable_party}</span></div>}
-                  {selectedTicket.approved_by_name && <div>
-                    <span className="text-slate-500">Approved by:</span>{' '}
-                    <span className="font-semibold text-emerald-700">{selectedTicket.approved_by_name}</span>
-                    {selectedTicket.approval_method && <span className="text-[10px] text-slate-400 ml-1">({selectedTicket.approval_method})</span>}
-                  </div>}
-                  {selectedTicket.journal_entry_number && <div>
-                    <span className="text-slate-500">Journal Entry:</span>{' '}
-                    <span className="font-mono font-bold text-blue-600">{selectedTicket.journal_entry_number}</span>
-                  </div>}
-                  {selectedTicket.sender_confirmed && <div className="col-span-2">
-                    <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
-                      <ShieldCheck size={12} /> Sender confirmed quantities ({fmtDate(selectedTicket.sender_confirmed_at)})
-                    </span>
-                  </div>}
-                </div>
+                {/* ── NEGATIVE STOCK HEADER ── */}
+                {selectedTicket.ticket_type === 'negative_stock_override' ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-slate-500">Product:</span> <span className="font-bold">{selectedTicket.product_name}</span></div>
+                      <div><span className="text-slate-500">Branch:</span> <span className="font-medium">{getBranchName(selectedTicket.branch_id)}</span></div>
+                      <div><span className="text-slate-500">Invoice:</span>{' '}
+                        <span className="font-mono font-bold text-blue-600">{selectedTicket.invoice_number}</span>
+                      </div>
+                      <div><span className="text-slate-500">Stock Change:</span>{' '}
+                        <span className="font-mono font-bold text-red-600">{selectedTicket.qty_before_sale} → {selectedTicket.qty_after_sale}</span>
+                      </div>
+                      <div><span className="text-slate-500">Cashier:</span> {selectedTicket.cashier_name}</div>
+                      <div><span className="text-slate-500">Override by:</span>{' '}
+                        <span className="font-semibold text-amber-700">{selectedTicket.override_by_name}</span>
+                        {selectedTicket.override_method && <span className="text-[10px] text-slate-400 ml-1">({selectedTicket.override_method})</span>}
+                      </div>
+                      {selectedTicket.assigned_to_name && <div><span className="text-slate-500">Assigned:</span> {selectedTicket.assigned_to_name}</div>}
+                      {selectedTicket.journal_entry_number && <div>
+                        <span className="text-slate-500">Journal Entry:</span>{' '}
+                        <span className="font-mono font-bold text-blue-600">{selectedTicket.journal_entry_number}</span>
+                      </div>}
+                    </div>
+
+                    {/* Root cause guidance */}
+                    {['open', 'investigating'].includes(selectedTicket.status) && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1.5">
+                        <p className="font-semibold flex items-center gap-1.5"><AlertTriangle size={13} /> Investigate: Why was stock negative?</p>
+                        <ul className="space-y-1 pl-4 text-amber-700">
+                          <li className="flex items-center gap-1.5"><ClipboardCheck size={11} className="text-blue-500 shrink-0" /> <b>Unencoded PO?</b> — Supplier delivered goods but PO was never entered</li>
+                          <li className="flex items-center gap-1.5"><Scale size={11} className="text-amber-500 shrink-0" /> <b>Count error?</b> — Last physical count was wrong</li>
+                          <li className="flex items-center gap-1.5"><XCircle size={11} className="text-orange-500 shrink-0" /> <b>Wrong item?</b> — Cashier scanned the wrong product</li>
+                          <li className="flex items-center gap-1.5"><PackageX size={11} className="text-red-500 shrink-0" /> <b>Shrinkage?</b> — Actual loss (theft, damage, expiry)</li>
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* ── TRANSFER VARIANCE HEADER (existing) ── */}
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-slate-500">Transfer:</span>{' '}
+                        <button className="font-mono font-bold text-blue-600 hover:underline" data-testid="ticket-transfer-link"
+                          onClick={() => { setSelectedTicket(null); openVarianceDetail(selectedTicket.transfer_id); }}>
+                          {selectedTicket.order_number}
+                        </button>
+                      </div>
+                      <div><span className="text-slate-500">Route:</span> {selectedTicket.from_branch_name} → {selectedTicket.to_branch_name}</div>
+                      <div><span className="text-slate-500">Capital Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_capital_loss)}</span></div>
+                      <div><span className="text-slate-500">Retail Loss:</span> <span className="font-bold text-red-600">{formatPHP(selectedTicket.total_retail_loss)}</span></div>
+                      {selectedTicket.assigned_to_name && <div><span className="text-slate-500">Assigned:</span> {selectedTicket.assigned_to_name}</div>}
+                      {selectedTicket.recovery_amount > 0 && <div><span className="text-slate-500">Recovered:</span> <span className="text-emerald-600 font-bold">{formatPHP(selectedTicket.recovery_amount)}</span></div>}
+                      {selectedTicket.accountable_party && <div><span className="text-slate-500">Charged to:</span> <span className="font-semibold text-red-600">{selectedTicket.accountable_party}</span></div>}
+                      {selectedTicket.approved_by_name && <div>
+                        <span className="text-slate-500">Approved by:</span>{' '}
+                        <span className="font-semibold text-emerald-700">{selectedTicket.approved_by_name}</span>
+                        {selectedTicket.approval_method && <span className="text-[10px] text-slate-400 ml-1">({selectedTicket.approval_method})</span>}
+                      </div>}
+                      {selectedTicket.journal_entry_number && <div>
+                        <span className="text-slate-500">Journal Entry:</span>{' '}
+                        <span className="font-mono font-bold text-blue-600">{selectedTicket.journal_entry_number}</span>
+                      </div>}
+                      {selectedTicket.sender_confirmed && <div className="col-span-2">
+                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded font-medium">
+                          <ShieldCheck size={12} /> Sender confirmed quantities ({fmtDate(selectedTicket.sender_confirmed_at)})
+                        </span>
+                      </div>}
+                    </div>
+                  </>
+                )}
 
                 {/* Resolution summary card */}
                 {selectedTicket.resolution_type && (
@@ -576,7 +625,8 @@ export default function IncidentTicketsPage() {
                   </div>
                 )}
 
-                {/* Variance Items */}
+                {/* Variance Items (transfer tickets only) */}
+                {selectedTicket.ticket_type !== 'negative_stock_override' && (selectedTicket.items || []).length > 0 && (
                 <div className="border rounded-lg overflow-hidden">
                   <table className="w-full text-xs">
                     <thead className="bg-slate-50">
@@ -607,6 +657,7 @@ export default function IncidentTicketsPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
 
                 {/* Timeline */}
                 <div>
@@ -656,7 +707,7 @@ export default function IncidentTicketsPage() {
                         className="text-xs" data-testid="assign-btn">
                         <UserCheck size={12} className="mr-1" /> Assign
                       </Button>
-                      {!selectedTicket.sender_confirmed && (
+                      {selectedTicket.ticket_type !== 'negative_stock_override' && !selectedTicket.sender_confirmed && (
                         <Button size="sm" variant="outline" onClick={() => openSenderConfirm(selectedTicket)}
                           className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50" data-testid="sender-confirm-btn">
                           <ShieldCheck size={12} className="mr-1" /> Sender Confirm
@@ -712,12 +763,27 @@ export default function IncidentTicketsPage() {
       <Dialog open={!!resolveDialog} onOpenChange={() => setResolveDialog(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle style={{ fontFamily: 'Manrope' }}>Resolve Incident</DialogTitle></DialogHeader>
-          {resolveDialog && (
+          {resolveDialog && (() => {
+            const isStock = resolveDialog.ticket_type === 'negative_stock_override';
+            const STOCK_KEYS = ['unencoded_po', 'count_error', 'wrong_item', 'shrinkage'];
+            const TRANSFER_KEYS = ['transit_loss', 'sender_error', 'receiver_error', 'write_off', 'insurance_claim', 'partial_recovery'];
+            const allowedKeys = isStock ? STOCK_KEYS : TRANSFER_KEYS;
+            return (
           <div className="space-y-4">
-            {/* Loss summary */}
-            <div className="flex gap-4 p-3 bg-slate-50 rounded-lg text-sm">
-              <div><span className="text-slate-500">Capital Loss:</span> <span className="font-bold text-red-600">{formatPHP(resolveDialog.total_capital_loss)}</span></div>
-              <div><span className="text-slate-500">Items:</span> <span className="font-bold">{resolveDialog.items?.length || 0}</span></div>
+            {/* Context summary */}
+            <div className="flex gap-4 p-3 bg-slate-50 rounded-lg text-sm flex-wrap">
+              {isStock ? (
+                <>
+                  <div><span className="text-slate-500">Product:</span> <span className="font-bold">{resolveDialog.product_name}</span></div>
+                  <div><span className="text-slate-500">Stock:</span> <span className="font-bold text-red-600">{resolveDialog.qty_before_sale} → {resolveDialog.qty_after_sale}</span></div>
+                  <div><span className="text-slate-500">Invoice:</span> <span className="font-mono font-bold">{resolveDialog.invoice_number}</span></div>
+                </>
+              ) : (
+                <>
+                  <div><span className="text-slate-500">Capital Loss:</span> <span className="font-bold text-red-600">{formatPHP(resolveDialog.total_capital_loss)}</span></div>
+                  <div><span className="text-slate-500">Items:</span> <span className="font-bold">{resolveDialog.items?.length || 0}</span></div>
+                </>
+              )}
             </div>
 
             {/* Resolution Type */}
@@ -728,16 +794,40 @@ export default function IncidentTicketsPage() {
                   <SelectValue placeholder="How was this resolved?" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(RESOLUTION_TYPE_META).map(([key, meta]) => (
+                  {allowedKeys.map(key => {
+                    const meta = RESOLUTION_TYPE_META[key];
+                    if (!meta) return null;
+                    return (
                     <SelectItem key={key} value={key}>
                       <span className="flex items-center gap-2">
                         <meta.icon size={14} className={meta.color} />
                         {meta.label}
                       </span>
                     </SelectItem>
-                  ))}
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              {resolutionType === 'unencoded_po' && (
+                <p className="text-[10px] text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                  The supplier delivered goods but the PO was never entered. Encode the PO and stock will self-correct.
+                </p>
+              )}
+              {resolutionType === 'count_error' && (
+                <p className="text-[10px] text-amber-600 mt-1 bg-amber-50 px-2 py-1 rounded">
+                  Last physical count was wrong. Do an inventory correction to fix the quantity.
+                </p>
+              )}
+              {resolutionType === 'wrong_item' && (
+                <p className="text-[10px] text-orange-600 mt-1 bg-orange-50 px-2 py-1 rounded">
+                  Wrong product was sold or scanned. Void the sale or do an inventory adjustment.
+                </p>
+              )}
+              {resolutionType === 'shrinkage' && (
+                <p className="text-[10px] text-red-600 mt-1 bg-red-50 px-2 py-1 rounded">
+                  Actual loss — goods are genuinely missing. A write-off journal entry will be created.
+                </p>
+              )}
               {resolutionType === 'sender_error' && (
                 <p className="text-[10px] text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
                   Sender error means no actual loss occurred. The sender miscounted the original shipment.
@@ -750,14 +840,13 @@ export default function IncidentTicketsPage() {
               )}
             </div>
 
-            {/* Accountable Party (shown for transit_loss, insurance_claim, partial_recovery) */}
-            {['transit_loss', 'insurance_claim', 'partial_recovery'].includes(resolutionType) && (
+            {/* Accountable Party (shown for transit_loss, insurance_claim, partial_recovery, shrinkage) */}
+            {['transit_loss', 'insurance_claim', 'partial_recovery', 'shrinkage'].includes(resolutionType) && (
               <div>
-                <label className="text-xs text-slate-500 font-medium block mb-1">Accountable Party *</label>
+                <label className="text-xs text-slate-500 font-medium block mb-1">Accountable Party {resolutionType !== 'shrinkage' ? '*' : '(optional)'}</label>
                 <Input value={accountableParty} onChange={e => setAccountableParty(e.target.value)}
-                  placeholder="e.g. Driver Juan, LBC Express, JRS Courier..."
+                  placeholder={resolutionType === 'shrinkage' ? 'e.g. Unknown, Theft suspect, Expired batch...' : 'e.g. Driver Juan, LBC Express...'}
                   className="h-9 text-sm" data-testid="accountable-party-input" />
-                <p className="text-[10px] text-slate-400 mt-1">Who is responsible for the loss / claim?</p>
               </div>
             )}
 
@@ -775,7 +864,11 @@ export default function IncidentTicketsPage() {
             <div>
               <label className="text-xs text-slate-500 font-medium block mb-1">Resolution Note *</label>
               <textarea value={resolveNote} onChange={e => setResolveNote(e.target.value)}
-                placeholder={resolutionType === 'transit_loss' ? 'e.g. 2 bags fell from truck, driver acknowledges and will compensate...'
+                placeholder={resolutionType === 'unencoded_po' ? 'e.g. Found PO from supplier X, encoding now...'
+                  : resolutionType === 'count_error' ? 'e.g. Counted 50 but system showed 45, corrected via count sheet...'
+                  : resolutionType === 'wrong_item' ? 'e.g. Cashier scanned barcode for Product A instead of Product B...'
+                  : resolutionType === 'shrinkage' ? 'e.g. Product found damaged in storage, writing off 3 units...'
+                  : resolutionType === 'transit_loss' ? 'e.g. 2 bags fell from truck, driver acknowledges and will compensate...'
                   : resolutionType === 'sender_error' ? 'e.g. Warehouse manager confirmed they only packed 8 instead of 10...'
                   : 'Describe the resolution...'}
                 rows={3} className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
@@ -811,7 +904,8 @@ export default function IncidentTicketsPage() {
               </Button>
             </div>
           </div>
-          )}
+          );
+          })()}
         </DialogContent>
       </Dialog>
 

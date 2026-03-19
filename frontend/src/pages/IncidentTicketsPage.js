@@ -42,7 +42,7 @@ const RESOLUTION_TYPE_META = {
 };
 
 export default function IncidentTicketsPage() {
-  const { user, branches } = useAuth();
+  const { user, branches, selectedBranchId, canViewAllBranches } = useAuth();
 
   // ── Main view ─────────────────────────────────────────────────────────
   const [mainTab, setMainTab] = useState('tickets');
@@ -86,15 +86,20 @@ export default function IncidentTicketsPage() {
     setLoading(true);
     try {
       const statusFilter = tab === 'all' ? '' : tab;
+      const params = { status: statusFilter || undefined, limit: 100 };
+      // Branch scoping: if a specific branch is selected, filter by it
+      if (selectedBranchId && selectedBranchId !== 'all') {
+        params.branch_id = selectedBranchId;
+      }
       const [ticketsRes, summaryRes] = await Promise.all([
-        api.get('/incident-tickets', { params: { status: statusFilter || undefined, limit: 100 } }),
+        api.get('/incident-tickets', { params }),
         api.get('/incident-tickets/summary'),
       ]);
       setTickets(ticketsRes.data.tickets || []);
       setSummary(summaryRes.data || {});
     } catch { toast.error('Failed to load tickets'); }
     setLoading(false);
-  }, [tab]);
+  }, [tab, selectedBranchId]);
 
   useEffect(() => { if (mainTab === 'tickets') fetchData(); }, [fetchData, mainTab]);
 
@@ -247,10 +252,14 @@ export default function IncidentTicketsPage() {
     );
   };
 
+  const getBranchName = (branchId) => (branches || []).find(b => b.id === branchId)?.name || '';
+
   const filtered = search
     ? tickets.filter(t => t.ticket_number?.toLowerCase().includes(search.toLowerCase()) ||
         t.order_number?.toLowerCase().includes(search.toLowerCase()) ||
-        t.from_branch_name?.toLowerCase().includes(search.toLowerCase()))
+        t.product_name?.toLowerCase().includes(search.toLowerCase()) ||
+        t.from_branch_name?.toLowerCase().includes(search.toLowerCase()) ||
+        getBranchName(t.branch_id).toLowerCase().includes(search.toLowerCase()))
     : tickets;
 
   const fmtDate = (d) => d ? new Date(d).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
@@ -344,9 +353,9 @@ export default function IncidentTicketsPage() {
               <Table>
                 <TableHeader><TableRow className="bg-slate-50">
                   <TableHead className="text-xs uppercase text-slate-500">Ticket</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500">Transfer</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500">Route</TableHead>
-                  <TableHead className="text-xs uppercase text-slate-500 text-right">Capital Loss</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Type / Product</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500">Branch</TableHead>
+                  <TableHead className="text-xs uppercase text-slate-500 text-right">Impact</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Resolution</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Status</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Assigned</TableHead>
@@ -368,7 +377,10 @@ export default function IncidentTicketsPage() {
                       <TableCell className="font-mono text-xs font-bold text-blue-600">{t.ticket_number}</TableCell>
                       <TableCell>
                         {isNegativeStock ? (
-                          <span className="text-xs font-medium text-red-700">{t.product_name}</span>
+                          <div>
+                            <span className="text-xs font-medium text-red-700">{t.product_name}</span>
+                            <p className="text-[10px] text-slate-400">Inv: {t.invoice_number}</p>
+                          </div>
                         ) : (
                           <button className="font-mono text-xs text-blue-600 hover:underline"
                             onClick={(e) => { e.stopPropagation(); openVarianceDetail(t.transfer_id); }}>
@@ -378,9 +390,9 @@ export default function IncidentTicketsPage() {
                       </TableCell>
                       <TableCell className="text-xs">
                         {isNegativeStock ? (
-                          <Badge className="bg-red-100 text-red-700 text-[10px]">Negative Stock</Badge>
+                          <span className="text-xs text-slate-600">{getBranchName(t.branch_id) || '—'}</span>
                         ) : (
-                          <span>{t.from_branch_name} &rarr; {t.to_branch_name}</span>
+                          <span>{t.from_branch_name} → {t.to_branch_name}</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-mono font-bold text-red-600">

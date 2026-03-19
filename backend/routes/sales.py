@@ -613,7 +613,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     # ── Auto-create incident tickets for negative-stock overrides ─────────────
     if override_verifier and insufficient_items:
         for bad in insufficient_items:
-            ticket_number = f"NSO-{now_iso()[:10].replace('-', '')}-{new_id()[:6].upper()}"
+            ticket_number = await generate_next_number("IT", branch_id)
             await db.incident_tickets.insert_one({
                 "id": new_id(),
                 "ticket_number": ticket_number,

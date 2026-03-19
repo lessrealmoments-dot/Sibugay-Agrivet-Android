@@ -35,7 +35,11 @@ async def list_incident_tickets(
     if status:
         query["status"] = status
     if branch_id:
-        query["$or"] = [{"from_branch_id": branch_id}, {"to_branch_id": branch_id}]
+        query["$or"] = [
+            {"branch_id": branch_id},
+            {"from_branch_id": branch_id},
+            {"to_branch_id": branch_id},
+        ]
     if transfer_id:
         query["transfer_id"] = transfer_id
 

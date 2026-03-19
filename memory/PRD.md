@@ -203,7 +203,22 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 See `/app/memory/ROADMAP.md` for full implementation spec.
 
-### Dashboard Widget Collapse Fix (Complete — Mar 2026)
+### AgriDocs — Business Document Cloud Phase 1 (Complete — Mar 2026)
+- **Document management system** for Philippine business compliance documents
+- **6 categories:** Business Registration, LGU/Local Permits, BIR, Employer & Employee Compliance (SSS/PhilHealth/Pag-IBIG), Industry-Specific Agrivet (BAI/FDA/FPA), Other
+- **Smart period tagging:** Monthly (multi-month select for bulk payments), quarterly, annual, validity (from/to dates), one-time
+- **Folder browsing UI:** Category folders -> sub-category folders -> document list with monthly grid view
+- **Upload from computer:** Drag & drop, file picker, category/type/month selection
+- **QR phone upload:** Generate 15-min upload token -> QR code -> phone uploads directly to correct branch/category/period
+- **Document preview:** Inline PDF/image viewer, download, metadata display
+- **Edit & delete:** Change coverage months, tags, validity dates anytime
+- **Compliance summary API:** Which months are filed, what's expiring, what's expired
+- **Audit-sensitive badges:** Agrivet documents (BAI, FDA, FPA) flagged as audit-critical
+- **Expiry tracking:** Permits/licenses show days remaining with color badges
+- **R2 storage:** Files in Cloudflare R2 with pre-signed URLs
+- **Backend:** `routes/documents.py` (12 endpoints). Collections: `business_documents`, `doc_upload_tokens`
+- **Frontend:** `pages/DocumentsPage.js` with UploadDialog, PreviewDialog, EditDialog, QRUploadDialog, MonthlyGrid
+
 - Added `MIN_H_MAP` / `MIN_W_MAP` constants; all layout items now carry `minH`/`minW` guards
 - `validateLayouts()` sanitizes stale/corrupted `localStorage` layouts on load
 - Enabled `isResizable={true}` with `se` resize handles on both Owner & Branch grids

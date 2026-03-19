@@ -220,6 +220,7 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **Frontend:** `pages/DocumentsPage.js` with UploadDialog, PreviewDialog, EditDialog, QRUploadDialog, MonthlyGrid
 - **Phase 2 — QR Phone Upload Page:** `pages/DocUploadPage.js` at public route `/doc-upload/:token` — mobile-friendly upload (Take Photo / Browse Files), shows category/type/months context, single-use 15-min tokens, success/error states
 - **Context-aware dialogs:** Upload Dialog and QR Upload Dialog auto-pre-fill category/sub-category from current folder navigation. Upload Dialog includes inline "Upload via Phone Instead" QR code generator.
+- **Phase 3 — Compliance Dashboard:** Shows on root documents view with: expired document alerts (red banner), expiring soon alerts (amber, within 60 days), Monthly Filing Tracker for 6 key filings (SSS, PhilHealth, Pag-IBIG, BIR 1601-C, 0619-E, 2550M) with dot indicators (green=filed, red=missing, gray=upcoming) and X/Y progress counts. Year filter 2022-2027. Fixed branch_id='all' filter bug.
 
 - Added `MIN_H_MAP` / `MIN_W_MAP` constants; all layout items now carry `minH`/`minW` guards
 - `validateLayouts()` sanitizes stale/corrupted `localStorage` layouts on load

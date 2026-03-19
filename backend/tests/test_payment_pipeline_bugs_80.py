@@ -26,7 +26,7 @@ if not BASE_URL:
                 if line.startswith("REACT_APP_BACKEND_URL="):
                     BASE_URL = line.strip().split("=", 1)[1].rstrip("/")
     except:
-        BASE_URL = "https://adaptive-ticket-flow.preview.emergentagent.com"
+        BASE_URL = "https://ph-business-docs.preview.emergentagent.com"
 
 # Test credentials - using superadmin from iteration_79
 TEST_EMAIL = "janmarkeahig@gmail.com"

@@ -165,9 +165,18 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - **Timezone Fix:** Default date uses browser's local time (PHT), not UTC
 - **Synchronized Date UI:** Sale Date field and Unclosed Days banner are perfectly synced
 - **Closed-Day Guard:** Frontend + backend block sales on formally closed days (Z-report finalized)
-- **Floor-Date Guard (System Start):** Backend rejects dates before the branch's earliest operational date. Frontend `min` attribute on date input. Prevents encoding sales before the system existed.
-- **Collapsible Order Header:** Customer Details & Order Info section is collapsible (collapsed by default), giving more vertical space to the product entry table
-- **Editable Customer Info:** Contact/Phone and Billing Address fields are editable when a customer is selected. Pre-checkout dialog asks "Save to customer record?" or "Use for this order only?" before proceeding to payment.
+- **Floor-Date Guard (System Start):** Backend rejects dates before the branch's earliest operational date. Frontend `min` attribute on date input.
+- **Collapsible Order Header:** Customer Details & Order Info section is collapsible (collapsed by default)
+- **Sale Date moved to top bar:** Always visible next to Customer PO, not buried in collapsible section
+- **Editable Customer Info:** Contact/Phone and Billing Address editable when customer selected. Pre-checkout save dialog.
+- **Quick↔Order Mode Transfer:** Cart items seamlessly transfer between modes. Order→Quick blocked if per-line discounts exist.
+
+### Discount & Price Override Audit System — Phase 1 (Complete — Mar 2026)
+- **Permission enforcement: `sales.give_discount`** — Backend rejects discounts from users without permission. Frontend disables discount fields + price editing.
+- **Permission enforcement: `sales.sell_below_cost`** — Capital guard now permission-gated. Users WITH permission can override; users WITHOUT are blocked.
+- **Discount-below-capital guard** — Frontend + backend block discounts that push net price per unit below capital.
+- **Audit trail: `discount_audit_log` collection** — Every sale with discounts or price overrides is logged with full detail (who, what, how much, which items).
+- **Reports: Discounts tab** — New tab in /reports with date/branch/group-by filters. Shows total discounts, price overrides, by customer or employee, with drill-down detail.
 
 See `/app/memory/ROADMAP.md` for full implementation spec.
 

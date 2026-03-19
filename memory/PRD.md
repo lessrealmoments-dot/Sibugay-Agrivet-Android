@@ -225,6 +225,20 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ## Prioritized Backlog
 
+### P0 — Next: Permission Enforcement Phase 2
+Wire up all dead permission toggles (Team → Permissions) to actual system behavior:
+1. **`products.view_cost`** — Hide cost/capital references (Avg ₱, Last ₱, below-capital warnings) in Sales screen + Products page when OFF
+2. **`customers.view_balance`** — Hide AR balance and credit limit info in Sales screen, customer dropdown, customer list when OFF
+3. **`customers.manage_credit`** — Disable credit limit + interest rate fields in customer form when OFF (separate from `customers.edit`)
+4. **`reports.export`** — Hide Print/Export buttons on all report tabs when OFF
+5. **`reports.view_profit`** — Build a Profit Report (revenue minus capital per item, margin %) and gate it behind this permission
+6. **`accounting.generate_interest` / `generate_penalty`** — Remap to their proper permission keys instead of sharing `create_expense`
+
+**Files to change:**
+- Frontend: `UnifiedSalesPage.js`, `ProductsPage.js`, `CustomersPage.js`, `ReportsPage.js` — add `hasPerm()` checks to conditionally hide/disable UI elements
+- Backend: `accounting.py` — remap interest/penalty endpoints
+- Backend: `reports.py` — new profit report endpoint
+
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 

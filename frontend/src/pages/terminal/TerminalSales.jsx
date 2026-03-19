@@ -266,8 +266,18 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
         setShowPrintPrompt(true);
         clearCart(); setCheckoutOpen(false); resetCheckout();
       } catch (e) {
-        const detail = e.response?.data?.detail || 'Sale failed';
-        toast.error(detail);
+        const detail = e.response?.data?.detail;
+        if (detail && typeof detail === 'object') {
+          // Structured error (e.g. insufficient_stock)
+          if (detail.type === 'insufficient_stock') {
+            const names = (detail.items || []).map(i => i.product_name).join(', ');
+            toast.error(`Insufficient stock: ${names}. Use manager override on POS.`);
+          } else {
+            toast.error(detail.message || 'Sale failed');
+          }
+        } else {
+          toast.error(typeof detail === 'string' ? detail : 'Sale failed');
+        }
         setSaving(false);
         return;
       }

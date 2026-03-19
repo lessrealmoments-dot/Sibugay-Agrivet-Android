@@ -270,6 +270,18 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 
+### Branch Transfer Invoice Number Display (Complete — Mar 2026)
+- Transfer cards in list view now show `invoice_number` badge (e.g., INV-B1-001001) next to BTO number
+- Transfer detail dialog title also shows invoice number
+- No backend changes needed — data was already persisted
+
+### Movement History Pagination (Complete — Mar 2026)
+- Backend `GET /products/{id}/movements` now returns `total` count
+- Frontend shows "Showing X of Y movements" counter
+- "Load More" button appears when movements exceed initial limit of 50
+- Each "Load More" fetches 100 additional entries
+- Fixes issue where live sites with 50+ movements were silently losing older entries (including transfers)
+
 ### P1
 - Cross-branch payment wallet routing (cash at receiving branch's wallet)
 - Admin tool for corrupted POs in production DB

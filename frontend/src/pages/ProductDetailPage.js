@@ -86,14 +86,21 @@ export default function ProductDetailPage() {
     } catch { /* silent */ }
   }, [id, isAdmin]);
 
-  const fetchMovements = useCallback(async () => {
+  const [movementLimit, setMovementLimit] = useState(50);
+  const [hasMoreMovements, setHasMoreMovements] = useState(false);
+  const [totalMovements, setTotalMovements] = useState(0);
+
+  const fetchMovements = useCallback(async (lim) => {
     try {
-      const params = { limit: 50 };
+      const useLimit = lim || movementLimit;
+      const params = { limit: useLimit };
       if (currentBranch) params.branch_id = currentBranch.id;
       const res = await api.get(`/products/${id}/movements`, { params });
       setMovements(res.data.movements);
+      setTotalMovements(res.data.total || res.data.movements.length);
+      setHasMoreMovements((res.data.total || 0) > useLimit);
     } catch { }
-  }, [id, currentBranch]);
+  }, [id, currentBranch, movementLimit]);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -1060,7 +1067,11 @@ export default function ProductDetailPage() {
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">
             {movements.length > 0 ? (
-              <Table>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-slate-500">Showing {movements.length} of {totalMovements} movements</span>
+                </div>
+                <Table>
                 <TableHeader><TableRow className="bg-slate-50">
                   <TableHead className="text-xs uppercase text-slate-500">Date</TableHead>
                   <TableHead className="text-xs uppercase text-slate-500">Type</TableHead>
@@ -1084,6 +1095,20 @@ export default function ProductDetailPage() {
                   ))}
                 </TableBody>
               </Table>
+              {hasMoreMovements && (
+                <div className="flex justify-center mt-3">
+                  <Button variant="outline" size="sm" className="text-xs"
+                    data-testid="load-more-movements"
+                    onClick={() => {
+                      const newLimit = movementLimit + 100;
+                      setMovementLimit(newLimit);
+                      fetchMovements(newLimit);
+                    }}>
+                    Load more ({totalMovements - movements.length} remaining)
+                  </Button>
+                </div>
+              )}
+              </div>
             ) : <p className="text-sm text-slate-400">No movement history. Click to load.</p>}
           </AccordionContent>
         </AccordionItem>

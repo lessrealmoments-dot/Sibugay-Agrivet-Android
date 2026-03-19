@@ -1744,6 +1744,11 @@ export default function BranchTransferPage() {
                           <div className="flex items-center gap-2.5 flex-wrap">
                             <span className="font-mono text-base font-bold text-slate-800 cursor-pointer hover:text-blue-700"
                               onClick={() => { setViewOrder(o); setReceiveDialog(false); }}>{o.order_number}</span>
+                            {o.invoice_number && (
+                              <span className="font-mono text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5" data-testid={`invoice-ref-${o.id}`}>
+                                {o.invoice_number}
+                              </span>
+                            )}
                             <Badge className={`text-xs px-2.5 py-0.5 ${STATUS_COLORS[o.status]}`}>
                               {statusLabel[o.status] || o.status}
                             </Badge>
@@ -1896,7 +1901,12 @@ export default function BranchTransferPage() {
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle style={{ fontFamily: 'Manrope' }}>
-              {viewOrder?.order_number} — {branches.find(b => b.id === viewOrder?.from_branch_id)?.name || '?'}
+              {viewOrder?.order_number}
+              {viewOrder?.invoice_number && (
+                <span className="font-mono text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 ml-2">{viewOrder.invoice_number}</span>
+              )}
+              <span className="text-slate-400 mx-1">—</span>
+              {branches.find(b => b.id === viewOrder?.from_branch_id)?.name || '?'}
               <span className="text-slate-400 mx-1">→</span>
               {branches.find(b => b.id === viewOrder?.to_branch_id)?.name || '?'}
               <Badge className={`ml-2 text-[10px] ${STATUS_COLORS[viewOrder?.status]}`}>{viewOrder?.status}</Badge>

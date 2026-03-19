@@ -882,11 +882,12 @@ async def get_product_movements(product_id: str, branch_id: Optional[str] = None
     query = {"product_id": product_id}
     if branch_id:
         query["branch_id"] = branch_id
+    total = await db.movements.count_documents(query)
     movements = await db.movements.find(
         query, 
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
-    return {"movements": movements}
+    return {"movements": movements, "total": total}
 
 
 @router.get("/{product_id}/orders")

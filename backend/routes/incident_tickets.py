@@ -301,9 +301,13 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
 
     accountable_party = data.get("accountable_party", "").strip()
     recovery_amount = float(data.get("recovery_amount", 0))
+    linked_po_id = data.get("linked_po_id", "").strip()
+    linked_po_number = data.get("linked_po_number", "").strip()
 
     type_label = RESOLUTION_TYPES.get(resolution_type, resolution_type)
     detail_parts = [f"Resolved as: {type_label}"]
+    if linked_po_number:
+        detail_parts.append(f"Linked PO: {linked_po_number}")
     if accountable_party:
         detail_parts.append(f"Charged to: {accountable_party}")
     if recovery_amount > 0:
@@ -319,28 +323,35 @@ async def resolve_ticket(ticket_id: str, data: dict, user=Depends(get_current_us
         "resolution_type": resolution_type,
         "accountable_party": accountable_party,
         "recovery_amount": recovery_amount,
+        "linked_po_id": linked_po_id,
+        "linked_po_number": linked_po_number,
         "approved_by_id": verifier["verifier_id"],
         "approved_by_name": verifier["verifier_name"],
         "approval_method": verifier["method"],
         "at": now_iso(),
     }
 
+    update_fields = {
+        "status": "resolved",
+        "resolution_type": resolution_type,
+        "resolution_note": resolution_note,
+        "accountable_party": accountable_party,
+        "recovery_amount": recovery_amount,
+        "resolved_by_id": user["id"],
+        "resolved_by_name": user.get("full_name", user["username"]),
+        "approved_by_id": verifier["verifier_id"],
+        "approved_by_name": verifier["verifier_name"],
+        "approval_method": verifier["method"],
+        "resolved_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+    if linked_po_id:
+        update_fields["linked_po_id"] = linked_po_id
+        update_fields["linked_po_number"] = linked_po_number
+
     await db.incident_tickets.update_one(
         {"id": ticket_id},
-        {"$set": {
-            "status": "resolved",
-            "resolution_type": resolution_type,
-            "resolution_note": resolution_note,
-            "accountable_party": accountable_party,
-            "recovery_amount": recovery_amount,
-            "resolved_by_id": user["id"],
-            "resolved_by_name": user.get("full_name", user["username"]),
-            "approved_by_id": verifier["verifier_id"],
-            "approved_by_name": verifier["verifier_name"],
-            "approval_method": verifier["method"],
-            "resolved_at": now_iso(),
-            "updated_at": now_iso(),
-        }, "$push": {"timeline": event}}
+        {"$set": update_fields, "$push": {"timeline": event}}
     )
 
     # Create audit log

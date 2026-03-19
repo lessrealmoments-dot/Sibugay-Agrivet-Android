@@ -69,6 +69,11 @@ export default function IncidentTicketsPage() {
   const [resolutionType, setResolutionType] = useState('');
   const [accountableParty, setAccountableParty] = useState('');
   const [resolvePin, setResolvePin] = useState('');
+  // Link PO state (for unencoded_po resolution)
+  const [poSearch, setPoSearch] = useState('');
+  const [poResults, setPoResults] = useState([]);
+  const [poSearching, setPoSearching] = useState(false);
+  const [linkedPo, setLinkedPo] = useState(null); // { id, po_number }
 
   // Assign dialog state
   const [assignDialog, setAssignDialog] = useState(null);
@@ -188,6 +193,8 @@ export default function IncidentTicketsPage() {
         resolution_note: resolveNote,
         accountable_party: accountableParty,
         recovery_amount: recoveryAmount,
+        linked_po_id: linkedPo?.id || '',
+        linked_po_number: linkedPo?.po_number || '',
         pin: resolvePin,
       });
       toast.success('Ticket resolved');
@@ -240,6 +247,21 @@ export default function IncidentTicketsPage() {
     setResolutionType('');
     setAccountableParty('');
     setResolvePin('');
+    setPoSearch('');
+    setPoResults([]);
+    setLinkedPo(null);
+  };
+
+  // PO search for "Link PO" feature
+  const searchPOs = async (query) => {
+    setPoSearch(query);
+    if (!query || query.length < 2) { setPoResults([]); return; }
+    setPoSearching(true);
+    try {
+      const res = await api.get('/purchase-orders', { params: { search: query, limit: 8 } });
+      setPoResults(res.data.purchase_orders || []);
+    } catch { setPoResults([]); }
+    setPoSearching(false);
   };
 
   const openSenderConfirm = (ticket) => {
@@ -552,6 +574,10 @@ export default function IncidentTicketsPage() {
                         <span className="text-slate-500">Journal Entry:</span>{' '}
                         <span className="font-mono font-bold text-blue-600">{selectedTicket.journal_entry_number}</span>
                       </div>}
+                      {selectedTicket.linked_po_number && <div>
+                        <span className="text-slate-500">Linked PO:</span>{' '}
+                        <span className="font-mono font-bold text-blue-600">{selectedTicket.linked_po_number}</span>
+                      </div>}
                     </div>
 
                     {/* Root cause guidance */}
@@ -812,6 +838,47 @@ export default function IncidentTicketsPage() {
                 <p className="text-[10px] text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
                   The supplier delivered goods but the PO was never entered. Encode the PO and stock will self-correct.
                 </p>
+              )}
+              {/* Link PO search — shown for unencoded_po */}
+              {resolutionType === 'unencoded_po' && (
+                <div className="mt-2 border border-blue-200 rounded-lg p-3 bg-blue-50/30 space-y-2">
+                  <label className="text-xs text-blue-700 font-semibold flex items-center gap-1.5">
+                    <ClipboardCheck size={12} /> Link Purchase Order (optional)
+                  </label>
+                  {linkedPo ? (
+                    <div className="flex items-center justify-between bg-white rounded-lg border border-blue-200 px-3 py-2">
+                      <div>
+                        <span className="font-mono font-bold text-blue-700 text-sm">{linkedPo.po_number}</span>
+                        <span className="text-xs text-slate-500 ml-2">{linkedPo.vendor || ''}</span>
+                      </div>
+                      <button onClick={() => { setLinkedPo(null); setPoSearch(''); }} className="text-slate-400 hover:text-red-500">
+                        <XCircle size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <Input value={poSearch} onChange={e => searchPOs(e.target.value)}
+                        placeholder="Search PO number or supplier..."
+                        className="pl-8 h-8 text-sm" data-testid="link-po-search" />
+                      {poResults.length > 0 && (
+                        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-36 overflow-y-auto">
+                          {poResults.map(po => (
+                            <button key={po.id} className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-slate-50 last:border-0"
+                              onClick={() => { setLinkedPo({ id: po.id, po_number: po.po_number, vendor: po.vendor }); setPoResults([]); setPoSearch(''); }}
+                              data-testid={`link-po-${po.id}`}>
+                              <span className="font-mono font-bold text-blue-600">{po.po_number}</span>
+                              <span className="text-slate-500 ml-2">{po.vendor}</span>
+                              <span className="text-slate-400 ml-2">{po.purchase_date}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {poSearching && <p className="text-[10px] text-slate-400 mt-1">Searching...</p>}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-blue-600">Attach the PO that should have been encoded to create an audit trail.</p>
+                </div>
               )}
               {resolutionType === 'count_error' && (
                 <p className="text-[10px] text-amber-600 mt-1 bg-amber-50 px-2 py-1 rounded">

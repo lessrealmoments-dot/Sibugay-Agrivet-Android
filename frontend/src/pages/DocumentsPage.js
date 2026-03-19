@@ -199,7 +199,7 @@ export default function DocumentsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {[2024, 2025, 2026, 2027].map(y => (
+            {[2022, 2023, 2024, 2025, 2026, 2027].map(y => (
               <SelectItem key={y} value={String(y)}>{y}</SelectItem>
             ))}
           </SelectContent>
@@ -661,75 +661,133 @@ function UploadDialog({ open, onClose, categories, token, branchId, year, presel
             </div>
           )}
 
-          {/* Period-specific fields */}
+          {/* Period-specific fields — Year + Period grouped together */}
           {subCategory && periodType === 'monthly' && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                Coverage Month(s) — select all that apply
-              </label>
-              <div className="grid grid-cols-4 gap-1.5" data-testid="month-selector">
-                {MONTH_NAMES.map((name, i) => {
-                  const m = i + 1;
-                  const selected = coverageMonths.includes(m);
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => toggleMonth(m)}
-                      className={`rounded-md px-2 py-1.5 text-xs font-medium border transition-colors ${
-                        selected
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
-                      }`}
-                      data-testid={`month-btn-${m}`}
-                    >
-                      {name.slice(0, 3)}
-                    </button>
-                  );
-                })}
+            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Filing Year</label>
+                <Select value={String(docYear)} onValueChange={v => setDocYear(Number(v))}>
+                  <SelectTrigger data-testid="upload-year-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2022, 2023, 2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Coverage Month(s) — select all that apply
+                </label>
+                <div className="grid grid-cols-4 gap-1.5" data-testid="month-selector">
+                  {MONTH_NAMES.map((name, i) => {
+                    const m = i + 1;
+                    const selected = coverageMonths.includes(m);
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => toggleMonth(m)}
+                        className={`rounded-md px-2 py-1.5 text-xs font-medium border transition-colors ${
+                          selected
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                        }`}
+                        data-testid={`month-btn-${m}`}
+                      >
+                        {name.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
 
           {subCategory && periodType === 'quarterly' && (
+            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Filing Year</label>
+                  <Select value={String(docYear)} onValueChange={v => setDocYear(Number(v))}>
+                    <SelectTrigger data-testid="upload-year-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2022, 2023, 2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Quarter</label>
+                  <Select value={coverageQuarter} onValueChange={setCoverageQuarter}>
+                    <SelectTrigger data-testid="quarter-select">
+                      <SelectValue placeholder="Select quarter..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QUARTER_OPTIONS.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {subCategory && periodType === 'annual' && (
+            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Filing Year</label>
+                <Select value={String(docYear)} onValueChange={v => setDocYear(Number(v))}>
+                  <SelectTrigger data-testid="upload-year-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[2022, 2023, 2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Valid From</label>
+                  <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} data-testid="valid-from" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Valid Until</label>
+                  <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} data-testid="valid-until" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {subCategory && periodType === 'validity' && (
+            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Valid From</label>
+                  <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} data-testid="valid-from" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Valid Until</label>
+                  <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} data-testid="valid-until" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Year for one_time types only (no period grouping needed) */}
+          {subCategory && periodType === 'one_time' && (
             <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1 block">Quarter</label>
-              <Select value={coverageQuarter} onValueChange={setCoverageQuarter}>
-                <SelectTrigger data-testid="quarter-select">
-                  <SelectValue placeholder="Select quarter..." />
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Year</label>
+              <Select value={String(docYear)} onValueChange={v => setDocYear(Number(v))}>
+                <SelectTrigger data-testid="upload-year-select">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {QUARTER_OPTIONS.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}
+                  {[2022, 2023, 2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           )}
-
-          {subCategory && (periodType === 'validity' || periodType === 'annual') && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Valid From</label>
-                <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} data-testid="valid-from" />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Valid Until</label>
-                <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} data-testid="valid-until" />
-              </div>
-            </div>
-          )}
-
-          {/* Year */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Year</label>
-            <Select value={String(docYear)} onValueChange={v => setDocYear(Number(v))}>
-              <SelectTrigger data-testid="upload-year-select">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Name & Description */}
           <div>
@@ -1045,7 +1103,7 @@ function EditDialog({ doc, token, categories, onClose, onSuccess }) {
             <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                {[2022, 2023, 2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -1122,6 +1180,7 @@ function QRUploadDialog({ open, onClose, categories, token, branchId, year, pres
   const [category, setCategory] = useState(preselectedCategory || '');
   const [subCategory, setSubCategory] = useState(preselectedSubCategory || '');
   const [coverageMonths, setCoverageMonths] = useState([]);
+  const [qrYear, setQrYear] = useState(year || new Date().getFullYear());
   const [qrData, setQrData] = useState(null);
   const [generating, setGenerating] = useState(false);
 
@@ -1143,7 +1202,7 @@ function QRUploadDialog({ open, onClose, categories, token, branchId, year, pres
           category,
           sub_category: subCategory,
           branch_id: branchId || '',
-          year: year || new Date().getFullYear(),
+          year: qrYear,
           coverage_months: coverageMonths,
         }),
       });
@@ -1202,6 +1261,23 @@ function QRUploadDialog({ open, onClose, categories, token, branchId, year, pres
                     ))}
                   </SelectContent>
                 </Select>
+              )}
+
+              {/* Year selector for periodic types */}
+              {subCategory && (periodType === 'monthly' || periodType === 'quarterly' || periodType === 'annual') && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Filing Year</label>
+                  <Select value={String(qrYear)} onValueChange={v => setQrYear(Number(v))}>
+                    <SelectTrigger data-testid="qr-year-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2022, 2023, 2024, 2025, 2026, 2027].map(y => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
 
               {periodType === 'monthly' && (

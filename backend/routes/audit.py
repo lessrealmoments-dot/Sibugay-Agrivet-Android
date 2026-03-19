@@ -1000,7 +1000,7 @@ async def _compute_digital(branch_id: str, date_from: str, date_to: str) -> dict
 
 
 async def _compute_activity(branch_id: str, date_from: str, date_to: str) -> dict:
-    """User activity audit: transactions by user, corrections, overrides."""
+    """User activity audit: transactions by user, corrections, overrides, discounts."""
     # Sales by cashier in period
     sales_by_user = await db.invoices.aggregate([
         {"$match": {"branch_id": branch_id, "order_date": {"$gte": date_from, "$lte": date_to},
@@ -1031,7 +1031,41 @@ async def _compute_activity(branch_id: str, date_from: str, date_to: str) -> dic
         {"_id": 0, "invoice_number": 1, "cashier_name": 1, "grand_total": 1, "created_at": 1}
     ).to_list(50)
 
-    flags = len(corrections) + len(edits) + len(off_hours)
+    # ── Discount & Price Override activity ────────────────────────────────────
+    discount_query = {"date": {"$gte": date_from, "$lte": date_to}}
+    if branch_id:
+        discount_query["branch_id"] = branch_id
+    discount_logs = await db.discount_audit_log.find(discount_query, {"_id": 0}).to_list(500)
+
+    total_discount_amount = round(sum(d.get("total_discount", 0) for d in discount_logs), 2)
+    total_price_override = round(sum(d.get("total_price_override_diff", 0) for d in discount_logs), 2)
+    discount_count = len(discount_logs)
+
+    # Top discounters by cashier
+    cashier_discounts = {}
+    for d in discount_logs:
+        cn = d.get("cashier_name", "Unknown")
+        if cn not in cashier_discounts:
+            cashier_discounts[cn] = {"name": cn, "total": 0, "count": 0}
+        cashier_discounts[cn]["total"] += d.get("total_discount", 0)
+        cashier_discounts[cn]["count"] += 1
+    top_discounters = sorted(cashier_discounts.values(), key=lambda x: x["total"], reverse=True)[:5]
+    for td in top_discounters:
+        td["total"] = round(td["total"], 2)
+
+    # Top discount-receiving customers
+    customer_discounts = {}
+    for d in discount_logs:
+        cn = d.get("customer_name", "Walk-in")
+        if cn not in customer_discounts:
+            customer_discounts[cn] = {"name": cn, "total": 0, "count": 0}
+        customer_discounts[cn]["total"] += d.get("total_discount", 0)
+        customer_discounts[cn]["count"] += 1
+    top_customers = sorted(customer_discounts.values(), key=lambda x: x["total"], reverse=True)[:5]
+    for tc in top_customers:
+        tc["total"] = round(tc["total"], 2)
+
+    flags = len(corrections) + len(edits) + len(off_hours) + discount_count
     sev = "critical" if flags > 10 else ("warning" if flags > 0 else "ok")
 
     return {
@@ -1042,6 +1076,11 @@ async def _compute_activity(branch_id: str, date_from: str, date_to: str) -> dic
         "invoice_edits": edits[:20],
         "off_hours_transactions": off_hours[:20],
         "off_hours_count": len(off_hours),
+        "discount_count": discount_count,
+        "total_discount_amount": total_discount_amount,
+        "total_price_override": total_price_override,
+        "top_discounters": top_discounters,
+        "top_discount_customers": top_customers,
         "severity": sev,
     }
 

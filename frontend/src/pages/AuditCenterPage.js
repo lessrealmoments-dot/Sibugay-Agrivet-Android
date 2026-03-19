@@ -292,19 +292,23 @@ function getInsight(key, data) {
       const corrections = data.inventory_corrections_count || 0;
       const edits = data.invoice_edits_count || 0;
       const offhours = data.off_hours_count || 0;
+      const discounts = data.discount_count || 0;
+      const discountAmt = data.total_discount_amount || 0;
+      const priceOverride = data.total_price_override || 0;
       const users = data.sales_by_user || [];
       const topUser = users[0];
       const bottomUser = users.length > 1 ? users[users.length - 1] : null;
 
       if (data.severity === 'ok') return {
         type: 'ok',
-        text: `No unusual activity detected. ${corrections === 0 ? 'No inventory corrections' : ''}, no invoice edits, no off-hours transactions. User activity appears normal.`,
+        text: `No unusual activity detected. No inventory corrections, no invoice edits, no off-hours transactions, no discounts given. User activity appears normal.`,
       };
 
       const flags = [];
       if (corrections > 0) flags.push(`${corrections} inventory correction${corrections > 1 ? 's' : ''}`);
       if (edits > 0) flags.push(`${edits} invoice edit${edits > 1 ? 's' : ''}`);
       if (offhours > 0) flags.push(`${offhours} off-hours transaction${offhours > 1 ? 's' : ''}`);
+      if (discounts > 0) flags.push(`${discounts} discounted sale${discounts > 1 ? 's' : ''} (${php(discountAmt)} total)`);
 
       return {
         type: data.severity,
@@ -316,9 +320,12 @@ function getInsight(key, data) {
           edits > 0 && 'Check if edits always happen for the same customer (suki favoritism) or same cashier (unauthorized discounting)',
           offhours > 0 && `OFF-HOURS TRANSACTIONS (${offhours} before 7am or after 10pm): Could be legitimate — manager processing a late delivery, pre-opening price updates, or previous day\'s catch-up entries. Red flag: cash sales processed after hours when no customer would be present`,
           offhours > 0 && 'Check if the off-hours cashier name matches someone who was supposed to be on duty at that time. If credentials are shared, you may not be able to trace it to one person',
+          discounts > 0 && `DISCOUNTS & PRICE OVERRIDES (${discounts} transactions, ${php(discountAmt)} total discount${priceOverride > 0 ? `, ${php(priceOverride)} in price overrides` : ''}): Legitimate: volume discount, loyal customer, damaged packaging. Red flag: frequent discounts to the same customer by the same cashier (suki scheme), discounts close to shift end (rushing to meet targets), or discounts given without manager approval`,
+          discounts > 0 && data.top_discounters?.length > 0 && `Top discounter: ${data.top_discounters[0].name} gave ${php(data.top_discounters[0].total)} in discounts across ${data.top_discounters[0].count} transactions. Compare this against their total sales volume to check if it is proportional.`,
+          discounts > 0 && data.top_discount_customers?.length > 0 && `Top discount recipient: ${data.top_discount_customers[0].name} received ${php(data.top_discount_customers[0].total)} in discounts across ${data.top_discount_customers[0].count} transactions. Check if this customer consistently gets special pricing.`,
           topUser && bottomUser && `Sales distribution: ${topUser.user} processed ${topUser.count} transactions (${php(topUser.total)}), while ${bottomUser.user} processed only ${bottomUser.count} (${php(bottomUser.total)}). Large differences may be normal (different shifts) or worth investigating`,
         ].filter(Boolean),
-        action: `Start with the off-hours transactions — these are the highest risk. Review each one: Was this entered by someone who should have been working? For inventory corrections, ask the person who made them to show documentation (damaged goods photo, expiry date photo). For invoice edits, compare the before/after amounts using the edit history below.`,
+        action: `Start with the off-hours transactions — these are the highest risk. Review each one: Was this entered by someone who should have been working? For inventory corrections, ask the person who made them to show documentation (damaged goods photo, expiry date photo). For invoice edits, compare the before/after amounts using the edit history below.${discounts > 0 ? ' For discounts — cross-reference the Discounts report (Reports > Discounts tab) to see per-customer and per-employee breakdowns.' : ''}`,
       };
     }
 
@@ -785,7 +792,7 @@ export default function AuditCenterPage() {
         <tr><td>Returns & Losses</td><td class="${auditData.returns?.severity}">${sevLabel(auditData.returns?.severity)}</td>
             <td>Total refunded: ${php(auditData.returns?.total_refunded)} · Loss: ${php(auditData.returns?.total_loss_value)}</td></tr>
         <tr><td>User Activity</td><td class="${auditData.activity?.severity}">${sevLabel(auditData.activity?.severity)}</td>
-            <td>Corrections: ${auditData.activity?.inventory_corrections_count} · Edits: ${auditData.activity?.invoice_edits_count} · Off-hours: ${auditData.activity?.off_hours_count}</td></tr>
+            <td>Corrections: ${auditData.activity?.inventory_corrections_count} · Edits: ${auditData.activity?.invoice_edits_count} · Off-hours: ${auditData.activity?.off_hours_count} · Discounts: ${auditData.activity?.discount_count || 0} (${formatPHP(auditData.activity?.total_discount_amount || 0)})</td></tr>
         ${auditData.digital ? `<tr><td>Digital Payments</td><td class="${auditData.digital?.severity}">${sevLabel(auditData.digital?.severity)}</td>
             <td>Total: ${php(auditData.digital?.total_digital_collected)} · Missing ref#: ${auditData.digital?.missing_ref_count || 0} · Transactions: ${auditData.digital?.transaction_count || 0}</td></tr>` : ''}
         ${auditData.inventory?.available ? `<tr><td>Inventory (Physical)</td><td class="${auditData.inventory?.severity}">${sevLabel(auditData.inventory?.severity)}</td>
@@ -967,6 +974,8 @@ export default function AuditCenterPage() {
                   actions.push({ sev: 'warning', text: `${auditData.sales.voided_count} voided transaction(s) need review`, section: 'Sales' });
                 if (auditData.activity?.off_hours_count > 0)
                   actions.push({ sev: 'warning', text: `${auditData.activity.off_hours_count} off-hours transaction(s)`, section: 'Activity' });
+                if (auditData.activity?.discount_count > 0)
+                  actions.push({ sev: 'warning', text: `${auditData.activity.discount_count} discounted sale(s) totaling ${formatPHP(auditData.activity.total_discount_amount)}`, section: 'Activity' });
                 if (auditData.security?.high_severity > 0)
                   actions.push({ sev: 'critical', text: `${auditData.security.high_severity} high-severity security flag(s)`, section: 'Security' });
                 if (unv?.total_items > 0)
@@ -1392,6 +1401,48 @@ export default function AuditCenterPage() {
                         ))}
                       </div>
                     </details>
+                  )}
+
+                  {/* Discount & Price Override section */}
+                  {(auditData.activity.discount_count > 0) && (
+                    <>
+                      <Separator className="my-2" />
+                      <p className="text-xs text-slate-500 font-medium mb-1">Discounts & Price Overrides</p>
+                      <StatRow label="Discounted Transactions" value={auditData.activity.discount_count}
+                        highlight={auditData.activity.discount_count > 0 ? 'text-amber-600 font-bold' : ''} />
+                      <StatRow label="Total Discount Given" value={formatPHP(auditData.activity.total_discount_amount || 0)}
+                        highlight="text-red-600 font-bold" />
+                      {auditData.activity.total_price_override > 0 && (
+                        <StatRow label="Total Price Override Diff" value={formatPHP(auditData.activity.total_price_override)}
+                          highlight="text-amber-600 font-bold" />
+                      )}
+                      {auditData.activity.top_discounters?.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-amber-700 cursor-pointer font-medium">Top discounters (by employee)</summary>
+                          <div className="mt-1 space-y-1">
+                            {auditData.activity.top_discounters.map((d, i) => (
+                              <div key={i} className="text-xs p-1.5 bg-amber-50 rounded flex justify-between">
+                                <span className="font-medium">{d.name}</span>
+                                <span className="font-mono text-red-600">{formatPHP(d.total)} ({d.count} txn{d.count > 1 ? 's' : ''})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                      {auditData.activity.top_discount_customers?.length > 0 && (
+                        <details className="mt-2">
+                          <summary className="text-xs text-amber-700 cursor-pointer font-medium">Top discount recipients (by customer)</summary>
+                          <div className="mt-1 space-y-1">
+                            {auditData.activity.top_discount_customers.map((d, i) => (
+                              <div key={i} className="text-xs p-1.5 bg-amber-50 rounded flex justify-between">
+                                <span className="font-medium">{d.name}</span>
+                                <span className="font-mono text-red-600">{formatPHP(d.total)} ({d.count} txn{d.count > 1 ? 's' : ''})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </>
                   )}
                 </div>
               </SectionCard>

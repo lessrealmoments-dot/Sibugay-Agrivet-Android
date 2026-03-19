@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2, ScanLine } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
@@ -101,6 +101,11 @@ export default function TerminalShell({ session, onLogout }) {
   // Global hardware scanner buffer (for H10P Newland HID keyboard wedge)
   const globalScanBufferRef = useRef('');
   const globalScanTimerRef = useRef(null);
+  // QR Camera Scanner state
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const qrScannerRef = useRef(null);
+  const qrLastScanRef = useRef({ code: '', time: 0 });
+  const QR_SCAN_COOLDOWN = 3000;
 
   // Authenticated axios instance
   const [api] = useState(() => {
@@ -151,6 +156,12 @@ export default function TerminalShell({ session, onLogout }) {
   const handleSmartInput = useCallback(async (scanned) => {
     const docCode = extractDocCode(scanned);
     if (docCode) {
+      // Stop QR camera scanner if it's running
+      if (qrScannerRef.current) {
+        try { await qrScannerRef.current.stop(); } catch {}
+        qrScannerRef.current = null;
+        setQrScannerOpen(false);
+      }
       // Show QuickScan sheet — fetch basic doc info and offer Reprint or View options
       setQuickScanDoc({ code: docCode, basic: null, loading: true });
       try {
@@ -172,6 +183,52 @@ export default function TerminalShell({ session, onLogout }) {
     }
     // Falls through — product barcode handled by TerminalSales keyboard listener
   }, [navigate, session.branchId, session.token, performDocSearch]); // eslint-disable-line
+
+  // ── QR Camera Scanner (for scanning document QR codes) ──────────────────
+  const startQrScanner = useCallback(async () => {
+    setQrScannerOpen(true);
+    setModeMenuOpen(false);
+    await new Promise(r => setTimeout(r, 350));
+    try {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      const scanner = new Html5Qrcode('terminal-qr-scanner-view');
+      qrScannerRef.current = scanner;
+      await scanner.start(
+        { facingMode: 'environment' },
+        { fps: 8, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
+        (decodedText) => {
+          const now = Date.now();
+          if (decodedText === qrLastScanRef.current.code && now - qrLastScanRef.current.time < QR_SCAN_COOLDOWN) return;
+          qrLastScanRef.current = { code: decodedText, time: now };
+          if (navigator.vibrate) navigator.vibrate(150);
+          handleSmartInput(decodedText);
+        },
+        () => {}
+      );
+    } catch (e) {
+      console.error('QR Scanner error:', e);
+      toast.error('Camera access denied or unavailable');
+      setQrScannerOpen(false);
+    }
+  }, [handleSmartInput, QR_SCAN_COOLDOWN]);
+
+  const stopQrScanner = useCallback(async () => {
+    if (qrScannerRef.current) {
+      try { await qrScannerRef.current.stop(); } catch {}
+      qrScannerRef.current = null;
+    }
+    setQrScannerOpen(false);
+  }, []);
+
+  // Cleanup QR scanner on unmount
+  useEffect(() => {
+    return () => {
+      if (qrScannerRef.current) {
+        try { qrScannerRef.current.stop(); } catch {}
+        qrScannerRef.current = null;
+      }
+    };
+  }, []);
 
   // Global keyboard scanner — intercepts H10P HID hardware scanner output in any tab
   useEffect(() => {
@@ -478,6 +535,16 @@ export default function TerminalShell({ session, onLogout }) {
               );
             })}
             <div className="border-t border-slate-100">
+              <button onClick={startQrScanner}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 text-slate-700"
+                data-testid="mode-scan-qr">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600">
+                  <ScanLine size={16} />
+                </div>
+                <span className="text-sm font-medium">Scan QR</span>
+              </button>
+            </div>
+            <div className="border-t border-slate-100">
               <button onClick={() => { setModeMenuOpen(false); setSettingsOpen(true); }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 text-slate-500"
                 data-testid="terminal-settings-btn">
@@ -560,6 +627,39 @@ export default function TerminalShell({ session, onLogout }) {
                 className="w-full py-2.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── QR Camera Scanner Overlay ── */}
+      {qrScannerOpen && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-black" data-testid="qr-scanner-overlay">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-black/80">
+            <div className="flex items-center gap-2.5">
+              <ScanLine size={18} className="text-purple-400" />
+              <div>
+                <p className="text-sm font-semibold text-white">Scan Document QR</p>
+                <p className="text-[10px] text-slate-400">Point camera at receipt or document QR code</p>
+              </div>
+            </div>
+            <button
+              onClick={stopQrScanner}
+              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+              data-testid="qr-scanner-close"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Scanner view */}
+          <div className="flex-1 flex items-center justify-center relative">
+            <div id="terminal-qr-scanner-view" className="w-full h-full" />
+            {/* Scanning indicator */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+              <span className="text-xs text-white/80">Scanning...</span>
             </div>
           </div>
         </div>

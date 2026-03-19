@@ -186,6 +186,10 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - **`reports.view_profit`** — NEW: Product Profitability Report tab in /reports. Shows revenue, cost, profit, margin per product. Sortable by profit/revenue/margin/qty. Gated behind this permission.
 - **`accounting.generate_interest` / `generate_penalty`** — Remapped from `create_expense` to their own dedicated permission keys.
 
+### Terminal QR Scanner + Camera Fix (Complete — Mar 2026)
+- **QR Scanner in mode selector:** New "Scan QR" option in the floating terminal mode selector (bottom-left nudge). Opens full-screen camera scanner for document QR codes. Uses `html5-qrcode`. When a doc QR is scanned, stops camera and shows the existing QuickScan bottom sheet (print thermal/full page, view/take action). Also handles doc number patterns and product barcodes.
+- **Camera scanner size fix:** Reduced the barcode camera scanner in TerminalSales from `minHeight: 200` to `maxHeight: 120` with a narrower `qrbox` (220×80, aspect 2.5), so it no longer consumes half the screen.
+
 See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ### Dashboard Widget Collapse Fix (Complete — Mar 2026)

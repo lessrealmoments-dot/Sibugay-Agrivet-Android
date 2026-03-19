@@ -112,7 +112,7 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
 
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 5, qrbox: { width: 250, height: 100 }, aspectRatio: 1.777 },
+        { fps: 5, qrbox: { width: 220, height: 80 }, aspectRatio: 2.5 },
         (decodedText) => {
           // Debounce: skip if same barcode within cooldown
           const now = Date.now();
@@ -316,7 +316,7 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
         {/* Camera scanner view */}
         {scannerActive && (
           <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 bg-black" ref={scannerContainerRef}>
-            <div id="terminal-scanner-view" className="w-full" style={{ minHeight: 200 }} />
+            <div id="terminal-scanner-view" className="w-full" style={{ maxHeight: 120 }} />
           </div>
         )}
 

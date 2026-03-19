@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Minus, Trash2, ShoppingCart, Camera, X, Check, CreditCard, Banknote, ChevronUp, ChevronDown, Wallet, Upload, Loader2, Clock, Printer } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, Camera, X, Check, CreditCard, Banknote, ChevronUp, ChevronDown, Wallet, Upload, Loader2, Clock, Printer, AlertTriangle, ShieldAlert, PackageX } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { toast } from 'sonner';
 import { formatPHP } from '../../lib/utils';
 import PrintEngine from '../../lib/PrintEngine';
@@ -37,6 +37,13 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
   const [lastSaleData, setLastSaleData] = useState(null); // for print prompt
   const [showPrintPrompt, setShowPrintPrompt] = useState(false);
   const [businessInfo, setBusinessInfo] = useState({});
+  // Insufficient stock override
+  const [stockModal, setStockModal] = useState(false);
+  const [insufficientItems, setInsufficientItems] = useState([]);
+  const [pendingSaleData, setPendingSaleData] = useState(null);
+  const [overridePin, setOverridePin] = useState('');
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+  const [overrideError, setOverrideError] = useState('');
 
   // Load cached data
   useEffect(() => {
@@ -267,14 +274,16 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
         clearCart(); setCheckoutOpen(false); resetCheckout();
       } catch (e) {
         const detail = e.response?.data?.detail;
+        if (e.response?.status === 422 && detail?.type === 'insufficient_stock') {
+          setInsufficientItems(detail.items || []);
+          setPendingSaleData(saleData);
+          setCheckoutOpen(false);
+          setStockModal(true);
+          setSaving(false);
+          return;
+        }
         if (detail && typeof detail === 'object') {
-          // Structured error (e.g. insufficient_stock)
-          if (detail.type === 'insufficient_stock') {
-            const names = (detail.items || []).map(i => i.product_name).join(', ');
-            toast.error(`Insufficient stock: ${names}. Use manager override on POS.`);
-          } else {
-            toast.error(detail.message || 'Sale failed');
-          }
+          toast.error(detail.message || 'Sale failed');
         } else {
           toast.error(typeof detail === 'string' ? detail : 'Sale failed');
         }
@@ -290,6 +299,35 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
     }
     setSaving(false);
   };
+
+  // Manager override for insufficient stock
+  const handleStockOverride = async () => {
+    if (!overridePin.trim() || !pendingSaleData) return;
+    setOverrideSubmitting(true);
+    setOverrideError('');
+    try {
+      const res = await api.post('/unified-sale', { ...pendingSaleData, manager_override_pin: overridePin.trim() });
+      const invoiceNum = res.data.invoice_number || res.data.sale_number;
+      toast.success(`Sale ${invoiceNum} completed (manager override). Ticket created.`, { duration: 4000 });
+      setLastSaleData({ ...pendingSaleData, invoice_number: invoiceNum, ...res.data });
+      setShowPrintPrompt(true);
+      setStockModal(false);
+      setPendingSaleData(null);
+      setInsufficientItems([]);
+      setOverridePin('');
+      clearCart(); resetCheckout();
+    } catch (e) {
+      const d = e?.response?.data?.detail;
+      setOverrideError(typeof d === 'string' ? d : d?.message || 'Invalid PIN — override denied');
+    }
+    setOverrideSubmitting(false);
+  };
+
+  // Helper: get stock for a product from the cached list
+  const getStock = useCallback((productId) => {
+    const p = products.find(pr => pr.id === productId);
+    return p?.available ?? null;
+  }, [products]);
 
   return (
     <div className="flex flex-col h-full" data-testid="terminal-sales">
@@ -335,11 +373,17 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
         {/* Search results */}
         {results.length > 0 && (
           <div className="mt-2 bg-white rounded-xl border border-slate-200 shadow-lg max-h-60 overflow-auto" data-testid="search-results">
-            {results.map(p => (
+            {results.map(p => {
+              const avail = p.available ?? 0;
+              const isOut = avail <= 0;
+              const isLow = avail > 0 && avail <= (p.reorder_point || 5);
+              return (
               <button
                 key={p.id}
                 onClick={() => addToCart(p)}
-                className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-emerald-50 border-b border-slate-100 last:border-0 text-left"
+                className={`w-full flex items-center justify-between px-3 py-2.5 border-b border-slate-100 last:border-0 text-left ${
+                  isOut ? 'bg-red-50/40' : 'hover:bg-emerald-50'
+                }`}
                 data-testid={`search-result-${p.id}`}
               >
                 <div className="min-w-0">
@@ -348,10 +392,17 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
                 </div>
                 <div className="text-right flex-shrink-0 ml-2">
                   <p className="text-sm font-bold text-[#1A4D2E]">{formatPHP(getPrice(p))}</p>
-                  <p className="text-[10px] text-slate-400">Stock: {p.available ?? '—'}</p>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                    isOut ? 'bg-red-100 text-red-600' :
+                    isLow ? 'bg-amber-100 text-amber-700' :
+                    'bg-emerald-50 text-emerald-700'
+                  }`}>
+                    {isOut ? 'Out' : `${avail} ${p.unit || ''}`}
+                  </span>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -365,11 +416,21 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
           </div>
         ) : (
           <div className="space-y-2" data-testid="cart-items">
-            {cart.map(item => (
-              <div key={item.product_id} className="bg-white rounded-xl border border-slate-200 p-3 flex items-center gap-3" data-testid={`cart-item-${item.product_id}`}>
+            {cart.map(item => {
+              const stock = getStock(item.product_id);
+              const isOverStock = stock !== null && item.quantity > stock;
+              return (
+              <div key={item.product_id} className={`bg-white rounded-xl border p-3 flex items-center gap-3 ${isOverStock ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'}`} data-testid={`cart-item-${item.product_id}`}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-800 truncate">{item.product_name}</p>
-                  <p className="text-xs text-slate-400">{formatPHP(item.price)} each</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-slate-400">{formatPHP(item.price)} each</p>
+                    {stock !== null && (
+                      <span className={`text-[10px] font-medium ${isOverStock ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {isOverStock ? `Only ${stock} avail` : `${stock} avail`}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -399,7 +460,8 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
                   <Trash2 size={14} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -646,6 +708,58 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
             {!isOnline && (
               <p className="text-[10px] text-amber-600 text-center">You are offline. Sale will be saved and synced when connected.</p>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Insufficient Stock Override Modal */}
+      <Dialog open={stockModal} onOpenChange={(o) => { if (!o) { setStockModal(false); setPendingSaleData(null); setInsufficientItems([]); setOverridePin(''); setOverrideError(''); } }}>
+        <DialogContent className="max-w-sm mx-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-700" style={{ fontFamily: 'Manrope' }}>
+              <PackageX size={18} className="text-amber-600" /> Insufficient Stock
+            </DialogTitle>
+            <DialogDescription>These items have less stock than needed.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 my-1">
+            {insufficientItems.map((item, i) => (
+              <div key={i} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-sm">
+                <span className="font-medium text-slate-800 truncate max-w-[55%]">{item.product_name}</span>
+                <span className="text-amber-700 font-mono text-xs">
+                  Have: {item.system_qty} · Need: {item.needed_qty}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/50 space-y-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert size={15} className="text-amber-600 shrink-0" />
+              <p className="text-sm font-semibold text-amber-800">Manager Override</p>
+            </div>
+            <p className="text-xs text-amber-700">Proceeds with sale. Inventory goes negative and a ticket is created.</p>
+            <Input
+              type="password"
+              placeholder="Enter manager PIN"
+              value={overridePin}
+              onChange={e => { setOverridePin(e.target.value); setOverrideError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleStockOverride()}
+              className="h-10"
+              data-testid="stock-override-pin"
+            />
+            {overrideError && <p className="text-xs text-red-600">{overrideError}</p>}
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => { setStockModal(false); setPendingSaleData(null); setOverridePin(''); setOverrideError(''); }}
+                data-testid="stock-override-cancel">
+                Cancel
+              </Button>
+              <Button className="flex-1 bg-amber-600 hover:bg-amber-700 text-white" onClick={handleStockOverride}
+                disabled={overrideSubmitting || !overridePin.trim()} data-testid="stock-override-confirm">
+                {overrideSubmitting ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <ShieldAlert size={14} className="mr-1.5" />}
+                Override
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

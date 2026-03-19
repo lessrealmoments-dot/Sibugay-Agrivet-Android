@@ -1,81 +1,77 @@
 <analysis>**original_problem_statement:**
-The user's objective for this session was to enhance the AgriSmart Terminal. This included implementing a Smart QR Scan feature that could differentiate between product barcodes and document QR codes, handle search by receipt/PO number, and enforce branch-specific permissions for viewing and acting on documents.
+The user initially reported three problems with the sales order page ():
+1.  **UI Obscurity:** The product search/entry area was not clearly visible due to other screen elements.
+2.  **Date Validation Loophole:** The system allowed encoding sales on dates before the company's existence or on days that were already financially closed. The user requested that the first-ever closed day be treated as the system's floor date.
+3.  **Static Customer Info:** Customer details (contact, address, etc.) on the order form were not editable.
 
-During the session, the scope expanded to address several critical issues:
-1.  A bug where reprinting receipts from a QR scan resulted in a blank page.
-2.  The need to package the web-based terminal into a native Android APK for a specific handheld device (H10P POS) with an integrated printer and scanner.
-3.  Slow product search performance in Branch Transfer and Request Stock pages compared to Purchase Orders.
-4.  Stock quantities displaying with long, imprecise decimal points (e.g., 5.999999999999997).
-5.  Providing a detailed, non-technical, step-by-step guide for the user to build the APK on their local Windows machine and deploy the updated web app to their Hostinger server.
-
-**PRODUCT REQUIREMENTS:**
--   **Completed this session:**
-    -   Implemented a smart, global scanner in the terminal that handles product barcodes, document QR codes, and full URLs, routing them to the correct action (add to cart vs. open document viewer).
-    -   Upgraded the terminal's top-bar search to accept invoice numbers, PO numbers, and transfer numbers, using a new backend search endpoint.
-    -   Enforced branch security: documents from a foreign branch now open in a View Only mode, with actions requiring a higher-level Admin/TOTP PIN.
-    -   Fixed a bug that caused QR-paired terminals to incorrectly receive admin-level tokens.
-    -   Fixed a bug that allowed manager PINs to work across branches for  actions.
-    -   Fixed the blank receipt reprint bug by correcting the data passed to the print engine.
-    -   Created a Capacitor-based Android wrapper for the entire React application.
-    -   Integrated the H10P device's proprietary printer SDK via a custom native Java Capacitor plugin, ensuring printing works from the APK.
-    -   Added necessary Android permissions (e.g., Camera) to the APK manifest.
-    -   Dramatically improved product search performance on the Branch Transfer page by parallelizing backend database queries.
-    -   Standardized search behavior on the Request Stocks page to match the faster Purchase Order page.
-    -   Corrected the display of stock quantities to show a maximum of 3 decimal places without altering the full-precision values in the database, preserving audit integrity.
-    -   Authored and delivered a comprehensive step-by-step guide for the user to build the APK and deploy the web app.
-    -   Guided the user through deploying all the new changes to their live production server ().
--   **Pending from previous forks:**
-    -   Build an admin tool to fix corrupted Purchase Orders.
-    -   Refactor the monolithic .
-    -   Resolve all  build warnings.
-    -   Update  to use  instead of .
+Following the resolution of these issues, the user initiated a series of feature requests focused on improving workflows, security, and auditing:
+1.  **Seamless Mode Switching:** Allow cashiers to switch from Quick sale mode to Order mode, carrying over all items in the cart, to enable per-line discounts. The reverse (Order to Quick) should be blocked if per-line discounts have been applied.
+2.  **Capital-Aware Discounts:** Prevent any discount (per-line or overall) that would cause an item's net sale price to fall below its capital cost.
+3.  **Comprehensive Audit Trail & Permissions:**
+    *   Track all discounts and price overrides in an audit log.
+    *   Create a new report to analyze this discount data.
+    *   Add a Discount Flag to the Smart Audit Center to detect suspicious discount patterns.
+    *   Create and enforce new user permissions to control who can give discounts and sell below cost.
+    *   Audit all existing system permissions to identify and eventually implement any dead (unenforced) permissions.
+4.  **Future Task:** Create a new Product Profit Report.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The AgriSmart Terminal is now a significantly more powerful and robust tool. It features a smart global scanner that understands different code types and a versatile search bar. Branch-level security is now strictly enforced, allowing users to view documents from other branches but preventing unauthorized actions.
-
-Crucially, the web application can now be packaged as a native Android APK using Capacitor. This APK is specifically tailored for the H10P POS device, with a native Java plugin that bridges the web app's print commands to the device's built-in thermal printer.
-
-Numerous bugs have been fixed, including blank receipts, slow search queries, and imprecise floating-point displays. All these enhancements have been successfully deployed to the user's live server, , and the user has been provided with a detailed guide to build the corresponding APK on their own machine.
+The application now has a significantly enhanced and more secure sales workflow.
+-   **Sales Page UI/UX Fixes:**
+    -   The customer/order info header is now collapsible, providing more space for product entry.
+    -   The Sale Date field was moved to the top header for better visibility.
+    -   Customer contact/phone fields are now editable directly in the form, with a dialog to prompt the user to save changes to the customer's permanent record.
+-   **Date Security:** A floor date (the earliest operational day) is enforced on both the backend and frontend, preventing sales from being back-dated to pre-system dates or closed days.
+-   **Seamless Mode Switching:** Users can switch from 'Quick' to 'Order' mode, seamlessly transferring all cart items. A guard prevents switching back to 'Quick' if any per-line discounts have been applied in 'Order' mode.
+-   **Capital & Discount Guards:** A robust, multi-layered validation system is in place. The frontend provides real-time warnings (red borders, helper text) and a final checkout block, while the backend definitively rejects any sale where a discount causes the net price of an item to drop below its capital cost.
+-   **Phase 1 of Audit & Permission System:**
+    -   New permissions (, ) are created and fully enforced on the backend () and frontend (disabling UI elements).
+    -   A new  collection has been created. All discounts and price overrides are now logged with details (who, what, when, how much).
+    -   A new Discounts tab has been added to the  page, allowing analysis of discount data by branch, date, customer, and employee.
+    -   The  center now features a Discount Flag in its Activity section, providing smart analysis of discount patterns.
 
 **Last working item**:
-    - Last item agent was working: Correcting the display of long decimal points for stock quantities. The user astutely pointed out that rounding values in the backend would corrupt audit trails for repacked items. The agent correctly reverted the backend changes and implemented a display-only fix in the frontend to cap numbers at 3 decimal places using .
-    - Status: USER VERIFICATION PENDING
+    - Last item agent was working: As per the user's request, the agent updated the  and  files to reflect the plan for the next session (Phase 2 of permissions and the new Product Profit Report) in preparation for the user to fork the project.
+    - Status: FINISHED
     - Agent Testing Done: Y
-    - Which testing method agent to use? The user should manually test by navigating to the Request Stocks page, searching for a product (especially a repacked one), and verifying that the stock quantities are displayed cleanly with a maximum of three decimal places.
+    - Which testing method agent to use? NA
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: User verification for the decimal display fix. (P0)
-  - Issue 2: User verification for the search speed improvements in Branch Transfer & Request Stocks. (P0)
-  - Issue 3: User testing of the newly built APK on the H10P device, specifically testing camera permissions and printing. (P0)
-  - Issue 4: Admin tool to fix broken Purchase Orders in the production database. (P1)
-  - Issue 5: Refactor  monolithic component. (P2)
-  - Issue 6: Address remaining  build warnings. (P2)
-  - Issue 7:  uses  instead of . (P2)
+  - Issue 1: User verification for all features implemented in this session is pending. (P0)
 
   Issues Detail:
-  - Issue 1, 2, 3:
-     - Attempted fixes: Features/fixes were fully implemented and deployed.
-     - Next debug checklist: Ask the user to verify the fixes on their live site () and with the newly built APK.
-     - Why fix this issue and what will be achieved with the fix?: To formally close out the work done in this session and confirm that the user's reported problems are solved.
+  - Issue 1:
+     - Attempted fixes: N/A. The user has deferred testing until after the fork.
+     - Next debug checklist: User needs to test the following:
+       1. The three initial bug fixes (collapsible header, date guard, editable customer info).
+       2. Switching from 'Quick' to 'Order' mode and back.
+       3. The new discount guards (frontend and backend).
+       4. The new Discounts report tab.
+       5. The new discount flags in the Audit Center.
+       6. The enforcement of  for a user without that permission.
+     - Why fix this issue and what will be achieved with the fix?: To confirm the successful implementation of multiple critical features and security enhancements.
      - Status: USER VERIFICATION PENDING
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? N/A (User verification is the next step)
+     - Should Test frontend/backend/both after fix? N/A
      - Blocked on other issue: None
 
 **In progress Task List**:
-- None.
+ - None. Phase 1 of the audit/permission system is complete. Phase 2 is an upcoming task.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P1:** Cross-branch payment wallet routing (cash recorded at receiving branch's wallet). The user specifically requested this be added to the roadmap.
+    - **P0: Phase 2 - Implement Dead Permissions:** Activate and enforce the dead permissions identified in the recent audit (, , etc.) by adding checks in the relevant backend APIs and conditionally rendering/disabling UI elements in the frontend.
+    - **P0: New Report - Product Profitability:** Create a new report that details product profit margins.
+    - **P1:** Cross-branch payment wallet routing (cash recorded at receiving branch's wallet).
     - **P1:** Build an admin tool to fix corrupted Purchase Orders.
     - **P2:** Refactor .
     - **P2:** Fix all  ESLint warnings.
     - **P2:** Update  to use .
-- **Future Tasks (Backlog from  and previous sessions):**
+
+- **Future Tasks (Backlog):**
     - Visual trail for partial invoices.
     - Smart Journal Entries for forgotten sales.
     - Implement logic for weight-embedded EAN-13 barcodes.
@@ -83,28 +79,29 @@ Numerous bugs have been fixed, including blank receipts, slow search queries, an
     - Create advanced reporting and user role presets.
 
 **Completed work in this session**
-- **Terminal & QR Enhancements:**
-    - Implemented global HID scanner logic in  to handle various code types.
-    - Created new backend search endpoint in .
-    - Added branch-aware, view-only mode and TOTP override to .
-    - Implemented a QuickScan bottom sheet in  for rapid reprint/view actions.
-- **Bug Fixes:**
-    - Fixed critical security flaws in  and .
-    - Fixed blank receipt reprint issue in .
-    - Optimized product search in  by parallelizing DB calls with .
-    - Standardized search behavior in  (for Request Stocks).
-    - Fixed decimal display issue by adding a  utility and applying it in  while reverting dangerous backend rounding in .
-- **APK Wrapper & H10P Integration:**
-    - Set up a full Capacitor project in the  directory.
-    - Created a native Java printer plugin  to interface with the manufacturer's SDK ( and  files).
-    - Created a  abstraction layer to route print calls to the native plugin on mobile and  on the web.
-    - Updated all print call sites (, , ) to use .
-    - Added required permissions (Camera, etc.) to .
-- **User Guidance & Deployment:**
-    - Authored a comprehensive  and a user-friendly HTML version.
-    - Guided the user through a complex local build process on Windows, debugging issues with Node, Java versions, and Android Gradle Plugin compatibility.
-    - Guided the user through deploying all new code to their live Hostinger VPS.
-    - Updated .
+- **Sales Order UI/UX Fixes:**
+  - Implemented a collapsible header in  to maximize screen space for product entry.
+  - Made customer phone and contact details editable, adding a save-confirmation dialog.
+  - Relocated the 'Sale Date' field to the main header for constant visibility.
+- **Security & Workflow Enhancements:**
+  - Implemented a floor date guard in  and  to block sales on closed or pre-system-start dates.
+  - Created a seamless mode-switching feature in  to transfer cart items between 'Quick' and 'Order' modes.
+  - Added robust capital-aware discount validation in  (backend) and  (frontend) to prevent sales below cost.
+- **Audit & Permissions System (Phase 1):**
+  - Created and enforced new permissions (, ) in  and .
+  - Implemented a new  by adding logging logic to  and .
+  - Built a new  endpoint in .
+  - Created a corresponding Discounts report tab with full filtering capabilities in .
+- **Smart Audit Center Enhancement:**
+  - Added a Discount Flag feature by updating  in  and adding new UI components and logic to .
+- **Project Management:**
+  - Performed a full audit of all system permissions to identify enforced vs. dead permissions.
+  - Updated  and  with the plan for the next fork session.
+
+**Earlier issues found/mentioned but not fixed**
+-   **P1:** Admin tool to fix broken Purchase Orders (from previous fork).
+-   **P2:** Refactor monolithic  component (from previous fork).
+-   **P2:** Update  to use  instead of  (from previous fork).
 
 **Known issue recurrence from previous fork**
   - **Issue recurrence in previous fork:**  warnings for .
@@ -115,128 +112,84 @@ Numerous bugs have been fixed, including blank receipts, slow search queries, an
 
 
 **Key Technical Concepts**
-- **Hybrid Mobile App Development:** Used Capacitor to wrap an existing React web application into a native Android APK, enabling access to native device features.
-- **Native Plugin Bridge:** Wrote a custom Java Capacitor plugin to create a bridge between JavaScript and the native Android SDK for the H10P's thermal printer.
-- **AIDL (Android Interface Definition Language):** Utilized manufacturer-provided AIDL files to communicate with the background printer service on the H10P device.
-- **HID Keyboard Wedge:** Architected the terminal scanner logic to work with the H10P's built-in scanner, which emulates a physical keyboard, by creating a global keyboard event listener.
-- **Backend Performance Optimization:** Refactored a slow, sequential database query chain into a highly performant parallel operation using , dramatically improving UI responsiveness.
-- **Floating-Point Precision:** Made a critical architectural decision to handle floating-point inaccuracies at the presentation layer (frontend) only, preserving full precision in the database and backend for audit and calculation integrity.
+-   **State-Driven UI:** Using React state (, ) to dynamically alter the UI, making it more interactive and space-efficient.
+-   **Multi-Layered Validation:** Implementing security and business rules at multiple levels (frontend real-time feedback, frontend checkout block, and final backend API rejection) for a robust user experience and ironclad data integrity.
+-   **Shared Business Logic:** Consolidating the  function and  endpoint to serve both 'Quick' and 'Order' modes, ensuring consistency in data handling, numbering, and stock updates.
+-   **Centralized Permission Handling:** Using the  context's  function to consistently enable/disable UI features based on user roles and permissions.
+-   **Audit Logging:** Creating a new, dedicated  collection to record specific, high-risk user actions (discounts, overrides) for targeted analysis, separate from the general .
+-   **Data Aggregation for Reporting:** Using MongoDB aggregation pipelines in the backend () to efficiently group and summarize audit data for the frontend reports.
 
 **key DB schema**
-- No database schema changes were made in this session.
+-   **daily_closings**: Used to determine the  for sales.
+-   **users**: Contains the  object that is now being more thoroughly enforced.
+-   **discount_audit_log**: **NEW**. Stores detailed records of every discount or price override given. Fields: , , , , , , , , , .
 
 **changes in tech stack**
-- **Capacitor:** Added to the frontend stack to enable Android APK creation.
-- **Native Java/Android:** Utilized for writing the custom printer plugin.
+-   None.
 
 **All files of reference**
-- : The entire Capacitor project directory.
-- : The core native Java code for printer integration.
-- : The crucial abstraction layer for all printing operations.
-- : The main hub for the enhanced terminal features.
-- : Contains the branch-scoping and view-only logic.
-- : Location of the significant performance optimization.
-- : The detailed user guide for building the APK.
+-   : The central hub for all sales workflow changes.
+-   : The core backend endpoint for sales, now with enhanced validation.
+-   : Location of the new discount report.
+-   : Contains the new discount report API.
+-   : Location of the new audit flags.
+-   : Contains the logic to compute audit flags.
+-   : The source of truth for all user permission definitions.
+-    & : The planning documents for the next session.
 
 **Areas that need refactoring**:
-- : Remains a monolithic 1000+ line component.
-- : Still uses  for navigation instead of .
+-   : Remains a monolithic component.
+-   : Still uses  for navigation.
 
 **key api endpoints**
-- : **NEW** endpoint to search for documents by human-readable numbers (e.g., invoice number, PO number).
-- : **HEAVILY OPTIMIZED** for performance. Functionality is the same, but speed is drastically improved.
+-   : **HEAVILY MODIFIED**. Now validates against floor date, checks for  and  permissions, rejects discounts that go below capital, and writes to the .
+-   : **MODIFIED**. Now returns a .
+-   : **NEW**. Provides aggregated data for the discount report.
+-   : **MODIFIED**. The response for the 'activity' section now includes detailed discount analytics.
 
 **Critical Info for New Agent**
-- **Dual Target System:** The project is now both a web app and an Android app. The Android app is a Capacitor wrapper that loads the live web URL. Updates to the web app are instantly reflected in the APK without needing a rebuild, unless native code (like the printer plugin) changes.
-- **User Is Non-Technical:** The user requires very explicit, step-by-step instructions for any local development or build tasks. The provided  should be the starting point for any future APK-related guidance.
-- **Deployment Process:** The user's deployment process to their Hostinger VPS is  followed by yarn install v1.22.22
-[1/4] Resolving packages...
-success Already up-to-date.
-Done in 0.30s.
-yarn run v1.22.22
-$ craco build
-Creating an optimized production build...
-Compiled with warnings.
-
-[eslint] 
-src/pages/PaymentsPage.js
-  Line 133:6:  React Hook useEffect has missing dependencies: 'interestRateInput' and 'loadChargesPreview'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-
-src/pages/SetupWizardPage.js
-  Line 61:6:  React Hook useEffect has a missing dependency: 'checkSetupStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-
-src/pages/SuppliersPage.js
-  Line 45:6:  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-
-Search for the keywords to learn more about each warning.
-To ignore, add // eslint-disable-next-line to the line before.
-
-File sizes after gzip:
-
-  675.65 kB  build/static/js/main.64d7c3b2.js
-  108.79 kB  build/static/js/869.52ce4358.chunk.js
-  21.16 kB   build/static/css/main.8cb18a04.css
-
-The bundle size is significantly larger than recommended.
-Consider reducing it with code splitting: https://goo.gl/9VhYWB
-You can also analyze the project dependencies: https://goo.gl/LeUzfb
-
-The project was built assuming it is hosted at /.
-You can control this with the homepage field in your package.json.
-
-The build folder is ready to be deployed.
-You may serve it with a static server:
-
-  yarn global add serve
-  serve -s build
-
-Find out more about deployment here:
-
-  https://cra.link/deployment
-
-Done in 24.43s. and ...: ERROR (no such process)
-...: ERROR (no such process). Note the yarn install v1.22.22
-[1/4] Resolving packages...
-success Already up-to-date.
-Done in 0.02s. step is now critical due to new dependencies.
-- **Printer Logic:** ALL printing should go through . Do not call  or the native plugin directly. This ensures the code works on both web and the H10P device.
-- **Live Environment:** All recent changes are live on . The APK is configured to load  directly.
+-   The user has approved a plan to continue work after a fork. Your first task is to begin **Phase 2** of the permissions implementation, which involves activating the dead permissions identified in the recent audit. Refer to the plan laid out in the  message ().
+-   After completing Phase 2, the next task is to build the Product Profit Report as outlined in the  file.
+-   All features implemented in this session (sales page fixes, mode switching, discount guards, audit reports) are pending user verification. Be prepared to address feedback on them.
+-   The permissions system has been significantly enhanced. All new UI features that involve sensitive actions should check permissions using the  function from the  context. Backend endpoints must use the  utility.
 
 **documents and test reports created in this job**
-- 
-- 
--  (Created and updated)
+-   
+-   
+-    (updated)
+-    (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Asked for the  as the link went to the dashboard. (Status: **RESOLVED**. Agent provided the development preview link and instructed on how to deploy the file to the live server).
-2.  **User:** Reported the camera permission was denied in the APK. (Status: **RESOLVED**. Agent added the necessary permissions to ).
-3.  **User:** Asked why product search is slow in Branch Transfer/Request Stocks. (Status: **RESOLVED**. Agent analyzed the code, found a massive N+1 query issue, and fixed it with parallel processing).
-4.  **User:** Asked why stock requests show long decimal points. (Status: **RESOLVED**. Agent identified floating-point inaccuracies).
-5.  **User:** Correctly pointed out that rounding in the backend is bad for audits. (Status: **RESOLVED**. Agent reverted backend changes and implemented a display-only fix).
-6.  **User:** Asked for confirmation on whether the app uses the live or emergent version. (Status: **Answered**. Agent confirmed it uses the live URL and explained the deployment implications).
-7.  **User:** Provided their Hostinger deployment commands. (Status: **Acknowledged**. Agent used this to provide correct deployment instructions).
-8.  **User:** Confirmed the app loads the full website and asked why it doesn't go straight to the terminal. (Status: **RESOLVED**. Agent updated the Capacitor config to point to the  route).
-9.  **User:** Asked for a complete start-to-finish guide to build the app on a new computer. (Status: **RESOLVED**. Agent created the HTML guide).
-10. **User:** Reported a new build error after updating Android Studio. (Status: **RESOLVED**. This was the final step in debugging the user's local build environment).
+1.  **User:** Let's go with phase 2. (Status: **RESOLVED**, this is the next task).
+2.  **User:** we can proceed with all this after we fork. DOn't skip step 5. Let's just make a report that has report profit after. encode this in the roadmap as our next movement. I will fork after and we will continue from there (Status: **RESOLVED**, roadmap was updated).
+3.  **User:** yes. Sounds about right. On phase 2 we will confirm first if any of this if this permission is relevant in our system (Status: **RESOLVED**, acknowledged in the plan).
+4.  **User:** Perfect. Let's do this by phase with full integration in mind. While you're at it check if the permissions in team page is fully respected and connected to the actual system we are using. I am worried that some of this only affects module that are no longer being used. (Status: **RESOLVED**, a full audit was performed).
+5.  **User:** Yes, add it somewhere in team page -> permissions -> select user -> and toggle switch. find where to place it properly. Yes. This should be done. connect this also with our audit and reports. Let's trace how much total discount a customer had, how much the employee discount have etc. Let's see if we have a way to smartly integrate it for easy audit trail. research and give me a solution. (Status: **RESOLVED**, Phase 1 was implemented).
+6.  **User:** great now on our audit side I need to check something. We tract total discount per account right? also total price change per account? We are also able to enable or disable the capacity to manually change the price on order right? Via teams and permission toggle? (Status: **RESOLVED**, agent investigated and proposed a solution).
+7.  **User:** Need to confirm the truth about pricing. Our smart price checker is still active where we get notified if the capital is higher than the retail. Also regarding discounts. We should not allow discounts that will lower our total price to the total capital per item. (Status: **RESOLVED**, guards were implemented).
+8.  **User:** Oh yeah. I need to reconfirm something. The quick and order mode use the same sequence at checkout right? and use the same model? We were able to properly set up quick. I just wanna make sure we are using the same truth. (Status: **RESOLVED**, agent confirmed they use the same endpoint and data model).
+9.  **User:** Is it possible on sales to move from quick to order mode? ...Give me your plan... (Status: **RESOLVED**, feature was planned and implemented).
+10. **User:** before I test anything, can you transfer that sales date to the line of the customer name on top. On the right side of Customer PO. (Status: **RESOLVED**, UI was changed as requested).
 
 **Project Health Check:**
-- **Broken:**
-    - The production issue of corrupted  documents remains unresolved and requires a dedicated admin tool (P1 backlog item).
-- **Mocked:** None.
+-   **Broken:**
+    -   The production issue of corrupted  documents remains unresolved and requires a dedicated admin tool to be built.
+-   **Mocked:** None.
 
 **3rd Party Integrations**
-- **Senraise H10P Printer SDK:** A proprietary SDK ( and AIDL files) has been integrated via a custom native Java Capacitor plugin to control the H10P device's built-in thermal printer.
+-   **Senraise H10P Printer SDK:** Integrated via a custom native Java Capacitor plugin. (No changes this session).
 
 **Testing status**
   - Testing agent used after significant changes: YES
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: Yes, new pytest files were created for the new features (, etc.).
+  - Test files created: No
   - Known regressions: None identified.
 
 **Credentials to test flow:**
-- **Super Admin:**  / 
-- **Company Admin (Owner):**  / 
-- **Manager PIN:** 
+-   **Super Admin:**  / 
+-   **Company Admin (Owner):**  / 
+-   **Manager PIN:** 
+-   **Cashier (No Discount Perm):** A cashier role user needs to be tested to confirm the  permission is enforced.
 
 **What agent forgot to execute**
-- The agent successfully addressed all user-initiated tasks and bug reports for this session. The pre-existing backlog items (like refactoring ) were not addressed, which was appropriate given the shift in priority to the critical APK build and deployment task.</analysis>
+-   The agent successfully followed all user directives in this session, including the final request to update planning documents before forking. No tasks were overlooked.</analysis>

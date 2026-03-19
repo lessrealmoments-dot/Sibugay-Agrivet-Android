@@ -218,6 +218,7 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **R2 storage:** Files in Cloudflare R2 with pre-signed URLs
 - **Backend:** `routes/documents.py` (12 endpoints). Collections: `business_documents`, `doc_upload_tokens`
 - **Frontend:** `pages/DocumentsPage.js` with UploadDialog, PreviewDialog, EditDialog, QRUploadDialog, MonthlyGrid
+- **Phase 2 — QR Phone Upload Page:** `pages/DocUploadPage.js` at public route `/doc-upload/:token` — mobile-friendly upload (Take Photo / Browse Files), shows category/type/months context, single-use 15-min tokens, success/error states
 
 - Added `MIN_H_MAP` / `MIN_W_MAP` constants; all layout items now carry `minH`/`minW` guards
 - `validateLayouts()` sanitizes stale/corrupted `localStorage` layouts on load

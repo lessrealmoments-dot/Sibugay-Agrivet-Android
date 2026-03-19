@@ -34,8 +34,9 @@ export default function DocUploadPage() {
     try {
       const res = await fetch(`${BACKEND_URL}/api/documents/qr-upload/${token}`);
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.detail || 'Upload link not found or expired');
+        let msg = 'Upload link not found or expired';
+        try { const data = await res.json(); msg = data.detail || msg; } catch {}
+        setError(msg);
       } else {
         setPreview(await res.json());
       }

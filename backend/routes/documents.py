@@ -8,7 +8,7 @@ from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import secrets
-from config import db, get_org_context
+from config import db, get_org_context, set_org_context, _raw_db
 from utils import get_current_user, now_iso, new_id
 from utils.r2_storage import upload_file, get_presigned_url, delete_file
 
@@ -386,7 +386,7 @@ async def generate_qr_upload_token(data: dict, user=Depends(get_current_user)):
 @router.get("/qr-upload/{token}")
 async def qr_upload_preview(token: str):
     """Public — get upload context from token."""
-    session = await db.doc_upload_tokens.find_one({"token": token, "token_type": "doc_upload"}, {"_id": 0})
+    session = await _raw_db.doc_upload_tokens.find_one({"token": token, "token_type": "doc_upload"}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Upload link not found")
 
@@ -419,7 +419,7 @@ async def qr_upload_files(
     files: List[UploadFile] = File(...),
 ):
     """Public — upload files using QR token."""
-    session = await db.doc_upload_tokens.find_one({"token": token, "token_type": "doc_upload"}, {"_id": 0})
+    session = await _raw_db.doc_upload_tokens.find_one({"token": token, "token_type": "doc_upload"}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Upload link not found")
 
@@ -433,6 +433,8 @@ async def qr_upload_files(
             pass
 
     org_id = session.get("org_id", "default")
+    # Set org context for tenant isolation (QR uploads are public, no auth token)
+    set_org_context(org_id)
     category = session.get("category", "other")
     sub_category = session.get("sub_category", "miscellaneous")
     branch_id = session.get("branch_id", "")
@@ -505,7 +507,7 @@ async def qr_upload_files(
     }
 
     await db.business_documents.insert_one(document)
-    await db.doc_upload_tokens.update_one({"token": token}, {"$set": {"token_expires_at": now_iso()}})
+    await _raw_db.doc_upload_tokens.update_one({"token": token}, {"$set": {"token_expires_at": now_iso()}})
 
     return {"uploaded": len(saved_files), "document_id": doc_id, "document_name": name}
 
@@ -680,7 +682,27 @@ async def terminal_verify_pin(data: dict):
     if not pin:
         raise HTTPException(status_code=400, detail="PIN required")
 
-    from routes.verify import verify_pin_for_action
+    # Look up the verifier user to get their org_id for tenant context
+    from routes.verify import verify_pin_for_action, _resolve_pin
+    # First resolve without org context to find the user
+    verifier = await _resolve_pin(pin, branch_id=terminal_branch_id)
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    # Set org context from the verifier's user record
+    verifier_id = verifier.get("verifier_id", "")
+    if verifier_id and verifier_id != "system_admin":
+        user_doc = await _raw_db.users.find_one({"id": verifier_id}, {"_id": 0, "organization_id": 1})
+        if user_doc and user_doc.get("organization_id"):
+            set_org_context(user_doc["organization_id"])
+    else:
+        # System admin — find org from terminal branch
+        if terminal_branch_id:
+            branch_doc = await _raw_db.branches.find_one({"id": terminal_branch_id}, {"_id": 0, "organization_id": 1})
+            if branch_doc and branch_doc.get("organization_id"):
+                set_org_context(branch_doc["organization_id"])
+
+    # Now verify with PIN policy (this uses org-scoped db for policy lookup)
     verifier = await verify_pin_for_action(pin, "terminal_doc_upload", branch_id=terminal_branch_id)
     if not verifier:
         raise HTTPException(status_code=403, detail="Invalid PIN")
@@ -695,7 +717,6 @@ async def terminal_verify_pin(data: dict):
         branches = await db.branches.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
         accessible_branches = [{"id": b["id"], "name": b["name"]} for b in branches]
     else:
-        # Manager — only their branch
         user = await db.users.find_one({"id": verifier_id}, {"_id": 0, "branch_id": 1})
         if user and user.get("branch_id"):
             branch = await db.branches.find_one({"id": user["branch_id"]}, {"_id": 0, "id": 1, "name": 1})
@@ -709,6 +730,7 @@ async def terminal_verify_pin(data: dict):
         "method": method,
         "can_all_branches": can_all_branches,
         "accessible_branches": accessible_branches,
+        "org_id": get_org_context() or "",
     }
 
 
@@ -739,7 +761,18 @@ async def terminal_upload_document(
     if sub_category not in cat_def["sub_categories"]:
         raise HTTPException(status_code=400, detail=f"Invalid sub_category: {sub_category}")
 
-    from routes.verify import verify_pin_for_action
+    # Set org context from verifier's user before any DB operations
+    from routes.verify import verify_pin_for_action, _resolve_pin
+    pre_verifier = await _resolve_pin(pin, branch_id=terminal_branch_id)
+    if pre_verifier and pre_verifier.get("verifier_id") and pre_verifier["verifier_id"] != "system_admin":
+        user_doc = await _raw_db.users.find_one({"id": pre_verifier["verifier_id"]}, {"_id": 0, "organization_id": 1})
+        if user_doc and user_doc.get("organization_id"):
+            set_org_context(user_doc["organization_id"])
+    elif terminal_branch_id:
+        branch_doc = await _raw_db.branches.find_one({"id": terminal_branch_id}, {"_id": 0, "organization_id": 1})
+        if branch_doc and branch_doc.get("organization_id"):
+            set_org_context(branch_doc["organization_id"])
+
     verifier = await verify_pin_for_action(pin, "terminal_doc_upload", branch_id=terminal_branch_id)
     if not verifier:
         raise HTTPException(status_code=403, detail="Invalid PIN")

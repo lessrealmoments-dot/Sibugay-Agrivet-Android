@@ -47,6 +47,8 @@ TENANT_COLLECTIONS = {
     'branch_transfer_templates',     # Saved markup templates per destination branch
     'audits',                        # Audit session records
     'upload_sessions',               # Receipt/document upload sessions
+    'business_documents',            # AgriDocs — business document cloud
+    'doc_upload_tokens',             # QR upload tokens for phone uploads
 }
 
 

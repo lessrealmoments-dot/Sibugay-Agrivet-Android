@@ -48,6 +48,7 @@ from routes.journal_entries import router as journal_entries_router
 from routes.doc_lookup import router as doc_lookup_router
 from routes.stock_releases import router as stock_releases_router
 from routes.qr_actions import router as qr_actions_router
+from routes.documents import router as documents_router
 
 # =============================================================================
 # APP SETUP
@@ -184,6 +185,9 @@ api_router.include_router(journal_entries_router)
 api_router.include_router(doc_lookup_router)
 api_router.include_router(stock_releases_router)
 api_router.include_router(qr_actions_router)
+
+# Business Documents (AgriDocs)
+api_router.include_router(documents_router)
 
 # =============================================================================
 # WEBSOCKET ROUTES (must be on app directly with /api prefix)

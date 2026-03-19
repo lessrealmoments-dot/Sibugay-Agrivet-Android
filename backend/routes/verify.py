@@ -191,6 +191,7 @@ PIN_POLICY_ACTIONS = [
     {"key": "qr_cross_branch_action", "label": "QR — Cross-Branch Action (TOTP only)", "module": "QR Operations", "defaults": ["totp"]},
     # Terminal Operations
     {"key": "terminal_pull",          "label": "Terminal — Pull PO or Transfer", "module": "Terminal",          "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "terminal_doc_upload",    "label": "Terminal — Upload Document",     "module": "Terminal",          "defaults": ["admin_pin", "manager_pin", "totp"]},
 ]
 
 # Build quick lookup: action_key → default methods

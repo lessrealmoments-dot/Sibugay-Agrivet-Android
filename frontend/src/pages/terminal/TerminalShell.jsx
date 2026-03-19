@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2, ScanLine } from 'lucide-react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2, ScanLine, FolderUp } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
 import TerminalTransfers from './TerminalTransfers';
+import TerminalDocUpload from './TerminalDocUpload';
 import axios from 'axios';
 import PrintEngine from '../../lib/PrintEngine';
 import PrintBridge from '../../lib/PrintBridge';
@@ -106,6 +107,9 @@ export default function TerminalShell({ session, onLogout }) {
   const qrScannerRef = useRef(null);
   const qrLastScanRef = useRef({ code: '', time: 0 });
   const QR_SCAN_COOLDOWN = 3000;
+
+  // Document Upload overlay state
+  const [docUploadOpen, setDocUploadOpen] = useState(false);
 
   // Authenticated axios instance
   const [api] = useState(() => {
@@ -543,6 +547,14 @@ export default function TerminalShell({ session, onLogout }) {
                 </div>
                 <span className="text-sm font-medium">Scan QR</span>
               </button>
+              <button onClick={() => { setModeMenuOpen(false); setDocUploadOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 text-slate-700"
+                data-testid="mode-upload-doc">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-teal-50 text-teal-600">
+                  <FolderUp size={16} />
+                </div>
+                <span className="text-sm font-medium">Upload Doc</span>
+              </button>
             </div>
             <div className="border-t border-slate-100">
               <button onClick={() => { setModeMenuOpen(false); setSettingsOpen(true); }}
@@ -780,6 +792,15 @@ export default function TerminalShell({ session, onLogout }) {
           </div>
         </div>
       )}
+
+      {/* Document Upload Overlay */}
+      {docUploadOpen && (
+        <TerminalDocUpload
+          branchId={session.branchId}
+          onClose={() => setDocUploadOpen(false)}
+        />
+      )}
     </div>
   );
 }
+

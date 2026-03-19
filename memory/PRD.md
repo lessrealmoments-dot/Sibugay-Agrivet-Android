@@ -221,6 +221,7 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **Phase 2 — QR Phone Upload Page:** `pages/DocUploadPage.js` at public route `/doc-upload/:token` — mobile-friendly upload (Take Photo / Browse Files), shows category/type/months context, single-use 15-min tokens, success/error states
 - **Context-aware dialogs:** Upload Dialog and QR Upload Dialog auto-pre-fill category/sub-category from current folder navigation. Upload Dialog includes inline "Upload via Phone Instead" QR code generator.
 - **Phase 3 — Compliance Dashboard:** Shows on root documents view with: expired document alerts (red banner), expiring soon alerts (amber, within 60 days), Monthly Filing Tracker for 6 key filings (SSS, PhilHealth, Pag-IBIG, BIR 1601-C, 0619-E, 2550M) with dot indicators (green=filed, red=missing, gray=upcoming) and X/Y progress counts. Year filter 2022-2027. Fixed branch_id='all' filter bug.
+- **Terminal Document Upload:** New "Upload Doc" option in terminal floating mode selector. PIN-gated access (Manager PIN = branch-only, Admin/TOTP = all branches). 4-step flow: PIN → Category/Type/Period → Camera/Browse → Upload. Uses native phone camera via `capture="environment"`. Backend: `POST /api/documents/terminal/verify-pin` and `POST /api/documents/terminal/upload`. Frontend: `TerminalDocUpload.jsx` separate component. PIN action: `terminal_doc_upload` in verify.py.
 
 - Added `MIN_H_MAP` / `MIN_W_MAP` constants; all layout items now carry `minH`/`minW` guards
 - `validateLayouts()` sanitizes stale/corrupted `localStorage` layouts on load

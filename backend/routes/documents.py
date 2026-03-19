@@ -661,3 +661,174 @@ async def remove_file_from_document(doc_id: str, file_id: str, user=Depends(get_
         {"$pull": {"files": {"id": file_id}}, "$inc": {"file_count": -1}, "$set": {"updated_at": now_iso()}}
     )
     return {"message": "File removed"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Terminal: PIN-gated document upload
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/terminal/verify-pin")
+async def terminal_verify_pin(data: dict):
+    """
+    Verify PIN for terminal document upload. Returns verifier info + accessible branches.
+    - Admin PIN / TOTP → can upload to any branch
+    - Manager PIN → can only upload to their assigned branch
+    No auth token required (terminal uses PIN-only flow).
+    """
+    pin = data.get("pin", "").strip()
+    terminal_branch_id = data.get("branch_id", "")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN required")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "terminal_doc_upload", branch_id=terminal_branch_id)
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    # Determine branch access
+    method = verifier.get("method", "")
+    verifier_id = verifier.get("verifier_id", "")
+    can_all_branches = method in ("admin_pin", "totp") or verifier_id == "system_admin"
+
+    accessible_branches = []
+    if can_all_branches:
+        branches = await db.branches.find({"active": True}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+        accessible_branches = [{"id": b["id"], "name": b["name"]} for b in branches]
+    else:
+        # Manager — only their branch
+        user = await db.users.find_one({"id": verifier_id}, {"_id": 0, "branch_id": 1})
+        if user and user.get("branch_id"):
+            branch = await db.branches.find_one({"id": user["branch_id"]}, {"_id": 0, "id": 1, "name": 1})
+            if branch:
+                accessible_branches = [{"id": branch["id"], "name": branch["name"]}]
+
+    return {
+        "verified": True,
+        "verifier_id": verifier_id,
+        "verifier_name": verifier["verifier_name"],
+        "method": method,
+        "can_all_branches": can_all_branches,
+        "accessible_branches": accessible_branches,
+    }
+
+
+@router.post("/terminal/upload")
+async def terminal_upload_document(
+    files: List[UploadFile] = File(...),
+    pin: str = Form(...),
+    category: str = Form(...),
+    sub_category: str = Form(...),
+    branch_id: str = Form(""),
+    year: int = Form(0),
+    coverage_months: str = Form(""),
+    coverage_quarter: str = Form(""),
+    valid_from: str = Form(""),
+    valid_until: str = Form(""),
+    name: str = Form(""),
+    terminal_branch_id: str = Form(""),
+):
+    """
+    Terminal document upload — PIN-gated, no auth token.
+    PIN determines branch access (manager=own branch, admin/TOTP=any).
+    """
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN required")
+    if category not in CATEGORIES:
+        raise HTTPException(status_code=400, detail=f"Invalid category: {category}")
+    cat_def = CATEGORIES[category]
+    if sub_category not in cat_def["sub_categories"]:
+        raise HTTPException(status_code=400, detail=f"Invalid sub_category: {sub_category}")
+
+    from routes.verify import verify_pin_for_action
+    verifier = await verify_pin_for_action(pin, "terminal_doc_upload", branch_id=terminal_branch_id)
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN")
+
+    # Branch access check
+    method = verifier.get("method", "")
+    verifier_id = verifier.get("verifier_id", "")
+    can_all = method in ("admin_pin", "totp") or verifier_id == "system_admin"
+
+    if not can_all and branch_id:
+        # Manager — verify they can upload to this branch
+        user = await db.users.find_one({"id": verifier_id}, {"_id": 0, "branch_id": 1})
+        if user and user.get("branch_id") and user["branch_id"] != branch_id:
+            raise HTTPException(status_code=403, detail="Manager PIN can only upload to your assigned branch")
+
+    sub_def = cat_def["sub_categories"][sub_category]
+    org_id = _get_org_id()
+
+    months = []
+    if coverage_months:
+        months = [int(m.strip()) for m in coverage_months.split(",") if m.strip().isdigit()]
+
+    if not name:
+        name = sub_def["label"]
+        if year:
+            name += f" {year}"
+        if months:
+            month_strs = [MONTH_NAMES[m - 1] for m in months if 1 <= m <= 12]
+            if len(month_strs) <= 3:
+                name += f" ({', '.join(month_strs)})"
+            else:
+                name += f" ({month_strs[0]}-{month_strs[-1]})"
+
+    doc_id = new_id()
+    saved_files = []
+    for file in files:
+        file_id = new_id()
+        ext = Path(file.filename).suffix.lower() if file.filename else ".jpg"
+        if ext not in ALLOWED_EXTENSIONS:
+            ext = ".jpg"
+        filename = f"{file_id}{ext}"
+        content_type = file.content_type or "image/jpeg"
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail=f"File {file.filename} exceeds 25MB limit")
+
+        r2_result = await upload_file(org_id, "business_documents", doc_id, filename, content, content_type)
+        saved_files.append({
+            "id": file_id,
+            "filename": file.filename or filename,
+            "r2_key": r2_result["key"],
+            "content_type": content_type,
+            "size": len(content),
+            "uploaded_at": now_iso(),
+        })
+
+    document = {
+        "id": doc_id,
+        "name": name,
+        "description": f"Uploaded via terminal by {verifier['verifier_name']}",
+        "category": category,
+        "category_label": cat_def["label"],
+        "sub_category": sub_category,
+        "sub_category_label": sub_def["label"],
+        "period_type": sub_def.get("period_type", "one_time"),
+        "audit_sensitive": sub_def.get("audit_sensitive", False) or cat_def.get("audit_sensitive", False),
+        "branch_id": branch_id or terminal_branch_id,
+        "year": year or datetime.now(timezone.utc).year,
+        "coverage_months": months,
+        "coverage_quarter": coverage_quarter,
+        "valid_from": valid_from,
+        "valid_until": valid_until,
+        "tags": ["terminal-upload"],
+        "employee_name": "",
+        "files": saved_files,
+        "file_count": len(saved_files),
+        "uploaded_by_id": verifier_id,
+        "uploaded_by_name": verifier["verifier_name"],
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+
+    await db.business_documents.insert_one(document)
+    del document["_id"]
+
+    return {
+        "success": True,
+        "document_id": doc_id,
+        "document_name": name,
+        "uploaded": len(saved_files),
+        "branch_id": document["branch_id"],
+    }

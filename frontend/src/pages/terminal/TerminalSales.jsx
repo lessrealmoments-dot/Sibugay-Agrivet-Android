@@ -313,10 +313,12 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
           </Button>
         </div>
 
-        {/* Camera scanner view */}
+        {/* Camera scanner view — clipped to show only the scanning strip */}
         {scannerActive && (
-          <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 bg-black" ref={scannerContainerRef}>
-            <div id="terminal-scanner-view" className="w-full" style={{ minHeight: 200 }} />
+          <div className="mt-2 rounded-xl overflow-hidden border border-slate-200 bg-black" ref={scannerContainerRef}
+               style={{ height: 140, position: 'relative' }}>
+            <div id="terminal-scanner-view" className="w-full"
+                 style={{ position: 'absolute', top: '50%', left: 0, right: 0, transform: 'translateY(-50%)' }} />
           </div>
         )}
 

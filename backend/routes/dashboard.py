@@ -885,21 +885,47 @@ async def get_review_detail(record_type: str, record_id: str, user=Depends(get_c
             raise HTTPException(status_code=404, detail="Purchase order not found")
 
         # Resolve branch name
-        branch = await db.branches.find_one({"id": po.get("branch_id")}, {"_id": 0, "name": 1})
+        branch_id_po = po.get("branch_id", "")
+        branch = await db.branches.find_one({"id": branch_id_po}, {"_id": 0, "name": 1})
 
-        # Calculate payment info
-        payments = po.get("payments", [])
-        total_paid = sum(float(p.get("amount", 0)) for p in payments)
-        grand_total = float(po.get("grand_total", 0))
-        balance = round(grand_total - total_paid, 2)
-        payment_status = "paid" if balance <= 0 else "partial" if total_paid > 0 else "unpaid"
+        # ── Use stored financial fields directly — handles both old (subtotal) and new (grand_total) schemas ──
+        # Some older POs use 'subtotal', newer ones use 'grand_total'. The pay endpoint always
+        # keeps 'balance' and 'amount_paid' fields accurate after each payment.
+        grand_total = float(po.get("grand_total") or po.get("subtotal", 0))
+        total_paid = float(po.get("amount_paid", 0))
+        balance = float(po.get("balance", 0))
+        # If balance not stored, calculate from grand_total and amount_paid
+        if balance == 0 and grand_total > 0 and total_paid < grand_total:
+            balance = round(grand_total - total_paid, 2)
+        payment_status = po.get("payment_status") or ("paid" if balance <= 0 else "partial" if total_paid > 0 else "unpaid")
+        # Payment history: newer POs use payment_history[], older POs may use payments[]
+        payment_history = po.get("payment_history", po.get("payments", []))
+
+        # ── Fetch wallet balances for the Pay Now panel ──
+        wallet_balances = {}
+        if branch_id_po:
+            wallets = await db.fund_wallets.find(
+                {"branch_id": branch_id_po, "active": True},
+                {"_id": 0, "type": 1, "name": 1, "balance": 1, "id": 1}
+            ).to_list(10)
+            for w in wallets:
+                wtype = w["type"]
+                bal = float(w.get("balance", 0))
+                if wtype == "safe":
+                    # Safe balance comes from safe_lots, not the wallet balance field
+                    lots = await db.safe_lots.find(
+                        {"wallet_id": w["id"], "remaining_amount": {"$gt": 0}},
+                        {"_id": 0, "remaining_amount": 1}
+                    ).to_list(500)
+                    bal = round(sum(float(l["remaining_amount"]) for l in lots), 2)
+                wallet_balances[wtype] = {"balance": round(bal, 2), "name": w.get("name", wtype)}
 
         result.update({
             "record_number": po.get("po_number", ""),
             "supplier": po.get("vendor", "Unknown"),
             "supplier_contact": po.get("vendor_contact", ""),
             "branch_name": branch.get("name", "") if branch else "",
-            "branch_id": po.get("branch_id", ""),
+            "branch_id": branch_id_po,
             "date": po.get("purchase_date", po.get("created_at", "")),
             "due_date": po.get("due_date", ""),
             "status": po.get("status", ""),
@@ -907,7 +933,8 @@ async def get_review_detail(record_type: str, record_id: str, user=Depends(get_c
             "total_paid": total_paid,
             "balance": balance,
             "payment_status": payment_status,
-            "payments": payments,
+            "payment_history": payment_history,
+            "wallet_balances": wallet_balances,
             "items": [{
                 "product_name": i.get("product_name", i.get("name", "?")),
                 "sku": i.get("sku", ""),

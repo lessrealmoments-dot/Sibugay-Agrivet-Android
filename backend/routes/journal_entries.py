@@ -41,6 +41,7 @@ ACCOUNTS = [
     {"code": "1000", "name": "Cash - Cashier Drawer", "type": "asset"},
     {"code": "1010", "name": "Cash - Safe/Vault", "type": "asset"},
     {"code": "1020", "name": "Digital Wallet (GCash/Maya)", "type": "asset"},
+    {"code": "1030", "name": "Cash - Bank Account", "type": "asset"},
     {"code": "1100", "name": "Accounts Receivable", "type": "asset"},
     {"code": "1110", "name": "Driver/Courier Receivable", "type": "asset"},
     {"code": "1120", "name": "Insurance Receivable", "type": "asset"},

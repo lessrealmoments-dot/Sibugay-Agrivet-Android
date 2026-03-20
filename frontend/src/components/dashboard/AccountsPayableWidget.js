@@ -3,9 +3,10 @@ import { api } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { formatPHP } from '../../lib/utils';
 import ReviewDetailDialog from '../ReviewDetailDialog';
-import { FileText, AlertTriangle, Clock, ChevronRight, RefreshCw } from 'lucide-react';
+import { FileText, AlertTriangle, Clock, ChevronRight, RefreshCw, CheckCircle2, Camera } from 'lucide-react';
 
 export default function AccountsPayableWidget({ branchId }) {
   const navigate = useNavigate();
@@ -35,22 +36,38 @@ export default function AccountsPayableWidget({ branchId }) {
   const d = data || {};
   const hasOverdue = d.overdue_count > 0;
 
+  const ReviewBadge = ({ status }) => {
+    if (status === 'reviewed') return (
+      <span title="Receipts reviewed" className="flex items-center gap-0.5 text-[9px] text-emerald-600">
+        <CheckCircle2 size={9} /> OK
+      </span>
+    );
+    return (
+      <span title="Receipts not yet reviewed" className="flex items-center gap-0.5 text-[9px] text-amber-500">
+        <Camera size={9} /> Review
+      </span>
+    );
+  };
+
   const PORow = ({ po, variant }) => (
     <div className={`flex items-center justify-between text-xs rounded px-2.5 py-1.5 ${
       variant === 'overdue' ? 'bg-red-50' : 'bg-amber-50'
     }`}>
-      <div>
+      <div className="flex-1 min-w-0">
         <button className="font-semibold font-mono text-blue-600 hover:underline cursor-pointer"
           onClick={() => setSelectedPO(po.po_id)} data-testid={`ap-po-${po.po_id}`}>
           {po.po_number}
         </button>
-        <p className="text-slate-500 text-[10px]">{po.vendor}</p>
+        <p className="text-slate-500 text-[10px] truncate">{po.vendor}</p>
       </div>
-      <div className="text-right">
-        <p className={`font-bold ${variant === 'overdue' ? 'text-red-700' : 'text-amber-700'}`}>{formatPHP(po.balance)}</p>
-        <p className={`text-[10px] ${variant === 'overdue' ? 'text-red-500' : 'text-amber-500'}`}>
-          {variant === 'overdue' ? `${Math.abs(po.days_left)}d overdue` : po.days_left === 0 ? 'Due today' : `${po.days_left}d left`}
-        </p>
+      <div className="flex items-center gap-2 shrink-0">
+        <ReviewBadge status={po.receipt_review_status} />
+        <div className="text-right">
+          <p className={`font-bold ${variant === 'overdue' ? 'text-red-700' : 'text-amber-700'}`}>{formatPHP(po.balance)}</p>
+          <p className={`text-[10px] ${variant === 'overdue' ? 'text-red-500' : 'text-amber-500'}`}>
+            {variant === 'overdue' ? `${Math.abs(po.days_left)}d overdue` : po.days_left === 0 ? 'Due today' : `${po.days_left}d left`}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -108,8 +125,23 @@ export default function AccountsPayableWidget({ branchId }) {
             </div>
           )}
 
+          {(d.upcoming_count || 0) > 0 && !hasOverdue && (d.due_this_week || []).length === 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase">Upcoming</p>
+              {/* Show a count summary only if no overdue/this-week items */}
+              <p className="text-xs text-slate-500 py-1">{d.upcoming_count} payment{d.upcoming_count > 1 ? 's' : ''} upcoming</p>
+            </div>
+          )}
+
           {d.total_payable === 0 && (
             <p className="text-xs text-emerald-600 text-center py-3">All supplier payments are up to date</p>
+          )}
+
+          {/* Receipt review hint */}
+          {(d.total_payable || 0) > 0 && (
+            <p className="text-[9px] text-slate-400 text-center border-t border-slate-100 pt-2">
+              Click any PO to review receipts &amp; verify before payment
+            </p>
           )}
         </CardContent>
       </Card>

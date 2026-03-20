@@ -273,6 +273,12 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - Review dialog now shows: full item breakdown table, receipt photos, supplier/branch info, dates, payment status
 - PIN-gated "Mark as Reviewed" with optional notes, "Open Full Page" link
 
+### Dashboard AP + Pending Reviews Fixes (Complete — Mar 2026)
+- **Bug Fix:** Pending Reviews no longer shows draft/ordered/cancelled POs — filter updated to only include `received`, `fulfilled`, `partially_fulfilled`, `in_progress`, `sent_to_terminal` statuses
+- **Bug Fix:** Accounts Payable widget now captures all unpaid supplier POs (not just `po_type: "terms"`/`"credit"`) — broadened to exclude only internal `branch_request` POs
+- **Enhancement:** AP widget rows now show receipt review status badge (green ✓ = reviewed, amber camera = needs review)
+- **Enhancement:** AP widget hint text: "Click any PO to review receipts & verify before payment" — unified workflow with Pending Reviews (both open ReviewDetailDialog)
+
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 

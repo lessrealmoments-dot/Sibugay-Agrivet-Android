@@ -570,9 +570,10 @@ async def get_pending_reviews(
     items = []
 
     # ── POs with receipts not reviewed ────────────────────────────────────
+    # Only show POs that have been received/processed — not drafts or pending orders
     po_query = {
         "branch_id": {"$in": target_branches},
-        "status": {"$ne": "cancelled"},
+        "status": {"$in": ["received", "partially_fulfilled", "fulfilled", "in_progress", "sent_to_terminal"]},
         "receipt_review_status": {"$ne": "reviewed"},
     }
     pos = await db.purchase_orders.find(po_query, {"_id": 0}).sort("created_at", -1).to_list(200)
@@ -808,14 +809,20 @@ async def accounts_payable_summary(
     branch_id: Optional[str] = None,
     user=Depends(get_current_user),
 ):
-    """Accounts payable summary — all unpaid POs on terms."""
+    """Accounts payable summary — all unpaid supplier POs with outstanding balance."""
     branch_filter = await get_branch_filter(user, branch_id)
-    match = {"payment_status": {"$nin": ["paid", "voided"]}, "po_type": {"$in": ["terms", "credit"]}}
+    # Include all supplier PO types (terms, cash, etc.) — exclude only internal branch_requests and inactive records
+    match = {
+        "payment_status": {"$nin": ["paid", "voided"]},
+        "status": {"$nin": ["cancelled", "voided", "draft"]},
+        "po_type": {"$nin": ["branch_request"]},
+    }
     match = apply_branch_filter(match, branch_filter)
 
     pos = await db.purchase_orders.find(match, {
         "_id": 0, "id": 1, "po_number": 1, "vendor": 1, "balance": 1,
         "due_date": 1, "branch_id": 1, "created_at": 1,
+        "receipt_review_status": 1, "grand_total": 1, "total_paid": 1,
     }).to_list(500)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -826,6 +833,9 @@ async def accounts_payable_summary(
 
     for po in pos:
         bal = float(po.get("balance", 0))
+        # Fallback: compute balance from grand_total - total_paid if balance not set
+        if bal <= 0 and po.get("grand_total"):
+            bal = float(po.get("grand_total", 0)) - float(po.get("total_paid", 0))
         if bal <= 0:
             continue
         total += bal
@@ -833,9 +843,10 @@ async def accounts_payable_summary(
         days_left = (datetime.strptime(due, "%Y-%m-%d") - datetime.strptime(today, "%Y-%m-%d")).days if due else None
         entry = {
             "po_id": po["id"], "po_number": po["po_number"],
-            "vendor": po["vendor"], "balance": round(bal, 2),
+            "vendor": po.get("vendor", "Unknown Supplier"), "balance": round(bal, 2),
             "due_date": due, "days_left": days_left,
             "branch_id": po.get("branch_id"),
+            "receipt_review_status": po.get("receipt_review_status", ""),
         }
         if days_left is not None and days_left < 0:
             overdue.append(entry)

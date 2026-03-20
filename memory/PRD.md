@@ -267,6 +267,12 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ## Prioritized Backlog
 
+### Dashboard Review Panel Enhancement (Complete — Mar 2026)
+- `GET /api/dashboard/review-detail/{record_type}/{record_id}` — enriched endpoint returning full record detail for review
+- Supports: purchase_order (supplier, items, dates, due date, payment status), branch_transfer (branches, items, shortage info), expense (category, payee, method)
+- Review dialog now shows: full item breakdown table, receipt photos, supplier/branch info, dates, payment status
+- PIN-gated "Mark as Reviewed" with optional notes, "Open Full Page" link
+
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 

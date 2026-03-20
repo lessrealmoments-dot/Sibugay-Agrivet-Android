@@ -6,16 +6,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPHP } from '../lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import {
   FileCheck, ShoppingCart, Truck, Receipt, Eye, CheckCircle2,
   RefreshCw, ChevronDown, ChevronRight, Camera, Building2, Clock,
-  AlertTriangle, Shield, X
+  AlertTriangle, Shield, X, Package, CreditCard, User, CalendarDays,
+  ShieldCheck, ExternalLink, QrCode
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -95,6 +96,9 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState(null); // { files, record_type, record_id }
 
+  const [reviewDetail, setReviewDetail] = useState(null); // full record detail
+  const [reviewDetailLoading, setReviewDetailLoading] = useState(false);
+
   const isAdmin = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'manager';
 
   const loadPendingReviews = useCallback(async () => {
@@ -150,10 +154,22 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
   };
 
   const openReviewWithPreview = async (item) => {
-    await loadReceiptPreview(item);
     setReviewDialog(item);
     setReviewPin('');
     setReviewNotes('');
+    setReviewDetailLoading(true);
+    setReviewDetail(null);
+    try {
+      // Fetch enriched detail + receipt files in one call
+      const res = await api.get(`/dashboard/review-detail/${item.record_type}/${item.id}`);
+      setReviewDetail(res.data);
+      // Also set receipt preview from the detail response
+      setReceiptPreview({ files: (res.data.receipt_files || []).map(f => ({ ...f })), item });
+    } catch {
+      // Fallback to old method
+      await loadReceiptPreview(item);
+    }
+    setReviewDetailLoading(false);
   };
 
   const goToRecord = (item) => {
@@ -232,98 +248,234 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
       )}
 
       {/* ── Review Dialog ───────────────────────────────────────────── */}
-      <Dialog open={!!reviewDialog} onOpenChange={v => { if (!v) { setReviewDialog(null); setReceiptPreview(null); } }}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog open={!!reviewDialog} onOpenChange={v => { if (!v) { setReviewDialog(null); setReceiptPreview(null); setReviewDetail(null); } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
               <FileCheck size={18} className="text-[#1A4D2E]" />
-              Review Receipt — {reviewDialog?.record_number}
+              Review — {reviewDialog?.record_number}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Record info */}
-            {reviewDialog && (
-              <div className={`p-3 rounded-lg ${TYPE_CONFIG[reviewDialog.record_type]?.bg || 'bg-slate-50'} border ${TYPE_CONFIG[reviewDialog.record_type]?.border || 'border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-700">{reviewDialog.record_number}</p>
-                    <p className="text-[10px] text-slate-500">{reviewDialog.description}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Submitted by {reviewDialog.submitted_by} · {reviewDialog.receipt_count} photo{reviewDialog.receipt_count > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  <span className="text-sm font-bold font-mono text-slate-700">{formatPHP(reviewDialog.amount)}</span>
-                </div>
-              </div>
-            )}
 
-            {/* Receipt photos preview */}
-            {receiptPreview?.files?.length > 0 && (
-              <div>
-                <p className="text-xs text-slate-500 font-medium mb-1.5">Receipt Photos</p>
-                <div className="flex flex-wrap gap-2">
-                  {receiptPreview.files.map((f, i) => {
-                    const isImage = (f.content_type || '').startsWith('image/');
-                    const url = `${BACKEND_URL}/api/uploads/file/${receiptPreview.item.record_type}/${receiptPreview.item.id}/${f.id}`;
-                    return (
-                      <a key={f.id || i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                        {isImage ? (
-                          <img src={url} alt={f.filename} className="w-20 h-20 rounded-lg object-cover border border-slate-200 shadow-sm hover:shadow-md transition-shadow" />
-                        ) : (
-                          <div className="w-20 h-20 rounded-lg bg-slate-100 border border-slate-200 flex flex-col items-center justify-center">
-                            <Receipt size={16} className="text-slate-400" />
-                            <span className="text-[8px] text-slate-400 mt-1 truncate max-w-[60px]">{f.filename}</span>
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="space-y-4 pb-2">
+              {reviewDetailLoading ? (
+                <div className="flex items-center justify-center py-8 text-slate-400 text-sm">
+                  <RefreshCw size={14} className="animate-spin mr-2" /> Loading details...
+                </div>
+              ) : reviewDetail ? (
+                <>
+                  {/* ── Record Header Info ── */}
+                  {reviewDetail.record_type === 'purchase_order' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{reviewDetail.record_number}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <User size={11} className="text-blue-600" />
+                            <span className="text-xs font-semibold text-blue-800">{reviewDetail.supplier}</span>
+                            {reviewDetail.supplier_contact && <span className="text-[10px] text-slate-400">({reviewDetail.supplier_contact})</span>}
                           </div>
-                        )}
-                      </a>
-                    );
-                  })}
-                </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold font-mono text-slate-800">{formatPHP(reviewDetail.grand_total)}</p>
+                          <Badge className={`text-[9px] ${
+                            reviewDetail.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
+                            reviewDetail.payment_status === 'partial' ? 'bg-amber-100 text-amber-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {reviewDetail.payment_status === 'paid' ? 'Paid' : reviewDetail.payment_status === 'partial' ? `Partial (${formatPHP(reviewDetail.total_paid)})` : 'Unpaid'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500 pt-1 border-t border-blue-100">
+                        <span className="flex items-center gap-1"><Building2 size={10} /> {reviewDetail.branch_name}</span>
+                        <span className="flex items-center gap-1"><CalendarDays size={10} /> Date: {reviewDetail.date?.slice(0, 10)}</span>
+                        {reviewDetail.due_date && <span className="flex items-center gap-1"><Clock size={10} /> Due: {reviewDetail.due_date.slice(0, 10)}</span>}
+                        <span className="flex items-center gap-1">Status: <Badge className="text-[9px] bg-slate-200 text-slate-600">{reviewDetail.status}</Badge></span>
+                        {reviewDetail.received_by && <span>Received by: {reviewDetail.received_by}</span>}
+                        {reviewDetail.created_by && <span>Created by: {reviewDetail.created_by}</span>}
+                      </div>
+                      {reviewDetail.verified && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-2 py-1">
+                          <ShieldCheck size={11} /> Verified by {reviewDetail.verified_by} {reviewDetail.verified_at ? `on ${reviewDetail.verified_at.slice(0, 10)}` : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {reviewDetail.record_type === 'branch_transfer' && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{reviewDetail.record_number}</p>
+                          {reviewDetail.invoice_number && <p className="text-[10px] text-blue-600 font-mono">{reviewDetail.invoice_number}</p>}
+                          <div className="flex items-center gap-1.5 mt-1 text-xs text-emerald-800">
+                            <Building2 size={11} /> {reviewDetail.from_branch} <span className="text-slate-400">→</span> {reviewDetail.to_branch}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold font-mono text-slate-800">{formatPHP(reviewDetail.grand_total)}</p>
+                          <p className="text-[10px] text-slate-400">Retail: {formatPHP(reviewDetail.retail_total)}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500 pt-1 border-t border-emerald-100">
+                        <span>Status: <Badge className="text-[9px] bg-slate-200 text-slate-600">{reviewDetail.status}</Badge></span>
+                        {reviewDetail.sent_at && <span>Sent: {reviewDetail.sent_at.slice(0, 10)}</span>}
+                        {reviewDetail.received_at && <span>Received: {reviewDetail.received_at.slice(0, 10)}</span>}
+                        {reviewDetail.received_by && <span>By: {reviewDetail.received_by}</span>}
+                        {reviewDetail.has_shortage && <Badge className="text-[9px] bg-red-100 text-red-700">Shortage</Badge>}
+                      </div>
+                    </div>
+                  )}
+
+                  {reviewDetail.record_type === 'expense' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">{reviewDetail.category}</p>
+                          <p className="text-xs text-slate-600">{reviewDetail.description}</p>
+                          {reviewDetail.vendor && <p className="text-[10px] text-slate-500 mt-0.5">Payee: {reviewDetail.vendor}</p>}
+                        </div>
+                        <p className="text-lg font-bold font-mono text-slate-800">{formatPHP(reviewDetail.grand_total)}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500 pt-1 border-t border-amber-100">
+                        <span className="flex items-center gap-1"><Building2 size={10} /> {reviewDetail.branch_name}</span>
+                        <span className="flex items-center gap-1"><CalendarDays size={10} /> {reviewDetail.date?.slice(0, 10)}</span>
+                        {reviewDetail.payment_method && <span>Method: {reviewDetail.payment_method}</span>}
+                        {reviewDetail.created_by && <span>By: {reviewDetail.created_by}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Item Breakdown ── */}
+                  {reviewDetail.items?.length > 0 && (
+                    <div className="bg-white border rounded-xl overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 border-b flex items-center gap-2">
+                        <Package size={13} className="text-slate-500" />
+                        <span className="text-xs font-semibold text-slate-700">Items ({reviewDetail.items.length})</span>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-slate-50/50">
+                            <TableHead className="text-[10px] uppercase text-slate-500">Product</TableHead>
+                            <TableHead className="text-[10px] uppercase text-slate-500 text-right">Qty</TableHead>
+                            <TableHead className="text-[10px] uppercase text-slate-500 text-right">Price</TableHead>
+                            <TableHead className="text-[10px] uppercase text-slate-500 text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {reviewDetail.items.map((item, idx) => (
+                            <TableRow key={idx} className="hover:bg-slate-50/50">
+                              <TableCell className="text-xs">
+                                <span className="font-medium">{item.product_name}</span>
+                                {item.sku && <span className="text-[10px] text-slate-400 ml-1">({item.sku})</span>}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">
+                                {item.quantity}{item.unit ? ` ${item.unit}` : ''}
+                                {item.qty_received !== undefined && item.qty_received !== item.quantity && (
+                                  <span className={`text-[10px] ml-1 ${item.qty_received < item.quantity ? 'text-red-500' : 'text-blue-500'}`}>
+                                    (rcvd: {item.qty_received})
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-xs text-right font-mono">{formatPHP(item.unit_price || item.transfer_capital || 0)}</TableCell>
+                              <TableCell className="text-xs text-right font-mono font-semibold">{formatPHP(item.total || (item.quantity * (item.unit_price || item.transfer_capital || 0)))}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {/* ── Receipt Photos ── */}
+                  {receiptPreview?.files?.length > 0 && (
+                    <div className="bg-white border rounded-xl overflow-hidden">
+                      <div className="px-3 py-2 bg-slate-50 border-b flex items-center gap-2">
+                        <Camera size={13} className="text-slate-500" />
+                        <span className="text-xs font-semibold text-slate-700">Receipt Photos ({receiptPreview.files.length})</span>
+                      </div>
+                      <div className="p-3 flex flex-wrap gap-2">
+                        {receiptPreview.files.map((f, i) => {
+                          const isImage = (f.content_type || '').startsWith('image/');
+                          const url = `${BACKEND_URL}/api/uploads/file/${receiptPreview.item.record_type}/${receiptPreview.item.id}/${f.id}`;
+                          return (
+                            <a key={f.id || i} href={url} target="_blank" rel="noopener noreferrer"
+                              className="block rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                              {isImage ? (
+                                <img src={url} alt={f.filename} className="w-24 h-24 object-cover" />
+                              ) : (
+                                <div className="w-24 h-24 bg-slate-50 flex flex-col items-center justify-center">
+                                  <Receipt size={18} className="text-slate-400" />
+                                  <span className="text-[8px] text-slate-400 mt-1 truncate max-w-[80px]">{f.filename}</span>
+                                </div>
+                              )}
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Fallback — old minimal view */
+                reviewDialog && (
+                  <div className={`p-3 rounded-lg ${TYPE_CONFIG[reviewDialog.record_type]?.bg || 'bg-slate-50'} border ${TYPE_CONFIG[reviewDialog.record_type]?.border || 'border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">{reviewDialog.record_number}</p>
+                        <p className="text-[10px] text-slate-500">{reviewDialog.description}</p>
+                      </div>
+                      <span className="text-sm font-bold font-mono text-slate-700">{formatPHP(reviewDialog.amount)}</span>
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* ── Review Notes ── */}
+              <div>
+                <label className="text-xs text-slate-500 font-medium block mb-1">Review Notes (optional)</label>
+                <Input
+                  value={reviewNotes}
+                  onChange={e => setReviewNotes(e.target.value)}
+                  placeholder="e.g. Verified receipt matches encoded items..."
+                  className="h-9 text-sm"
+                  data-testid="review-notes-input"
+                />
               </div>
-            )}
 
-            {/* Review notes */}
-            <div>
-              <label className="text-xs text-slate-500 font-medium block mb-1">Review Notes (optional)</label>
-              <Input
-                value={reviewNotes}
-                onChange={e => setReviewNotes(e.target.value)}
-                placeholder="e.g. Verified receipt matches PO amount, photos clear..."
-                className="h-9 text-sm"
-                data-testid="review-notes-input"
-              />
+              {/* ── PIN Entry ── */}
+              <div>
+                <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mb-1">
+                  <Shield size={11} className="text-amber-500" />
+                  Admin PIN, Auditor PIN, or TOTP Code <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="password" autoComplete="new-password"
+                  value={reviewPin}
+                  onChange={e => setReviewPin(e.target.value)}
+                  placeholder="Enter PIN or authenticator code"
+                  className="h-9 text-sm font-mono"
+                  data-testid="review-pin-input"
+                  onKeyDown={e => { if (e.key === 'Enter') handleReview(); }}
+                />
+              </div>
             </div>
+          </ScrollArea>
 
-            {/* PIN entry */}
-            <div>
-              <label className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mb-1">
-                <Shield size={11} className="text-amber-500" />
-                Admin PIN or TOTP Code <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="password" autoComplete="new-password"
-                value={reviewPin}
-                onChange={e => setReviewPin(e.target.value)}
-                placeholder="Enter PIN or authenticator code"
-                className="h-9 text-sm font-mono"
-                data-testid="review-pin-input"
-                onKeyDown={e => { if (e.key === 'Enter') handleReview(); }}
-              />
-            </div>
-
-            <div className="flex justify-between items-center pt-1 border-t">
-              <Button variant="ghost" size="sm" onClick={() => goToRecord(reviewDialog)} className="text-xs text-slate-500 hover:text-[#1A4D2E]">
-                <Eye size={12} className="mr-1" /> View Full Record
+          {/* ── Actions Bar ── */}
+          <div className="flex justify-between items-center pt-3 border-t -mx-6 px-6">
+            <Button variant="ghost" size="sm" onClick={() => goToRecord(reviewDialog)} className="text-xs text-slate-500 hover:text-[#1A4D2E]">
+              <ExternalLink size={12} className="mr-1" /> Open Full Page
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setReviewDialog(null); setReceiptPreview(null); setReviewDetail(null); }}>Cancel</Button>
+              <Button size="sm" onClick={handleReview} disabled={reviewSaving || !reviewPin}
+                className="bg-[#1A4D2E] hover:bg-[#14532d] text-white"
+                data-testid="confirm-review-btn">
+                {reviewSaving ? <RefreshCw size={12} className="animate-spin mr-1" /> : <CheckCircle2 size={12} className="mr-1" />}
+                Mark as Reviewed
               </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setReviewDialog(null); setReceiptPreview(null); }}>Cancel</Button>
-                <Button size="sm" onClick={handleReview} disabled={reviewSaving || !reviewPin}
-                  className="bg-[#1A4D2E] hover:bg-[#14532d] text-white"
-                  data-testid="confirm-review-btn">
-                  {reviewSaving ? <RefreshCw size={12} className="animate-spin mr-1" /> : <CheckCircle2 size={12} className="mr-1" />}
-                  Mark as Reviewed
-                </Button>
-              </div>
             </div>
           </div>
         </DialogContent>

@@ -854,3 +854,148 @@ async def accounts_payable_summary(
         "upcoming_count": len(upcoming),
         "upcoming_total": round(sum(e["balance"] for e in upcoming), 2),
     }
+
+
+@router.get("/review-detail/{record_type}/{record_id}")
+async def get_review_detail(record_type: str, record_id: str, user=Depends(get_current_user)):
+    """
+    Fetch full record detail for the review panel on the dashboard.
+    Returns enriched data including items, supplier, dates, payment status, receipt files.
+    Supports: purchase_order, branch_transfer, expense
+    """
+    from utils import now_iso
+
+    result = {"record_type": record_type, "record_id": record_id}
+
+    if record_type == "purchase_order":
+        po = await db.purchase_orders.find_one({"id": record_id}, {"_id": 0})
+        if not po:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Purchase order not found")
+
+        # Resolve branch name
+        branch = await db.branches.find_one({"id": po.get("branch_id")}, {"_id": 0, "name": 1})
+
+        # Calculate payment info
+        payments = po.get("payments", [])
+        total_paid = sum(float(p.get("amount", 0)) for p in payments)
+        grand_total = float(po.get("grand_total", 0))
+        balance = round(grand_total - total_paid, 2)
+        payment_status = "paid" if balance <= 0 else "partial" if total_paid > 0 else "unpaid"
+
+        result.update({
+            "record_number": po.get("po_number", ""),
+            "supplier": po.get("vendor", "Unknown"),
+            "supplier_contact": po.get("vendor_contact", ""),
+            "branch_name": branch.get("name", "") if branch else "",
+            "branch_id": po.get("branch_id", ""),
+            "date": po.get("purchase_date", po.get("created_at", "")),
+            "due_date": po.get("due_date", ""),
+            "status": po.get("status", ""),
+            "grand_total": grand_total,
+            "total_paid": total_paid,
+            "balance": balance,
+            "payment_status": payment_status,
+            "payments": payments,
+            "items": [{
+                "product_name": i.get("product_name", i.get("name", "?")),
+                "sku": i.get("sku", ""),
+                "quantity": float(i.get("quantity", 0)),
+                "unit": i.get("unit", ""),
+                "unit_price": float(i.get("unit_price", 0)),
+                "total": round(float(i.get("quantity", 0)) * float(i.get("unit_price", 0)), 2),
+            } for i in po.get("items", [])],
+            "notes": po.get("notes", ""),
+            "created_by": po.get("created_by_name", ""),
+            "received_by": po.get("received_by_name", ""),
+            "received_at": po.get("received_at", ""),
+            "verified": po.get("verified", False),
+            "verified_by": po.get("verified_by_name", ""),
+            "verified_at": po.get("verified_at", ""),
+            "receipt_review_status": po.get("receipt_review_status", ""),
+            "receipt_reviewed_by": po.get("receipt_reviewed_by_name", ""),
+        })
+
+    elif record_type == "branch_transfer":
+        bt = await db.branch_transfer_orders.find_one({"id": record_id}, {"_id": 0})
+        if not bt:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Branch transfer not found")
+
+        from_branch = await db.branches.find_one({"id": bt.get("from_branch_id")}, {"_id": 0, "name": 1})
+        to_branch = await db.branches.find_one({"id": bt.get("to_branch_id")}, {"_id": 0, "name": 1})
+
+        result.update({
+            "record_number": bt.get("order_number", ""),
+            "from_branch": from_branch.get("name", "") if from_branch else "",
+            "to_branch": to_branch.get("name", "") if to_branch else "",
+            "branch_id": bt.get("to_branch_id", bt.get("from_branch_id", "")),
+            "status": bt.get("status", ""),
+            "date": bt.get("created_at", ""),
+            "sent_at": bt.get("sent_at", ""),
+            "received_at": bt.get("received_at", ""),
+            "received_by": bt.get("received_by_name", ""),
+            "grand_total": float(bt.get("total_at_transfer_capital", 0)),
+            "retail_total": float(bt.get("total_at_branch_retail", 0)),
+            "has_shortage": bt.get("has_shortage", False),
+            "invoice_number": bt.get("invoice_number", ""),
+            "items": [{
+                "product_name": i.get("product_name", "?"),
+                "sku": i.get("sku", ""),
+                "quantity": float(i.get("qty", 0)),
+                "qty_received": float(i.get("qty_received", i.get("qty", 0))),
+                "unit": i.get("unit", ""),
+                "transfer_capital": float(i.get("transfer_capital", 0)),
+                "branch_retail": float(i.get("branch_retail", 0)),
+            } for i in bt.get("items", [])],
+            "notes": bt.get("notes", bt.get("receive_notes", "")),
+            "created_by": bt.get("created_by_name", ""),
+            "receipt_review_status": bt.get("receipt_review_status", ""),
+        })
+
+    elif record_type == "expense":
+        exp = await db.expenses.find_one({"id": record_id}, {"_id": 0})
+        if not exp:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="Expense not found")
+
+        branch = await db.branches.find_one({"id": exp.get("branch_id")}, {"_id": 0, "name": 1})
+
+        result.update({
+            "record_number": exp.get("expense_number", exp.get("id", "")[:8]),
+            "category": exp.get("category", ""),
+            "description": exp.get("description", ""),
+            "branch_name": branch.get("name", "") if branch else "",
+            "branch_id": exp.get("branch_id", ""),
+            "date": exp.get("date", exp.get("created_at", "")),
+            "grand_total": float(exp.get("amount", 0)),
+            "payment_method": exp.get("payment_method", ""),
+            "vendor": exp.get("vendor", exp.get("payee", "")),
+            "notes": exp.get("notes", ""),
+            "created_by": exp.get("created_by_name", ""),
+            "receipt_review_status": exp.get("receipt_review_status", ""),
+        })
+
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=f"Unsupported record type: {record_type}")
+
+    # Fetch receipt files
+    upload_sessions = await db.upload_sessions.find(
+        {"record_type": record_type, "record_id": record_id, "is_pending": {"$ne": True}},
+        {"_id": 0}
+    ).to_list(20)
+    files = []
+    for s in upload_sessions:
+        for f in s.get("files", []):
+            files.append({
+                "id": f.get("id", ""),
+                "filename": f.get("filename", ""),
+                "content_type": f.get("content_type", ""),
+                "uploaded_at": s.get("created_at", ""),
+                "uploaded_by": s.get("created_by_name", ""),
+            })
+    result["receipt_files"] = files
+    result["receipt_count"] = len(files)
+
+    return result

@@ -18,6 +18,7 @@ import {
   AlertTriangle, Shield, X, Package, CreditCard, User, CalendarDays,
   ShieldCheck, ExternalLink, QrCode
 } from 'lucide-react';
+import ViewQRDialog from '../components/ViewQRDialog';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -98,6 +99,7 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
 
   const [reviewDetail, setReviewDetail] = useState(null); // full record detail
   const [reviewDetailLoading, setReviewDetailLoading] = useState(false);
+  const [viewQROpen, setViewQROpen] = useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'manager';
 
@@ -173,8 +175,14 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
   };
 
   const goToRecord = (item) => {
-    const cfg = TYPE_CONFIG[item.record_type];
-    if (cfg?.nav) navigate(cfg.nav);
+    if (item.record_type === 'purchase_order') {
+      navigate(`/purchase-orders?open=${item.id}`);
+    } else if (item.record_type === 'branch_transfer') {
+      navigate(`/branch-transfers?tab=history&view=${item.id}`);
+    } else {
+      const cfg = TYPE_CONFIG[item.record_type];
+      if (cfg?.nav) navigate(cfg.nav);
+    }
   };
 
   if (loading) {
@@ -391,9 +399,15 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
                   {/* ── Receipt Photos ── */}
                   {receiptPreview?.files?.length > 0 && (
                     <div className="bg-white border rounded-xl overflow-hidden">
-                      <div className="px-3 py-2 bg-slate-50 border-b flex items-center gap-2">
-                        <Camera size={13} className="text-slate-500" />
-                        <span className="text-xs font-semibold text-slate-700">Receipt Photos ({receiptPreview.files.length})</span>
+                      <div className="px-3 py-2 bg-slate-50 border-b flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Camera size={13} className="text-slate-500" />
+                          <span className="text-xs font-semibold text-slate-700">Receipt Photos ({receiptPreview.files.length})</span>
+                        </div>
+                        <Button variant="outline" size="sm" className="h-6 text-[10px] px-2"
+                          onClick={() => setViewQROpen(true)} data-testid="review-view-phone-btn">
+                          <QrCode size={10} className="mr-1" /> View on Phone
+                        </Button>
                       </div>
                       <div className="p-3 flex flex-wrap gap-2">
                         {receiptPreview.files.map((f, i) => {
@@ -480,6 +494,15 @@ export default function PendingReviewsWidget({ branchId, compact = false }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── View on Phone QR Dialog ── */}
+      <ViewQRDialog
+        open={viewQROpen}
+        onClose={() => setViewQROpen(false)}
+        recordType={reviewDialog?.record_type}
+        recordId={reviewDialog?.id}
+        fileCount={receiptPreview?.files?.length || 0}
+      />
     </div>
   );
 }

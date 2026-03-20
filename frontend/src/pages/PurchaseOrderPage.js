@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import UploadQRDialog from '../components/UploadQRDialog';
 import ReceiptGallery from '../components/ReceiptGallery';
 import VerificationBadge from '../components/VerificationBadge';
@@ -72,6 +72,7 @@ function TotalsRow({ label, value, bold, accent }) {
 export default function PurchaseOrderPage() {
   const { currentBranch, branches, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = user?.role === 'admin';
   const today = new Date().toISOString().slice(0, 10);
 
@@ -193,6 +194,20 @@ export default function PurchaseOrderPage() {
     api.get('/price-schemes').then(r => setSchemes(r.data)).catch(() => {});
     fetchOrders();
   }, [currentBranch]);
+
+  // Deep-link: auto-open PO detail when ?open=<po_id> is present
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (openId) {
+      setTab('list');
+      api.get(`/purchase-orders/${openId}`).then(res => {
+        setDetailPO(res.data);
+        setDetailDialog(true);
+      }).catch(() => {});
+      // Clear the param so it doesn't re-open on re-render
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]); // eslint-disable-line
 
   // Supplier search autocomplete
   useEffect(() => {

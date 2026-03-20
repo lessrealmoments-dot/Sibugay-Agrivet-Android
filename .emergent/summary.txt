@@ -1,190 +1,157 @@
 <analysis>**original_problem_statement:**
-The user initiated a series of feature requests and bug fixes for the terminal application:
-1.  **QR Scanner:** Add a QR code scanner to the terminal's floating mode selector on the left side ().
-2.  **Camera Scanner Size:** The barcode camera scanner in the main sales view () was taking up too much screen space.
-3.  **Scanner Functionality:** After initial resizing attempts, the sales barcode scanner stopped detecting barcodes, and the new QR scanner had an undesirable white aiming box.
-4.  **White Screen Crash:** After checking out a sale in the terminal, the screen would turn completely white, traced to an unhandled API error response.
-5.  **Stock Visibility:** The terminal lacked visibility into product inventory levels. The user requested color-coded stock badges in search results and stock indicators on cart items.
-6.  **Insufficient Stock Handling:** The user requested a proper workflow for handling sales with insufficient stock, mirroring the desktop POS by implementing a manager PIN override that creates an incident ticket.
-7.  **Incident Ticket System Overhaul:** The user requested a complete overhaul of the incident ticket system to support different ticket types and improve usability:
-    *   **Numbering:** Standardize ticket numbering to .
-    *   **Filtering:** Implement correct branch-based filtering (Managers see their branch's tickets, Admins see all).
-    *   **Adaptive UI:** Redesign the ticket detail view to be adaptive, showing context-specific information for negative stock tickets vs. transfer variance tickets.
-    *   **Link PO Enhancement:** Add the ability to search for and link a Purchase Order when resolving a negative stock ticket.
+The user initiated the session by reporting an issue with the Android back button in the terminal app, which was exiting the app instead of navigating back. This led to a series of feature requests and critical bug fixes:
+
+1.  **Terminal Back Button:** Implement proper back navigation for the Android terminal app to close overlays and pop-up menus before exiting.
+2.  **Terminal Token Expiry:** The user inquired about the terminal session duration. This led to a feature request to make terminal sessions auto-refresh to avoid the need for daily re-pairing.
+3.  **Terminal QR Action Security:** The user requested that critical QR code actions (for Sales Orders, Purchase Orders, and Branch Transfers) should only work if initiated from a paired terminal device.
+4.  **Branch Transfer Movement Bug:** The user reported that a new branch transfer, received via the terminal on their live site, was not appearing in the product's movement history.
+5.  **Critical Multi-tenancy Bug:** The investigation into the movement bug revealed a systemic issue: when the super admin performed actions (like receiving a transfer), the resulting database records (e.g., ) were being created without an , making them invisible to regular tenant users.
+6.  **TOTP Reset:** The user accidentally deleted their Google Authenticator app and needed help resetting the TOTP for the super admin account.
+7.  **Dashboard Review Workflow:** The user requested an overhaul of the Pending Reviews workflow on the dashboard, wanting a richer detail view instead of just a link to the PO page. This evolved to include a View on Phone QR feature and making the Accounts Payable widget use the same enhanced review dialog.
+8.  **Code Refactoring:** The user suggested refactoring the duplicated review dialog logic into a single, shared component.
 
 **User's preferred language**: English
 
 **what currently exists?**
-The terminal application is now significantly more robust and feature-rich.
--   **QR & Barcode Scanners:**
-    -   A Scan QR option is now in the  floating mode selector, opening a full-screen, box-free camera view for scanning document QR codes.
-    -   The  barcode scanner has been redesigned into a compact, horizontally-clipped strip. This provides a high-resolution camera feed for accurate scanning without obstructing the UI.
--   **Stock Management & Override Flow:**
-    -   The terminal now displays color-coded stock badges in product search results (green/amber/red) and shows available stock on cart items.
-    -   When a sale would result in negative inventory, an Insufficient Stock modal now appears, prompting for a manager PIN to authorize the override. A successful override creates an incident ticket.
-    -   A bug causing a white screen crash on checkout (due to unhandled API errors) has been fixed.
--   **Adaptive Incident Ticket System:**
-    -   The ticket system has been completely redesigned to handle different s.
-    -   Ticket numbering is now standardized (e.g., ).
-    -   Branch filtering works correctly for both managers and admins.
-    -   The ticket detail view is adaptive, showing relevant information and resolution options for  tickets (product info, sale details, investigation guide) versus  tickets.
-    -   A Link PO feature has been added, allowing users to search for and attach a PO to a ticket during resolution, providing a clear audit trail.
+*   A full-stack application with POS, inventory, and document management systems.
+*   **Critical Multi-Tenancy Bug Fix:** A systemic bug where super admin actions created orphaned data (without ) has been fixed. A new helper function, , was created and applied to critical backend routes (, , , and the core  function). A data repair script was successfully executed on the user's live site to fix existing orphaned data.
+*   **Terminal Enhancements:**
+    *   **Back Button:** The terminal shell now correctly handles the Android back button, providing intuitive in-app navigation.
+    *   **Auto-Refresh Token:** Terminal sessions now auto-refresh every 12 hours, preventing the need for daily re-pairing.
+    *   **Gated QR Actions:** Critical QR code actions (, , ) are now secured and can only be performed from a paired terminal device.
+*   **Security Hardening:** The endpoint to disable Two-Factor Authentication () now requires the current TOTP code as a security measure. The agent also successfully assisted the user in resetting a lost TOTP secret.
+*   **Refactored Review UI:** A new shared component, , has been created. It provides a rich, modal-based view for reviewing documents (like Purchase Orders), complete with item breakdowns, payment status, receipt photos, a View on Phone QR feature, and PIN-based verification controls.
+*   **Enhanced Dashboard:** Both the Pending Reviews and Accounts Payable widgets on the dashboard have been refactored to use the new , making PO numbers and review items clickable and providing a consistent, detailed review experience.
 
 **Last working item**:
-    - Last item agent was working: The agent implemented the Link PO enhancement for the incident ticket system and then executed a full end-to-end test of the entire incident ticket workflow using the testing subagent.
+    - Last item agent was working: The agent refactored the UI by creating a shared  component. It successfully extracted the detailed review modal logic from , created the new shared component, and then updated both  and  to use it, eliminating significant code duplication.
     - Status: USER VERIFICATION PENDING
     - Agent Testing Done: Y
-    - Which testing method agent to use? User verification is the next step. No further testing is needed from the agent at this time.
+    - Which testing method agent to use? The agent has already verified via screenshots. The user should now test the functionality on the dashboard.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: User verification for all terminal and incident ticket features is pending. (P0)
-
-  Issues Detail:
-  - Issue 1:
-     - Attempted fixes: N/A. The features have been implemented and tested by the agent.
-     - Next debug checklist: The user needs to test the entire flow on their device:
-        1.  Create a sale in the terminal that causes negative stock.
-        2.  Verify the Insufficient Stock modal appears with correct product info.
-        3.  Enter a manager PIN to authorize the override.
-        4.  Confirm the sale completes and a ticket is created.
-        5.  Navigate to the Incident Tickets page.
-        6.  Verify the new ticket appears with the correct  number.
-        7.  Open the ticket and confirm the adaptive detail view shows product/sale info.
-        8.  Initiate resolution, select Unencoded PO, and use the new feature to search for and link a PO.
-        9.  Complete the resolution with a PIN.
-        10. Verify the ticket status changes to resolved and the linked PO number is visible in the detail view.
-        11. Test the Scan QR button in the terminal mode selector.
-        12. Test the compact barcode scanner in the terminal sales view.
-     - Why fix this issue and what will be achieved with the fix?: To confirm the successful implementation of a complex, multi-part feature set and close the loop on the user's requests.
-     - Status: USER VERIFICATION PENDING
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? N/A
-     - Blocked on other issue: None
+  - There are no pending issues. The agent has addressed all of the user's recent requests.
 
 **In progress Task List**:
  - None.
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P1:** Cross-branch payment wallet routing (cash recorded at receiving branch's wallet).
-    - **P1:** Build an admin tool to fix corrupted Purchase Orders.
-    - **P2:** Refactor .
-    - **P2:** Fix all  ESLint warnings.
-    - **P2:** Update  to use .
-
+    - **P0:** Build a compliance calendar widget for the main Dashboard page.
+    - **P0:** Implement notification alerts for upcoming document deadlines.
+    - **P1 (Terminal Features):** Research and implement other relevant terminal features as previously discussed, such as Quick Stock Check, Price Check, and Quick Count. The user has expressed interest but needs to prioritize which to build first.
 - **Future Tasks (Backlog):**
+    - Build an admin tool to fix historically corrupted Purchase Orders.
+    - Implement cross-branch payment wallet routing.
+    - Refactor  and .
+    - Fix all  ESLint warnings.
+    - Implement logic for weight-embedded EAN-13 barcodes.
     - Visual trail for partial invoices.
     - Smart Journal Entries for forgotten sales.
-    - Implement logic for weight-embedded EAN-13 barcodes.
-    - Build an Automated Payment Gateway and a Demo Login System.
-    - Create advanced reporting and user role presets.
+    - Automated Payment Gateway and Demo Login System.
 
 **Completed work in this session**
-- **Terminal UI/UX & Bug Fixes:**
-  - Implemented a Scan QR option with a full-screen camera in .
-  - Redesigned the  barcode scanner into a compact, high-resolution clipped strip.
-  - Fixed a critical bug in  that caused a white screen crash on checkout by properly parsing structured API error messages.
-- **Terminal Stock Management Flow:**
-  - Added color-coded stock visibility badges to product search results in .
-  - Added available stock indicators to cart items.
-  - Implemented the full Insufficient Stock override flow, including a manager PIN modal that creates an incident ticket upon success.
-- **Incident Ticket System Overhaul:**
-  - Standardized ticket numbering to  in .
-  - Implemented correct branch-based filtering for tickets in  and .
-  - Created an adaptive ticket detail view in  that renders different layouts and information based on the .
-  - Implemented adaptive resolution options and corresponding journal entries in .
-  - Added a Link PO feature to the resolution workflow in  and .
-- **Testing & Project Management:**
-  - Successfully ran two major test suites using , verifying both the Phase 2 permissions and the full incident ticket flow.
-  - Updated  and  after each major feature completion.
+- **Critical Multi-Tenancy Bug Fix:**
+  - Identified and fixed the root cause of super-admin actions creating orphaned data (missing ).
+  - Created and applied a centralized fix using an  helper in .
+  - Patched , , and .
+  - Created and executed a data repair script () on the user's live site, successfully restoring visibility of missing movement records.
+- **Terminal Enhancements:**
+  - Implemented proper Android back button navigation in .
+  - Implemented an automatic token refresh mechanism to keep terminals paired indefinitely ().
+  - Secured QR code actions by requiring a valid  in  and .
+- **Dashboard & UI Refactoring:**
+  - Created a new shared  component for a consistent document review experience.
+  - Refactored  and  to use the new shared dialog.
+  - The new dialog provides a rich view of POs with items, status, receipt photos, and a View on Phone QR feature.
+  - Fixed deep-linking from the dashboard widgets to the correct record detail pages ().
+- **Security & Support:**
+  - Hardened 2FA security by requiring a TOTP code to disable it in .
+  - Assisted the user with a live reset of their super admin TOTP secret.
+- **Bug Fixes:**
+  - Fixed a bug where the  was not showing on branch transfer cards.
+  - Fixed a bug where the product movement history was limited to 50 items by adding pagination.
 
 **Earlier issues found/mentioned but not fixed**
--   **P1:** An admin tool is still needed to fix historically corrupted Purchase Orders.
--   **P2:**  needs to be refactored from a monolithic component.
--   **P2:**  still uses  instead of .
+   - **Issue 1:**  warnings for . This is a known, recurring issue that remains in the backlog.
 
 **Known issue recurrence from previous fork**
   - **Issue recurrence in previous fork:**  warnings for .
   - **Recurrence count:** 5+
-  - **Status:** NOT STARTED.
+  - **Status:** NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Adaptive UI:** Using conditional rendering based on  to show different layouts, data, and actions within a single component ().
--   **Clipped High-Resolution Video:** Wrapping the  video feed in a clipped container () to create a compact UI for the scanner without sacrificing the camera's resolution or detection accuracy.
--   **Robust Error Handling:** Fixing a UI-crashing bug by parsing structured error objects from the backend and extracting the user-facing  string before passing it to the  toast library.
--   **Extensible Systems:** Designing the incident ticket system so that new ticket types can be added with unique UI views and resolution logic by extending the patterns established in  and .
--   **Stateful Resolution Flow:** Managing complex dialog state in React to guide the user through a multi-step resolution process, including searching for and selecting a PO to link to a ticket.
+-   **Systemic Multi-Tenancy Fix:** Using a centralized helper () to resolve  for super-admin actions across all relevant routes to ensure data integrity.
+-   **Live Data Repair:** Creating and deploying a one-time API endpoint to retroactively fix orphaned data in a production environment.
+-   **PWA Back Button Handling:** Using the browser's  event within a React  hook to manage navigation state and provide an intuitive, app-like back button experience.
+-   **Sliding Window Token Refresh:** A silent token refresh mechanism ( on the frontend,  endpoint on the backend) to maintain long-lived, authenticated sessions for devices like terminals.
+-   **Component-Driven Refactoring (DRY):** Extracting a complex UI with its state and logic (the review modal) into a single, reusable shared component () to eliminate code duplication and centralize functionality.
+-   **Query Param Deep-Linking:** Using  in React Router to read a URL query parameter (e.g., ) and trigger an action on page load, such as opening a specific detail modal.
 
 **key DB schema**
--   **incident_tickets**: **MODIFIED**
-    -   New tickets are created with a standardized  (e.g., ).
-    -   The schema now includes optional  and  fields, populated upon resolution.
-    -   The  field is used for filtering  tickets.
-
-**changes in tech stack**
--   None.
+- No new collections were added. Work focused on ensuring data integrity (presence of ) in existing collections like , , , , etc.
 
 **All files of reference**
--   
--   
--   
--   
--   
--   
--   
+*    (Key  logic)
+*    (Example of the multi-tenancy fix and data repair script)
+*    (New shared review component)
+*    (Refactored to use the shared dialog)
+*    (Refactored to use the shared dialog)
+*    (Back button and token refresh logic)
 
 **Areas that need refactoring**:
--   : Remains a large, monolithic component.
--   : Still uses an outdated navigation method.
+-    and  remain as previously identified refactoring candidates.
+-   , while improved, is still a large component that could benefit from further decomposition.
 
 **key api endpoints**
--   : **MODIFIED**. Now creates  with a standardized  when a negative stock override occurs.
--   : **MODIFIED**. Now correctly filters by  based on the user's role and selection.
--   : **HEAVILY MODIFIED**. Handles adaptive resolution types, accepts a , creates corresponding journal entries, and validates PINs against the correct branch.
+-   : **NEW**. One-time endpoint to repair orphaned data on the live site.
+-   : **NEW**. Allows a paired terminal to silently get a new 24-hour JWT.
+-   : **NEW**. Returns rich, detailed data for a document pending review.
+-   : **MODIFIED**. Now requires the current  in the request body, enhancing security.
+-   : **MODIFIED**. All QR action endpoints (, , ) now require a valid  in the request body.
 
 **Critical Info for New Agent**
--   The immediate next step is to **await user verification** for the extensive terminal and incident ticket changes. The user needs to perform a full end-to-end test on their device.
--   The  library requires a full-resolution video feed for reliable scanning. When creating compact scanner UIs, use the established clipped container CSS pattern to avoid performance degradation.
--   The incident ticket system is now designed to be adaptive. When adding new ticket types, follow the existing pattern of creating a unique , defining its resolution options, and adding a corresponding conditional view in .
+-   **Multi-tenancy is paramount.** A systemic bug was just fixed where super-admin actions created orphaned data. Any new route that modifies tenant data must be checked to ensure it correctly handles organization context, ideally by using the new  helper from .
+-   **The  is the new standard.** For any UI that needs to show a detailed, modal-based view of a PO, transfer, or expense, this shared component should be used to ensure a consistent user experience.
+-   **Terminal actions are now gated.** All critical QR-based actions now require a paired terminal. If new QR actions are added, they must follow this security pattern.
 
 **documents and test reports created in this job**
--   
--   
+- None.
 
-**Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Approved the Link PO enhancement and requested verification of the full incident ticket flow. (Status: **RESOLVED**, agent implemented and tested).
-2.  **User:** Approved the agent's proposal for an adaptive incident ticket system. (Status: **RESOLVED**, agent proceeded with implementation).
-3.  **User:** Pointed out that the incident ticket viewer is not suitable for different error types and asked the agent to research a better approach. (Status: **RESOLVED**, agent proposed an adaptive UI).
-4.  **User:** Detailed requirements for the incident ticket system: better numbering, correct branch filtering, and manager PIN authorization. (Status: **RESOLVED**, all implemented).
-5.  **User:** Requested stock visibility on the terminal and a manager override flow for insufficient stock. (Status: **RESOLVED**, all implemented).
-6.  **User:** Reported the terminal screen turns white after checkout. (Status: **RESOLVED**, agent found and fixed the bug).
-7.  **User:** Stated a preference for a clipped scanner view that only detects barcodes in the visible area. (Status: **RESOLVED**, agent explained  already does this).
-8.  **User:** Reported the resized sales camera scanner doesn't work and the quality is low. (Status: **RESOLVED**, agent diagnosed the issue and implemented a clipped container solution).
-9.  **User:** Reported the sales scanner isn't working and the QR scanner has an unwanted white box. (Status: **RESOLVED**, agent fixed both issues).
-10. **User:** Asked if an APK update is needed to see the terminal changes. (Status: **RESOLVED**, agent explained why it's not needed due to live URL mode).
+**Last 10 User Messages and any pending HUMAN messages** 
+1.  **Request:** Use the same new review module for the Accounts Payable widget. (DONE)
+2.  **Reported Bug:** Open Full Page link in the review dialog redirects to the wrong page. (DONE)
+3.  **Request:** Add a View on Phone QR code button to the review dialog. (DONE)
+4.  **Feedback:** Praised the new enriched review dialog and asked for improvements. (ADDRESSED)
+5.  **Request:** Overhaul the Pending Reviews widget to show full item breakdowns and other details, and allow for PIN verification directly in the dialog. (DONE)
+6.  **Confirmation:** Agreed with the agent's plan to enforce QR actions through the terminal only and to implement token auto-refresh. (ADDRESSED)
+7.  **Request:** Yes, auto-refresh the terminal token. (DONE)
+8.  **Reported Bug:** Terminal exits to Android homescreen on back swipe. (DONE)
+9.  **Request:** Research relevant features to add to the terminal. (ADDRESSED, PENDING PRIORITIZATION)
+10. **Feedback:** Thanked the agent for fixing the TOTP and data visibility issues, and asked about the security implications of the TOTP reset process. (ADDRESSED, SECURITY HARDENED)
 
 **Project Health Check:**
--   **Broken:**
-    -   An admin tool to fix historically corrupted  documents has been requested but not yet built.
--   **Mocked:** None.
+*   **Broken:** None. The critical data integrity issue with orphaned movements has been identified, patched at the source, and repaired on the live server.
+*   **Mocked:** None.
 
 **3rd Party Integrations**
--   ****: A client-side library used for all camera-based barcode and QR code scanning in the application.
+*   ****: Used for all camera-based scanning.
+*   ** for Cloudflare R2**: Used for all file storage via S3-compatible API.
 
 **Testing status**
-  - Testing agent used after significant changes: YES
+  - Testing agent used after significant changes: NO
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: No new pytest files were created by the agent, but the testing agent () was used to generate test reports for two major feature sets.
-  - Known regressions: None.
+  - Test files created: []
+  - Known regressions: None from this session.
 
 **Credentials to test flow:**
--   **Super Admin:**  / 
--   **Manager PIN:** 
--   **Cashier (with pairing):** A terminal paired to a branch is required to test the full flow.
+*   **Super Admin:**  / 
+*   **Company Admin:**  / 
+*   **Manager PIN:** 
 
 **What agent forgot to execute**
--   The agent successfully implemented all user requests and enhancements in a logical sequence. No tasks were forgotten.</analysis>
+- The agent has been extremely thorough, addressing user requests while also proactively identifying and fixing a major underlying architectural flaw (the multi-tenancy bug). No forgotten tasks were identified.</analysis>

@@ -265,5 +265,5 @@ At void of partial-release invoice:
 
 - **Super Admin:** `janmarkeahig@gmail.com` / `Aa@58798546521325`
 - **Manager PIN:** `521325`
-- **App URL:** `https://ph-business-docs.preview.emergentagent.com`
+- **App URL:** `https://pos-inventory-suite-2.preview.emergentagent.com`
 - **DB:** MongoDB `test_database` at `localhost:27017`

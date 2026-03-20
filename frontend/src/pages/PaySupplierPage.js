@@ -9,21 +9,21 @@ import { Card, CardContent } from '../components/ui/card';
 import { Separator } from '../components/ui/separator';
 import { ScrollArea } from '../components/ui/scroll-area';
 import {
-  Search, AlertTriangle, CheckCircle2, Receipt, Clock,
-  Banknote, Building2, Smartphone, CreditCard, X,
+  Search, AlertTriangle, CheckCircle2, Receipt,
+  Banknote, Building2, X,
   Zap, Shield, Lock, Upload, FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
 import PODetailModal from '../components/PODetailModal';
 
-const METHODS = [
-  { value: 'Cash',          label: 'Cash',   icon: Banknote    },
-  { value: 'Check',         label: 'Check',  icon: Receipt     },
-  { value: 'Bank Transfer', label: 'Bank',   icon: Building2   },
-  { value: 'GCash',         label: 'GCash',  icon: Smartphone  },
-  { value: 'Maya',          label: 'Maya',   icon: CreditCard  },
-];
+// payMethod is derived from fundSource — no separate method picker needed
+const FUND_METHOD_MAP = {
+  cashier: 'Cash',
+  safe:    'Cash',
+  bank:    'Check/Bank Transfer',
+  digital: 'Digital Transfer',
+};
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
@@ -45,11 +45,13 @@ export default function PaySupplierPage() {
 
   // Payment header fields
   const [payDate, setPayDate] = useState(today);
-  const [payMethod, setPayMethod] = useState('Cash');
   const [payRef, setPayRef] = useState('');
   const [payMemo, setPayMemo] = useState('');
   const [fundSource, setFundSource] = useState('cashier');
   const [payPin, setPayPin] = useState('');
+
+  // payMethod is derived — no separate picker
+  const payMethod = FUND_METHOD_MAP[fundSource] || 'Cash';
 
   // Fund balances
   const [walletBalances, setWalletBalances] = useState({ cashier: 0, safe: 0, bank: 0, digital: 0 });
@@ -192,7 +194,6 @@ export default function PaySupplierPage() {
       .map(([po_id, amt]) => ({ po_id, amount: parseFloat(amt) }));
 
     if (allocations.length === 0) { toast.error('Select at least one PO to pay'); return; }
-    if (payMethod === 'Check' && !payRef) { toast.error('Check # is required for Check payments'); return; }
     if (!payPin.trim()) { toast.error('PIN or TOTP is required to authorize payment'); return; }
     if (!currentBranch?.id) { toast.error('Select a specific branch first'); return; }
 
@@ -316,8 +317,8 @@ export default function PaySupplierPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-x-6 gap-y-3">
-            {/* Left: Pay To + Amount + Date + Ref */}
+          <div className="grid grid-cols-1 gap-y-3">
+            {/* Pay To + Amount + Date + Ref — full width now (no method icons) */}
             <div className="space-y-2.5">
               {/* PAY TO */}
               <div className="flex items-center gap-3">
@@ -368,32 +369,11 @@ export default function PaySupplierPage() {
                   <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} className="h-9 w-36" />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Label className="text-[10px] text-slate-400 uppercase">{payMethod === 'Check' ? 'Check #*' : 'Ref #'}</Label>
+                  <Label className="text-[10px] text-slate-400 uppercase">{fundSource === 'bank' ? 'Check # / Ref' : 'Ref #'}</Label>
                   <Input value={payRef} onChange={e => setPayRef(e.target.value)}
-                    placeholder={payMethod === 'Check' ? 'Required' : 'Optional'}
-                    className="h-9 w-32" data-testid="pay-ref-input" />
+                    placeholder={fundSource === 'bank' ? 'Check # or bank ref' : 'Optional'}
+                    className="h-9 w-36" data-testid="pay-ref-input" />
                 </div>
-              </div>
-            </div>
-
-            {/* Right: Method icons */}
-            <div className="flex flex-col gap-1.5 shrink-0">
-              <Label className="text-[10px] text-slate-400 uppercase tracking-wide text-center">Method</Label>
-              <div className="flex gap-1">
-                {METHODS.map(m => {
-                  const Icon = m.icon;
-                  const active = payMethod === m.value;
-                  return (
-                    <button key={m.value} onClick={() => setPayMethod(m.value)}
-                      data-testid={`method-${m.value}`}
-                      className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg border text-xs transition-all ${
-                        active ? 'bg-[#1A4D2E] text-white border-[#1A4D2E] shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                      }`}>
-                      <Icon size={16} />
-                      <span className="text-[10px] font-medium">{m.label}</span>
-                    </button>
-                  );
-                })}
               </div>
             </div>
           </div>
@@ -403,10 +383,10 @@ export default function PaySupplierPage() {
             <Label className="text-[10px] text-slate-400 uppercase shrink-0">Pay From</Label>
             <div className="flex gap-1.5 flex-wrap">
               {[
-                { key: 'cashier', label: 'Cashier', lock: false },
-                { key: 'safe',    label: 'Safe',    lock: false },
-                { key: 'bank',    label: 'Bank',    lock: true  },
-                { key: 'digital', label: 'Digital', lock: true  },
+                { key: 'cashier', label: 'Cashier',       lock: false },
+                { key: 'safe',    label: 'Safe',           lock: false },
+                { key: 'bank',    label: 'Check / Bank',   lock: true  },
+                { key: 'digital', label: 'Digital',        lock: true  },
               ].map(f => {
                 const bal = walletBalances[f.key] ?? 0;
                 const active = fundSource === f.key;

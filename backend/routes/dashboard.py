@@ -917,7 +917,7 @@ async def get_review_detail(record_type: str, record_id: str, user=Depends(get_c
                         {"wallet_id": w["id"], "remaining_amount": {"$gt": 0}},
                         {"_id": 0, "remaining_amount": 1}
                     ).to_list(500)
-                    bal = round(sum(float(l["remaining_amount"]) for l in lots), 2)
+                    bal = round(sum(float(lot["remaining_amount"]) for lot in lots), 2)
                 wallet_balances[wtype] = {"balance": round(bal, 2), "name": w.get("name", wtype)}
 
         result.update({
@@ -1018,13 +1018,32 @@ async def get_review_detail(record_type: str, record_id: str, user=Depends(get_c
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=f"Unsupported record type: {record_type}")
 
-    # Fetch receipt files
+    # Fetch receipt files — include shared receipt context for audit trail
     upload_sessions = await db.upload_sessions.find(
         {"record_type": record_type, "record_id": record_id, "is_pending": {"$ne": True}},
         {"_id": 0}
     ).to_list(20)
+
+    # Batch-resolve any shared_from PO numbers (avoid N+1 queries)
+    shared_source_ids = {
+        s["shared_from_record_id"]
+        for s in upload_sessions
+        if s.get("is_shared") and s.get("shared_from_record_id")
+    }
+    shared_source_numbers = {}
+    if shared_source_ids:
+        source_pos = await db.purchase_orders.find(
+            {"id": {"$in": list(shared_source_ids)}},
+            {"_id": 0, "id": 1, "po_number": 1, "vendor": 1}
+        ).to_list(len(shared_source_ids))
+        shared_source_numbers = {p["id"]: p for p in source_pos}
+
     files = []
     for s in upload_sessions:
+        is_shared = s.get("is_shared", False)
+        shared_from_id = s.get("shared_from_record_id", "")
+        source_po = shared_source_numbers.get(shared_from_id, {}) if is_shared else {}
+
         for f in s.get("files", []):
             files.append({
                 "id": f.get("id", ""),
@@ -1032,8 +1051,16 @@ async def get_review_detail(record_type: str, record_id: str, user=Depends(get_c
                 "content_type": f.get("content_type", ""),
                 "uploaded_at": s.get("created_at", ""),
                 "uploaded_by": s.get("created_by_name", ""),
+                # Shared receipt provenance
+                "is_shared": is_shared,
+                "shared_from_record_id": shared_from_id,
+                "shared_from_po_number": source_po.get("po_number", ""),
+                "shared_from_vendor": source_po.get("vendor", ""),
             })
+
     result["receipt_files"] = files
     result["receipt_count"] = len(files)
+    # Flag: true if ALL files came from a shared collection receipt (helps UI decide label)
+    result["all_receipts_shared"] = bool(files) and all(f["is_shared"] for f in files)
 
     return result

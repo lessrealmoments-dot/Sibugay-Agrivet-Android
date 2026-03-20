@@ -354,22 +354,55 @@ export default function ReviewDetailDialog({
                           <QrCode size={10} className="mr-1" /> View on Phone
                         </Button>
                       </div>
+
+                      {/* Collection receipt notice — shown when any file was shared from another PO */}
+                      {d.all_receipts_shared && files[0]?.shared_from_po_number && (
+                        <div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border-b border-blue-100 text-[10px] text-blue-700"
+                          data-testid="shared-receipt-notice">
+                          <Receipt size={11} className="mt-0.5 shrink-0 text-blue-500" />
+                          <div>
+                            <span className="font-semibold">Collection receipt</span>
+                            {' · '}shared from{' '}
+                            <span className="font-mono font-semibold">{files[0].shared_from_po_number}</span>
+                            {files[0].shared_from_vendor && (
+                              <span className="text-blue-500"> ({files[0].shared_from_vendor})</span>
+                            )}
+                            {' · '}This receipt covers multiple POs paid together.
+                          </div>
+                        </div>
+                      )}
+                      {!d.all_receipts_shared && files.some(f => f.is_shared) && (
+                        <div className="flex items-start gap-2 px-3 py-2 bg-blue-50 border-b border-blue-100 text-[10px] text-blue-700"
+                          data-testid="shared-receipt-notice">
+                          <Receipt size={11} className="mt-0.5 shrink-0 text-blue-500" />
+                          Some photos are from a collection receipt shared across multiple POs.
+                        </div>
+                      )}
+
                       <div className="p-3 flex flex-wrap gap-2">
                         {files.map((f, i) => {
                           const isImage = (f.content_type || '').startsWith('image/');
                           const url = `${BACKEND_URL}/api/uploads/file/${recordType}/${recordId}/${f.id}`;
                           return (
-                            <a key={f.id || i} href={url} target="_blank" rel="noopener noreferrer"
-                              className="block rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
-                              {isImage ? (
-                                <img src={url} alt={f.filename} className="w-24 h-24 object-cover" />
-                              ) : (
-                                <div className="w-24 h-24 bg-slate-50 flex flex-col items-center justify-center">
-                                  <Receipt size={18} className="text-slate-400" />
-                                  <span className="text-[8px] text-slate-400 mt-1 truncate max-w-[80px]">{f.filename}</span>
+                            <div key={f.id || i} className="relative">
+                              <a href={url} target="_blank" rel="noopener noreferrer"
+                                className="block rounded-lg border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                                {isImage ? (
+                                  <img src={url} alt={f.filename} className="w-24 h-24 object-cover" />
+                                ) : (
+                                  <div className="w-24 h-24 bg-slate-50 flex flex-col items-center justify-center">
+                                    <Receipt size={18} className="text-slate-400" />
+                                    <span className="text-[8px] text-slate-400 mt-1 truncate max-w-[80px]">{f.filename}</span>
+                                  </div>
+                                )}
+                              </a>
+                              {/* Shared badge on individual photo */}
+                              {f.is_shared && (
+                                <div className="absolute bottom-0.5 left-0.5 right-0.5 bg-blue-600/80 rounded-b text-[7px] text-white text-center py-0.5 font-medium truncate px-1">
+                                  {f.shared_from_po_number || 'Shared'}
                                 </div>
                               )}
-                            </a>
+                            </div>
                           );
                         })}
                       </div>

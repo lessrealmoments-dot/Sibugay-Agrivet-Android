@@ -683,3 +683,73 @@ async def mark_record_reviewed(record_type: str, record_id: str, data: dict, use
         "message": f"{RECORD_TYPE_LABELS.get(record_type, record_type)} {label} receipts marked as reviewed",
         "reviewed_by": verifier["verifier_name"],
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Share receipt — attach one uploaded receipt to multiple records
+# ─────────────────────────────────────────────────────────────────────────────
+@router.post("/share-receipt")
+async def share_receipt_to_records(data: dict, user=Depends(get_current_user)):
+    """
+    Share an uploaded receipt from one PO to multiple other POs.
+    Creates new upload_session records pointing to the same files (no R2/storage copy needed).
+    Used for collection receipts that cover multiple supplier invoices on one physical document.
+
+    Body: { source_record_id, target_record_ids: [...], record_type: "purchase_order" }
+    """
+    source_record_id = data.get("source_record_id", "")
+    target_record_ids = data.get("target_record_ids", [])
+    record_type = data.get("record_type", "purchase_order")
+
+    if not source_record_id or not target_record_ids:
+        raise HTTPException(status_code=400, detail="source_record_id and target_record_ids required")
+
+    # Find the most recent completed upload session for the source record
+    source_session = await db.upload_sessions.find_one(
+        {"record_type": record_type, "record_id": source_record_id, "file_count": {"$gt": 0}},
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    if not source_session:
+        raise HTTPException(status_code=404, detail="No uploaded receipt found for source record. Please upload first.")
+
+    source_files = source_session.get("files", [])
+    if not source_files:
+        raise HTTPException(status_code=400, detail="Source session has no files")
+
+    created = 0
+    for target_id in target_record_ids:
+        if target_id == source_record_id:
+            continue  # Source already has the receipt — skip
+
+        record_summary = await _get_record_summary(record_type, target_id)
+
+        # Mirror file entries — same stored_path/R2 key, just a new session record
+        # shared_from field provides a clear audit trail back to the original upload
+        shared_files = [
+            {**f, "shared_from": source_record_id}
+            for f in source_files
+        ]
+
+        await db.upload_sessions.insert_one({
+            "id": new_id(),
+            "token": secrets.token_urlsafe(24),   # expired token — no new uploads via this session
+            "token_expires_at": now_iso(),          # immediately expired
+            "record_type": record_type,
+            "record_id": target_id,
+            "record_summary": record_summary,
+            "file_count": len(source_files),
+            "is_shared": True,
+            "shared_from_record_id": source_record_id,
+            "files": shared_files,
+            "created_by": user["id"],
+            "created_by_name": user.get("full_name", user.get("username", "")),
+            "created_at": now_iso(),
+        })
+        created += 1
+
+    return {
+        "shared_to": created,
+        "file_count": len(source_files),
+        "message": f"Receipt shared to {created} PO{'s' if created != 1 else ''}",
+    }

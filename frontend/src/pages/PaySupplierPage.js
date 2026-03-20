@@ -49,6 +49,7 @@ export default function PaySupplierPage() {
   const [paidBatch, setPaidBatch] = useState(null); // { vendor, totalPaid, fundSource, pos: [{po_id, po_number, amount, uploaded}] }
   const [batchUploadOpen, setBatchUploadOpen] = useState(false);
   const [batchCurrentPoId, setBatchCurrentPoId] = useState(null); // which PO's UploadQRDialog is open
+  const [oneReceiptMode, setOneReceiptMode] = useState(false); // share one receipt to all POs
 
   // PO detail dialog
   const [poDetailDialog, setPoDetailDialog] = useState(false);
@@ -537,48 +538,111 @@ export default function PaySupplierPage() {
 
             {/* Body — PO list */}
             <div className="p-4 space-y-2 max-h-72 overflow-y-auto">
-              <p className="text-xs text-slate-500 mb-3">
-                Upload a receipt photo for each PO. Required for audit and review workflow.
-              </p>
-              {paidBatch.pos.map((po, idx) => (
-                <div key={po.po_id}
-                  className={`flex items-center justify-between rounded-xl border px-3 py-2.5 transition-colors ${
-                    po.uploaded ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'
-                  }`}
-                  data-testid={`batch-po-row-${po.po_id}`}
+              {/* Mode toggle */}
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <FileText size={13} className="text-slate-500" />
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">Collection Receipt</p>
+                    <p className="text-[10px] text-slate-400">One physical receipt covers all POs</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setOneReceiptMode(v => !v)}
+                  className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${oneReceiptMode ? 'bg-[#1A4D2E]' : 'bg-slate-300'}`}
+                  data-testid="one-receipt-toggle"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                      po.uploaded ? 'bg-emerald-100' : 'bg-slate-100'
-                    }`}>
-                      {po.uploaded
-                        ? <CheckCircle2 size={13} className="text-emerald-600" />
-                        : <span className="text-[10px] font-bold text-slate-500">{idx + 1}</span>
-                      }
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold font-mono text-slate-700 truncate">{po.po_number}</p>
-                      <p className="text-[10px] text-slate-400">₱{po.amount.toFixed(2)}</p>
-                    </div>
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${oneReceiptMode ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              {oneReceiptMode ? (
+                /* ── One-receipt mode ── */
+                <div className="space-y-3">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 text-[11px] text-blue-700">
+                    Upload once — the same receipt will be linked to all {paidBatch.pos.length} POs automatically.
                   </div>
 
-                  {po.uploaded ? (
-                    <div className="flex items-center gap-1 text-[10px] text-emerald-600 shrink-0">
-                      <CheckCircle2 size={11} /> Uploaded
+                  {paidBatch.pos.every(p => p.uploaded) ? (
+                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-3">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-emerald-800">Receipt shared to all {paidBatch.pos.length} POs</p>
+                        <p className="text-[10px] text-emerald-600">Linked to: {paidBatch.pos.map(p => p.po_number).join(', ')}</p>
+                      </div>
                     </div>
                   ) : (
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-7 text-[10px] px-2.5 shrink-0 border-[#1A4D2E]/30 text-[#1A4D2E] hover:bg-[#1A4D2E] hover:text-white"
-                      onClick={() => setBatchCurrentPoId(po.po_id)}
-                      data-testid={`batch-upload-btn-${po.po_id}`}
+                      className="w-full bg-[#1A4D2E] hover:bg-[#14532d] text-white h-10"
+                      onClick={() => setBatchCurrentPoId(paidBatch.pos[0].po_id)}
+                      data-testid="one-receipt-upload-btn"
                     >
-                      <Upload size={10} className="mr-1" /> Upload
+                      <Upload size={13} className="mr-2" />
+                      Upload Collection Receipt
                     </Button>
                   )}
+
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-500 font-medium">Will be linked to:</p>
+                    {paidBatch.pos.map(po => (
+                      <div key={po.po_id} className="flex items-center gap-2 text-[10px] text-slate-600 px-1">
+                        {po.uploaded
+                          ? <CheckCircle2 size={10} className="text-emerald-500 shrink-0" />
+                          : <div className="w-2 h-2 rounded-full bg-slate-300 shrink-0" />}
+                        <span className="font-mono">{po.po_number}</span>
+                        <span className="text-slate-400">₱{po.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              ) : (
+                /* ── Individual mode ── */
+                <>
+                  <p className="text-xs text-slate-500 mb-1">
+                    Upload a receipt photo for each PO. Required for audit and review workflow.
+                  </p>
+                  {paidBatch.pos.map((po, idx) => (
+                    <div key={po.po_id}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2.5 transition-colors ${
+                        po.uploaded ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'
+                      }`}
+                      data-testid={`batch-po-row-${po.po_id}`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                          po.uploaded ? 'bg-emerald-100' : 'bg-slate-100'
+                        }`}>
+                          {po.uploaded
+                            ? <CheckCircle2 size={13} className="text-emerald-600" />
+                            : <span className="text-[10px] font-bold text-slate-500">{idx + 1}</span>
+                          }
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold font-mono text-slate-700 truncate">{po.po_number}</p>
+                          <p className="text-[10px] text-slate-400">₱{po.amount.toFixed(2)}</p>
+                        </div>
+                      </div>
+
+                      {po.uploaded ? (
+                        <div className="flex items-center gap-1 text-[10px] text-emerald-600 shrink-0">
+                          <CheckCircle2 size={11} /> Uploaded
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[10px] px-2.5 shrink-0 border-[#1A4D2E]/30 text-[#1A4D2E] hover:bg-[#1A4D2E] hover:text-white"
+                          onClick={() => setBatchCurrentPoId(po.po_id)}
+                          data-testid={`batch-upload-btn-${po.po_id}`}
+                        >
+                          <Upload size={10} className="mr-1" /> Upload
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
 
             {/* Footer */}
@@ -600,6 +664,7 @@ export default function PaySupplierPage() {
                     }
                     setBatchUploadOpen(false);
                     setPaidBatch(null);
+                    setOneReceiptMode(false);
                   }}
                 >
                   {paidBatch.pos.every(p => p.uploaded) ? 'Done' : 'Skip Remaining'}
@@ -608,7 +673,7 @@ export default function PaySupplierPage() {
                   <Button
                     size="sm"
                     className="flex-1 text-xs bg-[#1A4D2E] hover:bg-[#14532d] text-white"
-                    onClick={() => { setBatchUploadOpen(false); setPaidBatch(null); }}
+                    onClick={() => { setBatchUploadOpen(false); setPaidBatch(null); setOneReceiptMode(false); }}
                     data-testid="batch-upload-done-btn"
                   >
                     <CheckCircle2 size={12} className="mr-1" /> All Done
@@ -623,13 +688,44 @@ export default function PaySupplierPage() {
       {/* UploadQRDialog triggered from batch — marks the PO as uploaded in batch state */}
       <UploadQRDialog
         open={!!batchCurrentPoId}
-        onClose={(count) => {
-          if (count > 0 && batchCurrentPoId) {
-            setPaidBatch(prev => prev ? {
-              ...prev,
-              pos: prev.pos.map(p => p.po_id === batchCurrentPoId ? { ...p, uploaded: true } : p)
-            } : prev);
-            toast.success(`Receipt saved for ${paidBatch?.pos.find(p => p.po_id === batchCurrentPoId)?.po_number || 'PO'}`);
+        onClose={async (count) => {
+          if (count > 0 && batchCurrentPoId && paidBatch) {
+            if (oneReceiptMode) {
+              // Share this receipt to all other POs in the batch
+              const otherPoIds = paidBatch.pos
+                .filter(p => p.po_id !== batchCurrentPoId)
+                .map(p => p.po_id);
+              try {
+                if (otherPoIds.length > 0) {
+                  await api.post('/uploads/share-receipt', {
+                    source_record_id: batchCurrentPoId,
+                    target_record_ids: otherPoIds,
+                    record_type: 'purchase_order',
+                  });
+                }
+                // Mark ALL POs as uploaded
+                setPaidBatch(prev => prev ? {
+                  ...prev,
+                  pos: prev.pos.map(p => ({ ...p, uploaded: true }))
+                } : prev);
+                toast.success(`Receipt shared to all ${paidBatch.pos.length} POs`);
+              } catch (e) {
+                toast.error('Receipt uploaded but could not share to other POs — please upload individually');
+                // Still mark the source PO as uploaded
+                setPaidBatch(prev => prev ? {
+                  ...prev,
+                  pos: prev.pos.map(p => p.po_id === batchCurrentPoId ? { ...p, uploaded: true } : p)
+                } : prev);
+              }
+            } else {
+              // Individual mode — mark just this PO
+              const poNum = paidBatch.pos.find(p => p.po_id === batchCurrentPoId)?.po_number || 'PO';
+              setPaidBatch(prev => prev ? {
+                ...prev,
+                pos: prev.pos.map(p => p.po_id === batchCurrentPoId ? { ...p, uploaded: true } : p)
+              } : prev);
+              toast.success(`Receipt saved for ${poNum}`);
+            }
           }
           setBatchCurrentPoId(null);
         }}

@@ -287,8 +287,15 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **Phase 4 (Complete — Mar 2026):** PaySupplierPage multi-PO batch receipt upload modal — after paying multiple POs, a modal lists all paid POs with individual Upload buttons, progress bar (N of M uploaded), per-PO upload tracking via UploadQRDialog, and Skip/Done controls. **Collection Receipt mode:** toggle "One receipt covers all" — upload once, system auto-shares to all POs via `POST /api/uploads/share-receipt` (creates mirror upload_session records in DB per PO, same stored_path, no R2 copy needed, `shared_from` audit trail). Files appear in Pending Reviews for each PO automatically. **Shared receipt provenance in ReviewDetailDialog:** when reviewing a PO whose receipt was shared from a collection, shows blue "Collection receipt · shared from PO-XXXX (Vendor)" notice + per-photo "Shared" badge. Backend: `review-detail` endpoint enriches file entries with `is_shared`, `shared_from_po_number`, `shared_from_vendor`, `all_receipts_shared` flag.
 
 
-### P1 — User Verification Pending
-Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
+### Pay Supplier Page — QB-Style Redesign (Complete — Mar 2026)
+- **Layout:** Mirrors AR PaymentsPage exactly — left panel (always-visible supplier list with total balance + overdue badges) + right QB-style form
+- **Supplier selection:** Click in left panel OR type in "Pay To" search field with dropdown suggestions
+- **Smart allocation:** Payment Amount field auto-allocates budget to POs oldest-due-first; checking PO applies unused budget; unchecking returns amount to pool; unused budget shown in header notice + summary
+- **Pay All Due:** Checks only overdue POs; **Pay All:** Checks all POs with full balances
+- **QB-style footer:** "Amounts for Selected POs" — POs Selected / Total Owed / Applying / Unused Budget / Remaining Balance
+- **All previous AP features preserved:** PIN required, bank/digital lock icons, batch upload modal, collection receipt toggle, shared receipt provenance
+
+
 
 ### Terminal Token Auto-Refresh (Complete — Mar 2026)
 - `POST /api/terminal/refresh-token` endpoint issues a new 24h JWT for active terminal sessions

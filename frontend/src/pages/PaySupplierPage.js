@@ -12,13 +12,13 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   Search, AlertTriangle, Zap, Building2, FileText, CheckCircle2,
-  Wallet, Shield, Info, ChevronRight, Clock, Package, Upload
+  Wallet, Shield, Info, ChevronRight, Clock, Package, Upload, Lock, Smartphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
 import PODetailModal from '../components/PODetailModal';
 
-const METHODS = ['Cash', 'Check', 'Bank Transfer', 'GCash'];
+const METHODS = ['Cash', 'Check', 'Bank Transfer', 'GCash', 'Maya'];
 
 export default function PaySupplierPage() {
   const { currentBranch } = useAuth();
@@ -39,6 +39,11 @@ export default function PaySupplierPage() {
   // Fund balances
   const [cashierBalance, setCashierBalance] = useState(0);
   const [safeBalance, setSafeBalance] = useState(0);
+  const [bankBalance, setBankBalance] = useState(0);
+  const [digitalBalance, setDigitalBalance] = useState(0);
+
+  // PIN for payment authorization
+  const [payPin, setPayPin] = useState('');
 
   // PO detail dialog
   const [poDetailDialog, setPoDetailDialog] = useState(false);
@@ -69,8 +74,12 @@ export default function PaySupplierPage() {
       const wallets = res.data || [];
       const cashier = wallets.find(w => w.type === 'cashier');
       const safe = wallets.find(w => w.type === 'safe');
+      const bank = wallets.find(w => w.type === 'bank');
+      const digital = wallets.find(w => w.type === 'digital');
       setCashierBalance(cashier?.balance || 0);
       setSafeBalance(safe?.balance || 0);
+      setBankBalance(bank?.balance || 0);
+      setDigitalBalance(digital?.balance || 0);
     } catch {}
   }, [currentBranch]);
 
@@ -85,7 +94,8 @@ export default function PaySupplierPage() {
   };
 
   const totalApplied = Object.values(rowAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-  const currentFundBalance = fundSource === 'safe' ? safeBalance : cashierBalance;
+  const isBankOrDigital = fundSource === 'bank' || fundSource === 'digital';
+  const currentFundBalance = fundSource === 'safe' ? safeBalance : fundSource === 'bank' ? bankBalance : fundSource === 'digital' ? digitalBalance : cashierBalance;
   const isShort = totalApplied > currentFundBalance && totalApplied > 0;
   const shortfall = Math.max(0, totalApplied - currentFundBalance);
 
@@ -113,10 +123,11 @@ export default function PaySupplierPage() {
 
     if (allocations.length === 0) { toast.error('Enter payment amounts first'); return; }
     if (payMethod === 'Check' && !checkNumber) { toast.error('Check number is required for Check payments'); return; }
+    if (!payPin.trim()) { toast.error('PIN or TOTP is required to authorize payment'); return; }
     if (!currentBranch?.id) { toast.error('Select a specific branch first'); return; }
 
     setProcessing(true);
-    let totalPaid = 0, errors = [];
+    let totalPaid = 0, errors = [], paidPoIds = [];
 
     for (const alloc of allocations) {
       try {
@@ -128,16 +139,18 @@ export default function PaySupplierPage() {
           check_date: checkDate,
           reference: reference,
           payment_date: payDate,
+          pin: payPin,
         });
         totalPaid += alloc.amount;
+        paidPoIds.push(alloc.po_id);
       } catch (e) {
         const detail = e.response?.data?.detail;
         if (typeof detail === 'object' && detail?.type === 'insufficient_funds') {
-          toast.error(`${detail.message} Safe: ₱${detail.safe_balance?.toFixed(2)}`);
+          toast.error(`${detail.message}`);
           setProcessing(false);
           return;
         }
-        errors.push(detail || 'Payment failed');
+        errors.push(typeof detail === 'string' ? detail : 'Payment failed');
       }
     }
 
@@ -145,21 +158,25 @@ export default function PaySupplierPage() {
       toast.error(`${errors.length} payment(s) failed: ${errors[0]}`);
     } else {
       toast.success(`₱${totalPaid.toFixed(2)} paid to ${selected.vendor} from ${fundSource}`);
-      // Offer to upload payment proof
-      const paidPOs = Object.keys(rowAmounts).filter(id => parseFloat(rowAmounts[id]) > 0);
-      if (paidPOs.length === 1) {
-        setPsUploadPOId(paidPOs[0]);
-        toast.info('Payment recorded. Tap to upload proof (check, receipt).', { action: { label: 'Upload', onClick: () => setPsUploadQROpen(true) } });
+      // Auto-open receipt upload dialog — required for audit trail
+      if (paidPoIds.length === 1) {
+        setPsUploadPOId(paidPoIds[0]);
+        setPsUploadQROpen(true);
+      } else if (paidPoIds.length > 1) {
+        // For multiple POs, open upload for the first one and let user handle the rest
+        setPsUploadPOId(paidPoIds[0]);
+        setPsUploadQROpen(true);
+        toast.info(`${paidPoIds.length} POs paid — please upload receipt for each PO.`);
       }
     }
 
     setRowAmounts({});
     setCheckNumber('');
     setReference('');
+    setPayPin('');
     await loadSuppliers();
     await loadFundBalances();
 
-    // Refresh selected supplier data
     const refreshed = (await api.get('/purchase-orders/payables-by-supplier', {
       params: currentBranch ? { branch_id: currentBranch.id } : {}
     }).then(r => r.data || []).catch(() => [])).find(s => s.vendor === selected.vendor);
@@ -229,10 +246,12 @@ export default function PaySupplierPage() {
               </div>
 
               {/* Fund Source Selection */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                 {[
-                  { key: 'cashier', label: 'Cashier', balance: cashierBalance, icon: Wallet },
-                  { key: 'safe', label: 'Safe', balance: safeBalance, icon: Shield },
+                  { key: 'cashier', label: 'Cashier', balance: cashierBalance, icon: Wallet, lockIcon: false },
+                  { key: 'safe', label: 'Safe', balance: safeBalance, icon: Shield, lockIcon: false },
+                  { key: 'bank', label: 'Bank', balance: bankBalance, icon: Smartphone, lockIcon: true },
+                  { key: 'digital', label: 'Digital/GCash', balance: digitalBalance, icon: Smartphone, lockIcon: true },
                 ].map(fund => {
                   const isNeg = fund.key === 'cashier' && cashierBalance < 0;
                   const insuff = fund.balance < totalApplied && totalApplied > 0;
@@ -240,15 +259,22 @@ export default function PaySupplierPage() {
                     <button key={fund.key} onClick={() => setFundSource(fund.key)}
                       className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${fundSource === fund.key ? 'border-[#1A4D2E] bg-[#1A4D2E]/5' : 'border-slate-200 hover:border-slate-300'}`}>
                       <fund.icon size={15} className={fundSource === fund.key ? 'text-[#1A4D2E]' : 'text-slate-400'} />
-                      <div>
-                        <p className="text-xs font-medium">{fund.label}</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs font-medium truncate">{fund.label}</p>
+                          {fund.lockIcon && <Lock size={9} className="text-amber-500 shrink-0" title="Admin/TOTP only" />}
+                        </div>
                         <p className={`text-[11px] font-bold ${isNeg ? 'text-red-600' : insuff ? 'text-red-500' : 'text-slate-600'}`}>{formatPHP(fund.balance)}</p>
-                        {isNeg && <p className="text-[9px] text-red-600 font-semibold">Negative — use Safe</p>}
                       </div>
                     </button>
                   );
                 })}
               </div>
+              {isBankOrDigital && (
+                <div className="flex items-center gap-2 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-3">
+                  <Lock size={10} /> Bank/Digital payments require Admin PIN or TOTP
+                </div>
+              )}
 
               {/* Cashier insufficient warning */}
               {isShort && (
@@ -400,15 +426,33 @@ export default function PaySupplierPage() {
                         <span className={`font-bold ${isShort ? 'text-red-600' : 'text-[#1A4D2E]'}`}>{formatPHP(totalApplied)}</span>
                       </div>
                       <div className="flex justify-between gap-6 text-xs text-slate-400">
-                        <span>Fund: {fundSource === 'cashier' ? 'Cashier' : 'Safe'} ({formatPHP(currentFundBalance)} available)</span>
+                        <span>Fund: {fundSource} ({formatPHP(currentFundBalance)} available)</span>
                       </div>
                     </div>
-                    <Button data-testid="save-payment-btn"
-                      onClick={handlePayment}
-                      disabled={processing || totalApplied <= 0 || isShort}
-                      className="h-10 px-6 bg-[#1A4D2E] hover:bg-[#14532d] text-white shrink-0 disabled:opacity-40">
-                      {processing ? 'Processing...' : 'Save & Pay'}
-                    </Button>
+                    <div className="flex flex-col gap-1.5 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <div className="relative">
+                          <Shield size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <Input
+                            type="password"
+                            autoComplete="new-password"
+                            value={payPin}
+                            onChange={e => setPayPin(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handlePayment(); }}
+                            placeholder={isBankOrDigital ? 'Admin PIN / TOTP' : 'PIN / TOTP'}
+                            className="h-10 pl-8 w-36 text-sm font-mono"
+                            data-testid="pay-pin-input"
+                          />
+                        </div>
+                        <Button data-testid="save-payment-btn"
+                          onClick={handlePayment}
+                          disabled={processing || totalApplied <= 0 || isShort || !payPin.trim()}
+                          className="h-10 px-6 bg-[#1A4D2E] hover:bg-[#14532d] text-white shrink-0 disabled:opacity-40">
+                          {processing ? 'Processing...' : 'Save & Pay'}
+                        </Button>
+                      </div>
+                      <p className="text-[9px] text-slate-400 text-right">Receipt upload required after payment</p>
+                    </div>
                   </div>
                 </div>
 
@@ -442,8 +486,8 @@ export default function PaySupplierPage() {
       />
       <UploadQRDialog
         open={psUploadQROpen}
-        onClose={(count) => { setPsUploadQROpen(false); if (count > 0) toast.success(`${count} payment proof photo(s) saved!`); }}
-        recordType="payment"
+        onClose={(count) => { setPsUploadQROpen(false); if (count > 0) toast.success(`${count} receipt photo(s) saved!`); }}
+        recordType="purchase_order"
         recordId={psUploadPOId}
       />
     </div>

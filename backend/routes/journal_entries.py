@@ -23,7 +23,7 @@ router = APIRouter(prefix="/journal-entries", tags=["Journal Entries"])
 
 ENTRY_TYPES = [
     "sale_adjustment", "expense_adjustment", "inventory_adjustment",
-    "price_correction", "fund_correction", "incident_adjustment", "general"
+    "price_correction", "fund_correction", "incident_adjustment", "ap_payment", "general"
 ]
 
 ENTRY_TYPE_LABELS = {
@@ -33,6 +33,7 @@ ENTRY_TYPE_LABELS = {
     "price_correction": "Price Correction",
     "fund_correction": "Fund Correction",
     "incident_adjustment": "Incident Resolution Adjustment",
+    "ap_payment": "Accounts Payable Payment",
     "general": "General Journal Entry",
 }
 

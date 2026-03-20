@@ -192,6 +192,9 @@ PIN_POLICY_ACTIONS = [
     # Terminal Operations
     {"key": "terminal_pull",          "label": "Terminal — Pull PO or Transfer", "module": "Terminal",          "defaults": ["admin_pin", "manager_pin", "totp"]},
     {"key": "terminal_doc_upload",    "label": "Terminal — Upload Document",     "module": "Terminal",          "defaults": ["admin_pin", "manager_pin", "totp"]},
+    # Supplier Payments — fund-source-aware PIN security
+    {"key": "pay_po_standard",        "label": "Pay Supplier Invoice (Cash / Safe)", "module": "Purchase Orders", "defaults": ["admin_pin", "manager_pin", "totp"]},
+    {"key": "pay_po_bank",            "label": "Pay Supplier Invoice (Bank / Digital)", "module": "Purchase Orders", "defaults": ["admin_pin", "totp"]},
 ]
 
 # Build quick lookup: action_key → default methods

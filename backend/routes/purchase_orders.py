@@ -11,7 +11,7 @@ import traceback
 from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id, 
-    log_movement, update_cashier_wallet, record_safe_movement,
+    log_movement, update_cashier_wallet, update_digital_wallet, record_safe_movement,
     get_branch_filter, apply_branch_filter, ensure_branch_access,
     generate_next_number, check_idempotency, ensure_org_context,
 )
@@ -1292,119 +1292,241 @@ async def cancel_purchase_order(po_id: str, data: dict = None, user=Depends(get_
 
 @router.post("/{po_id}/pay")
 async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_user)):
-    """Record a payment on a purchase order. Validates fund balance and creates expense record."""
+    """
+    Record a payment on a purchase order.
+    Requires PIN (manager/admin/TOTP for cashier+safe; admin/TOTP only for bank+digital).
+    Routes payment to the correct wallet, creates expense record (Z-report/Close Wizard),
+    and auto-generates a double-entry journal for bank/digital payments.
+    """
     check_perm(user, "accounting", "create")
-    
+
     po = await db.purchase_orders.find_one({"id": po_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="PO not found")
     if po.get("payment_status") == "paid":
-        raise HTTPException(status_code=400, detail="PO already paid")
-    
-    amount = float(data.get("amount", po.get("balance", po.get("grand_total", po["subtotal"]))))
+        raise HTTPException(status_code=400, detail="PO already paid in full")
+
+    fund_source = data.get("fund_source", "cashier")  # cashier | safe | bank | digital
     branch_id = po.get("branch_id", "")
-    fund_source = data.get("fund_source", "cashier")  # cashier | safe | bank
-    
-    # --- Balance check before paying ---
+
+    # ── PIN Verification (before any financial operation) ─────────────────────
+    pin = str(data.get("pin", ""))
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN or TOTP is required to record a payment")
+
+    from routes.verify import verify_pin_for_action
+    policy_key = "pay_po_bank" if fund_source in ("bank", "digital") else "pay_po_standard"
+    verifier = await verify_pin_for_action(pin, policy_key, branch_id=branch_id)
+    if not verifier:
+        raise HTTPException(status_code=403, detail="Invalid PIN or TOTP — payment not recorded")
+
+    # ── Amount — use stored balance as authoritative source ───────────────────
+    po_total = float(po.get("grand_total") or po.get("subtotal", 0))
+    stored_balance = float(po.get("balance", 0))
+    # If balance not stored, derive it
+    if stored_balance <= 0 and po_total > 0:
+        stored_balance = max(0, po_total - float(po.get("amount_paid", 0)))
+    amount = float(data.get("amount", stored_balance))
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+    if amount > stored_balance + 0.01:  # 1-cent tolerance for float drift
+        raise HTTPException(status_code=400, detail=f"Payment ₱{amount:.2f} exceeds outstanding balance ₱{stored_balance:.2f}")
+
+    # ── Build reference text ──────────────────────────────────────────────────
+    ref_parts = [f"PO Payment {po['po_number']} - {po.get('vendor', '')}"]
+    if data.get("check_number"):
+        ref_parts.append(f"Check #{data['check_number']}")
+    if data.get("reference"):
+        ref_parts.append(data["reference"])
+    ref_text = " | ".join(ref_parts)
+
+    # ── Fund balance checks ───────────────────────────────────────────────────
     cashier_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "cashier", "active": True}, {"_id": 0})
-    cashier_balance = cashier_wallet.get("balance", 0) if cashier_wallet else 0
-    
+    cashier_balance = float(cashier_wallet.get("balance", 0)) if cashier_wallet else 0
+
     safe_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "safe", "active": True}, {"_id": 0})
     safe_balance = 0
     if safe_wallet:
         lots = await db.safe_lots.find({"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).to_list(500)
-        safe_balance = sum(lot["remaining_amount"] for lot in lots)
-    
+        safe_balance = sum(float(lot["remaining_amount"]) for lot in lots)
+
+    bank_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "bank", "active": True}, {"_id": 0})
+    bank_balance = float(bank_wallet.get("balance", 0)) if bank_wallet else 0
+
+    digital_wallet = await db.fund_wallets.find_one({"branch_id": branch_id, "type": "digital", "active": True}, {"_id": 0})
+    digital_balance = float(digital_wallet.get("balance", 0)) if digital_wallet else 0
+
     if fund_source == "cashier" and cashier_balance < amount:
         raise HTTPException(status_code=400, detail={
             "type": "insufficient_funds",
-            "message": f"Cashier has only ₱{cashier_balance:.2f}. Short by ₱{amount - cashier_balance:.2f}.",
-            "cashier_balance": cashier_balance,
-            "safe_balance": safe_balance,
+            "message": f"Cashier has ₱{cashier_balance:.2f}. Short by ₱{amount - cashier_balance:.2f}.",
+            "cashier_balance": cashier_balance, "safe_balance": safe_balance,
             "shortfall": round(amount - cashier_balance, 2),
             "can_use_safe": safe_balance >= amount,
         })
     if fund_source == "safe" and safe_balance < amount:
         raise HTTPException(status_code=400, detail={
             "type": "insufficient_funds",
-            "message": f"Safe has only ₱{safe_balance:.2f}. Short by ₱{amount - safe_balance:.2f}.",
-            "cashier_balance": cashier_balance,
-            "safe_balance": safe_balance,
+            "message": f"Safe has ₱{safe_balance:.2f}. Short by ₱{amount - safe_balance:.2f}.",
+            "cashier_balance": cashier_balance, "safe_balance": safe_balance,
             "shortfall": round(amount - safe_balance, 2),
         })
-    
-    ref_parts = [f"PO Payment {po['po_number']} - {po['vendor']}"]
-    if data.get("check_number"):
-        ref_parts.append(f"Check #{data['check_number']}")
-    if data.get("reference"):
-        ref_parts.append(data["reference"])
-    ref_text = " | ".join(ref_parts)
-    
-    # Deduct from selected fund
+    if fund_source == "bank":
+        if not bank_wallet:
+            raise HTTPException(status_code=400, detail="No bank wallet configured for this branch")
+        if bank_balance < amount:
+            raise HTTPException(status_code=400, detail={
+                "type": "insufficient_funds",
+                "message": f"Bank account has ₱{bank_balance:.2f}. Short by ₱{amount - bank_balance:.2f}.",
+                "bank_balance": bank_balance, "shortfall": round(amount - bank_balance, 2),
+            })
+    if fund_source == "digital":
+        if not digital_wallet:
+            raise HTTPException(status_code=400, detail="No digital wallet configured for this branch")
+        if digital_balance < amount:
+            raise HTTPException(status_code=400, detail={
+                "type": "insufficient_funds",
+                "message": f"Digital wallet has ₱{digital_balance:.2f}. Short by ₱{amount - digital_balance:.2f}.",
+                "digital_balance": digital_balance, "shortfall": round(amount - digital_balance, 2),
+            })
+
+    # ── Deduct from selected fund ─────────────────────────────────────────────
     if fund_source == "safe" and safe_wallet:
         remaining = amount
-        for lot in await db.safe_lots.find({"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}}, {"_id": 0}).sort("remaining_amount", -1).to_list(500):
+        for lot in await db.safe_lots.find(
+            {"wallet_id": safe_wallet["id"], "remaining_amount": {"$gt": 0}},
+            {"_id": 0}
+        ).sort("remaining_amount", -1).to_list(500):
             if remaining <= 0:
                 break
-            take = min(lot["remaining_amount"], remaining)
+            take = min(float(lot["remaining_amount"]), remaining)
             await db.safe_lots.update_one({"id": lot["id"]}, {"$inc": {"remaining_amount": -take}})
             remaining -= take
         await record_safe_movement(branch_id, -amount, ref_text)
-    else:
+
+    elif fund_source == "digital":
+        await update_digital_wallet(branch_id, -amount, ref_text)
+
+    elif fund_source == "bank":
+        new_bank_bal = round(bank_balance - amount, 2)
+        await db.fund_wallets.update_one({"id": bank_wallet["id"]}, {"$inc": {"balance": -round(amount, 2)}})
+        await db.wallet_movements.insert_one({
+            "id": new_id(), "wallet_id": bank_wallet["id"], "branch_id": branch_id,
+            "type": "bank_out", "amount": -round(amount, 2),
+            "reference": ref_text, "balance_after": new_bank_bal, "created_at": now_iso(),
+        })
+
+    else:  # cashier (default)
         await update_cashier_wallet(branch_id, -amount, ref_text)
-    
-    new_paid = po.get("amount_paid", 0) + amount
-    new_balance = max(0, round(float(po.get("grand_total", po["subtotal"])) - new_paid, 2))
+
+    # ── Compute new PO balance ────────────────────────────────────────────────
+    new_paid = float(po.get("amount_paid", 0)) + amount
+    new_balance = max(0, round(po_total - new_paid, 2)) if po_total > 0 else max(0, round(stored_balance - amount, 2))
     new_status = "paid" if new_balance <= 0 else "partial"
-    
+
     payment_record = {
-        "id": new_id(), "amount": amount,
+        "id": new_id(), "amount": round(amount, 2),
         "date": data.get("payment_date", now_iso()[:10]),
         "check_number": data.get("check_number", ""),
         "check_date": data.get("check_date", ""),
         "method": data.get("method", "Cash"),
         "fund_source": fund_source,
         "reference": data.get("reference", ""),
-        "recorded_by": user.get("full_name", user["username"]),
+        "recorded_by": verifier["verifier_name"],
+        "recorded_by_id": verifier["verifier_id"],
+        "auth_method": verifier.get("method", ""),
         "recorded_at": now_iso(),
     }
-    
+
     await db.purchase_orders.update_one({"id": po_id}, {
-        "$set": {"amount_paid": new_paid, "balance": new_balance, "payment_status": new_status},
+        "$set": {"amount_paid": round(new_paid, 2), "balance": new_balance, "payment_status": new_status},
         "$push": {"payment_history": payment_record}
     })
-    
-    # Update payable if exists
+
+    # ── Update payable record if one exists ───────────────────────────────────
     payable = await db.payables.find_one({"po_id": po_id}, {"_id": 0})
     if payable:
-        pay_new_paid = payable.get("paid", 0) + amount
-        pay_new_balance = max(0, round(payable["amount"] - pay_new_paid, 2))
-        pay_status = "paid" if pay_new_balance <= 0 else "partial"
+        pay_new_paid = float(payable.get("paid", 0)) + amount
+        pay_new_balance = max(0, round(float(payable["amount"]) - pay_new_paid, 2))
         await db.payables.update_one({"po_id": po_id}, {
-            "$set": {"paid": pay_new_paid, "balance": pay_new_balance, "status": pay_status}
+            "$set": {
+                "paid": round(pay_new_paid, 2),
+                "balance": pay_new_balance,
+                "status": "paid" if pay_new_balance <= 0 else "partial",
+            }
         })
-    
-    # Create expense record for this payment
+
+    # ── Expense record — picked up by Z-report and Close Wizard ──────────────
+    # fund_source stored so Z-report can correctly split cashier vs safe vs digital/bank
     await db.expenses.insert_one({
         "id": new_id(), "branch_id": branch_id,
+        "organization_id": po.get("organization_id"),
         "category": "Purchase Payment",
-        "description": f"PO {po['po_number']} — {po['vendor']}",
-        "notes": f"Check #{data.get('check_number','')}" if data.get("check_number") else data.get("reference", ""),
-        "amount": amount,
+        "description": f"PO {po['po_number']} — {po.get('vendor', '')}",
+        "notes": (f"Check #{data['check_number']}" if data.get("check_number") else data.get("reference", "")),
+        "amount": round(amount, 2),
         "payment_method": data.get("method", "Cash"),
         "reference_number": data.get("check_number") or data.get("reference", ""),
         "date": data.get("payment_date", now_iso()[:10]),
         "fund_source": fund_source,
-        "po_id": po_id, "po_number": po["po_number"], "vendor": po["vendor"],
-        "created_by": user["id"], "created_by_name": user.get("full_name", user["username"]),
+        "po_id": po_id, "po_number": po["po_number"], "vendor": po.get("vendor", ""),
+        "created_by": verifier["verifier_id"],
+        "created_by_name": verifier["verifier_name"],
         "created_at": now_iso(),
     })
-    
+
+    # ── Smart double-entry journal for bank/digital payments ──────────────────
+    # Cashier/Safe: wallet movements + expense record already serve as the audit trail.
+    # Bank/Digital: require a formal AP journal entry (Debit AP / Credit Bank or Digital).
+    if fund_source in ("bank", "digital"):
+        account_credit_code = "1030" if fund_source == "bank" else "1020"
+        account_credit_name = "Cash - Bank Account" if fund_source == "bank" else "Digital Wallet (GCash/Maya)"
+        je_number = await generate_next_number("JE", branch_id)
+        je_doc = {
+            "id": new_id(),
+            "je_number": je_number,
+            "entry_type": "ap_payment",
+            "entry_type_label": "Accounts Payable Payment",
+            "branch_id": branch_id,
+            "organization_id": po.get("organization_id"),
+            "effective_date": data.get("payment_date", now_iso()[:10]),
+            "posted_date": now_iso()[:10],
+            "memo": f"Supplier payment — {po['po_number']} · {po.get('vendor', '')} via {fund_source}",
+            "reference_number": po["po_number"],
+            "reference_type": "purchase_order",
+            "lines": [
+                {
+                    "account_code": "2000",
+                    "account_name": "Accounts Payable",
+                    "debit": round(amount, 2), "credit": 0.0,
+                    "memo": f"Pay {po.get('vendor', '')} — {po['po_number']}",
+                },
+                {
+                    "account_code": account_credit_code,
+                    "account_name": account_credit_name,
+                    "debit": 0.0, "credit": round(amount, 2),
+                    "memo": f"Paid from {fund_source} wallet",
+                },
+            ],
+            "total_amount": round(amount, 2),
+            "status": "posted",
+            "auto_generated": True,
+            "authorized_by_id": verifier["verifier_id"],
+            "authorized_by_name": verifier["verifier_name"],
+            "authorized_method": verifier.get("method", ""),
+            "created_by_id": verifier["verifier_id"],
+            "created_by_name": verifier["verifier_name"],
+            "created_at": now_iso(),
+            "voided": False, "void_reason": "", "voided_at": "", "voided_by": "",
+        }
+        await db.journal_entries.insert_one(je_doc)
+
     return {
         "message": f"Payment of ₱{amount:.2f} recorded from {fund_source}",
         "new_balance": new_balance,
         "payment_status": new_status,
-        "cashier_balance_after": cashier_balance - amount if fund_source == "cashier" else cashier_balance,
+        "fund_source": fund_source,
+        "authorized_by": verifier["verifier_name"],
     }
 
 

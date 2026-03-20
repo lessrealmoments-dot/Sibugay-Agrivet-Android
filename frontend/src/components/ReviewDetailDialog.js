@@ -23,9 +23,11 @@ import ViewQRDialog from './ViewQRDialog';
 import {
   FileCheck, Receipt, CheckCircle2, RefreshCw, Camera, Building2, Clock,
   AlertTriangle, Shield, Package, User, CalendarDays, ShieldCheck,
-  ExternalLink, QrCode, ChevronDown, ChevronUp, XCircle
+  ExternalLink, QrCode, ChevronDown, ChevronUp, XCircle,
+  Banknote, Wallet, Smartphone, Lock, CreditCard
 } from 'lucide-react';
 import { toast } from 'sonner';
+import UploadQRDialog from './UploadQRDialog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -52,6 +54,17 @@ export default function ReviewDetailDialog({
   // QR viewer
   const [viewQROpen, setViewQROpen] = useState(false);
 
+  // Pay Now state (Phase 3 — only when showPayAction=true)
+  const [payExpanded, setPayExpanded] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [payFundSource, setPayFundSource] = useState('cashier');
+  const [payMethod, setPayMethod] = useState('Cash');
+  const [payRef, setPayRef] = useState('');
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payPin, setPayPin] = useState('');
+  const [payProcessing, setPayProcessing] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false); // receipt upload after payment
+
   useEffect(() => {
     if (open && recordType && recordId) {
       setLoading(true);
@@ -60,7 +73,11 @@ export default function ReviewDetailDialog({
       setReviewNotes('');
       setVerifyExpanded(false);
       api.get(`/dashboard/review-detail/${recordType}/${recordId}`)
-        .then(res => setDetail(res.data))
+        .then(res => {
+          setDetail(res.data);
+          setPayAmount((res.data.balance || 0).toFixed(2));
+          setPayDate(new Date().toISOString().slice(0, 10));
+        })
         .catch(() => toast.error('Failed to load record details'))
         .finally(() => setLoading(false));
     }
@@ -86,6 +103,40 @@ export default function ReviewDetailDialog({
       toast.error(e.response?.data?.detail || 'Verification failed');
     }
     setReviewSaving(false);
+  };
+
+  const handlePayNow = async () => {
+    if (!payPin) { toast.error('PIN or TOTP is required'); return; }
+    const amount = parseFloat(payAmount);
+    if (!amount || amount <= 0) { toast.error('Enter a valid payment amount'); return; }
+    setPayProcessing(true);
+    try {
+      const res = await api.post(`/purchase-orders/${recordId}/pay`, {
+        amount,
+        fund_source: payFundSource,
+        method: payMethod,
+        reference: payRef,
+        payment_date: payDate,
+        pin: payPin,
+      });
+      toast.success(res.data.message || `Payment recorded`);
+      setPayExpanded(false);
+      setPayPin('');
+      setPayRef('');
+      setUploadOpen(true); // auto-open receipt upload
+      const updated = await api.get(`/dashboard/review-detail/${recordType}/${recordId}`);
+      setDetail(updated.data);
+      setPayAmount((updated.data.balance || 0).toFixed(2));
+      if (onReviewed) onReviewed();
+    } catch (e) {
+      const detail = e.response?.data?.detail;
+      if (typeof detail === 'object' && detail?.type === 'insufficient_funds') {
+        toast.error(detail.message);
+      } else {
+        toast.error(typeof detail === 'string' ? detail : 'Payment failed');
+      }
+    }
+    setPayProcessing(false);
   };
 
   const goToFullPage = () => {
@@ -433,6 +484,135 @@ export default function ReviewDetailDialog({
                   )}
 
                   {/* Phase 3 placeholder — Pay Now panel will be inserted here */}
+
+                  {/* ── Pay Now Panel (AP widget only) ── */}
+                  {showPayAction && d.record_type === 'purchase_order' && (d.balance > 0) && (
+                    <div className="rounded-xl border border-emerald-200 overflow-hidden" data-testid="pay-now-section">
+                      {!payExpanded ? (
+                        <button
+                          onClick={() => setPayExpanded(true)}
+                          className="w-full flex items-center justify-between px-4 py-3 bg-emerald-50 hover:bg-emerald-100 transition-colors text-left"
+                          data-testid="pay-now-btn"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Banknote size={15} className="text-emerald-600" />
+                            <div>
+                              <p className="text-sm font-semibold text-emerald-800">Pay This PO</p>
+                              <p className="text-[10px] text-emerald-600">Outstanding balance: {formatPHP(d.balance)}</p>
+                            </div>
+                          </div>
+                          <ChevronDown size={15} className="text-emerald-500" />
+                        </button>
+                      ) : (
+                        <div className="bg-emerald-50 p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-semibold text-emerald-800 flex items-center gap-1.5">
+                              <Banknote size={13} className="text-emerald-600" /> Pay {d.record_number}
+                            </p>
+                            <button onClick={() => { setPayExpanded(false); setPayPin(''); }} className="text-slate-400 hover:text-slate-600">
+                              <XCircle size={15} />
+                            </button>
+                          </div>
+
+                          {/* Fund Source */}
+                          <div>
+                            <p className="text-[10px] text-slate-600 font-medium mb-1.5">Pay From</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {[
+                                { key: 'cashier', label: 'Cashier', icon: Wallet, lock: false },
+                                { key: 'safe', label: 'Safe', icon: Shield, lock: false },
+                                { key: 'bank', label: 'Bank', icon: Smartphone, lock: true },
+                                { key: 'digital', label: 'Digital/GCash', icon: CreditCard, lock: true },
+                              ].map(f => {
+                                const wb = d.wallet_balances?.[f.key] || {};
+                                const bal = wb.balance || 0;
+                                const name = wb.name || f.label;
+                                const insuff = bal < parseFloat(payAmount || 0);
+                                return (
+                                  <button key={f.key} onClick={() => setPayFundSource(f.key)}
+                                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all ${payFundSource === f.key ? 'border-emerald-500 bg-white' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                                    <f.icon size={13} className={payFundSource === f.key ? 'text-emerald-600' : 'text-slate-400'} />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[10px] font-medium truncate">{name}</span>
+                                        {f.lock && <Lock size={8} className="text-amber-500 shrink-0" />}
+                                      </div>
+                                      <span className={`text-[9px] font-bold ${insuff ? 'text-red-500' : 'text-slate-600'}`}>{formatPHP(bal)}</span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {(payFundSource === 'bank' || payFundSource === 'digital') && (
+                              <p className="text-[9px] text-amber-600 flex items-center gap-1 mt-1">
+                                <Lock size={8} /> Admin PIN or TOTP required for bank/digital
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Amount + Method + Ref + Date */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-slate-500 font-medium">Amount</label>
+                              <Input type="number" value={payAmount}
+                                onChange={e => setPayAmount(e.target.value)}
+                                className="h-9 text-sm font-mono bg-white" step="0.01" min="0.01"
+                                data-testid="pay-amount-input" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-500 font-medium">Method</label>
+                              <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                                className="w-full h-9 rounded-md border border-input bg-white px-3 text-sm">
+                                {['Cash', 'Check', 'Bank Transfer', 'GCash', 'Maya'].map(m => (
+                                  <option key={m} value={m}>{m}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-500 font-medium">
+                                {payMethod === 'Check' ? 'Check #' : 'Reference #'}
+                              </label>
+                              <Input value={payRef} onChange={e => setPayRef(e.target.value)}
+                                placeholder="Optional" className="h-9 text-sm bg-white" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] text-slate-500 font-medium">Date</label>
+                              <Input type="date" value={payDate} onChange={e => setPayDate(e.target.value)}
+                                className="h-9 text-sm bg-white" />
+                            </div>
+                          </div>
+
+                          {/* PIN */}
+                          <div>
+                            <label className="text-[10px] text-slate-600 font-medium flex items-center gap-1 mb-1">
+                              <Shield size={10} className="text-emerald-500" />
+                              {(payFundSource === 'bank' || payFundSource === 'digital') ? 'Admin PIN or TOTP' : 'Manager PIN, Admin PIN, or TOTP'}
+                            </label>
+                            <Input type="password" autoComplete="new-password"
+                              value={payPin} onChange={e => setPayPin(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') handlePayNow(); }}
+                              placeholder="Enter PIN or TOTP"
+                              className="h-9 text-sm font-mono bg-white"
+                              data-testid="pay-pin-input" />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" className="flex-1"
+                              onClick={() => { setPayExpanded(false); setPayPin(''); }}>
+                              Cancel
+                            </Button>
+                            <Button size="sm" className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white"
+                              onClick={handlePayNow} disabled={payProcessing || !payPin}
+                              data-testid="confirm-pay-btn">
+                              {payProcessing ? <RefreshCw size={12} className="animate-spin mr-1" /> : <Banknote size={12} className="mr-1" />}
+                              Pay {formatPHP(parseFloat(payAmount) || 0)}
+                            </Button>
+                          </div>
+                          <p className="text-[9px] text-slate-400 text-center">Receipt upload will open after payment</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : null}
             </div>
@@ -454,6 +634,27 @@ export default function ReviewDetailDialog({
         recordType={recordType}
         recordId={recordId}
         fileCount={files.length}
+      />
+
+      {/* Receipt upload after payment — required for audit trail */}
+      <UploadQRDialog
+        open={uploadOpen}
+        onClose={(count) => {
+          setUploadOpen(false);
+          if (count > 0) {
+            toast.success(`${count} receipt photo(s) saved`);
+            // Reload to show new photos
+            if (recordType && recordId) {
+              api.get(`/dashboard/review-detail/${recordType}/${recordId}`)
+                .then(res => setDetail(res.data))
+                .catch(() => {});
+            }
+          } else {
+            toast.info('Receipt upload skipped — remember to upload for audit trail');
+          }
+        }}
+        recordType="purchase_order"
+        recordId={recordId}
       />
     </>
   );

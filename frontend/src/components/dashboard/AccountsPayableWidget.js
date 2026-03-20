@@ -152,6 +152,7 @@ export default function AccountsPayableWidget({ branchId }) {
         recordType="purchase_order"
         recordId={selectedPO}
         showReviewAction={true}
+        showPayAction={true}
         onReviewed={() => { setSelectedPO(null); load(); }}
       />
     </>

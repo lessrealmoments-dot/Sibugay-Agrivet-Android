@@ -279,6 +279,14 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **Enhancement:** AP widget rows now show receipt review status badge (green ✓ = reviewed, amber camera = needs review)
 - **Enhancement:** AP widget hint text: "Click any PO to review receipts & verify before payment" — unified workflow with Pending Reviews (both open ReviewDetailDialog)
 
+
+### AP Payment + Verify Workflow — Phases 1–3 (Complete — Mar 2026)
+- **Phase 1:** review-detail endpoint fixed (uses stored `balance` not grand_total — fixes ₱0 bug). Wallet balances (cashier/safe/bank/digital) returned in PO response. `1030 Cash - Bank Account` added to chart of accounts.
+- **Phase 2:** ReviewDetailDialog "Verify & Approve" collapsible button — no longer gated by files. Uses `po_mark_reviewed` PIN policy. Works on AP + Pending Reviews widgets.
+- **Phase 3:** Pay Now panel in ReviewDetailDialog (AP widget only). Cashier/Safe = `pay_po_standard` (manager/admin/TOTP). Bank/Digital = `pay_po_bank` (admin/TOTP only). Smart double-entry journal auto-created for bank/digital (DR: AP 2000, CR: Bank 1030 or Digital 1020). Expense record always created → Z-report + Close Wizard. Receipt upload auto-opens after payment. PaySupplierPage: PIN now required, bank/digital fund sources added, upload auto-opens, recordType fixed to "purchase_order".
+- **Phase 4 (Upcoming):** Receipt upload prompt integration improvements for multi-PO payments.
+
+
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 

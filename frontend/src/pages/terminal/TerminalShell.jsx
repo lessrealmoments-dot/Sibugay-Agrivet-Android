@@ -78,7 +78,7 @@ const TABS = [
   { key: 'transfers', label: 'Transfers', icon: ArrowLeftRight, color: 'text-blue-600 bg-blue-50' },
 ];
 
-export default function TerminalShell({ session, onLogout }) {
+export default function TerminalShell({ session, onLogout, onSessionUpdate }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('sales');
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -107,6 +107,9 @@ export default function TerminalShell({ session, onLogout }) {
   const qrScannerRef = useRef(null);
   const qrLastScanRef = useRef({ code: '', time: 0 });
   const QR_SCAN_COOLDOWN = 3000;
+
+  // Token ref — always holds the latest token for axios interceptor
+  const tokenRef = useRef(session.token);
 
   // Document Upload overlay state
   const [docUploadOpen, setDocUploadOpen] = useState(false);
@@ -181,11 +184,11 @@ export default function TerminalShell({ session, onLogout }) {
     };
   }, [activeTab, qrScannerOpen, docUploadOpen, settingsOpen, quickScanDoc, showDocSearch, modeMenuOpen]);
 
-  // Authenticated axios instance
+  // Authenticated axios instance — uses tokenRef for latest token
   const [api] = useState(() => {
     const instance = axios.create({ baseURL: `${BACKEND_URL}/api` });
     instance.interceptors.request.use(config => {
-      config.headers.Authorization = `Bearer ${session.token}`;
+      config.headers.Authorization = `Bearer ${tokenRef.current}`;
       if (config.method === 'get' && session.branchId) {
         config.params = { ...config.params, branch_id: session.branchId };
       }
@@ -193,6 +196,37 @@ export default function TerminalShell({ session, onLogout }) {
     });
     return instance;
   });
+
+  // Token auto-refresh — refreshes every 12 hours to keep terminal connected indefinitely
+  useEffect(() => {
+    const REFRESH_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours
+
+    const refreshToken = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const res = await axios.post(`${BACKEND_URL}/api/terminal/refresh-token`, {}, {
+          headers: { Authorization: `Bearer ${tokenRef.current}` }
+        });
+        const newToken = res.data.token;
+        if (newToken) {
+          tokenRef.current = newToken;
+          if (onSessionUpdate) onSessionUpdate({ token: newToken });
+        }
+      } catch (err) {
+        // If 401, token is fully expired — need to re-pair
+        if (err?.response?.status === 401) {
+          toast.error('Session expired. Please re-pair the terminal.');
+          onLogout();
+        }
+      }
+    };
+
+    const interval = setInterval(refreshToken, REFRESH_INTERVAL);
+    // Also refresh on first load if terminal has been idle
+    refreshToken();
+
+    return () => clearInterval(interval);
+  }, [onLogout, onSessionUpdate]);
 
   // ── Smart scan helpers ────────────────────────────────────────────────────
   // Extract 8-char doc code from various input formats (URL, deeplink, raw code)

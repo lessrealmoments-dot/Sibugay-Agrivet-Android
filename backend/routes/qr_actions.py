@@ -24,6 +24,25 @@ from utils.security import (
 router = APIRouter(prefix="/qr-actions", tags=["QR Actions"])
 
 
+async def _verify_terminal_session(terminal_id: str):
+    """Verify that a terminal_id corresponds to an active terminal session.
+    QR actions (stock release, payment, transfer/PO receive) require a paired terminal."""
+    if not terminal_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Actions require an AgriSmart Terminal. Please use a paired terminal device."
+        )
+    from config import _raw_db
+    session = await _raw_db.terminal_sessions.find_one(
+        {"terminal_id": terminal_id, "status": "active"}, {"_id": 0, "terminal_id": 1}
+    )
+    if not session:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid or expired terminal session. Please re-pair the terminal."
+        )
+
+
 async def _resolve_doc(code: str):
     """Look up doc_code and return (doc_ref, doc_type, doc_id)."""
     code = code.strip().upper()
@@ -123,13 +142,17 @@ async def release_stocks(code: str, data: dict, request: Request):
     """
     Release a batch of reserved stock for a partial-release invoice.
     PIN required (qr_release_stocks policy — branch-restricted for managers).
+    Terminal required.
 
     Body: {
       pin: str,
       release_ref: str (client UUID for idempotency),
-      items: [{ sold_product_id: str, qty_release: float }]
+      items: [{ sold_product_id: str, qty_release: float }],
+      terminal_id: str (required — active terminal session)
     }
     """
+    await _verify_terminal_session(data.get("terminal_id", ""))
+
     pin = (data.get("pin") or "").strip()
     release_ref = (data.get("release_ref") or "").strip()
     items_input = data.get("items", [])
@@ -404,10 +427,12 @@ async def receive_payment(code: str, data: dict, request: Request):
     """
     Record a payment on a credit/partial invoice via QR scan.
     PIN required (qr_receive_payment policy — branch-restricted for managers).
+    Terminal required.
 
-    Body: { pin, amount, method, reference, payment_ref (idempotency UUID) }
-      method: "Cash" | "GCash" | "Maya" | "Bank Transfer" | ...
+    Body: { pin, amount, method, reference, payment_ref (idempotency UUID), terminal_id }
     """
+    await _verify_terminal_session(data.get("terminal_id", ""))
+
     pin              = (data.get("pin") or "").strip()
     amount           = float(data.get("amount", 0))
     method           = (data.get("method") or "Cash").strip()
@@ -564,13 +589,12 @@ async def qr_transfer_receive(code: str, data: dict, request: Request):
     """
     Receive a branch transfer via QR scan.
     PIN required (qr_transfer_receive policy — restricted to dest branch managers).
+    Terminal required.
 
-    Body: { pin, items: [{product_id, qty_received}], notes, transfer_ref (idempotency UUID) }
-
-    Delegates entirely to receive_transfer() which handles:
-      Exact match  → inventory moves immediately → status 'received'
-      Variance     → status 'received_pending', source branch notified
+    Body: { pin, items: [{product_id, qty_received}], notes, transfer_ref (idempotency UUID), terminal_id }
     """
+    await _verify_terminal_session(data.get("terminal_id", ""))
+
     pin          = (data.get("pin") or "").strip()
     items_input  = data.get("items", [])
     notes        = (data.get("notes") or "").strip()

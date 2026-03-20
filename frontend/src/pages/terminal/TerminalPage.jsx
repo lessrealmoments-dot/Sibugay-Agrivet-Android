@@ -25,6 +25,12 @@ export default function TerminalPage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
+  const handleSessionUpdate = (updatedData) => {
+    const newSession = { ...session, ...updatedData };
+    setSession(newSession);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+  };
+
   const handleLogout = () => {
     setSession(null);
     localStorage.removeItem(STORAGE_KEY);
@@ -57,7 +63,7 @@ export default function TerminalPage() {
 
   return (
     <>
-      <TerminalShell session={session} onLogout={handleLogout} />
+      <TerminalShell session={session} onLogout={handleLogout} onSessionUpdate={handleSessionUpdate} />
       <Toaster position="top-center" richColors />
     </>
   );

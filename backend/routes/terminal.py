@@ -292,6 +292,29 @@ async def disconnect_terminal(terminal_id: str, user=Depends(get_current_user)):
     return {"message": "Terminal disconnected"}
 
 
+
+@router.post("/refresh-token")
+async def refresh_terminal_token(user=Depends(get_current_user)):
+    """Refresh the terminal JWT token. Called periodically by the terminal to stay connected."""
+    session = await _raw_db.terminal_sessions.find_one(
+        {"user_id": user["id"], "status": "active"},
+        {"_id": 0}, sort=[("paired_at", -1)]
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="No active terminal session")
+
+    org_id = session.get("organization_id")
+    new_token = create_token(user["id"], user["role"], org_id=org_id)
+
+    await _raw_db.terminal_sessions.update_one(
+        {"terminal_id": session["terminal_id"]},
+        {"$set": {"token": new_token, "last_seen": now_iso()}}
+    )
+
+    return {"token": new_token, "expires_in": 86400}
+
+
+
 # ── Send PO / Transfer to Terminal ──────────────────────────────────────────
 
 @router.post("/notify")

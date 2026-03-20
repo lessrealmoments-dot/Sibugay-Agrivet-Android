@@ -270,6 +270,21 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 
+### Terminal Token Auto-Refresh (Complete — Mar 2026)
+- `POST /api/terminal/refresh-token` endpoint issues a new 24h JWT for active terminal sessions
+- Frontend auto-refreshes every 12 hours via `setInterval` in TerminalShell
+- On initial load, also refreshes to recover from near-expired tokens
+- If token is fully expired (401), auto-logs out and prompts re-pair
+- Token stored in localStorage via `onSessionUpdate` callback to TerminalPage
+
+### QR Actions Terminal-Only Gating (Complete — Mar 2026)
+- **Backend:** `_verify_terminal_session(terminal_id)` check added to `release_stocks`, `receive_payment`, `transfer_receive` endpoints in `qr_actions.py`
+- **Frontend:** Action panels (StockReleaseManager, ReceivePaymentPanel, TransferReceivePanel) gated behind `isTerminal` check in DocViewerPage
+- Non-terminal visitors see "Actions require an AgriSmart Terminal" banner
+- Document viewing (read-only info, details, attached files) remains open to all
+- Receipt/DR uploads remain unrestricted
+- `terminal_id` passed from localStorage session through component props to API calls
+
 ### Terminal Android Back Button Fix (Complete — Mar 2026)
 - Intercepts Android hardware back button / browser back navigation via `popstate` event
 - Smart priority chain: close overlays (QR scanner → doc upload → settings → quick scan → doc search → mode menu) → return to Sales tab → double-tap to exit

@@ -111,6 +111,76 @@ export default function TerminalShell({ session, onLogout }) {
   // Document Upload overlay state
   const [docUploadOpen, setDocUploadOpen] = useState(false);
 
+  // Android back button / browser back navigation handler
+  const backExitRef = useRef(false);
+  const backExitTimerRef = useRef(null);
+
+  useEffect(() => {
+    // Push initial history entry so first back doesn't exit
+    window.history.pushState({ terminal: true }, '');
+
+    const handlePopState = () => {
+      // Priority 1: Close any open overlay/modal
+      if (qrScannerOpen) {
+        setQrScannerOpen(false);
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+      if (docUploadOpen) {
+        setDocUploadOpen(false);
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+      if (settingsOpen) {
+        setSettingsOpen(false);
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+      if (quickScanDoc) {
+        setQuickScanDoc(null);
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+      if (showDocSearch) {
+        setShowDocSearch(false);
+        setDocCodeInput('');
+        setDocSearchResults([]);
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+      if (modeMenuOpen) {
+        setModeMenuOpen(false);
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+
+      // Priority 2: Go back to Sales tab if on another tab
+      if (activeTab !== 'sales') {
+        setActiveTab('sales');
+        window.history.pushState({ terminal: true }, '');
+        return;
+      }
+
+      // Priority 3: Double-tap to exit
+      if (backExitRef.current) {
+        // Second press within window — allow exit
+        return;
+      }
+      // First press — show toast, block exit
+      backExitRef.current = true;
+      window.history.pushState({ terminal: true }, '');
+      toast('Press back again to exit', { duration: 2000 });
+      clearTimeout(backExitTimerRef.current);
+      backExitTimerRef.current = setTimeout(() => { backExitRef.current = false; }, 2000);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      clearTimeout(backExitTimerRef.current);
+    };
+  }, [activeTab, qrScannerOpen, docUploadOpen, settingsOpen, quickScanDoc, showDocSearch, modeMenuOpen]);
+
   // Authenticated axios instance
   const [api] = useState(() => {
     const instance = axios.create({ baseURL: `${BACKEND_URL}/api` });

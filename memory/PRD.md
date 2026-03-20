@@ -270,6 +270,12 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 ### P1 — User Verification Pending
 Phase 3 incident resolution (PIN auth + auto-journal entries for incident tickets) — completed but user never confirmed working.
 
+### Terminal Android Back Button Fix (Complete — Mar 2026)
+- Intercepts Android hardware back button / browser back navigation via `popstate` event
+- Smart priority chain: close overlays (QR scanner → doc upload → settings → quick scan → doc search → mode menu) → return to Sales tab → double-tap to exit
+- Pushes history state entries to prevent PWA from exiting on first back press
+- "Press back again to exit" toast with 2-second window (native Android pattern)
+
 ### Super Admin Org Context Fix (Complete — Mar 2026)
 - **Root cause:** When super admin (org_context=None) performs tenant operations, DB writes omit `organization_id`, making records invisible to regular users
 - **Central fix:** `ensure_org_context()` helper resolves org from branch_id. Added to `log_movement()` (catches ALL movement types), plus `branch_transfers.py` (create/send/receive/accept), `sales.py`, `purchase_orders.py`

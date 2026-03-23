@@ -14,7 +14,7 @@ import {
   Bell, CheckCheck, Shield, AlertTriangle, Tag, Zap,
   ArrowLeftRight, Banknote, TrendingDown, Package,
   CreditCard, RefreshCw, ChevronLeft, X,
-  ShieldAlert, ClipboardCheck, Receipt, BarChart3
+  ShieldAlert, ClipboardCheck, Receipt, BarChart3, FileWarning
 } from 'lucide-react';
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -105,6 +105,7 @@ const TYPE_CONFIG = {
   internal_invoice_due:     { icon: AlertTriangle,  color: 'text-amber-600',   bg: 'bg-amber-100'   },
   internal_invoice_overdue: { icon: AlertTriangle,  color: 'text-red-600',     bg: 'bg-red-100'     },
   internal_invoice_paid:    { icon: BarChart3,      color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  compliance_deadline:      { icon: FileWarning,    color: 'text-orange-600',  bg: 'bg-orange-100'  },
 };
 
 const SEVERITY_BADGE = {
@@ -123,6 +124,38 @@ function timeAgo(isoStr) {
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(isoStr).toLocaleDateString();
+}
+
+// ── Compliance detail inline block ───────────────────────────────────────────
+function ComplianceDetail({ n }) {
+  const m = n.metadata || {};
+  const statusColors = {
+    expired:        'text-red-700 bg-red-50 border-red-200',
+    expiring:       'text-amber-700 bg-amber-50 border-amber-200',
+    missing_filing: 'text-orange-700 bg-orange-50 border-orange-200',
+  };
+  const statusLabels = {
+    expired:        'EXPIRED',
+    expiring:       `Expires in ${m.days_left} day${m.days_left !== 1 ? 's' : ''}`,
+    missing_filing: `${m.month} — Not Filed`,
+  };
+  const colorClass = statusColors[m.status] || statusColors.missing_filing;
+  return (
+    <div className={`mt-2 rounded-lg border p-2.5 text-[10px] space-y-1 ${colorClass}`}>
+      <div className="flex justify-between font-semibold">
+        <span>{m.sub_category_label || m.sub_category}</span>
+        <span>{statusLabels[m.status]}</span>
+      </div>
+      {m.valid_until && (
+        <div className="text-[10px] opacity-80">
+          {m.status === 'expired' ? 'Expired on' : 'Valid until'}: {m.valid_until}
+        </div>
+      )}
+      {m.month && (
+        <div className="text-[10px] opacity-80">Period: {m.month}</div>
+      )}
+    </div>
+  );
 }
 
 // ── Discount detail inline block ──────────────────────────────────────────────
@@ -208,7 +241,7 @@ function NotifRow({ n, onMarkRead }) {
   const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.admin_action;
   const Icon = cfg.icon;
   const [expanded, setExpanded] = useState(false);
-  const hasDetail = ['discount_given', 'below_cost_sale', 'ap_payment'].includes(n.type);
+  const hasDetail = ['discount_given', 'below_cost_sale', 'ap_payment', 'compliance_deadline'].includes(n.type);
 
   return (
     <div
@@ -261,6 +294,7 @@ function NotifRow({ n, onMarkRead }) {
           {expanded && n.type === 'discount_given' && <DiscountDetail n={n} />}
           {expanded && n.type === 'below_cost_sale' && <DiscountDetail n={n} />}
           {expanded && n.type === 'ap_payment' && <ApPaymentDetail n={n} />}
+          {expanded && n.type === 'compliance_deadline' && <ComplianceDetail n={n} />}
         </div>
       </div>
     </div>

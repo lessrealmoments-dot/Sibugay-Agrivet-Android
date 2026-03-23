@@ -39,6 +39,8 @@ NOTIFICATION_META = {
     "internal_invoice_due":       {"category": "finance",     "severity": "warning"},
     "internal_invoice_overdue":   {"category": "finance",     "severity": "critical"},
     "internal_invoice_paid":      {"category": "finance",     "severity": "info"},
+    # 🟠 Compliance
+    "compliance_deadline":        {"category": "action",      "severity": "warning"},
 }
 
 CATEGORY_LABELS = {
@@ -138,6 +140,7 @@ async def create_notification(
     branch_name: str = "",
     metadata: dict = None,
     organization_id: str = None,
+    severity_override: str = None,
 ) -> dict:
     """Create a structured notification with auto-assigned category and severity."""
     meta = NOTIFICATION_META.get(type_key, {"category": "operations", "severity": "info"})
@@ -145,7 +148,7 @@ async def create_notification(
         "id": new_id(),
         "type": type_key,
         "category": meta["category"],
-        "severity": meta["severity"],
+        "severity": severity_override or meta["severity"],
         "title": title,
         "message": message,
         "branch_id": branch_id,

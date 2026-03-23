@@ -513,6 +513,165 @@ async def startup():
         replace_existing=True,
     )
 
+    # ── Daily compliance deadline check ──────────────────────────────────────
+    async def _daily_compliance_check():
+        """Fire compliance_deadline notifications for expiring/expired docs and missing monthly filings."""
+        from routes.notifications import create_notification as _create_notif
+        now = datetime.now(timezone.utc)
+        today = now.strftime("%Y-%m-%d")
+        current_year = now.year
+        current_month = now.strftime("%Y-%m")
+        day_of_month = now.day
+        thirty_days_out = (now + timedelta(days=30)).strftime("%Y-%m-%d")
+
+        MONTHLY_FILINGS = [
+            ("sss_contributions",       "SSS Contributions"),
+            ("philhealth_contributions", "PhilHealth Remittance"),
+            ("pagibig_contributions",    "Pag-IBIG Remittance"),
+            ("1601c",                    "BIR 1601-C"),
+            ("0619e",                    "BIR 0619-E"),
+            ("2550m",                    "BIR 2550M"),
+        ]
+
+        orgs = await _raw_db.organizations.find(
+            {"plan": {"$ne": "suspended"}},
+            {"_id": 0, "id": 1, "name": 1}
+        ).to_list(500)
+
+        total_fired = 0
+        for org in orgs:
+            org_id = org["id"]
+            admins = await _raw_db.users.find(
+                {"organization_id": org_id, "role": {"$in": ["admin", "owner"]}, "active": True},
+                {"_id": 0, "id": 1}
+            ).to_list(50)
+            if not admins:
+                continue
+            admin_ids = [a["id"] for a in admins]
+
+            branches = await _raw_db.branches.find(
+                {"organization_id": org_id, "active": True},
+                {"_id": 0, "id": 1, "name": 1}
+            ).to_list(100)
+
+            for branch in branches:
+                branch_id = branch["id"]
+                branch_name = branch.get("name", "")
+
+                # ── Expired documents ──────────────────────────────────────
+                expired_docs = await _raw_db.business_documents.find(
+                    {
+                        "branch_id": branch_id,
+                        "valid_until": {"$lt": today, "$ne": ""},
+                        "period_type": {"$in": ["validity", "annual"]},
+                    },
+                    {"_id": 0, "sub_category": 1, "sub_category_label": 1, "valid_until": 1}
+                ).to_list(50)
+
+                for doc in expired_docs:
+                    dedup_key = f"cdl_{branch_id}_{doc['sub_category']}_expired_{today}"
+                    if await _raw_db.notifications.find_one({"metadata.dedup_key": dedup_key}):
+                        continue
+                    label = doc.get("sub_category_label") or doc["sub_category"]
+                    await _create_notif(
+                        type_key="compliance_deadline",
+                        title="Document Expired",
+                        message=f"{label} has EXPIRED at {branch_name}. Immediate renewal required.",
+                        target_user_ids=admin_ids,
+                        branch_id=branch_id,
+                        branch_name=branch_name,
+                        metadata={
+                            "dedup_key": dedup_key,
+                            "sub_category": doc["sub_category"],
+                            "sub_category_label": label,
+                            "valid_until": doc["valid_until"],
+                            "status": "expired",
+                        },
+                        organization_id=org_id,
+                        severity_override="critical",
+                    )
+                    total_fired += 1
+
+                # ── Expiring within 30 days ────────────────────────────────
+                expiring_docs = await _raw_db.business_documents.find(
+                    {
+                        "branch_id": branch_id,
+                        "valid_until": {"$gte": today, "$lte": thirty_days_out, "$ne": ""},
+                        "period_type": {"$in": ["validity", "annual"]},
+                    },
+                    {"_id": 0, "sub_category": 1, "sub_category_label": 1, "valid_until": 1}
+                ).to_list(50)
+
+                for doc in expiring_docs:
+                    days_left = (
+                        datetime.fromisoformat(doc["valid_until"]) - datetime.fromisoformat(today)
+                    ).days
+                    # Fire once per doc validity date (not every day)
+                    dedup_key = f"cdl_{branch_id}_{doc['sub_category']}_expiring_{doc['valid_until']}"
+                    if await _raw_db.notifications.find_one({"metadata.dedup_key": dedup_key}):
+                        continue
+                    label = doc.get("sub_category_label") or doc["sub_category"]
+                    await _create_notif(
+                        type_key="compliance_deadline",
+                        title="Document Expiring Soon",
+                        message=f"{label} expires in {days_left} day{'s' if days_left != 1 else ''} at {branch_name}.",
+                        target_user_ids=admin_ids,
+                        branch_id=branch_id,
+                        branch_name=branch_name,
+                        metadata={
+                            "dedup_key": dedup_key,
+                            "sub_category": doc["sub_category"],
+                            "sub_category_label": label,
+                            "valid_until": doc["valid_until"],
+                            "days_left": days_left,
+                            "status": "expiring",
+                        },
+                        organization_id=org_id,
+                        severity_override="warning",
+                    )
+                    total_fired += 1
+
+                # ── Missing monthly filings (check from the 15th onwards) ──
+                if day_of_month >= 15:
+                    for sub_key, label in MONTHLY_FILINGS:
+                        filed = await _raw_db.business_documents.find_one({
+                            "branch_id": branch_id,
+                            "sub_category": sub_key,
+                            "coverage_months": current_month,
+                        })
+                        if filed:
+                            continue
+                        dedup_key = f"cdl_{branch_id}_{sub_key}_{current_month}_missing"
+                        if await _raw_db.notifications.find_one({"metadata.dedup_key": dedup_key}):
+                            continue
+                        await _create_notif(
+                            type_key="compliance_deadline",
+                            title="Monthly Filing Missing",
+                            message=f"{label} for {current_month} has not been filed at {branch_name}.",
+                            target_user_ids=admin_ids,
+                            branch_id=branch_id,
+                            branch_name=branch_name,
+                            metadata={
+                                "dedup_key": dedup_key,
+                                "sub_category": sub_key,
+                                "sub_category_label": label,
+                                "month": current_month,
+                                "status": "missing_filing",
+                            },
+                            organization_id=org_id,
+                            severity_override="warning",
+                        )
+                        total_fired += 1
+
+        logger.info("Compliance check complete — %d notifications fired", total_fired)
+
+    _scheduler.add_job(
+        _daily_compliance_check,
+        CronTrigger(hour=8, minute=30),  # 8:30 AM daily
+        id="daily_compliance_check",
+        replace_existing=True,
+    )
+
     _scheduler.start()
     logger.info("Backup scheduler started — daily at %02d:00", backup_hour)
 

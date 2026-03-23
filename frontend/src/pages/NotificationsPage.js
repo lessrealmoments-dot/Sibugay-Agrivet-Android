@@ -310,6 +310,11 @@ export default function NotificationsPage() {
   const counts = data?.category_counts || {};
   const notifications = data?.notifications || [];
   const totalUnread = data?.unread_count || 0;
+  // globalTotal always reflects the full count regardless of active filter
+  const [globalTotal, setGlobalTotal] = useState(0);
+  useEffect(() => {
+    if (activeCategory === 'all' && data?.total) setGlobalTotal(data.total);
+  }, [activeCategory, data]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-60px)] bg-white" data-testid="notifications-page">
@@ -349,7 +354,7 @@ export default function NotificationsPage() {
             const Icon = cat.icon;
             const isActive = activeCategory === cat.key;
             const catData = cat.key === 'all'
-              ? { total: data?.total || 0, unread: totalUnread }
+              ? { total: globalTotal || data?.total || 0, unread: totalUnread }
               : counts[cat.key] || { total: 0, unread: 0 };
             return (
               <button key={cat.key} onClick={() => setActiveCategory(cat.key)}

@@ -340,6 +340,16 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ---
 
+### Notification System Phase 5 — Scheduled Compliance Deadlines (Complete — Mar 2026)
+- APScheduler daily job at 8:30 AM: `_daily_compliance_check` in `main.py`
+- Fires `compliance_deadline` notifications for:
+  - Expired docs (critical severity) — dedup per doc per day
+  - Expiring within 30 days (warning severity) — dedup per doc's valid_until date
+  - Missing monthly filings after the 15th (SSS, PhilHealth, Pag-IBIG, BIR 1601-C, 0619-E, 2550M) — dedup per month
+- `create_notification()` now accepts `severity_override` param for per-call severity
+- Frontend: `compliance_deadline` TYPE_CONFIG with orange `FileWarning` icon + `ComplianceDetail` expandable row
+- `NOTIFICATION_META` updated with `compliance_deadline` → category: action, severity: warning
+
 ## Next Up (P0 — Immediate)
 See `/app/memory/ROADMAP.md` for full spec on each item.
 
@@ -347,10 +357,6 @@ See `/app/memory/ROADMAP.md` for full spec on each item.
 - Widget showing expired docs (red), expiring within 30d (amber), monthly filing status
 - Data already available via `GET /api/documents/compliance/summary`
 - Add to dashboard grid layout (`DashboardPage.js`)
-
-### P0 — Notification Alerts for Document Compliance Deadlines
-- APScheduler daily job → fires `compliance_deadline` notifications
-- New notification type in `notifications.py` NOTIFICATION_META
 
 ### P1 — Terminal Features (prioritize one)
 - **Quick Stock Check** — scan barcode → instant stock level (read-only, no PIN)

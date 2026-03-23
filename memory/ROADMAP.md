@@ -23,7 +23,7 @@
 
 ## Next Up — P0 (Immediate Priority)
 
-### 1. Compliance Calendar Widget — Dashboard
+### 1. Compliance Calendar Widget — Dashboard ✅ NEXT TO BUILD
 **What:** A widget on the main Dashboard showing upcoming business document deadlines.
 **Data source:** Already built — `GET /api/documents/compliance/summary` (tested in iteration_140)
 **What to build:**
@@ -35,13 +35,8 @@
 - Add `compliance-calendar` key to dashboard grid layout
 **Files:** `DashboardPage.js`, backend already done
 
-### 2. Notification Alerts for Document Compliance Deadlines
-**What:** Auto-generate notifications when permits expire or monthly filings are overdue.
-**Needs:**
-- APScheduler daily job (already have scheduler running — check `main.py`)
-- New notification type: `compliance_deadline` (category: action, severity: warning/critical)
-- Fires when: document `valid_until` < today + 30 days, or monthly filing not found by the 15th
-**Files:** `documents.py` or new `routes/scheduler.py`
+### ~~2. Notification Alerts for Document Compliance Deadlines~~ ✅ DONE (Mar 2026)
+APScheduler daily job added — see Notification System Phase 5 in PRD.md.
 
 ---
 

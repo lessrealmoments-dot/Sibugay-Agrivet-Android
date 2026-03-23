@@ -11,7 +11,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pos-inventory-suite-2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://review-dialog.preview.emergentagent.com')
 
 # Test credentials
 SUPER_ADMIN_EMAIL = "janmarkeahig@gmail.com"

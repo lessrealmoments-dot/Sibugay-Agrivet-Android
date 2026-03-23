@@ -165,5 +165,5 @@ Bell click → /notifications page (full page, no dropdown)
 - Super Admin: `janmarkeahig@gmail.com` / `Aa@58798546521325`
 - Company Admin: `jovelyneahig@gmail.com` / `Aa@050772`
 - Manager PIN: `521325`
-- App URL: `https://pos-inventory-suite-2.preview.emergentagent.com`
+- App URL: `https://review-dialog.preview.emergentagent.com`
 - DB: MongoDB `test_database` at `localhost:27017`

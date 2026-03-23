@@ -1,269 +1,169 @@
-# AgriBooks — ROADMAP & Handoff
+# AgriBooks — ROADMAP (Updated Mar 2026)
 
-## Current Status (Mar 2026 — Fork Point)
+## Current Session Summary (Mar 2026 Fork Point)
 
-### QR Workflow — What's Done
-| Phase | Feature | Status |
+### What Was Completed This Session
+| Feature | Status | Key Files |
 |---|---|---|
-| Phase 1 | Stock Reservation Model (`release_mode`, `sale_reservations`, `reserved_qty`) | ✅ Done |
-| Phase 2 | QR Stock Release (`/qr-actions/{code}/release_stocks`) | ✅ Done |
-| Extras | Count Sheet reserved stock fix, Pending Releases page | ✅ Done |
-
-### What Phase 2 Built (IMPORTANT for context)
-- `inventory.quantity` = available to sell. Deducted at sale time (even partial release).
-- `inventory.reserved_qty` = customer's stock pending pickup. Added at partial sale. Drained at release/expiry.
-- `sale_reservations` collection = per-invoice, per-product delivery tracking.
-- `DocViewerPage.jsx` at `/doc/:code` — unified PIN-gated panel: history + release form + confirmation step.
-- `StockReleaseManager` component inside `DocViewerPage.jsx` — this is the **UI pattern** for all future QR action panels (PIN prompt → unlock → content → confirmation → done).
-- `POST /api/qr-actions/{code}/verify_pin` — validate PIN without side effects (used to unlock panels).
-- Auto doc_code generated when partial-release sale is created. Returned in sale response as `doc_code`.
-
----
-
-## Phase 3 — QR Payment Receive
-
-### What it does
-Staff scans an invoice QR on their phone, receives a cash or digital payment directly. Updates balance, routes to correct wallet.
-
-### Backend: `POST /api/qr-actions/{code}/receive_payment`
-Add to `/app/backend/routes/qr_actions.py`
-
-```python
-Body: { pin, amount, payment_method, fund_source, digital_platform, digital_ref_number, release_ref }
-
-Steps:
-1. _resolve_doc(code) → verify doc_type == "invoice"
-2. invoice = db.invoices.find_one({"id": doc_id})
-3. Validate: invoice not voided, invoice.balance > 0, amount <= invoice.balance
-4. verify_pin_for_action(pin, "qr_receive_payment", branch_id=invoice.branch_id)
-5. Build payment record (same schema as invoice.payments[]):
-   {
-     id, amount, date (today), method, fund_source,
-     digital_platform, digital_ref_number,
-     applied_to_principal, applied_to_interest: 0,
-     recorded_by: verifier.verifier_name, recorded_at
-   }
-6. Update invoice: $inc amount_paid, recalc balance, update status (partial→paid if balance=0)
-7. Route to wallet:
-   - fund_source="cashier" → update_cashier_wallet(branch_id, +amount, ref)
-   - fund_source="digital" → update_digital_wallet(branch_id, amount, ...)
-8. If invoice.customer_id and balance was reduced: db.customers.update_one $inc balance: -amount_received
-9. _log_action(doc_ref, "receive_payment", verifier, f"₱{amount} {payment_method}")
-10. Return { success, new_balance, new_status, payment_record }
-```
-
-**Integration points:**
-- `update_cashier_wallet`, `update_digital_wallet`, `is_digital_payment` already in `utils.py`
-- Payment record schema matches `invoices.payments[]` exactly — Z-report AR section picks it up automatically
-- Customer balance: same `$inc {balance: -amount}` pattern used everywhere
-
-### Frontend: `DocViewerPage.jsx`
-- `available_actions` already includes `receive_payment` when balance > 0 (done in `/doc/view/{code}`)
-- Add a `ReceivePaymentPanel` component (same structure as `StockReleaseManager`):
-  - Locked state: "Receive Payment · Balance ₱X" button
-  - PIN prompt (same as release)
-  - Unlocked: payment form (amount input, method selector: Cash/GCash/Maya, fund source)
-  - Confirmation step: "Confirm ₱500 Cash payment?"
-  - Done: "Payment recorded · New balance: ₱X"
-- Two separate PIN-gated sections can coexist on the page (release + payment)
-
-### PIN policy
-`qr_receive_payment` already defined. Defaults: `[admin_pin, manager_pin, admin_totp]`
+| AP Dashboard widget fix (cancelled POs, AP filter) | ✅ Done | `dashboard.py` |
+| ReviewDetailDialog — Verify & Approve button (Phase 2) | ✅ Done | `ReviewDetailDialog.js` |
+| Balance bug fix (₱0 display on older POs) | ✅ Done | `dashboard.py` |
+| Pay Now panel in AP dialog (Phase 3) | ✅ Done | `ReviewDetailDialog.js`, `purchase_orders.py` |
+| Bank/Digital wallet routing + double-entry journal | ✅ Done | `purchase_orders.py`, `journal_entries.py` |
+| Batch receipt upload modal (Phase 4) | ✅ Done | `PaySupplierPage.js` |
+| Collection receipt — "One receipt covers all" | ✅ Done | `uploads.py` (share-receipt endpoint) |
+| Shared receipt provenance in ReviewDetailDialog | ✅ Done | `dashboard.py`, `ReviewDetailDialog.js` |
+| Pay Supplier Page — QB-style redesign | ✅ Done | `PaySupplierPage.js` |
+| Checkbox + smart budget allocation for multi-PO | ✅ Done | `PaySupplierPage.js` |
+| Method icon buttons removed (redundant with Pay From) | ✅ Done | `PaySupplierPage.js` |
+| Notification Center v2 — full page `/notifications` | ✅ Done | `NotificationsPage.js`, `NotificationBell.js` |
+| Missing notifications: discount, below-cost, neg-stock, AP payment | ✅ Done | `sales.py`, `purchase_orders.py`, `notifications.py` |
 
 ---
 
-## Phase 4 — PO Receive via QR
+## Next Up — P0 (Immediate Priority)
 
-### What it does
-Warehouse staff scans a PO QR, enters actual received quantities, confirms with PIN. System calls the existing terminal-finalize logic. Already-received POs are view-only.
+### 1. Compliance Calendar Widget — Dashboard
+**What:** A widget on the main Dashboard showing upcoming business document deadlines.
+**Data source:** Already built — `GET /api/documents/compliance/summary` (tested in iteration_140)
+**What to build:**
+- Summary widget on dashboard showing:
+  - Documents expired (red alert count)
+  - Expiring within 30 days (amber count)
+  - Monthly filings status for current month (SSS, PhilHealth, Pag-IBIG, BIR 1601-C, 0619-E, 2550M)
+- Click → navigates to `/documents` compliance view
+- Add `compliance-calendar` key to dashboard grid layout
+**Files:** `DashboardPage.js`, backend already done
 
-### Backend: `POST /api/qr-actions/{code}/po_receive`
-Add to `/app/backend/routes/qr_actions.py`
-
-```python
-Body: { pin, items: [{product_id, qty_received}], notes, release_ref }
-
-Steps:
-1. _resolve_doc(code) → doc_type == "purchase_order"
-2. po = db.purchase_orders.find_one({"id": doc_id})
-3. If po.status == "received": raise 400 "PO already received — view only"
-4. If po.status not in ("ordered", "draft", "in_progress"): raise 400
-5. verify_pin_for_action(pin, "qr_po_receive", branch_id=po.branch_id)
-6. Call existing terminal_finalize_po logic (in purchase_orders.py) directly:
-   - Build updated items with qty_received
-   - Calculate variances
-   - Set status = "ordered" (unlocked for PC to finalize with capital choices)
-   OR call _apply_po_inventory directly if you want full receive without PC step
-7. _log_action(...)
-8. Return { success, variances, status }
-```
-
-**Recommended mode:** Use "terminal-finalize" approach (status → "ordered") so PC still reviews capital choices before finalizing. Safer.
-
-**Key function to reuse:** `terminal_finalize_po()` in `purchase_orders.py` (line ~1005). Extract the core logic into a shared helper.
-
-### Frontend: `DocViewerPage.jsx`
-- `available_actions` includes `po_receive` when `raw_status` in ("Draft", "Ordered", "In Progress")
-- Add `POReceivePanel` component:
-  - Locked: "Receive This PO" button
-  - PIN unlock
-  - Table: Product | Ordered Qty | Actual Received (input) | Variance (live)
-  - Variance color: green=match, red=shortage, amber=excess
-  - Confirmation step: shows variance summary
-  - Done: "PO verified — pending PC confirmation"
-
-### Updates needed in `/doc/view/{code}`
-`available_actions` already returns `po_receive` for correct statuses (done in doc_lookup.py). Add `po.items` to the open view response so the receive form can pre-populate expected quantities.
+### 2. Notification Alerts for Document Compliance Deadlines
+**What:** Auto-generate notifications when permits expire or monthly filings are overdue.
+**Needs:**
+- APScheduler daily job (already have scheduler running — check `main.py`)
+- New notification type: `compliance_deadline` (category: action, severity: warning/critical)
+- Fires when: document `valid_until` < today + 30 days, or monthly filing not found by the 15th
+**Files:** `documents.py` or new `routes/scheduler.py`
 
 ---
 
-## Phase 5 — Transfer QR Receive
+## P1 — Terminal Features
 
-### What it does
-Receiving branch scans the transfer QR, enters actual quantities. If match → inventory moves. If variance → enters `received_pending` for source to accept/dispute (existing flow).
+### 3. Quick Stock Check (Terminal)
+**What:** Scan/search a product barcode on the terminal and instantly see stock level at current branch + optionally all branches.
+**Where:** New mode in terminal floating mode selector (alongside Sales | PO Check | Transfers | Settings)
+**Backend:** Reuse `GET /api/products?search=` + `GET /api/inventory?product_id=`
+**Frontend:** `TerminalShell.jsx` — new mode card + `TerminalStockCheck.jsx` component
+**Key UX:** Scan barcode → instant result card (product name, stock, price, branch). No PIN needed — read-only.
 
-### Backend: `POST /api/qr-actions/{code}/transfer_receive`
-Add to `/app/backend/routes/qr_actions.py`
+### 4. Price Check (Terminal)
+**What:** Scan a barcode → see current retail price + cost (if permission allows) without creating a sale.
+**Where:** Same terminal mode selector
+**Note:** Respects `products.view_cost` permission — managers only see retail, not capital
+**Files:** `TerminalShell.jsx`, new `TerminalPriceCheck.jsx`
 
-```python
-Body: { pin, items: [{product_id, qty_received}], notes, release_ref }
-
-Steps:
-1. _resolve_doc(code) → doc_type == "branch_transfer"
-2. transfer = db.branch_transfer_orders.find_one({"id": doc_id})
-3. If transfer.status != "sent": raise 400
-4. verify_pin_for_action(pin, "qr_transfer_receive", branch_id=transfer.to_branch_id)
-   (Receiver's branch PIN — the branch accepting the goods)
-5. Call receive_transfer(transfer_id, {items, notes, skip_receipt_check: True}, user)
-   — This existing function handles EVERYTHING:
-     exact match → _apply_receipt() → inventory moves, status "received"
-     variance → status "received_pending", source notified
-6. _log_action(...)
-7. Return result from receive_transfer
-```
-
-**This is almost purely delegation.** The `receive_transfer()` function in `branch_transfers.py` handles:
-- Inventory movement on exact match
-- `received_pending` on variance
-- Notifications to source branch
-- Shortages/excesses calculation
-
-### Frontend: `DocViewerPage.jsx`
-- `available_actions` includes `transfer_receive` when `raw_status == "sent"` (done)
-- Add `TransferReceivePanel` component — same pattern as POReceivePanel
-- Items come from `basic.items` (already in doc view response)
-- Show: Product | Sent Qty | Received (input) | Variance (live)
-- After submit: show result (received / pending confirmation)
+### 5. Quick Count (Terminal)
+**What:** Cashier scans products and enters counted quantities — submits a quick count sheet.
+**Where:** Terminal mode (PIN required — connects to existing count sheet system)
+**Backend:** Reuse `POST /api/count-sheets` → `POST /api/count-sheets/{id}/snapshot`
+**Files:** `TerminalShell.jsx`, new `TerminalQuickCount.jsx`
 
 ---
 
-## Phase 6 — Terminal Doc Code Entry
+## P1 — Finance & Audit
 
-### What it does
-Cashier on terminal can type a doc code (e.g., `K7EFPTZQ`) to open any document's action page without scanning a QR.
+### 6. Discount Cashier Drill-Down Report
+**What:** In the Notifications page (Approvals tab) or Reports — show each cashier's total discounts this month sorted by amount. Makes it easy to spot patterns.
+**Backend:** Aggregate `discount_audit_log` by cashier, group by week/month
+**Frontend:** Could be a tab in `/reports` under the existing Discounts tab
 
-### What to build
-- Add "Find by Code" option in `TerminalShell.jsx` quick action area OR in terminal header
-- Simple input → `navigate('/doc/${code.toUpperCase()}')`
-- The `/doc/:code` page already works on terminal (standard React route, no terminal-specific code needed)
+### 7. AP Payment History in Pay Supplier Page
+**What:** Show recent payment history per supplier below the PO table — when was the last time we paid them, how much, from which wallet.
+**Backend:** Query `expenses` where `po_id` is in supplier's PO list OR query `payment_history` on POs
+**Files:** `PaySupplierPage.js`
 
 ---
 
-## Other Backlog (Non-QR)
+## P2 — Backlog
 
-### P0 — Permission Enforcement Phase 2 ✅ COMPLETE
-All dead permission toggles wired up. Completed Mar 2026.
-1. `products.view_cost` — hide cost/capital in Sales + Products when OFF
-2. `customers.view_balance` — hide AR balance info when OFF
-3. `customers.manage_credit` — gate credit limit editing separately
-4. `reports.export` — hide print/export buttons when OFF
-5. `reports.view_profit` — **BUILT: Product Profit Report** (revenue - capital, margin %) gated behind this permission
-6. `accounting.generate_interest/penalty` — remapped to proper permission keys
+### 8. Shared Receipt Clickable Link in ReviewDetailDialog
+**What:** When a PO shows "Collection receipt shared from PO-XXXX", the PO number should be a clickable link that opens that source PO's review dialog.
+**Files:** `ReviewDetailDialog.js` — add `onClick={() => openSourcePO(f.shared_from_record_id)}`
 
-### P1 — User Verification Pending
-Phase 3 incident resolution (PIN auth + auto-journal entries) was completed but user never confirmed. Ask user to verify before proceeding.
+### 9. Cross-Branch Payment Wallet Routing
+**Current state:** When customer pays at Branch B for Branch A's invoice, cash goes to Branch A's wallet. Correct behavior = Branch B cashier wallet + inter-branch settlement entry.
+**Note:** User said "remember this for now" — deferred.
 
-### P2 — Visual Trail for Partial Invoices
-Show linked payment transactions for a single invoice. Which payments went toward which invoice, timeline view.
+### 10. Admin Tool for Corrupted POs
+**What:** Admin page to list/fix purchase_orders with missing fields (no grand_total, no subtotal, etc.)
+**Files:** New page or extend `SuperAdminPage.jsx`
 
-### P2 — Smart Journal Entries for Forgotten Sales
-Allow back-dating a sale to a closed day with proper inventory/financial corrections.
+### 11. Visual Trail for Partial Invoices
+**What:** Show all linked payment transactions for a single invoice — timeline view.
+**Files:** `InvoiceDetailModal.js`
 
-### P2 — Admin Tool for Broken POs
-Production DB has corrupted `purchase_orders` documents. Build a secure admin page to list and fix them.
+### 12. Smart Journal Entries for Back-Dated Sales
+**What:** Allow encoding a missed sale on a closed day with proper financial corrections.
+**Files:** `UnifiedSalesPage.js`, `journal_entries.py`
 
-### P2 — Refactor `SuperAdminPage.jsx`
-1000+ line monolithic component. Break into smaller modules.
+---
 
-### P3 — Cross-Branch Payment Wallet Routing ⚠️ DEFERRED BY USER
-When a customer pays at Branch B for an invoice from Branch A (cross-branch payment via QR), the current system records cash into Branch A's wallet (the invoice's branch). The correct behavior is:
-- Cash received at Branch B → goes into Branch B's cashier wallet
-- An inter-branch settlement entry is created (Branch B owes Branch A the amount)
-- Journal entry: `Debit: Branch B Cash | Credit: Inter-Branch Payable to Branch A`
-- The audit trail already captures the cross-branch event via TOTP verification
-- **Note:** This is a financial correctness improvement. Currently, the cross-branch TOTP gate and audit are in place. Wallet routing fix is the next step.
-- **User instruction:** "remember this for now, we will get back to it"
+## P3 — Future / Long Term
 
-### P3 — Weight-Embedded EAN-13 Barcodes
+### 13. Refactor SuperAdminPage.jsx
+1000+ line monolithic component. Break into sub-pages.
+
+### 14. Fix react-hooks/exhaustive-deps ESLint Warnings
+3 remaining across the codebase. Low risk, cosmetic only.
+
+### 15. Native Android APK (Capacitor finalization)
+- Copy `printer-release.aar` to `android/app/libs/`
+- Build signed APK following `ANDROID_BUILD_GUIDE.md`
+- H10P thermal printer + Newland scanner native SDK
+
+### 16. Weight-Embedded EAN-13 Barcode Recognition
 Decode price/weight from standard grocery weight barcodes.
 
----
-
-## Key Architecture Files
-
-| File | Purpose |
-|---|---|
-| `backend/routes/qr_actions.py` | All QR actions live here. Add Phase 3/4/5 endpoints here. |
-| `backend/routes/doc_lookup.py` | `/doc/view/{code}` — `available_actions[]` computed here. Add po.items to PO response. |
-| `backend/routes/purchase_orders.py` | `terminal_finalize_po()` reused by Phase 4 |
-| `backend/routes/branch_transfers.py` | `receive_transfer()` reused by Phase 5 |
-| `backend/routes/invoices.py` | Payment schema reference for Phase 3 |
-| `backend/routes/verify.py` | `verify_pin_for_action()`, `_resolve_pin()` — PIN system |
-| `backend/routes/stock_releases.py` | Pending releases list/summary endpoints |
-| `frontend/src/pages/DocViewerPage.jsx` | ALL QR action UI. `StockReleaseManager` = pattern to follow. |
-| `frontend/src/pages/PendingReleasesPage.jsx` | Tracking page for unreleased stock |
-| `frontend/src/pages/CountSheetsPage.js` | Shows `system_reserved_qty` breakdown |
+### 17. Automated Payment Gateway & Demo Login
+For SaaS onboarding.
 
 ---
 
-## DB Collections Added (New Agent Must Know)
+## Key Architecture Notes for Next Agent
 
-| Collection | Purpose |
-|---|---|
-| `sale_reservations` | Per-invoice, per-product delivery tracking. `qty_remaining` drained by release/expiry. |
-| `qr_action_log` | Immutable audit trail for every QR-triggered action. |
-
-## Inventory Model (Critical)
-
+### AP Payment Flow (NEW — Mar 2026)
 ```
-inventory.quantity     = available to sell (deducted at sale time, always)
-inventory.reserved_qty = customer's stock pending pickup (drained by release/expiry)
-Physical on shelf      = quantity + reserved_qty
-
-At partial sale creation:
-  quantity    -= qty_sold
-  reserved_qty += qty_sold
-
-At stock release via QR:
-  reserved_qty -= qty_released
-  (quantity unchanged — already moved at sale time)
-
-At 30-day expiry:
-  quantity     += qty_remaining_in_reservation
-  reserved_qty -= qty_remaining_in_reservation
-  Movement: "expiry_return"
-
-At void of partial-release invoice:
-  quantity     += reserved_qty (only unreleased portion)
-  reserved_qty -= reserved_qty
-  Reservations deleted from sale_reservations
+User selects POs (checkbox) → enters budget → clicks Pay
+→ POST /api/purchase-orders/{id}/pay (requires PIN)
+→ Wallet deduction (cashier/safe/bank/digital)
+→ Expense record created (Z-report picks up)
+→ Journal entry auto-created for bank/digital (DR: AP 2000, CR: 1030/1020)
+→ Notification fired (ap_payment → Notification Center)
+→ Receipt upload modal opens (single OR collection receipt)
+→ If collection: POST /api/uploads/share-receipt → mirrors session to all target POs
 ```
 
----
+### Notification System (NEW — Mar 2026)
+```
+All new notifications use create_notification() helper from notifications.py
+Fields: type, category, severity, title, message, metadata, target_user_ids, branch_id, org_id
+Categories: security | action | approvals | operations | finance
+Severities: critical | warning | info
+GET /api/notifications returns: notifications[], unread_count, total, category_counts{}
+Bell click → /notifications page (full page, no dropdown)
+```
 
-## Credentials
+### New PIN Policies (Mar 2026)
+- `pay_po_standard` — Pay supplier invoice from cashier/safe: admin, manager, TOTP
+- `pay_po_bank` — Pay supplier invoice from bank/digital: admin, TOTP only
 
-- **Super Admin:** `janmarkeahig@gmail.com` / `Aa@58798546521325`
-- **Manager PIN:** `521325`
-- **App URL:** `https://pos-inventory-suite-2.preview.emergentagent.com`
-- **DB:** MongoDB `test_database` at `localhost:27017`
+### New Notification Types (Mar 2026)
+- `discount_given` — Sale with discount, includes full item detail + repeat-offender count
+- `below_cost_sale` — Sale where item sold below capital
+- `negative_stock_override` — Stock override approved, incident ticket auto-created
+- `ap_payment` — Supplier payment made, includes PO#, vendor, amount, wallet source
+
+### Credentials
+- Super Admin: `janmarkeahig@gmail.com` / `Aa@58798546521325`
+- Company Admin: `jovelyneahig@gmail.com` / `Aa@050772`
+- Manager PIN: `521325`
+- App URL: `https://pos-inventory-suite-2.preview.emergentagent.com`
+- DB: MongoDB `test_database` at `localhost:27017`

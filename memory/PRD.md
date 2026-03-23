@@ -292,11 +292,13 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **Phase 2 — Notification Center page:** `/notifications` full-page route. 6 category summary cards (All / Security / Action Required / Approvals & Overrides / Operations / Finance) with total + unread counts. Filterable notification list with severity badges (critical/warning/info). Expandable discount rows show: product, orig price, sold price, discount %, capital, repeat-offender badge ("X discounts this week by cashier"). Expandable AP payment rows show: PO#, vendor, amount, fund source, remaining balance. Bell click navigates to full page (no more dropdown). Backend `create_notification()` helper with auto-assigned category + severity. Category counts returned on every GET `/notifications` call.
 
 
+### Pay Supplier Page — QB-Style Redesign (Complete — Mar 2026)
 - **Layout:** Mirrors AR PaymentsPage exactly — left panel (always-visible supplier list with total balance + overdue badges) + right QB-style form
 - **Supplier selection:** Click in left panel OR type in "Pay To" search field with dropdown suggestions
 - **Smart allocation:** Payment Amount field auto-allocates budget to POs oldest-due-first; checking PO applies unused budget; unchecking returns amount to pool; unused budget shown in header notice + summary
 - **Pay All Due:** Checks only overdue POs; **Pay All:** Checks all POs with full balances
 - **QB-style footer:** "Amounts for Selected POs" — POs Selected / Total Owed / Applying / Unused Budget / Remaining Balance
+- **Method icons removed:** `Pay From` fund source (Cashier / Safe / Check·Bank / Digital) is the single source of truth. `payMethod` auto-derived from fund source for audit trail.
 - **All previous AP features preserved:** PIN required, bank/digital lock icons, batch upload modal, collection receipt toggle, shared receipt provenance
 
 
@@ -336,22 +338,42 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - Backend `GET /products/{id}/movements` now returns `total` count
 - Frontend shows "Showing X of Y movements" counter with "Load More" button
 
-### P1
-- Cross-branch payment wallet routing (cash at receiving branch's wallet)
-- Admin tool for corrupted POs in production DB
+---
 
-### P2
-- Visual trail for partial invoices (linked payment transactions)
-- Smart Journal Entries for forgotten/back-dated sales
-- Refactor SuperAdminPage.jsx (monolithic, 1000+ lines)
+## Next Up (P0 — Immediate)
+See `/app/memory/ROADMAP.md` for full spec on each item.
+
+### P0 — Compliance Calendar Widget on Dashboard
+- Widget showing expired docs (red), expiring within 30d (amber), monthly filing status
+- Data already available via `GET /api/documents/compliance/summary`
+- Add to dashboard grid layout (`DashboardPage.js`)
+
+### P0 — Notification Alerts for Document Compliance Deadlines
+- APScheduler daily job → fires `compliance_deadline` notifications
+- New notification type in `notifications.py` NOTIFICATION_META
+
+### P1 — Terminal Features (prioritize one)
+- **Quick Stock Check** — scan barcode → instant stock level (read-only, no PIN)
+- **Price Check** — scan barcode → price card (respects view_cost permission)
+- **Quick Count** — scan + enter qty → submit count sheet (PIN required)
+
+### P1 — Finance
+- Discount cashier drill-down report (`/reports` Discounts tab)
+- AP payment history per supplier in PaySupplierPage
+
+### P2 — Backlog
+- Shared receipt clickable link in ReviewDetailDialog
+- Cross-branch payment wallet routing (deferred by user)
+- Admin tool for corrupted POs
+- Visual trail for partial invoices
+- Smart journal entries for back-dated sales
+- Refactor SuperAdminPage.jsx (1000+ lines)
 - Fix react-hooks/exhaustive-deps ESLint warnings (3 remaining)
-- Update AdminLoginPage.jsx to use useNavigate
 
-### P3 (Future)
-- Native Android APK (Capacitor wrap, thermal printer, Newland scanner SDK)
+### P3 — Future
+- Native Android APK (Capacitor finalization + AAR)
 - Weight-embedded EAN-13 barcode recognition
 - Automated Payment Gateway & Demo Login
-- Advanced reporting, "Pack & Ship" workflow, user role presets
 
 ---
 

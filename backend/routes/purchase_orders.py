@@ -1521,6 +1521,9 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
         }
         await db.journal_entries.insert_one(je_doc)
 
+    # ── Notify admin of payment ───────────────────────────────────────────────
+    await _notify_ap_payment(po, amount, fund_source, new_balance, new_status, verifier, po.get("organization_id"))
+
     return {
         "message": f"Payment of ₱{amount:.2f} recorded from {fund_source}",
         "new_balance": new_balance,
@@ -1528,6 +1531,35 @@ async def pay_purchase_order(po_id: str, data: dict, user=Depends(get_current_us
         "fund_source": fund_source,
         "authorized_by": verifier["verifier_name"],
     }
+
+
+async def _notify_ap_payment(po, amount, fund_source, new_balance, new_status, verifier, org_id):
+    """Fire notification after a supplier payment is recorded."""
+    from routes.notifications import create_notification
+    admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+    admin_ids = [a["id"] for a in admins]
+    if not admin_ids:
+        return
+    status_note = "— fully paid" if new_status == "paid" else f"— ₱{new_balance:,.2f} remaining"
+    await create_notification(
+        type_key="ap_payment",
+        title=f"Supplier Payment — {po.get('po_number')}",
+        message=f"{verifier['verifier_name']} paid ₱{amount:,.2f} to {po.get('vendor', 'supplier')} "
+                f"from {fund_source} ({po.get('po_number')}) {status_note}.",
+        target_user_ids=admin_ids,
+        branch_id=po.get("branch_id", ""),
+        metadata={
+            "po_id": po.get("id"),
+            "po_number": po.get("po_number"),
+            "vendor": po.get("vendor"),
+            "amount": round(amount, 2),
+            "fund_source": fund_source,
+            "new_balance": new_balance,
+            "payment_status": new_status,
+            "authorized_by": verifier["verifier_name"],
+        },
+        organization_id=org_id,
+    )
 
 
 @router.get("/vendors")

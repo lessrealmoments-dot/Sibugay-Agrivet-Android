@@ -613,6 +613,56 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
             "created_at": now_iso(),
         })
 
+        # ── Fire discount/price-override notification to admin ──────────────
+        from routes.notifications import create_notification
+        admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+        admin_ids = [a["id"] for a in admins]
+        if admin_ids:
+            # Separate discount vs below-cost types
+            has_below_cost = any(
+                e.get("net_per_unit", e.get("sold_price", 0)) < e.get("capital", 0)
+                for e in discount_audit_entries
+            )
+            notif_type = "below_cost_sale" if has_below_cost else "discount_given"
+            items_summary = "; ".join(
+                f"{e['product_name']} −{e['discount_value']}"
+                f"{'%' if e.get('discount_type') == 'percent' else '₱'}"
+                for e in discount_audit_entries[:3] if e.get("discount_amount", 0) > 0
+            )
+            if len(discount_audit_entries) > 3:
+                items_summary += f" +{len(discount_audit_entries)-3} more"
+            title = "Below-Cost Sale Detected" if has_below_cost else f"Discount Applied — {inv_number}"
+            # Count how many discounts this cashier gave this week (repeat-offender check)
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+            repeat_count = await db.discount_audit_log.count_documents({
+                "cashier_id": cashier_id,
+                "date": {"$gte": week_ago},
+            })
+            repeat_note = f" ({repeat_count} discount{'s' if repeat_count != 1 else ''} this week by {cashier_name})"
+            await create_notification(
+                type_key=notif_type,
+                title=title,
+                message=f"{cashier_name} gave discount on {inv_number} (customer: {customer_name}). "
+                        f"Total discounted: ₱{total_discount:.2f}.{repeat_note} Items: {items_summary}",
+                target_user_ids=admin_ids,
+                branch_id=branch_id,
+                branch_name=data.get("branch_name", ""),
+                metadata={
+                    "invoice_id": invoice["id"],
+                    "invoice_number": inv_number,
+                    "cashier_id": cashier_id,
+                    "cashier_name": cashier_name,
+                    "customer_name": customer_name,
+                    "total_discount": round(total_discount, 2),
+                    "total_price_override_diff": round(total_price_diff, 2),
+                    "grand_total": grand_total,
+                    "items": discount_audit_entries,
+                    "cashier_discounts_this_week": repeat_count,
+                    "has_below_cost": has_below_cost,
+                },
+                organization_id=user.get("organization_id"),
+            )
+
     # ── Auto-create incident tickets for negative-stock overrides ─────────────
     if override_verifier and insufficient_items:
         for bad in insufficient_items:
@@ -648,6 +698,30 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
                 "created_at": now_iso(),
                 "updated_at": now_iso(),
             })
+
+        # ── Notify admin of negative stock override ────────────────────────
+        from routes.notifications import create_notification
+        admins = await db.users.find({"role": "admin", "active": True}, {"_id": 0, "id": 1}).to_list(50)
+        admin_ids = [a["id"] for a in admins]
+        if admin_ids:
+            items_list = ", ".join(f"{b['product_name']} ({b['system_qty']:g}→{round(b['system_qty']-b['needed_qty'],4):g})" for b in insufficient_items[:3])
+            await create_notification(
+                type_key="negative_stock_override",
+                title=f"Negative Stock Override — {inv_number}",
+                message=f"{override_verifier['verifier_name']} approved selling below-zero stock on {inv_number}. "
+                        f"Cashier: {user.get('full_name', user['username'])}. "
+                        f"Items: {items_list}. Investigation ticket(s) created.",
+                target_user_ids=admin_ids,
+                branch_id=branch_id,
+                metadata={
+                    "invoice_id": invoice["id"],
+                    "invoice_number": inv_number,
+                    "approved_by": override_verifier["verifier_name"],
+                    "cashier_name": user.get("full_name", user["username"]),
+                    "items": [{"product_name": b["product_name"], "qty_before": b["system_qty"], "qty_sold": b["needed_qty"]} for b in insufficient_items],
+                },
+                organization_id=user.get("organization_id"),
+            )
 
     return invoice
 

@@ -38,6 +38,7 @@ import CountSheetsPage from './pages/CountSheetsPage';
 import PendingReleasesPage from './pages/PendingReleasesPage';
 import AccountsPage from './pages/AccountsPage';
 import EmployeesPage from './pages/EmployeesPage';
+import NotificationsPage from './pages/NotificationsPage';
 import PaySupplierPage from './pages/PaySupplierPage';
 import ImportPage from './pages/ImportPage';
 import ReportsPage from './pages/ReportsPage';
@@ -176,6 +177,7 @@ function AppRoutes() {
       <Route path="/daily-ops" element={<ProtectedRoute><DailyLogPage /></ProtectedRoute>} />
       <Route path="/close-wizard" element={<ProtectedRoute><CloseWizardPage /></ProtectedRoute>} />
       <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
+      <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
       <Route path="/fund-management" element={<ProtectedRoute><FeatureGate featureKey="full_fund_management"><FundManagementPage /></FeatureGate></ProtectedRoute>} />
       <Route path="/expenses" element={<ProtectedRoute><ExpensesPage /></ProtectedRoute>} />
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />

@@ -1,164 +1,146 @@
-# AgriBooks — ROADMAP (Updated Mar 2026)
-
-## Current Session Summary (Mar 2026 Fork Point)
-
-### What Was Completed This Session
-| Feature | Status | Key Files |
-|---|---|---|
-| AP Dashboard widget fix (cancelled POs, AP filter) | ✅ Done | `dashboard.py` |
-| ReviewDetailDialog — Verify & Approve button (Phase 2) | ✅ Done | `ReviewDetailDialog.js` |
-| Balance bug fix (₱0 display on older POs) | ✅ Done | `dashboard.py` |
-| Pay Now panel in AP dialog (Phase 3) | ✅ Done | `ReviewDetailDialog.js`, `purchase_orders.py` |
-| Bank/Digital wallet routing + double-entry journal | ✅ Done | `purchase_orders.py`, `journal_entries.py` |
-| Batch receipt upload modal (Phase 4) | ✅ Done | `PaySupplierPage.js` |
-| Collection receipt — "One receipt covers all" | ✅ Done | `uploads.py` (share-receipt endpoint) |
-| Shared receipt provenance in ReviewDetailDialog | ✅ Done | `dashboard.py`, `ReviewDetailDialog.js` |
-| Pay Supplier Page — QB-style redesign | ✅ Done | `PaySupplierPage.js` |
-| Checkbox + smart budget allocation for multi-PO | ✅ Done | `PaySupplierPage.js` |
-| Method icon buttons removed (redundant with Pay From) | ✅ Done | `PaySupplierPage.js` |
-| Notification Center v2 — full page `/notifications` | ✅ Done | `NotificationsPage.js`, `NotificationBell.js` |
-| Missing notifications: discount, below-cost, neg-stock, AP payment | ✅ Done | `sales.py`, `purchase_orders.py`, `notifications.py` |
+# AgriBooks — ROADMAP (Updated Mar 2026 — Pre-Fork)
 
 ---
 
-## Next Up — P0 (Immediate Priority)
+## Modal Consolidation Plan (IN PROGRESS)
 
-### 1. Compliance Calendar Widget — Dashboard ✅ NEXT TO BUILD
-**What:** A widget on the main Dashboard showing upcoming business document deadlines.
-**Data source:** Already built — `GET /api/documents/compliance/summary` (tested in iteration_140)
-**What to build:**
-- Summary widget on dashboard showing:
-  - Documents expired (red alert count)
-  - Expiring within 30 days (amber count)
-  - Monthly filings status for current month (SSS, PhilHealth, Pag-IBIG, BIR 1601-C, 0619-E, 2550M)
-- Click → navigates to `/documents` compliance view
-- Add `compliance-calendar` key to dashboard grid layout
-**Files:** `DashboardPage.js`, backend already done
+| Phase | What | Status | Files |
+|---|---|---|---|
+| Phase 1 | A1 (ReviewDetailDialog) absorbs A3 (PODetailModal) | DONE | 7 pages migrated, PODetailModal.js orphaned |
+| Phase 2 | A2 (InvoiceDetailModal) absorbs A4 (SaleDetailModal) | NEXT | Add `compact` prop to A2, migrate 9 pages |
+| Phase 3 | C1+C2 merge into AuthDialog | PENDING | New AuthDialog.js, C1/C2 become thin wrappers |
+| Phase 4 | Extract F7 FundTransferDialog | PENDING | New FundTransferDialog.js |
 
-### ~~2. Notification Alerts for Document Compliance Deadlines~~ ✅ DONE (Mar 2026)
-APScheduler daily job added — see Notification System Phase 5 in PRD.md.
+### Phase 2 Detail — NEXT TASK
+Add `compact={true}` prop to `InvoiceDetailModal.js` (A2):
+- When compact=true: hide tabs, show single-view layout (matches A4)
+- Add `saleId` as backward-compat alias for `invoiceId`
+- Migrate 9 pages: SalesPage, AccountingPage, ExpensesPage, CustomersPage, CloseWizardPage (sale slot), ReportsPage, DailyLogPage, PaymentsPage, PendingReleasesPage
+- After migration: SaleDetailModal.js has zero imports → orphaned
+
+### Phase 3 Detail
+- New `components/AuthDialog.js` with `mode="pin"|"totp"|"either"` prop
+- VerifyPinDialog.js → `<AuthDialog mode="pin" />` wrapper
+- TotpVerifyDialog.js → `<AuthDialog mode="totp" />` wrapper
+- No page-level changes (wrappers preserve backward compat)
+
+### Phase 4 Detail
+- New `components/FundTransferDialog.js`
+- Replace inline fund transfer dialogs in FundManagementPage + AccountingPage
+
+---
+
+## P0 — Immediate (Non-Modal)
+
+### Compliance Calendar Widget on Dashboard
+- New widget on `DashboardPage.js`
+- API: `GET /api/documents/compliance/summary` (ALREADY EXISTS)
+- Shows: expired count (red), expiring within 30d (amber), monthly filing 6-dot tracker
+- Click → navigates to `/documents`
+- Companion to the scheduled compliance notifications (already running daily at 8:30 AM)
 
 ---
 
 ## P1 — Terminal Features
 
-### 3. Quick Stock Check (Terminal)
-**What:** Scan/search a product barcode on the terminal and instantly see stock level at current branch + optionally all branches.
-**Where:** New mode in terminal floating mode selector (alongside Sales | PO Check | Transfers | Settings)
-**Backend:** Reuse `GET /api/products?search=` + `GET /api/inventory?product_id=`
-**Frontend:** `TerminalShell.jsx` — new mode card + `TerminalStockCheck.jsx` component
-**Key UX:** Scan barcode → instant result card (product name, stock, price, branch). No PIN needed — read-only.
+### Quick Stock Check
+- New mode in terminal floating mode selector
+- Scan barcode → instant stock level card (no PIN, read-only)
+- New `TerminalStockCheck.jsx` component
+- Backend: `GET /api/products?search=` + inventory lookup
 
-### 4. Price Check (Terminal)
-**What:** Scan a barcode → see current retail price + cost (if permission allows) without creating a sale.
-**Where:** Same terminal mode selector
-**Note:** Respects `products.view_cost` permission — managers only see retail, not capital
-**Files:** `TerminalShell.jsx`, new `TerminalPriceCheck.jsx`
+### Price Check
+- Scan barcode → price card (respects `products.view_cost` permission)
+- New `TerminalPriceCheck.jsx`
 
-### 5. Quick Count (Terminal)
-**What:** Cashier scans products and enters counted quantities — submits a quick count sheet.
-**Where:** Terminal mode (PIN required — connects to existing count sheet system)
-**Backend:** Reuse `POST /api/count-sheets` → `POST /api/count-sheets/{id}/snapshot`
-**Files:** `TerminalShell.jsx`, new `TerminalQuickCount.jsx`
+### Quick Count
+- Scan + enter qty → submits count sheet (PIN required)
+- New `TerminalQuickCount.jsx`
+- Backend: reuse `POST /api/count-sheets` endpoints
 
 ---
 
-## P1 — Finance & Audit
+## P1 — Finance & Reports
 
-### 6. Discount Cashier Drill-Down Report
-**What:** In the Notifications page (Approvals tab) or Reports — show each cashier's total discounts this month sorted by amount. Makes it easy to spot patterns.
-**Backend:** Aggregate `discount_audit_log` by cashier, group by week/month
-**Frontend:** Could be a tab in `/reports` under the existing Discounts tab
+### Discount Cashier Drill-Down
+- Aggregate `discount_audit_log` by cashier in `/reports` Discounts tab
+- Sort by total discount amount, show repeat offenders
 
-### 7. AP Payment History in Pay Supplier Page
-**What:** Show recent payment history per supplier below the PO table — when was the last time we paid them, how much, from which wallet.
-**Backend:** Query `expenses` where `po_id` is in supplier's PO list OR query `payment_history` on POs
-**Files:** `PaySupplierPage.js`
+### AP Payment History per Supplier
+- Show payment history below PO list in `PaySupplierPage.js`
+- Query from `expenses` collection linked to supplier
 
 ---
 
 ## P2 — Backlog
 
-### 8. Shared Receipt Clickable Link in ReviewDetailDialog
-**What:** When a PO shows "Collection receipt shared from PO-XXXX", the PO number should be a clickable link that opens that source PO's review dialog.
-**Files:** `ReviewDetailDialog.js` — add `onClick={() => openSourcePO(f.shared_from_record_id)}`
+### Shared Receipt Clickable Link
+- In ReviewDetailDialog, "Collection receipt shared from PO-XXXX" → make PO-XXXX clickable
+- Opens that source PO's ReviewDetailDialog
+- `onClick={() => { setCurrentRecord({id: f.shared_from_record_id, type: 'purchase_order'}) }}`
 
-### 9. Cross-Branch Payment Wallet Routing
-**Current state:** When customer pays at Branch B for Branch A's invoice, cash goes to Branch A's wallet. Correct behavior = Branch B cashier wallet + inter-branch settlement entry.
-**Note:** User said "remember this for now" — deferred.
+### Admin Tool for Corrupted POs
+- List/fix POs missing grand_total, subtotal
+- Add to SuperAdminPage or new admin route
 
-### 10. Admin Tool for Corrupted POs
-**What:** Admin page to list/fix purchase_orders with missing fields (no grand_total, no subtotal, etc.)
-**Files:** New page or extend `SuperAdminPage.jsx`
-
-### 11. Visual Trail for Partial Invoices
-**What:** Show all linked payment transactions for a single invoice — timeline view.
-**Files:** `InvoiceDetailModal.js`
-
-### 12. Smart Journal Entries for Back-Dated Sales
-**What:** Allow encoding a missed sale on a closed day with proper financial corrections.
-**Files:** `UnifiedSalesPage.js`, `journal_entries.py`
+### Visual Trail for Partial Invoices
+- Timeline view of all linked payment transactions for an invoice
+- Add to InvoiceDetailModal (A2) as new tab
 
 ---
 
-## P3 — Future / Long Term
+## P3 — Future
 
-### 13. Refactor SuperAdminPage.jsx
-1000+ line monolithic component. Break into sub-pages.
-
-### 14. Fix react-hooks/exhaustive-deps ESLint Warnings
-3 remaining across the codebase. Low risk, cosmetic only.
-
-### 15. Native Android APK (Capacitor finalization)
-- Copy `printer-release.aar` to `android/app/libs/`
-- Build signed APK following `ANDROID_BUILD_GUIDE.md`
-- H10P thermal printer + Newland scanner native SDK
-
-### 16. Weight-Embedded EAN-13 Barcode Recognition
-Decode price/weight from standard grocery weight barcodes.
-
-### 17. Automated Payment Gateway & Demo Login
-For SaaS onboarding.
+- Refactor SuperAdminPage.jsx (1000+ lines monolith)
+- Fix react-hooks/exhaustive-deps ESLint warnings (low risk, cosmetic)
+- Native Android APK (Capacitor + printer-release.aar)
+- Weight-embedded EAN-13 barcode recognition
+- Automated Payment Gateway & Demo Login
 
 ---
 
-## Key Architecture Notes for Next Agent
+## Architecture Notes for Next Agent
 
-### AP Payment Flow (NEW — Mar 2026)
+### Modal Rules (ENFORCE THESE)
+1. **To show a PO:** Use `ReviewDetailDialog` with `poId` or `poNumber` — NEVER import PODetailModal
+2. **To show a Sale/Invoice:** Use `SaleDetailModal` for now — will migrate to `InvoiceDetailModal` with `compact` in Phase 2
+3. **To show a Transfer:** Use `TransferDetailModal` (A5)
+4. **To show an Expense:** Use `ExpenseDetailModal` (A6)
+5. **To upload a receipt:** Use `UploadQRDialog` (D1) — UNIVERSAL
+6. **To view receipts:** Use `ViewQRDialog` (D2) — UNIVERSAL
+
+### ReviewDetailDialog (A1) — New Props Added This Session
+```jsx
+<ReviewDetailDialog
+  // Original props (still work):
+  open recordType recordId showReviewAction showPayAction onClose onReviewed recordNumber
+
+  // New backward-compat props (Phase 1 addition):
+  poId         // alias for recordId when dealing with POs
+  poNumber     // resolves UUID via /invoices/by-number/{poNumber}
+  onUpdated    // alias for onReviewed callback
+  onOpenChange // alias for (v) => { if (!v) onClose() }
+/>
 ```
-User selects POs (checkbox) → enters budget → clicks Pay
-→ POST /api/purchase-orders/{id}/pay (requires PIN)
-→ Wallet deduction (cashier/safe/bank/digital)
-→ Expense record created (Z-report picks up)
-→ Journal entry auto-created for bank/digital (DR: AP 2000, CR: 1030/1020)
-→ Notification fired (ap_payment → Notification Center)
-→ Receipt upload modal opens (single OR collection receipt)
-→ If collection: POST /api/uploads/share-receipt → mirrors session to all target POs
-```
 
-### Notification System (NEW — Mar 2026)
-```
-All new notifications use create_notification() helper from notifications.py
-Fields: type, category, severity, title, message, metadata, target_user_ids, branch_id, org_id
-Categories: security | action | approvals | operations | finance
-Severities: critical | warning | info
-GET /api/notifications returns: notifications[], unread_count, total, category_counts{}
-Bell click → /notifications page (full page, no dropdown)
-```
+### Notification System (Complete)
+- All notifications use `create_notification()` from `notifications.py`
+- Phase 5 scheduler runs daily at 8:30 AM (`_daily_compliance_check` in main.py)
+- Types: security_alert, po_receipt_review, transfer_variance_review, compliance_deadline, discount_given, below_cost_sale, negative_stock_override, ap_payment + more
+- Security alerts now enriched: user_role, user_email, branch_name (auth PIN), terminal identity + doc details (QR)
 
-### New PIN Policies (Mar 2026)
-- `pay_po_standard` — Pay supplier invoice from cashier/safe: admin, manager, TOTP
-- `pay_po_bank` — Pay supplier invoice from bank/digital: admin, TOTP only
+### Z-Report Safety
+- Z-reports read from MongoDB directly (collections: invoices, expenses, payments, wallets)
+- Modal consolidation (Phases 1-4) is PURELY UI — zero backend/DB changes
+- Compliance notifications are PURELY additive — they write to `notifications` collection only
 
-### New Notification Types (Mar 2026)
-- `discount_given` — Sale with discount, includes full item detail + repeat-offender count
-- `below_cost_sale` — Sale where item sold below capital
-- `negative_stock_override` — Stock override approved, incident ticket auto-created
-- `ap_payment` — Supplier payment made, includes PO#, vendor, amount, wallet source
+### Dead Files (can be deleted after confirming stable)
+- `components/PODetailModal.js` — zero imports since Phase 1
 
-### Credentials
+---
+
+## Key Credentials
 - Super Admin: `janmarkeahig@gmail.com` / `Aa@58798546521325`
 - Company Admin: `jovelyneahig@gmail.com` / `Aa@050772`
 - Manager PIN: `521325`
 - App URL: `https://review-dialog.preview.emergentagent.com`
-- DB: MongoDB `test_database` at `localhost:27017`

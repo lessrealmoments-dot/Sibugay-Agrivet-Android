@@ -1,5 +1,24 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — Modal Consolidation Phase 1 + Modal Registry PDF
+- **Modal Registry PDF** generated — catalogs all 23 modal/dialog components with screenshots, groups (A-G), redundancy map, quick reference. Saved to R2 at `agribooks-docs/reports/modal-registry-2026-03/`
+- **Phase 1:** ReviewDetailDialog (A1) absorbs PODetailModal (A3). Added backward-compat props: `poId`, `poNumber`, `onUpdated`, `onOpenChange`. Resolution: `poNumber` → `/invoices/by-number` → UUID → `/dashboard/review-detail`
+- **7 pages migrated:** CloseWizardPage, PaySupplierPage, QuickSearch, AuditCenterPage, SuppliersPage, TransactionSearchPage, DashboardPage — all use ReviewDetailDialog now
+- PODetailModal.js now has zero imports (orphaned)
+
+## Mar 31, 2026 — Security Alert Enrichment (Phases 1-3)
+- **Phase 1:** Authenticated PIN alerts enriched with user_role, user_email, branch_name. New message: "Manager (Manager) entered wrong PIN 6x at Branch 1 — Action: Context"
+- **Phase 2:** QR brute-force alerts replaced "Unknown IP" with "AgriSmart Terminal at Branch X". Full doc enrichment (doc_number, counterparty, amount, doc_id). terminal_id passed through all 3 QR action call sites
+- **Phase 3:** SecurityAlertDetail expandable card in NotificationsPage — WHO+WHAT cards (auth) / TERMINAL+DOCUMENT cards (QR). Clickable doc number opens ReviewDetailDialog. Lock banner for locked docs. "View Receipt" button for authenticated PIN alerts with linked doc
+- Tested: 28/28 backend, 11/11 frontend (iteration_145.json)
+
+## Mar 31, 2026 — Compliance Deadline Notifications (Phase 5)
+- APScheduler daily job at 8:30 AM fires compliance_deadline notifications
+- Covers: expired docs (critical), expiring within 30d (warning), missing monthly filings after 15th
+- Dedup via metadata.dedup_key. `create_notification()` extended with severity_override param
+- Frontend: compliance_deadline type with orange FileWarning icon + ComplianceDetail expandable row
+- Tested: 22/23 backend, 100% frontend (iteration_144.json)
+
 ## Mar 12, 2026 — Inline Interest Rate Override
 - Added editable interest rate input in Receive Payments charges section
 - Pre-fills with customer's saved rate; allows override for customers with no rate

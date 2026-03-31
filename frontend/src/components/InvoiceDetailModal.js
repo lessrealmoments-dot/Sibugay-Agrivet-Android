@@ -323,7 +323,7 @@ export default function InvoiceDetailModal({
     return (
       <>
         <Dialog open={open} onOpenChange={v => { onOpenChange(v); if (!v) setEditMode(false); }}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" data-testid="invoice-detail-modal">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden" data-testid="invoice-detail-modal">
             <DialogHeader>
               <DialogTitle style={{ fontFamily: 'Manrope' }} data-testid="invoice-number">
                 {editMode ? `Edit Sale — ${saleNumber}` : `Sale Detail — ${saleNumber}`}
@@ -342,21 +342,21 @@ export default function InvoiceDetailModal({
               <>
                 {/* Action toolbar */}
                 <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100" data-testid="sale-action-bar">
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                  <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap"
                     onClick={() => handlePrint('full_page')} data-testid="sale-print-full">
                     <Printer size={12} className="mr-1" /> Print Full
                   </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                  <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap"
                     onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
-                    <Printer size={12} className="mr-1" /> Print 58mm
+                    <Printer size={12} className="mr-1" /> 58mm
                   </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                  <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap"
                     onClick={() => setViewQROpen(true)} data-testid="sale-view-phone-btn">
-                    <Wallet size={12} className="mr-1" /> View on Phone
+                    <Wallet size={12} className="mr-1" /> Phone
                   </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                  <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap"
                     onClick={() => setUploadQROpen(true)} data-testid="sale-upload-receipt-btn">
-                    <Upload size={12} className="mr-1" /> Upload Receipt
+                    <Upload size={12} className="mr-1" /> Upload
                   </Button>
                   {!invoice.verified && !isVoided && (
                     <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/30 hover:bg-[#1A4D2E]/5"
@@ -603,7 +603,7 @@ export default function InvoiceDetailModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0" data-testid="invoice-detail-modal">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-x-hidden" data-testid="invoice-detail-modal">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-slate-400">Loading...</div>

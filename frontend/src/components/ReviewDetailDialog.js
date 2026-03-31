@@ -201,7 +201,7 @@ export default function ReviewDetailDialog({
   return (
     <>
       <Dialog open={open && (!!resolvedId || loading)} onOpenChange={v => { if (!v && effectiveClose) effectiveClose(); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" data-testid="review-detail-dialog">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col overflow-x-hidden" data-testid="review-detail-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
               <FileCheck size={18} className="text-[#1A4D2E]" />

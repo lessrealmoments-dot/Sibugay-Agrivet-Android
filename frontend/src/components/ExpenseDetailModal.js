@@ -125,41 +125,11 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
   return (
     <>
       <Dialog open={open} onOpenChange={v => { onOpenChange(v); if (!v) setEditMode(false); }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" data-testid="expense-detail-modal">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden" data-testid="expense-detail-modal">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle style={{ fontFamily: 'Manrope' }} data-testid="expense-detail-title">
-                {editMode ? 'Edit Expense' : 'Expense Detail'}
-              </DialogTitle>
-              {expense && !loading && !isVoided && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-7 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
-                    onClick={() => setViewQROpen(true)} data-testid="expense-view-phone-btn">
-                    <span className="mr-1">📱</span> View
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={() => setUploadQROpen(true)} data-testid="expense-upload-receipt-btn">
-                    <Upload size={12} className="mr-1" /> Upload Receipt
-                  </Button>
-                  {!expense.verified && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
-                      onClick={() => setVerifyDialogOpen(true)} data-testid="expense-verify-btn">
-                      <ShieldCheck size={12} className="mr-1" /> Verify
-                    </Button>
-                  )}
-                  {canEdit && !editMode && (
-                    <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-300"
-                      onClick={openEdit} data-testid="expense-edit-btn">
-                      <Pencil size={12} className="mr-1" /> Edit
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" className="h-7 text-xs"
-                    onClick={handlePrintExpense} data-testid="expense-print-btn">
-                    <Printer size={12} className="mr-1" /> Print
-                  </Button>
-                </div>
-              )}
-            </div>
+            <DialogTitle style={{ fontFamily: 'Manrope' }} data-testid="expense-detail-title">
+              {editMode ? 'Edit Expense' : 'Expense Detail'}
+            </DialogTitle>
             {expense?.verified && (
               <div className="mt-1.5 flex items-center gap-2">
                 <VerificationBadge doc={expense} />
@@ -167,6 +137,36 @@ export default function ExpenseDetailModal({ open, onOpenChange, expenseId, onUp
               </div>
             )}
           </DialogHeader>
+
+          {/* Action toolbar — below header, wraps on narrow screens */}
+          {expense && !loading && !isVoided && (
+            <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100" data-testid="expense-action-bar">
+              <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap bg-slate-800 text-white border-slate-600 hover:bg-slate-700"
+                onClick={() => setViewQROpen(true)} data-testid="expense-view-phone-btn">
+                <span className="mr-1">📱</span> View
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap"
+                onClick={() => setUploadQROpen(true)} data-testid="expense-upload-receipt-btn">
+                <Upload size={12} className="mr-1" /> Upload
+              </Button>
+              {!expense.verified && (
+                <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap text-[#1A4D2E] border-[#1A4D2E]/40 hover:bg-[#1A4D2E]/10"
+                  onClick={() => setVerifyDialogOpen(true)} data-testid="expense-verify-btn">
+                  <ShieldCheck size={12} className="mr-1" /> Verify
+                </Button>
+              )}
+              {canEdit && !editMode && (
+                <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap text-amber-600 border-amber-300"
+                  onClick={openEdit} data-testid="expense-edit-btn">
+                  <Pencil size={12} className="mr-1" /> Edit
+                </Button>
+              )}
+              <Button size="sm" variant="outline" className="h-7 text-xs whitespace-nowrap"
+                onClick={handlePrintExpense} data-testid="expense-print-btn">
+                <Printer size={12} className="mr-1" /> Print
+              </Button>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-12"><div className="text-slate-400">Loading...</div></div>

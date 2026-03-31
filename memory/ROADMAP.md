@@ -1,4 +1,4 @@
-# AgriBooks — ROADMAP (Updated Mar 2026 — Pre-Fork)
+# AgriBooks — ROADMAP (Updated Mar 31, 2026)
 
 ---
 
@@ -10,6 +10,7 @@
 | Phase 2 | A2 (InvoiceDetailModal) absorbs A4 (SaleDetailModal) | DONE | 14 files migrated, SaleDetailModal.js orphaned |
 | Phase 3 | C1+C2 merge into AuthDialog | DONE | AuthDialog.js created, C1/C2 are thin wrappers |
 | Phase 4 | Extract F7 FundTransferDialog | DONE | FundTransferDialog.js extracted from FundManagementPage |
+| Cleanup | Delete orphaned PODetailModal.js, SaleDetailModal.js | DONE | Files removed |
 
 ### Phase 2 Detail — DONE
 `compact={true}` prop added to `InvoiceDetailModal.js` (A2). `saleId` backward-compat alias for `invoiceId`. 14 files migrated. SaleDetailModal.js orphaned.
@@ -19,6 +20,16 @@
 
 ### Phase 4 Detail — DONE
 `FundTransferDialog.js` extracted from FundManagementPage inline dialog. Accepts `transferType`, `walletByType`, `branchId`, `onSuccess` props. FundManagementPage updated to use the component.
+
+---
+
+## P0 — DONE
+
+### Customer Receivables Left Panel (PaymentsPage) — DONE
+- Left sidebar panel on `/payments` matching `/pay-supplier` pattern
+- Backend: `GET /api/customers/receivables-summary` with include_zero, branch_id params
+- Frontend: filter/sort/search, DUE badges, total receivables display
+- Orphaned files (`PODetailModal.js`, `SaleDetailModal.js`) deleted
 
 ---
 

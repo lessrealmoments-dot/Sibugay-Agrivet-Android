@@ -1,5 +1,17 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — Customer Receivables Left Panel on PaymentsPage
+- **New backend endpoint**: `GET /api/customers/receivables-summary` — aggregates open invoices per customer with total balance, overdue balance, invoice count using MongoDB aggregation pipeline
+- **PaymentsPage.js rewritten** with left sidebar panel (matching PaySupplierPage pattern)
+- **Filter toggle**: "With Balance" (default, 36 customers) / "All" (64 customers including zero-balance)
+- **Sort toggle**: By Balance (highest first) / By Name (A-Z)
+- **Search filter**: Filters customer list by name in real-time
+- **Customer row**: Shows name, total balance (red), invoice count, DUE badge for overdue amounts, interest rate indicator
+- **Total receivables**: Displayed at top of customer list (e.g. ₱151,521.94)
+- Clicking a customer selects them, loads invoices on right — replaces old search-only workflow
+- **Orphaned files deleted**: `PODetailModal.js` and `SaleDetailModal.js` removed (zero imports confirmed)
+- Tested: 100% backend (9/9), 100% frontend (iteration_149.json)
+
 ## Mar 31, 2026 — Modal Consolidation Phase 4 (Extract FundTransferDialog)
 - **FundTransferDialog.js** extracted from FundManagementPage inline transfer dialog
 - Accepts `transferType`, `walletByType`, `branchId`, `onSuccess` props

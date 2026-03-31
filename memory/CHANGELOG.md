@@ -1,5 +1,16 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — SMS Messages Moved to Main App (Admin-Only)
+- **MessagesPage.js** created at `/messages` route — admin-only, 5 tabs:
+  - Message Queue (Pending/Sent/Failed/Skipped filters with counts)
+  - Compose (customer search + manual message)
+  - Promo Blast (filter by min balance, personalize with `<customer_name>`)
+  - Templates (edit/enable/disable all 10 templates, clickable placeholder tags)
+  - Settings (toggle each SMS trigger on/off)
+- Added to sidebar under Management with `adminOnly: true` flag
+- Removed Messages from terminal mode selector (terminal stays branch-level: Sales/PO/Transfers)
+- Tested: 100% backend (22/22), 100% frontend (iteration_152.json)
+
 ## Mar 31, 2026 — SMS Engine Phase 4: Terminal Messages UI
 - **TerminalMessages.jsx**: New Messages tab in terminal floating mode selector
   - Queue view: Pending/Sent/Failed tabs with status counts, "Send via SMS App" button (opens native SMS), Mark Sent, Skip, Retry

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2, ScanLine, FolderUp } from 'lucide-react';
+import { ShoppingCart, ClipboardCheck, ArrowLeftRight, Wifi, WifiOff, RefreshCw, Settings, ChevronRight, Unlink, Search, X, Loader2, Printer, FileText, ExternalLink, CheckCircle2, ScanLine, FolderUp, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import TerminalSales from './TerminalSales';
 import TerminalPOCheck from './TerminalPOCheck';
 import TerminalTransfers from './TerminalTransfers';
 import TerminalDocUpload from './TerminalDocUpload';
+import TerminalMessages from './TerminalMessages';
 import axios from 'axios';
 import PrintEngine from '../../lib/PrintEngine';
 import PrintBridge from '../../lib/PrintBridge';
@@ -76,6 +77,7 @@ const TABS = [
   { key: 'sales', label: 'Sales', icon: ShoppingCart, color: 'text-emerald-600 bg-emerald-50' },
   { key: 'po', label: 'PO Check', icon: ClipboardCheck, color: 'text-amber-600 bg-amber-50' },
   { key: 'transfers', label: 'Transfers', icon: ArrowLeftRight, color: 'text-blue-600 bg-blue-50' },
+  { key: 'messages', label: 'Messages', icon: MessageSquare, color: 'text-purple-600 bg-purple-50' },
 ];
 
 export default function TerminalShell({ session, onLogout, onSessionUpdate }) {
@@ -612,6 +614,9 @@ export default function TerminalShell({ session, onLogout, onSessionUpdate }) {
         )}
         {activeTab === 'transfers' && (
           <TerminalTransfers api={api} session={session} isOnline={isOnline} onRefreshRef={transferRefreshRef} />
+        )}
+        {activeTab === 'messages' && (
+          <TerminalMessages api={api} session={session} />
         )}
       </div>
 

@@ -25,6 +25,10 @@
 
 ## P0 — DONE
 
+### SMS Engine Phase 4: Terminal Messages UI — DONE
+- TerminalMessages.jsx: Queue (Pending/Sent/Failed), Compose, Blast, Templates views
+- Added to TerminalShell.jsx floating mode selector
+
 ### SMS Engine Phase 1-3 — DONE
 - Backend: `sms_queue`, `sms_templates`, `sms_settings` collections
 - 10 templates: credit_new, reminder_15day, reminder_7day, overdue_notice, payment_received, charge_applied, delivery_ready, promo_blast, monthly_summary, custom

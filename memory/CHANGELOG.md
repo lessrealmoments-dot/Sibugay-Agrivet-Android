@@ -1,5 +1,14 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — SMS Engine Phase 4: Terminal Messages UI
+- **TerminalMessages.jsx**: New Messages tab in terminal floating mode selector
+  - Queue view: Pending/Sent/Failed tabs with status counts, "Send via SMS App" button (opens native SMS), Mark Sent, Skip, Retry
+  - Compose view: Customer search, message textarea (320 char), Queue Message
+  - Blast view: Promo blast with min_balance filter, personalization via `<customer_name>`
+  - Templates view: All 10 templates with Active/Disabled badges, inline edit, toggle on/off
+- TerminalShell.jsx: Added Messages to TABS array with MessageSquare icon
+- Tested: 100% backend (22/22), 100% frontend, no regression on Sales/PO/Transfers (iteration_151.json)
+
 ## Mar 31, 2026 — SMS Engine Phase 1-3 + Terminal Credential Login
 - **SMS Engine**: Full queue-based SMS system with 10 templates, auto-triggers, scheduled reminders
   - `sms_queue`, `sms_templates`, `sms_settings` collections

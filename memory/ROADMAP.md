@@ -7,18 +7,14 @@
 | Phase | What | Status | Files |
 |---|---|---|---|
 | Phase 1 | A1 (ReviewDetailDialog) absorbs A3 (PODetailModal) | DONE | 7 pages migrated, PODetailModal.js orphaned |
-| Phase 2 | A2 (InvoiceDetailModal) absorbs A4 (SaleDetailModal) | NEXT | Add `compact` prop to A2, migrate 9 pages |
+| Phase 2 | A2 (InvoiceDetailModal) absorbs A4 (SaleDetailModal) | DONE | 14 files migrated, SaleDetailModal.js orphaned |
 | Phase 3 | C1+C2 merge into AuthDialog | PENDING | New AuthDialog.js, C1/C2 become thin wrappers |
 | Phase 4 | Extract F7 FundTransferDialog | PENDING | New FundTransferDialog.js |
 
-### Phase 2 Detail — NEXT TASK
-Add `compact={true}` prop to `InvoiceDetailModal.js` (A2):
-- When compact=true: hide tabs, show single-view layout (matches A4)
-- Add `saleId` as backward-compat alias for `invoiceId`
-- Migrate 9 pages: SalesPage, AccountingPage, ExpensesPage, CustomersPage, CloseWizardPage (sale slot), ReportsPage, DailyLogPage, PaymentsPage, PendingReleasesPage
-- After migration: SaleDetailModal.js has zero imports → orphaned
+### Phase 2 Detail — DONE
+`compact={true}` prop added to `InvoiceDetailModal.js` (A2). `saleId` backward-compat alias for `invoiceId`. 14 files migrated. SaleDetailModal.js orphaned.
 
-### Phase 3 Detail
+### Phase 3 Detail — NEXT TASK
 - New `components/AuthDialog.js` with `mode="pin"|"totp"|"either"` prop
 - VerifyPinDialog.js → `<AuthDialog mode="pin" />` wrapper
 - TotpVerifyDialog.js → `<AuthDialog mode="totp" />` wrapper
@@ -136,6 +132,7 @@ Add `compact={true}` prop to `InvoiceDetailModal.js` (A2):
 
 ### Dead Files (can be deleted after confirming stable)
 - `components/PODetailModal.js` — zero imports since Phase 1
+- `components/SaleDetailModal.js` — zero imports since Phase 2
 
 ---
 

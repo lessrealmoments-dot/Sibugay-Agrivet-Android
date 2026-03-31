@@ -1,5 +1,13 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — Modal Consolidation Phase 2 (A2 Absorbs A4)
+- **InvoiceDetailModal** (A2) extended with `compact` prop and `saleId` backward-compat alias
+- When `compact=true`: renders single-view layout matching old SaleDetailModal (narrower dialog, no tabs, print buttons, inline receipts/payments/edit history, void button)
+- **14 files migrated** from SaleDetailModal → InvoiceDetailModal with `compact`: SalesPage, AccountingPage, ExpensesPage, CustomersPage, CloseWizardPage, DailyLogPage, PaymentsPage, PendingReleasesPage, InternalInvoicesPage, ReportsPage (2x), DashboardPage, AuditCenterPage, QuickSearch (2x), TransactionSearchPage
+- SaleDetailModal.js now has **zero imports** — orphaned (safe to delete later)
+- Z-reports: zero impact (UI-only migration, same API endpoints)
+- Tested: 8/8 frontend pages passed (iteration_146.json)
+
 ## Mar 31, 2026 — Modal Consolidation Phase 1 + Modal Registry PDF
 - **Modal Registry PDF** generated — catalogs all 23 modal/dialog components with screenshots, groups (A-G), redundancy map, quick reference. Saved to R2 at `agribooks-docs/reports/modal-registry-2026-03/`
 - **Phase 1:** ReviewDetailDialog (A1) absorbs PODetailModal (A3). Added backward-compat props: `poId`, `poNumber`, `onUpdated`, `onOpenChange`. Resolution: `poNumber` → `/invoices/by-number` → UUID → `/dashboard/review-detail`

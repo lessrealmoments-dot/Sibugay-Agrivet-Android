@@ -345,6 +345,13 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - When `poNumber` passed: resolves UUID via `/invoices/by-number/{poNumber}` → feeds into `/dashboard/review-detail` endpoint
 - **7 pages migrated** from PODetailModal → ReviewDetailDialog: CloseWizardPage, PaySupplierPage, QuickSearch, AuditCenterPage, SuppliersPage, TransactionSearchPage, DashboardPage
 - PODetailModal.js retained as legacy file (zero imports remain — safe to delete in future cleanup)
+
+### Modal Consolidation Phase 2 — A2 Absorbs A4 (Complete — Mar 2026)
+- **InvoiceDetailModal (A2)** extended with `compact` prop and `saleId` backward-compat alias for `invoiceId`
+- When `compact=true`: renders single-view layout matching old SaleDetailModal (narrower sm:max-w-lg dialog, no tabs, print buttons, inline receipts/payments/edit history, void button at bottom)
+- **14 files migrated** from SaleDetailModal → InvoiceDetailModal with `compact`: SalesPage, AccountingPage, ExpensesPage, CustomersPage, CloseWizardPage, DailyLogPage, PaymentsPage, PendingReleasesPage, InternalInvoicesPage, ReportsPage (2x), DashboardPage, AuditCenterPage, QuickSearch (2x), TransactionSearchPage
+- SaleDetailModal.js retained as legacy file (zero imports remain — safe to delete in future cleanup)
+- Z-reports: zero impact (UI-only migration, same API endpoints)
 - All migrated pages use `showReviewAction={false} showPayAction={false}` for view-only contexts; AuditCenterPage uses `showReviewAction={true}`
 - Z-reports: zero impact (modals are UI-only; no backend/DB changes)
 

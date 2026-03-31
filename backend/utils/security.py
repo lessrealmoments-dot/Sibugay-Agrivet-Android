@@ -57,7 +57,7 @@ async def log_failed_pin_attempt(user: dict, context: str, attempt_type: str):
 
     # 3. Alert on threshold and every subsequent attempt (5, 6, 7, ...)
     if recent_failures >= ATTEMPT_THRESHOLD:
-        await _raise_security_alert(user_id, user_name, branch_id, recent_failures, context, attempt_type)
+        await _raise_security_alert(user_id, user_name, branch_id, recent_failures, context, attempt_type, user=user)
 
 
 async def log_successful_pin_attempt(user: dict, context: str, attempt_type: str):
@@ -77,7 +77,7 @@ async def log_successful_pin_attempt(user: dict, context: str, attempt_type: str
     })
 
 
-async def _raise_security_alert(user_id, user_name, branch_id, failure_count, context, attempt_type):
+async def _raise_security_alert(user_id, user_name, branch_id, failure_count, context, attempt_type, user: dict = None):
     """
     Create a security notification for admins and log to security_events.
     Only fires once per threshold crossing (every attempt at/above threshold).
@@ -99,18 +99,40 @@ async def _raise_security_alert(user_id, user_name, branch_id, failure_count, co
     }
     action_label = type_labels.get(attempt_type, attempt_type)
 
+    # --- Resolve branch name from branch_id ---
+    branch_name = ""
+    if branch_id:
+        branch_doc = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
+        if branch_doc:
+            branch_name = branch_doc.get("name", "")
+
+    # --- Enrich user details from the user dict or a DB lookup ---
+    user_role  = ""
+    user_email = ""
+    if user:
+        user_role  = user.get("role", "")
+        user_email = user.get("email", "")
+    elif user_id and user_id != "unknown":
+        user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1, "email": 1})
+        if user_doc:
+            user_role  = user_doc.get("role", "")
+            user_email = user_doc.get("email", "")
+
     # --- Audit log entry ---
     event = {
-        "id":           new_id(),
-        "event_type":   "failed_pin_brute_force",
-        "user_id":      user_id,
-        "user_name":    user_name,
-        "branch_id":    branch_id,
+        "id":            new_id(),
+        "event_type":    "failed_pin_brute_force",
+        "user_id":       user_id,
+        "user_name":     user_name,
+        "user_role":     user_role,
+        "user_email":    user_email,
+        "branch_id":     branch_id,
+        "branch_name":   branch_name,
         "failure_count": failure_count,
-        "attempt_type": attempt_type,
-        "context":      context,
-        "severity":     "high" if failure_count >= 10 else "medium",
-        "created_at":   now_iso(),
+        "attempt_type":  attempt_type,
+        "context":       context,
+        "severity":      "high" if failure_count >= 10 else "medium",
+        "created_at":    now_iso(),
     }
     await db.security_events.insert_one(event)
 
@@ -121,28 +143,37 @@ async def _raise_security_alert(user_id, user_name, branch_id, failure_count, co
     target_ids = [a["id"] for a in admins]
 
     severity_label = "URGENT" if failure_count >= 10 else "Warning"
+    role_label     = f" ({user_role.title()})" if user_role else ""
+    branch_label   = f" at {branch_name}" if branch_name else ""
 
     await db.notifications.insert_one({
-        "id":       new_id(),
-        "type":     "security_alert",
-        "title":    f"Security {severity_label}: Repeated Wrong PIN",
-        "message":  (
-            f"{user_name} has entered the wrong PIN {failure_count} times "
-            f"in the last {WINDOW_MINUTES} minutes while attempting: {action_label}. "
-            f"Context: {context}"
+        "id":        new_id(),
+        "type":      "security_alert",
+        "category":  "security",
+        "severity":  "critical" if failure_count >= 10 else "warning",
+        "title":     f"Security {severity_label}: Repeated Wrong PIN",
+        "message":   (
+            f"{user_name}{role_label} entered the wrong PIN {failure_count}x"
+            f"{branch_label} — {action_label}: {context}"
         ),
-        "branch_id":        branch_id,
+        "branch_id":       branch_id,
+        "branch_name":     branch_name,
         "metadata": {
+            "alert_source":  "authenticated_pin",
             "user_id":       user_id,
             "user_name":     user_name,
+            "user_role":     user_role,
+            "user_email":    user_email,
+            "branch_name":   branch_name,
             "failure_count": failure_count,
             "attempt_type":  attempt_type,
+            "action_label":  action_label,
             "context":       context,
             "severity":      "high" if failure_count >= 10 else "medium",
         },
-        "target_user_ids":  target_ids,
-        "read_by":          [],
-        "created_at":       now_iso(),
+        "target_user_ids": target_ids,
+        "read_by":         [],
+        "created_at":      now_iso(),
     })
 
 

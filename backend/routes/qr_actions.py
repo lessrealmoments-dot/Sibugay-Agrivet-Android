@@ -203,7 +203,7 @@ async def release_stocks(code: str, data: dict, request: Request):
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_release_stocks", branch_id=branch_id)
     if not verifier:
-        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "release_stocks", client_ip, branch_id)
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "release_stocks", client_ip, branch_id, terminal_id=data.get("terminal_id", ""))
         await _log_action(doc_ref, "release_stocks", None, "PIN failed", result="failed", error="invalid_pin", client_ip=client_ip, user_agent=user_agent)
         raise HTTPException(status_code=403, detail={
             "message": "Invalid PIN — use branch manager PIN, admin PIN, or admin TOTP",
@@ -487,7 +487,7 @@ async def receive_payment(code: str, data: dict, request: Request):
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_receive_payment", branch_id=branch_id)
     if not verifier:
-        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "receive_payment", client_ip, branch_id)
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "receive_payment", client_ip, branch_id, terminal_id=data.get("terminal_id", ""))
         await _log_action(doc_ref, "receive_payment", None, f"₱{amount:,.2f} PIN failed",
                           result="failed", error="invalid_pin", client_ip=client_ip, user_agent=user_agent)
         raise HTTPException(status_code=403, detail={
@@ -640,7 +640,7 @@ async def qr_transfer_receive(code: str, data: dict, request: Request):
     from routes.verify import verify_pin_for_action
     verifier = await verify_pin_for_action(pin, "qr_transfer_receive", branch_id=transfer.get("to_branch_id", ""))
     if not verifier:
-        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "transfer_receive", client_ip, transfer.get("to_branch_id", ""))
+        await log_failed_qr_pin_attempt(doc_ref["code"], doc_type, "transfer_receive", client_ip, transfer.get("to_branch_id", ""), terminal_id=data.get("terminal_id", ""))
         await _log_action(doc_ref, "transfer_receive", None, "PIN failed",
                           result="failed", error="invalid_pin", client_ip=client_ip, user_agent=user_agent)
         raise HTTPException(status_code=403, detail={

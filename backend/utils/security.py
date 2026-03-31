@@ -250,7 +250,7 @@ async def check_qr_lockout(doc_code: str) -> dict:
 
 async def log_failed_qr_pin_attempt(
     doc_code: str, doc_type: str, action: str,
-    client_ip: str = "", branch_id: str = "",
+    client_ip: str = "", branch_id: str = "", terminal_id: str = "",
 ):
     """Log a failed PIN attempt from an unauthenticated QR endpoint."""
     await db.pin_attempt_log.insert_one({
@@ -263,6 +263,7 @@ async def log_failed_qr_pin_attempt(
         "doc_type":     doc_type,
         "action":       action,
         "client_ip":    client_ip,
+        "terminal_id":  terminal_id,
         "branch_id":    branch_id,
         "success":      False,
         "attempted_at": now_iso(),
@@ -288,7 +289,8 @@ async def log_failed_qr_pin_attempt(
 
     if recent_failures >= QR_FAIL_WARN_THRESHOLD:
         await _raise_qr_security_alert(
-            doc_code, doc_type, action, client_ip, branch_id, recent_failures
+            doc_code, doc_type, action, client_ip, branch_id, recent_failures,
+            terminal_id=terminal_id,
         )
 
 
@@ -315,6 +317,7 @@ async def log_successful_qr_pin_attempt(
 async def _raise_qr_security_alert(
     doc_code: str, doc_type: str, action: str,
     client_ip: str, branch_id: str, failure_count: int,
+    terminal_id: str = "",
 ):
     """Fire a security_events entry + admin notification for QR PIN brute-force."""
     dedup_window = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
@@ -329,16 +332,99 @@ async def _raise_qr_security_alert(
     locked   = failure_count >= QR_FAIL_LOCK_THRESHOLD
     severity = "high" if locked else "medium"
 
+    # ── Resolve terminal identity (branch name, device label) ─────────────────
+    branch_name   = ""
+    terminal_label = f"IP: {client_ip or 'unknown'}"  # fallback for non-terminal callers
+
+    if terminal_id:
+        from config import _raw_db
+        t_session = await _raw_db.terminal_sessions.find_one(
+            {"terminal_id": terminal_id, "status": "active"},
+            {"_id": 0, "branch_name": 1, "branch_id": 1}
+        )
+        if t_session:
+            branch_name    = t_session.get("branch_name", "")
+            terminal_label = f"AgriSmart Terminal at {branch_name}" if branch_name else "AgriSmart Terminal"
+        else:
+            terminal_label = "AgriSmart Terminal (session expired)"
+    elif branch_id:
+        branch_doc  = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
+        branch_name = branch_doc.get("name", "") if branch_doc else ""
+
+    # ── Resolve document details ───────────────────────────────────────────────
+    doc_number   = doc_code
+    counterparty = ""
+    doc_amount   = None
+
+    try:
+        if doc_type == "invoice":
+            inv = await db.invoices.find_one({"id": {"$exists": True}},
+                {"_id": 0, "id": 1, "invoice_number": 1, "customer_name": 1, "grand_total": 1})
+            # Look up via doc_codes table for accurate doc_id
+            dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
+            if dc:
+                inv = await db.invoices.find_one({"id": dc["doc_id"]},
+                    {"_id": 0, "invoice_number": 1, "customer_name": 1, "grand_total": 1})
+            if inv:
+                doc_number   = inv.get("invoice_number", doc_code)
+                counterparty = inv.get("customer_name", "")
+                doc_amount   = inv.get("grand_total")
+
+        elif doc_type == "purchase_order":
+            dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
+            if dc:
+                po = await db.purchase_orders.find_one({"id": dc["doc_id"]},
+                    {"_id": 0, "po_number": 1, "supplier_name": 1, "grand_total": 1})
+                if po:
+                    doc_number   = po.get("po_number", doc_code)
+                    counterparty = po.get("supplier_name", "")
+                    doc_amount   = po.get("grand_total")
+
+        elif doc_type == "branch_transfer":
+            dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
+            if dc:
+                bt = await db.branch_transfers.find_one({"id": dc["doc_id"]},
+                    {"_id": 0, "transfer_number": 1, "from_branch_name": 1, "to_branch_name": 1})
+                if bt:
+                    doc_number   = bt.get("transfer_number", doc_code)
+                    counterparty = f"{bt.get('from_branch_name','')} → {bt.get('to_branch_name','')}"
+    except Exception:
+        pass  # Doc enrichment is best-effort; never block the alert
+
+    # ── Action label ──────────────────────────────────────────────────────────
+    action_labels = {
+        "release_stocks":  "Release Stocks",
+        "receive_payment": "Receive Payment",
+        "transfer_receive": "Receive Transfer",
+        "verify_pin":      "Verify PIN",
+    }
+    action_label = action_labels.get(action, action.replace("_", " ").title())
+
+    # ── Build message ─────────────────────────────────────────────────────────
+    amount_str = f" (₱{doc_amount:,.2f})" if doc_amount is not None else ""
+    party_str  = f" · {counterparty}" if counterparty else ""
+    lock_note  = " The document has been temporarily locked for 15 minutes." if locked else ""
+
+    message = (
+        f"{terminal_label} entered the wrong PIN {failure_count}x on "
+        f"{doc_number}{party_str}{amount_str} — {action_label}.{lock_note}"
+    )
+
     await db.security_events.insert_one({
         "id":            new_id(),
         "event_type":    "qr_pin_brute_force",
         "user_id":       "anonymous",
-        "user_name":     f"Unknown (IP: {client_ip or 'unknown'})",
+        "user_name":     terminal_label,
         "doc_code":      doc_code,
         "doc_type":      doc_type,
+        "doc_number":    doc_number,
+        "counterparty":  counterparty,
+        "doc_amount":    doc_amount,
         "action":        action,
         "client_ip":     client_ip,
+        "terminal_id":   terminal_id,
         "branch_id":     branch_id,
+        "branch_name":   branch_name,
         "failure_count": failure_count,
         "attempt_type":  "qr_action",
         "context":       f"QR PIN brute-force on {doc_type} {doc_code}",
@@ -352,21 +438,29 @@ async def _raise_qr_security_alert(
     ).to_list(50)
 
     severity_label = "URGENT — Document Locked" if locked else "Warning"
-    lock_note      = " The document has been temporarily locked for 15 minutes." if locked else ""
 
     await db.notifications.insert_one({
-        "id":      new_id(),
-        "type":    "security_alert",
-        "title":   f"QR Security {severity_label}: Wrong PIN on {doc_code}",
-        "message": (
-            f"Someone entered the wrong PIN {failure_count} time(s) on document "
-            f"{doc_code} ({doc_type}) via QR scan. IP: {client_ip or 'unknown'}.{lock_note}"
-        ),
-        "branch_id": branch_id,
+        "id":        new_id(),
+        "type":      "security_alert",
+        "category":  "security",
+        "severity":  "critical" if locked else "warning",
+        "title":     f"QR Security {severity_label}: Wrong PIN on {doc_number}",
+        "message":   message,
+        "branch_id":   branch_id,
+        "branch_name": branch_name,
         "metadata": {
+            "alert_source":  "qr_terminal",
+            "terminal_id":   terminal_id,
+            "terminal_label": terminal_label,
             "doc_code":      doc_code,
             "doc_type":      doc_type,
+            "doc_number":    doc_number,
+            "counterparty":  counterparty,
+            "doc_amount":    doc_amount,
+            "action":        action,
+            "action_label":  action_label,
             "client_ip":     client_ip,
+            "branch_name":   branch_name,
             "failure_count": failure_count,
             "severity":      severity,
             "locked":        locked,

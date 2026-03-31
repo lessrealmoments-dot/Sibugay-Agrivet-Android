@@ -1358,6 +1358,7 @@ async def pay_payable(pay_id: str, data: dict, user=Depends(get_current_user)):
 
 # ==================== CUSTOMER INVOICE / PAYMENT MANAGEMENT ====================
 
+
 @router.get("/customers/{customer_id}/invoices")
 async def get_customer_open_invoices(customer_id: str, user=Depends(get_current_user)):
     """Get all open invoices for a customer. Sorted: penalty → interest → regular (oldest first)."""

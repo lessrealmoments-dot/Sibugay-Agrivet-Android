@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="9" time="1.137" timestamp="2026-03-31T10:24:40.581739+00:00" hostname="agent-env-981f5b2a-5a89-4a7c-919c-31a61a4181c9"><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_endpoint_exists" time="0.518" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_returns_list" time="0.047" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_customer_fields" time="0.047" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_default_excludes_zero_balance" time="0.047" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_include_zero_true" time="0.097" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_with_branch_filter" time="0.094" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_sorted_by_balance" time="0.044"><failure message="AssertionError: Results should be sorted by balance descending&#10;assert [1350.0, 800...., 3500.0, ...] == [29000.0, 196..., 4500.0, ...]&#10;  &#10;  At index 0 diff: 1350.0 != 29000.0&#10;  &#10;  Full diff:&#10;    [&#10;  +     1350.0,&#10;  +     800.0,...&#10;  &#10;  ...Full output truncated (67 lines hidden), use '-vv' to show">backend/tests/test_customer_receivables_summary_149.py:127: in test_receivables_summary_sorted_by_balance
+    assert balances == sorted(balances, reverse=True), "Results should be sorted by balance descending"
+E   AssertionError: Results should be sorted by balance descending
+E   assert [1350.0, 800...., 3500.0, ...] == [29000.0, 196..., 4500.0, ...]
+E     
+E     At index 0 diff: 1350.0 != 29000.0
+E     
+E     Full diff:
+E       [
+E     +     1350.0,
+E     +     800.0,...
+E     
+E     ...Full output truncated (67 lines hidden), use '-vv' to show</failure></testcase><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummary" name="test_receivables_summary_overdue_calculation" time="0.048" /><testcase classname="backend.tests.test_customer_receivables_summary_149.TestCustomerReceivablesSummaryIntegration" name="test_customer_invoices_endpoint_works" time="0.088" /></testsuite></testsuites>

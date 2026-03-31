@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import {
   Search, AlertTriangle, Percent, Receipt, Clock, Calculator,
   Info, ChevronDown, ChevronUp, Zap, Edit3, Banknote, CreditCard,
-  Building2, Smartphone, X, Tag
+  Building2, Smartphone, X, Tag, Users, ArrowDownAZ, ArrowDown01, Filter
 } from 'lucide-react';
 import { toast } from 'sonner';
 import InvoiceDetailModal from '../components/InvoiceDetailModal';
@@ -35,21 +35,25 @@ const TYPE_CONFIG = {
 const getTypeConfig = (t) => TYPE_CONFIG[t] || { label: 'Invoice', cls: 'bg-slate-100 text-slate-700 border-slate-200', priority: 3 };
 const isDiscountable = (t) => t === 'interest_charge' || t === 'penalty_charge';
 
+function round2(n) { return Math.round(n * 100) / 100; }
+
 export default function PaymentsPage() {
   const { currentBranch } = useAuth();
 
-  // Customer
-  const [customers, setCustomers] = useState([]);
-  const [custSearch, setCustSearch] = useState('');
-  const [custDropdownOpen, setCustDropdownOpen] = useState(false);
+  // ── Left panel: customer list ──
+  const [custList, setCustList] = useState([]);
+  const [listSearch, setListSearch] = useState('');
+  const [showAll, setShowAll] = useState(false);       // false = with-balance only
+  const [sortBy, setSortBy] = useState('balance');      // 'balance' | 'name'
+
+  // ── Selected customer ──
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const custSearchRef = useRef(null);
 
   // Invoices
   const [invoices, setInvoices] = useState([]);
   const [rowAmounts, setRowAmounts] = useState({});
   const [rowDiscounts, setRowDiscounts] = useState({});
-  const [discountModes, setDiscountModes] = useState({}); // { [inv_id]: 'amount' | 'percent' }
+  const [discountModes, setDiscountModes] = useState({});
 
   // Payment header
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
@@ -74,11 +78,17 @@ export default function PaymentsPage() {
 
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    api.get('/customers', { params: { limit: 500 } })
-      .then(r => setCustomers(r.data.customers || []))
-      .catch(() => {});
-  }, []);
+  // ── Load customer list (receivables summary) ──
+  const loadCustList = useCallback(async () => {
+    try {
+      const params = { include_zero: showAll };
+      if (currentBranch?.id) params.branch_id = currentBranch.id;
+      const res = await api.get('/customers/receivables-summary', { params });
+      setCustList(res.data || []);
+    } catch { toast.error('Failed to load customer list'); }
+  }, [currentBranch, showAll]);
+
+  useEffect(() => { loadCustList(); }, [loadCustList]);
 
   const loadInvoices = useCallback(async (custId) => {
     try {
@@ -101,8 +111,6 @@ export default function PaymentsPage() {
 
   const selectCustomer = (c) => {
     setSelectedCustomer(c);
-    setCustSearch(c.name);
-    setCustDropdownOpen(false);
     setRowAmounts({});
     setRowDiscounts({});
     setDiscountModes({});
@@ -116,7 +124,6 @@ export default function PaymentsPage() {
 
   const clearCustomer = () => {
     setSelectedCustomer(null);
-    setCustSearch('');
     setInvoices([]);
     setRowAmounts({});
     setRowDiscounts({});
@@ -132,7 +139,6 @@ export default function PaymentsPage() {
     }
   }, [payDate, selectedCustomer]);
 
-  // Debounce interest rate changes to update preview
   useEffect(() => {
     if (!selectedCustomer) return;
     if (interestPreviewTimer.current) clearTimeout(interestPreviewTimer.current);
@@ -144,7 +150,7 @@ export default function PaymentsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interestRateInput]);
 
-  // ---- Calculations ----
+  // ── Calculations ──
   const getDiscountAmount = (inv) => {
     const mode = discountModes[inv.id] || 'amount';
     const val = parseFloat(rowDiscounts[inv.id] || 0);
@@ -162,9 +168,7 @@ export default function PaymentsPage() {
   const totalOpen = invoices.reduce((s, i) => s + (i.balance || 0), 0);
   const hasUnsavedAmounts = Object.values(rowAmounts).some(v => parseFloat(v) > 0) || totalDiscount > 0;
 
-  function round2(n) { return Math.round(n * 100) / 100; }
-
-  // ---- Auto-apply ----
+  // ── Auto-apply ──
   const autoApply = (totalAmt) => {
     const amt = parseFloat(totalAmt) || 0;
     if (amt <= 0) { setRowAmounts({}); return; }
@@ -180,7 +184,7 @@ export default function PaymentsPage() {
     setRowAmounts(newAmounts);
   };
 
-  // ---- Generate Interest ----
+  // ── Generate Interest ──
   const handleGenerateInterest = async () => {
     const rate = parseFloat(interestRateInput) || 0;
     if (rate <= 0) { toast.error('Enter an interest rate (% per month) first'); return; }
@@ -205,7 +209,7 @@ export default function PaymentsPage() {
     setGeneratingCharge(null);
   };
 
-  // ---- Generate Penalty ----
+  // ── Generate Penalty ──
   const handleGeneratePenalty = async () => {
     setGeneratingCharge('penalty');
     try {
@@ -221,7 +225,7 @@ export default function PaymentsPage() {
     setGeneratingCharge(null);
   };
 
-  // ---- Apply Payment ----
+  // ── Apply Payment ──
   const handleApplyPayment = async () => {
     const allocations = invoices
       .map(inv => ({
@@ -250,10 +254,12 @@ export default function PaymentsPage() {
       setPayMemo('');
       await loadInvoices(selectedCustomer.id);
       await loadChargesPreview(selectedCustomer.id);
-      // Refresh customer balance
-      const custRes = await api.get('/customers', { params: { limit: 500 } });
-      const updated = (custRes.data.customers || []).find(c => c.id === selectedCustomer.id);
-      if (updated) { setSelectedCustomer(updated); setCustomers(custRes.data.customers); }
+      // Refresh customer list + selected customer
+      await loadCustList();
+      const refreshed = (await api.get('/customers/receivables-summary', {
+        params: { include_zero: showAll, ...(currentBranch?.id ? { branch_id: currentBranch.id } : {}) }
+      }).then(r => r.data || []).catch(() => [])).find(c => c.id === selectedCustomer.id);
+      if (refreshed) setSelectedCustomer(refreshed);
     } catch (e) { toast.error(e.response?.data?.detail || 'Payment failed'); }
     setProcessing(false);
   };
@@ -271,17 +277,130 @@ export default function PaymentsPage() {
     return Math.max(0, Math.floor((new Date(payDate) - new Date(dueDate)) / 86400000));
   };
 
-  const filteredCustomers = custSearch && !selectedCustomer
-    ? customers.filter(c => c.name.toLowerCase().includes(custSearch.toLowerCase()) || c.phone?.includes(custSearch))
-    : [];
+  // ── Left panel: filtered + sorted ──
+  const filteredList = (() => {
+    let list = [...custList];
+    if (listSearch) {
+      const q = listSearch.toLowerCase();
+      list = list.filter(c => c.name.toLowerCase().includes(q) || c.phone?.includes(listSearch));
+    }
+    if (sortBy === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      list.sort((a, b) => b.balance - a.balance);
+    }
+    return list;
+  })();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] animate-fadeIn" data-testid="payments-page">
+    <div className="flex h-[calc(100vh-120px)] animate-fadeIn bg-white" data-testid="payments-page">
 
-      {/* ═══════════ QB-STYLE HEADER ═══════════ */}
-      <Card className="border-slate-200 shrink-0">
-        <CardContent className="p-4 sm:p-5">
-          {/* Title row */}
+      {/* ══════════ LEFT: Customer List ══════════ */}
+      <div className="w-72 shrink-0 flex flex-col border-r border-slate-200" data-testid="customer-list-panel">
+        {/* Search + controls */}
+        <div className="p-3 border-b border-slate-100 space-y-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input value={listSearch} onChange={e => setListSearch(e.target.value)}
+              placeholder="Filter customers..." className="pl-8 h-8 text-sm"
+              data-testid="customer-list-search" />
+          </div>
+          <div className="flex items-center justify-between gap-1">
+            {/* Filter toggle: With Balance / All */}
+            <div className="flex rounded-md border border-slate-200 overflow-hidden" data-testid="balance-filter-toggle">
+              <button
+                onClick={() => setShowAll(false)}
+                className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                  !showAll ? 'bg-[#1A4D2E] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+                data-testid="filter-with-balance">
+                With Balance
+              </button>
+              <button
+                onClick={() => setShowAll(true)}
+                className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                  showAll ? 'bg-[#1A4D2E] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+                data-testid="filter-all">
+                All
+              </button>
+            </div>
+            {/* Sort toggle */}
+            <div className="flex rounded-md border border-slate-200 overflow-hidden" data-testid="sort-toggle">
+              <button
+                onClick={() => setSortBy('balance')}
+                title="Sort by balance (highest first)"
+                className={`px-1.5 py-1 transition-colors ${
+                  sortBy === 'balance' ? 'bg-[#1A4D2E] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+                data-testid="sort-by-balance">
+                <ArrowDown01 size={13} />
+              </button>
+              <button
+                onClick={() => setSortBy('name')}
+                title="Sort by name (A-Z)"
+                className={`px-1.5 py-1 transition-colors ${
+                  sortBy === 'name' ? 'bg-[#1A4D2E] text-white' : 'bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+                data-testid="sort-by-name">
+                <ArrowDownAZ size={13} />
+              </button>
+            </div>
+          </div>
+          {/* Summary count */}
+          <div className="flex items-center justify-between text-[10px] text-slate-400">
+            <span>{filteredList.length} customer{filteredList.length !== 1 ? 's' : ''}</span>
+            <span className="font-mono font-semibold text-red-500">
+              {formatPHP(filteredList.reduce((s, c) => s + c.balance, 0))}
+            </span>
+          </div>
+        </div>
+
+        {/* Customer rows */}
+        <ScrollArea className="flex-1">
+          {filteredList.length === 0 && (
+            <p className="text-center text-sm text-slate-400 py-8">
+              {showAll ? 'No customers found' : 'No customers with balance'}
+            </p>
+          )}
+          {filteredList.map(c => {
+            const isSelected = selectedCustomer?.id === c.id;
+            return (
+              <button key={c.id} onClick={() => selectCustomer(c)}
+                className={`w-full text-left px-3 py-2.5 border-b border-slate-50 hover:bg-slate-50 transition-colors ${
+                  isSelected ? 'bg-[#1A4D2E]/5 border-l-2 border-l-[#1A4D2E]' : ''
+                }`}
+                data-testid={`customer-row-${c.id}`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-800 truncate max-w-[140px]">{c.name}</p>
+                  <span className={`text-xs font-bold font-mono ml-1 shrink-0 ${c.balance > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                    {formatPHP(c.balance)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-[10px] text-slate-400">
+                    {c.invoice_count} inv{c.invoice_count !== 1 ? 's' : ''}
+                  </span>
+                  {c.overdue_balance > 0 && (
+                    <Badge className="text-[9px] bg-red-100 text-red-700 px-1 py-0 h-4">
+                      {formatPHP(c.overdue_balance)} DUE
+                    </Badge>
+                  )}
+                  {c.interest_rate > 0 && (
+                    <span className="text-[9px] text-amber-500">{c.interest_rate}%</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </ScrollArea>
+      </div>
+
+      {/* ══════════ RIGHT: Payment Form ══════════ */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* ── Header ── */}
+        <div className="border-b border-slate-200 px-5 py-4 shrink-0 bg-white">
           <div className="flex items-start justify-between mb-4">
             <h1 className="text-xl font-bold tracking-tight" style={{ fontFamily: 'Manrope' }} data-testid="payments-title">
               Customer Payment
@@ -289,28 +408,28 @@ export default function PaymentsPage() {
             {selectedCustomer && (
               <div className="text-right" data-testid="customer-balance-display">
                 <p className="text-[10px] text-slate-400 uppercase tracking-wide">Customer Balance</p>
-                <p className="text-2xl font-bold text-red-600" style={{ fontFamily: 'Manrope' }}>{formatPHP(totalOpen)}</p>
+                <p className="text-2xl font-bold text-red-600 font-mono" style={{ fontFamily: 'Manrope' }}>
+                  {formatPHP(totalOpen)}
+                </p>
               </div>
             )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-x-6 gap-y-3">
-            {/* Left: customer + payment fields */}
-            <div className="space-y-3">
+            {/* Left: customer display + payment fields */}
+            <div className="space-y-2.5">
               {/* RECEIVED FROM */}
               <div className="flex items-center gap-3">
                 <Label className="text-xs text-slate-500 w-24 shrink-0 uppercase tracking-wide">Received From</Label>
-                <div className="flex-1 relative" ref={custSearchRef}>
+                <div className="flex-1 relative">
                   <div className="relative">
-                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Users size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <Input
-                      value={selectedCustomer ? selectedCustomer.name : custSearch}
-                      onChange={e => { setCustSearch(e.target.value); setCustDropdownOpen(true); if (selectedCustomer) clearCustomer(); }}
-                      onFocus={() => { if (!selectedCustomer) setCustDropdownOpen(true); }}
-                      onBlur={() => setTimeout(() => setCustDropdownOpen(false), 200)}
-                      placeholder="Search customer..."
-                      className="pl-8 h-9 font-medium"
-                      data-testid="payment-customer-search"
+                      value={selectedCustomer ? selectedCustomer.name : ''}
+                      readOnly
+                      placeholder="Select a customer from the left panel"
+                      className="pl-8 h-9 font-medium bg-white cursor-default"
+                      data-testid="payment-customer-display"
                     />
                     {selectedCustomer && (
                       <button onClick={clearCustomer} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -318,26 +437,10 @@ export default function PaymentsPage() {
                       </button>
                     )}
                   </div>
-                  {custDropdownOpen && filteredCustomers.length > 0 && (
-                    <div className="absolute z-50 top-full mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredCustomers.slice(0, 12).map(c => (
-                        <button key={c.id} onMouseDown={() => selectCustomer(c)} data-testid={`pay-cust-${c.id}`}
-                          className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm border-b last:border-0 flex items-center justify-between">
-                          <div>
-                            <span className="font-medium">{c.name}</span>
-                            <span className="text-[11px] text-slate-400 ml-2">
-                              {c.interest_rate > 0 ? `${c.interest_rate}%/mo` : ''}
-                            </span>
-                          </div>
-                          {c.balance > 0 && <span className="text-xs text-red-600 font-bold">{formatPHP(c.balance)}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* PAYMENT AMOUNT + DATE + REF */}
+              {/* PAYMENT AMT + DATE + REF */}
               <div className="flex items-center gap-3 flex-wrap">
                 <Label className="text-xs text-slate-500 w-24 shrink-0 uppercase tracking-wide">Payment Amt</Label>
                 <Input type="number" placeholder="0.00" className="h-9 w-36 text-lg font-bold font-mono" data-testid="receive-amount"
@@ -374,217 +477,212 @@ export default function PaymentsPage() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* ═══════════ MAIN CONTENT ═══════════ */}
-      {!selectedCustomer ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Receipt size={48} className="mx-auto text-slate-200 mb-3" />
-            <p className="text-slate-400">Search and select a customer above to receive payment</p>
-          </div>
         </div>
-      ) : (
-        <div className="flex-1 flex flex-col gap-3 mt-3 overflow-hidden min-h-0">
 
-          {/* ── Interest/Penalty Charges Generation ── */}
-          <Card className="border-slate-200 shrink-0">
-            <button className="w-full" onClick={() => setChargesOpen(o => !o)}>
-              <CardContent className="p-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-2">
-                  <Calculator size={14} className="text-amber-500" />
-                  <span className="text-xs font-medium">Generate Interest / Penalty Charges</span>
-                  {chargesPreview?.total_interest > 0 && (
-                    <Badge className="text-[9px] bg-amber-100 text-amber-700">
-                      ~{formatPHP(chargesPreview.total_interest)} accrued
-                    </Badge>
+        {/* ═══════════ MAIN CONTENT ═══════════ */}
+        {!selectedCustomer ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Users size={48} className="mx-auto text-slate-200 mb-3" />
+              <p className="text-slate-400 text-sm">Select a customer from the left or search to receive payment</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col gap-3 mt-3 overflow-hidden min-h-0 px-4">
+
+            {/* ── Interest/Penalty Charges Generation ── */}
+            <Card className="border-slate-200 shrink-0">
+              <button className="w-full" onClick={() => setChargesOpen(o => !o)}>
+                <CardContent className="p-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Calculator size={14} className="text-amber-500" />
+                    <span className="text-xs font-medium">Generate Interest / Penalty Charges</span>
+                    {chargesPreview?.total_interest > 0 && (
+                      <Badge className="text-[9px] bg-amber-100 text-amber-700">
+                        ~{formatPHP(chargesPreview.total_interest)} accrued
+                      </Badge>
+                    )}
+                  </div>
+                  {chargesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </CardContent>
+              </button>
+              {chargesOpen && (
+                <div className="px-4 pb-3 space-y-3 border-t border-slate-100">
+                  {chargesPreview && chargesPreview.total_interest > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+                      <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
+                        <Info size={11} /> Accrued Interest Preview (as of {payDate})
+                      </p>
+                      <div className="grid grid-cols-3 gap-3 text-sm mb-2">
+                        <div><p className="text-[10px] text-amber-600">Principal Due</p><p className="font-bold">{formatPHP(chargesPreview.total_principal)}</p></div>
+                        <div><p className="text-[10px] text-amber-600">Computed Interest</p><p className="font-bold text-amber-700">{formatPHP(chargesPreview.total_interest)}</p></div>
+                        <div><p className="text-[10px] text-amber-600">Combined Total</p><p className="font-bold text-red-600">{formatPHP(chargesPreview.total_principal + chargesPreview.total_interest)}</p></div>
+                      </div>
+                      {chargesPreview.interest_preview?.map((item, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs text-amber-700 py-0.5 border-b border-amber-100 last:border-0">
+                          <span className="font-mono">{item.invoice_number}</span>
+                          <span>{item.days_for_interest}d × {item.rate}%/mo</span>
+                          <span className="font-medium">{formatPHP(item.interest_amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div className="flex-1 min-w-[220px] space-y-2">
+                      <p className="text-xs text-slate-500">Grace period: <strong>{selectedCustomer.grace_period || 7} days</strong></p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Label className="text-xs text-slate-600 shrink-0">Interest Rate:</Label>
+                        <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
+                          <Input type="number" min="0" step="0.5" value={interestRateInput}
+                            onChange={e => setInterestRateInput(e.target.value)}
+                            placeholder="e.g. 3"
+                            className="w-14 h-6 text-xs text-center border-0 bg-transparent p-0 font-bold text-amber-700"
+                            data-testid="interest-rate-input" />
+                          <span className="text-xs text-amber-600 font-medium">%/mo</span>
+                        </div>
+                        {selectedCustomer.interest_rate > 0 && (
+                          <span className="text-[10px] text-slate-400">(saved: {selectedCustomer.interest_rate}%)</span>
+                        )}
+                      </div>
+                      {interestRateInput && parseFloat(interestRateInput) > 0 && parseFloat(interestRateInput) !== selectedCustomer.interest_rate && (
+                        <label className="flex items-center gap-1.5 cursor-pointer" data-testid="save-rate-checkbox">
+                          <input type="checkbox" checked={saveRateToCustomer} onChange={e => setSaveRateToCustomer(e.target.checked)}
+                            className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5" />
+                          <span className="text-[11px] text-amber-700">Save {interestRateInput}%/mo to this customer's profile</span>
+                        </label>
+                      )}
+                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                        Formula: principal × (rate ÷ 30) × days since last computation.
+                        {' '}Computed from last interest date (not due date) to prevent double-charging.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button size="sm" variant="outline" onClick={handleGenerateInterest}
+                        disabled={!!generatingCharge || !(parseFloat(interestRateInput) > 0)}
+                        className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 disabled:opacity-40" data-testid="generate-interest-btn">
+                        <Percent size={12} /> {generatingCharge === 'interest' ? 'Generating...' : 'Generate Interest'}
+                      </Button>
+                      <Separator orientation="vertical" className="h-7" />
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-slate-500">Penalty:</span>
+                        <div className="flex items-center gap-0.5 bg-slate-100 rounded-md px-2 py-1.5">
+                          <Input type="number" value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value) || 0)}
+                            className="w-12 h-6 text-xs text-center border-0 bg-transparent p-0" />
+                          <span className="text-xs text-slate-500">%</span>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={handleGeneratePenalty} disabled={!!generatingCharge}
+                        className="text-red-600 border-red-200 hover:bg-red-50 gap-1" data-testid="generate-penalty-btn">
+                        <AlertTriangle size={12} /> {generatingCharge === 'penalty' ? 'Generating...' : 'Apply Penalty'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* ── Outstanding Transactions Table ── */}
+            <Card className="border-slate-200 flex-1 min-h-0 flex flex-col">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Outstanding Transactions</span>
+                  {invoices.length > 0 && (
+                    <button onClick={() => autoApply(totalOpen)} className="text-xs text-[#1A4D2E] hover:underline flex items-center gap-1 font-medium" data-testid="auto-apply-all-btn">
+                      <Zap size={11} /> Auto-apply all
+                    </button>
                   )}
                 </div>
-                {chargesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </CardContent>
-            </button>
-            {chargesOpen && (
-              <div className="px-4 pb-3 space-y-3 border-t border-slate-100">
-                {chargesPreview && chargesPreview.total_interest > 0 && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
-                    <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
-                      <Info size={11} /> Accrued Interest Preview (as of {payDate})
-                    </p>
-                    <div className="grid grid-cols-3 gap-3 text-sm mb-2">
-                      <div><p className="text-[10px] text-amber-600">Principal Due</p><p className="font-bold">{formatPHP(chargesPreview.total_principal)}</p></div>
-                      <div><p className="text-[10px] text-amber-600">Computed Interest</p><p className="font-bold text-amber-700">{formatPHP(chargesPreview.total_interest)}</p></div>
-                      <div><p className="text-[10px] text-amber-600">Combined Total</p><p className="font-bold text-red-600">{formatPHP(chargesPreview.total_principal + chargesPreview.total_interest)}</p></div>
-                    </div>
-                    {chargesPreview.interest_preview?.map((item, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs text-amber-700 py-0.5 border-b border-amber-100 last:border-0">
-                        <span className="font-mono">{item.invoice_number}</span>
-                        <span>{item.days_for_interest}d × {item.rate}%/mo</span>
-                        <span className="font-medium">{formatPHP(item.interest_amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-3 items-end">
-                  <div className="flex-1 min-w-[220px] space-y-2">
-                    <p className="text-xs text-slate-500">Grace period: <strong>{selectedCustomer.grace_period || 7} days</strong></p>
-                    {/* Inline interest rate input */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Label className="text-xs text-slate-600 shrink-0">Interest Rate:</Label>
-                      <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1">
-                        <Input type="number" min="0" step="0.5" value={interestRateInput}
-                          onChange={e => setInterestRateInput(e.target.value)}
-                          placeholder="e.g. 3"
-                          className="w-14 h-6 text-xs text-center border-0 bg-transparent p-0 font-bold text-amber-700"
-                          data-testid="interest-rate-input" />
-                        <span className="text-xs text-amber-600 font-medium">%/mo</span>
-                      </div>
-                      {selectedCustomer.interest_rate > 0 && (
-                        <span className="text-[10px] text-slate-400">(saved: {selectedCustomer.interest_rate}%)</span>
-                      )}
-                    </div>
-                    {/* Save to customer option */}
-                    {interestRateInput && parseFloat(interestRateInput) > 0 && parseFloat(interestRateInput) !== selectedCustomer.interest_rate && (
-                      <label className="flex items-center gap-1.5 cursor-pointer" data-testid="save-rate-checkbox">
-                        <input type="checkbox" checked={saveRateToCustomer} onChange={e => setSaveRateToCustomer(e.target.checked)}
-                          className="rounded border-amber-300 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5" />
-                        <span className="text-[11px] text-amber-700">Save {interestRateInput}%/mo to this customer's profile</span>
-                      </label>
-                    )}
-                    {/* Interest formula explanation */}
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
-                      Formula: principal × (rate ÷ 30) × days since last computation.
-                      {' '}Computed from last interest date (not due date) to prevent double-charging.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={handleGenerateInterest}
-                      disabled={!!generatingCharge || !(parseFloat(interestRateInput) > 0)}
-                      className="text-amber-600 border-amber-200 hover:bg-amber-50 gap-1 disabled:opacity-40" data-testid="generate-interest-btn">
-                      <Percent size={12} /> {generatingCharge === 'interest' ? 'Generating...' : 'Generate Interest'}
-                    </Button>
-                    <Separator orientation="vertical" className="h-7" />
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-slate-500">Penalty:</span>
-                      <div className="flex items-center gap-0.5 bg-slate-100 rounded-md px-2 py-1.5">
-                        <Input type="number" value={penaltyRate} onChange={e => setPenaltyRate(parseFloat(e.target.value) || 0)}
-                          className="w-12 h-6 text-xs text-center border-0 bg-transparent p-0" />
-                        <span className="text-xs text-slate-500">%</span>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={handleGeneratePenalty} disabled={!!generatingCharge}
-                      className="text-red-600 border-red-200 hover:bg-red-50 gap-1" data-testid="generate-penalty-btn">
-                      <AlertTriangle size={12} /> {generatingCharge === 'penalty' ? 'Generating...' : 'Apply Penalty'}
-                    </Button>
-                  </div>
+                <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={loadHistory} data-testid="payment-history-btn">
+                  <Clock size={12} /> History
+                </Button>
+              </div>
+              {invoices.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center"><Receipt size={36} className="mx-auto mb-2 opacity-20 text-slate-300" /><p className="text-sm text-slate-400">No open invoices</p></div>
                 </div>
-              </div>
-            )}
-          </Card>
+              ) : (
+                <ScrollArea className="flex-1">
+                  <table className="w-full text-sm" data-testid="invoices-table">
+                    <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="text-left px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Date</th>
+                        <th className="text-left px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Number</th>
+                        <th className="text-left px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Type</th>
+                        <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Orig. Amt</th>
+                        <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Amt. Due</th>
+                        <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase w-28">Discount</th>
+                        <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase w-32">Payment</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((inv) => {
+                        const tc = getTypeConfig(inv.sale_type);
+                        const daysOver = getDaysOverdue(inv.due_date);
+                        const graceP = selectedCustomer?.grace_period || 7;
+                        const isOverdue = daysOver > graceP && inv.balance > 0;
+                        const rowAmt = rowAmounts[inv.id] || '';
+                        const isApplied = parseFloat(rowAmt) > 0;
+                        const canDiscount = isDiscountable(inv.sale_type);
+                        const discAmt = getDiscountAmount(inv);
+                        const mode = discountModes[inv.id] || 'amount';
 
-          {/* ── Outstanding Transactions Table (QB-style) ── */}
-          <Card className="border-slate-200 flex-1 min-h-0 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold" style={{ fontFamily: 'Manrope' }}>Outstanding Transactions</span>
-                {invoices.length > 0 && (
-                  <button onClick={() => autoApply(totalOpen)} className="text-xs text-[#1A4D2E] hover:underline flex items-center gap-1 font-medium" data-testid="auto-apply-all-btn">
-                    <Zap size={11} /> Auto-apply all
-                  </button>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={loadHistory} data-testid="payment-history-btn">
-                <Clock size={12} /> History
-              </Button>
-            </div>
-            {invoices.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center"><Receipt size={36} className="mx-auto mb-2 opacity-20 text-slate-300" /><p className="text-sm text-slate-400">No open invoices</p></div>
-              </div>
-            ) : (
-              <ScrollArea className="flex-1">
-                <table className="w-full text-sm" data-testid="invoices-table">
-                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
-                    <tr>
-                      <th className="text-left px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Date</th>
-                      <th className="text-left px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Number</th>
-                      <th className="text-left px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Type</th>
-                      <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Orig. Amt</th>
-                      <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase">Amt. Due</th>
-                      <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase w-28">Discount</th>
-                      <th className="text-right px-3 py-2 text-[10px] font-semibold text-slate-500 uppercase w-32">Payment</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {invoices.map((inv) => {
-                      const tc = getTypeConfig(inv.sale_type);
-                      const daysOver = getDaysOverdue(inv.due_date);
-                      const graceP = selectedCustomer?.grace_period || 7;
-                      const isOverdue = daysOver > graceP && inv.balance > 0;
-                      const rowAmt = rowAmounts[inv.id] || '';
-                      const isApplied = parseFloat(rowAmt) > 0;
-                      const canDiscount = isDiscountable(inv.sale_type);
-                      const discAmt = getDiscountAmount(inv);
-                      const mode = discountModes[inv.id] || 'amount';
+                        return (
+                          <tr key={inv.id} className={`border-b border-slate-100 ${isApplied ? 'bg-emerald-50/40' : discAmt > 0 ? 'bg-blue-50/30' : 'hover:bg-slate-50/50'} transition-colors`}>
+                            <td className="px-3 py-2 text-xs text-slate-500">{inv.order_date}</td>
+                            <td className="px-3 py-2">
+                              <button className="font-mono text-xs text-blue-600 hover:underline flex items-center gap-1"
+                                onClick={() => { setSelectedInvoiceId(inv.id); setInvoiceModalOpen(true); }} data-testid={`inv-link-${inv.id}`}>
+                                {inv.invoice_number}
+                                {inv.edited && <Edit3 size={9} className="text-orange-400" />}
+                              </button>
+                              {isOverdue && <Badge className="text-[8px] bg-red-100 text-red-700 mt-0.5">{daysOver}d overdue</Badge>}
+                            </td>
+                            <td className="px-3 py-2"><Badge variant="outline" className={`text-[9px] ${tc.cls}`}>{tc.label}</Badge></td>
+                            <td className="px-3 py-2 text-right text-xs font-mono">{formatPHP(inv.grand_total)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-sm font-mono">{formatPHP(inv.balance)}</td>
+                            <td className="px-3 py-2 text-right">
+                              {canDiscount ? (
+                                <div className="flex items-center gap-0.5 justify-end">
+                                  <button onClick={() => setDiscountModes(p => ({ ...p, [inv.id]: mode === 'amount' ? 'percent' : 'amount' }))}
+                                    className="text-[9px] text-blue-500 hover:text-blue-700 font-medium w-5 text-center shrink-0" title="Toggle % / fixed">
+                                    {mode === 'percent' ? '%' : '₱'}
+                                  </button>
+                                  <Input type="number" min="0" step="0.01" placeholder="0.00"
+                                    className="h-7 w-20 text-right text-xs border-blue-200 bg-blue-50/50"
+                                    value={rowDiscounts[inv.id] || ''}
+                                    onChange={e => setRowDiscounts(p => ({ ...p, [inv.id]: e.target.value }))}
+                                    onFocus={e => e.target.select()}
+                                    data-testid={`discount-row-${inv.id}`} />
+                                  {discAmt > 0 && <span className="text-[9px] text-blue-600 ml-0.5">-{formatPHP(discAmt)}</span>}
+                                </div>
+                              ) : <span className="text-xs text-slate-300">—</span>}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <Input type="number" min="0" max={inv.balance - discAmt} step="0.01" value={rowAmt} placeholder="0.00"
+                                className={`h-8 w-28 text-right text-sm ml-auto font-mono ${isApplied ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}
+                                onChange={e => setRowAmounts(p => ({ ...p, [inv.id]: e.target.value }))}
+                                onFocus={e => e.target.select()}
+                                data-testid={`payment-row-${inv.id}`} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {/* Totals row */}
+                      <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold">
+                        <td colSpan={3} className="px-3 py-2 text-right text-xs text-slate-500 uppercase">Totals</td>
+                        <td className="px-3 py-2 text-right text-xs font-mono">{formatPHP(invoices.reduce((s, i) => s + (i.grand_total || 0), 0))}</td>
+                        <td className="px-3 py-2 text-right text-sm font-mono">{formatPHP(totalOpen)}</td>
+                        <td className="px-3 py-2 text-right text-xs font-mono text-blue-600">{totalDiscount > 0 ? `-${formatPHP(totalDiscount)}` : '—'}</td>
+                        <td className="px-3 py-2 text-right text-sm font-mono text-emerald-700">{formatPHP(totalApplied)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              )}
+            </Card>
 
-                      return (
-                        <tr key={inv.id} className={`border-b border-slate-100 ${isApplied ? 'bg-emerald-50/40' : discAmt > 0 ? 'bg-blue-50/30' : 'hover:bg-slate-50/50'} transition-colors`}>
-                          <td className="px-3 py-2 text-xs text-slate-500">{inv.order_date}</td>
-                          <td className="px-3 py-2">
-                            <button className="font-mono text-xs text-blue-600 hover:underline flex items-center gap-1"
-                              onClick={() => { setSelectedInvoiceId(inv.id); setInvoiceModalOpen(true); }} data-testid={`inv-link-${inv.id}`}>
-                              {inv.invoice_number}
-                              {inv.edited && <Edit3 size={9} className="text-orange-400" />}
-                            </button>
-                            {isOverdue && <Badge className="text-[8px] bg-red-100 text-red-700 mt-0.5">{daysOver}d overdue</Badge>}
-                          </td>
-                          <td className="px-3 py-2"><Badge variant="outline" className={`text-[9px] ${tc.cls}`}>{tc.label}</Badge></td>
-                          <td className="px-3 py-2 text-right text-xs font-mono">{formatPHP(inv.grand_total)}</td>
-                          <td className="px-3 py-2 text-right font-semibold text-sm font-mono">{formatPHP(inv.balance)}</td>
-                          <td className="px-3 py-2 text-right">
-                            {canDiscount ? (
-                              <div className="flex items-center gap-0.5 justify-end">
-                                <button onClick={() => setDiscountModes(p => ({ ...p, [inv.id]: mode === 'amount' ? 'percent' : 'amount' }))}
-                                  className="text-[9px] text-blue-500 hover:text-blue-700 font-medium w-5 text-center shrink-0" title="Toggle % / fixed">
-                                  {mode === 'percent' ? '%' : '₱'}
-                                </button>
-                                <Input type="number" min="0" step="0.01" placeholder="0.00"
-                                  className="h-7 w-20 text-right text-xs border-blue-200 bg-blue-50/50"
-                                  value={rowDiscounts[inv.id] || ''}
-                                  onChange={e => setRowDiscounts(p => ({ ...p, [inv.id]: e.target.value }))}
-                                  onFocus={e => e.target.select()}
-                                  data-testid={`discount-row-${inv.id}`} />
-                                {discAmt > 0 && <span className="text-[9px] text-blue-600 ml-0.5">-{formatPHP(discAmt)}</span>}
-                              </div>
-                            ) : <span className="text-xs text-slate-300">—</span>}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <Input type="number" min="0" max={inv.balance - discAmt} step="0.01" value={rowAmt} placeholder="0.00"
-                              className={`h-8 w-28 text-right text-sm ml-auto font-mono ${isApplied ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200'}`}
-                              onChange={e => setRowAmounts(p => ({ ...p, [inv.id]: e.target.value }))}
-                              onFocus={e => e.target.select()}
-                              data-testid={`payment-row-${inv.id}`} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {/* Totals row */}
-                    <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold">
-                      <td colSpan={3} className="px-3 py-2 text-right text-xs text-slate-500 uppercase">Totals</td>
-                      <td className="px-3 py-2 text-right text-xs font-mono">{formatPHP(invoices.reduce((s, i) => s + (i.grand_total || 0), 0))}</td>
-                      <td className="px-3 py-2 text-right text-sm font-mono">{formatPHP(totalOpen)}</td>
-                      <td className="px-3 py-2 text-right text-xs font-mono text-blue-600">{totalDiscount > 0 ? `-${formatPHP(totalDiscount)}` : '—'}</td>
-                      <td className="px-3 py-2 text-right text-sm font-mono text-emerald-700">{formatPHP(totalApplied)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </ScrollArea>
-            )}
-          </Card>
-
-          {/* ═══════════ QB-STYLE FOOTER ═══════════ */}
-          <Card className="border-slate-200 shrink-0">
-            <CardContent className="p-4">
+            {/* ═══════════ FOOTER ═══════════ */}
+            <div className="pb-4 pt-2 shrink-0">
               <div className="flex items-end justify-between gap-6 flex-wrap">
                 {/* Left: Memo */}
                 <div className="flex-1 min-w-[200px] max-w-md">
@@ -595,7 +693,6 @@ export default function PaymentsPage() {
 
                 {/* Right: Summary + Actions */}
                 <div className="flex items-end gap-4">
-                  {/* Amounts summary (QB-style) */}
                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 min-w-[220px]" data-testid="payment-summary">
                     <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Amounts for Selected Invoices</p>
                     <div className="space-y-1">
@@ -621,7 +718,6 @@ export default function PaymentsPage() {
                     </div>
                   </div>
 
-                  {/* Action buttons */}
                   <div className="flex flex-col gap-2">
                     <Button onClick={handleApplyPayment} disabled={processing || !hasUnsavedAmounts}
                       className="h-10 px-6 bg-[#1A4D2E] hover:bg-[#14532d] text-white" data-testid="apply-payment-btn">
@@ -633,10 +729,10 @@ export default function PaymentsPage() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Payment History Dialog ── */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>

@@ -3,6 +3,7 @@ Customer management routes with multi-branch support.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
+from datetime import datetime, timezone
 from config import db
 from utils import (
     get_current_user, check_perm, now_iso, new_id,
@@ -80,6 +81,85 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
     await db.customers.insert_one(customer)
     del customer["_id"]
     return customer
+
+
+@router.get("/receivables-summary")
+async def customer_receivables_summary(
+    branch_id: Optional[str] = None,
+    include_zero: bool = False,
+    user=Depends(get_current_user),
+):
+    """Aggregate open invoices per customer: total balance, overdue balance, invoice count."""
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    inv_match = {"status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}}
+    if branch_id:
+        inv_match["branch_id"] = branch_id
+
+    pipeline = [
+        {"$match": inv_match},
+        {
+            "$addFields": {
+                "is_overdue": {
+                    "$cond": [
+                        {"$and": [
+                            {"$ne": [{"$ifNull": ["$due_date", None]}, None]},
+                            {"$lt": ["$due_date", today_str]},
+                        ]},
+                        True,
+                        False,
+                    ]
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$customer_id",
+                "total_balance": {"$sum": "$balance"},
+                "overdue_balance": {
+                    "$sum": {"$cond": ["$is_overdue", "$balance", 0]}
+                },
+                "invoice_count": {"$sum": 1},
+                "overdue_count": {
+                    "$sum": {"$cond": ["$is_overdue", 1, 0]}
+                },
+            }
+        },
+        {"$sort": {"total_balance": -1}},
+    ]
+
+    agg_results = await db.invoices.aggregate(pipeline).to_list(5000)
+
+    cust_ids = [r["_id"] for r in agg_results if r["_id"]]
+    agg_map = {r["_id"]: r for r in agg_results}
+
+    cust_query = {"active": True}
+    if branch_id:
+        cust_query["branch_id"] = branch_id
+
+    if include_zero:
+        customers = await db.customers.find(cust_query, {"_id": 0}).to_list(5000)
+    else:
+        cust_query["id"] = {"$in": cust_ids}
+        customers = await db.customers.find(cust_query, {"_id": 0}).to_list(5000)
+
+    result = []
+    for c in customers:
+        agg = agg_map.get(c["id"], {})
+        result.append({
+            "id": c["id"],
+            "name": c.get("name", ""),
+            "phone": c.get("phone", ""),
+            "balance": round(agg.get("total_balance", 0), 2),
+            "overdue_balance": round(agg.get("overdue_balance", 0), 2),
+            "invoice_count": agg.get("invoice_count", 0),
+            "overdue_count": agg.get("overdue_count", 0),
+            "interest_rate": c.get("interest_rate", 0),
+            "grace_period": c.get("grace_period", 7),
+            "credit_limit": c.get("credit_limit", 0),
+        })
+
+    return result
 
 
 @router.get("/{customer_id}")

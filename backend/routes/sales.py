@@ -579,7 +579,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
     )
 
     # SMS hook: notify customer on credit sale
-    if balance > 0 and customer_id and sale_type not in ("interest_charge", "penalty_charge"):
+    if balance > 0 and customer_id and invoice.get("sale_type") not in ("interest_charge", "penalty_charge"):
         from routes.sms_hooks import on_credit_sale_created
         await on_credit_sale_created(invoice)
 

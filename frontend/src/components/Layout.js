@@ -10,7 +10,7 @@ import { Separator } from './ui/separator';
 import {
   LayoutDashboard, Building2, Package, Warehouse, ShoppingCart,
   Users, Tags, Receipt, Calculator, Settings, Menu, X,
-  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode, Search, BookOpen, FolderOpen
+  ChevronDown, LogOut, User, Store, Truck, Shield, ClipboardList, UserCog, Briefcase, Upload, Lock, ArrowRight, BarChart3, RotateCcw, ShieldCheck, WifiOff, FileText, AlertTriangle, HardDrive, ScanBarcode, Search, BookOpen, FolderOpen, MessageSquare
 } from 'lucide-react';
 import OfflineIndicator from './OfflineIndicator';
 import NotificationBell from './NotificationBell';
@@ -82,6 +82,7 @@ const NAV_SECTIONS = [
   {
     label: 'Management',
     items: [
+      { path: '/messages',       label: 'SMS Messages', icon: MessageSquare, perm: 'settings.edit', adminOnly: true },
       { path: '/documents',      label: 'Documents',    icon: FolderOpen, perm: null },
       { path: '/employees',       label: 'Employees',    icon: Briefcase, perm: 'settings.manage_users',       featureFlag: 'employee_management' },
       { path: '/price-schemes',   label: 'Price Schemes', icon: Tags,     perm: 'price_schemes.view' },
@@ -129,7 +130,11 @@ export default function Layout({ children }) {
     items: section.items.map(item => ({
       ...item,
       _status: getItemPermStatus(item),
-    })).filter(item => item._status !== 'feature_locked'), // Only hide subscription-locked items
+    })).filter(item => {
+      if (item._status === 'feature_locked') return false;
+      if (item.adminOnly && user?.role !== 'admin') return false;
+      return true;
+    }),
   })).filter(section => section.items.length > 0);
 
   const NavLink = ({ item }) => {

@@ -58,6 +58,7 @@ import ExpensesPage from './pages/ExpensesPage';
 import TransactionSearchPage from './pages/TransactionSearchPage';
 import JournalEntriesPage from './pages/JournalEntriesPage';
 import DocumentsPage from './pages/DocumentsPage';
+import MessagesPage from './pages/MessagesPage';
 import BudgetChecker from './components/BudgetChecker';
 import TerminalPage from './pages/terminal/TerminalPage';
 import DocViewerPage from './pages/DocViewerPage';
@@ -183,6 +184,7 @@ function AppRoutes() {
       <Route path="/accounting" element={<ProtectedRoute><AccountingPage /></ProtectedRoute>} />
       <Route path="/journal-entries" element={<ProtectedRoute><JournalEntriesPage /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
+      <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/team" element={<ProtectedRoute><TeamPage /></ProtectedRoute>} />
       <Route path="/user-permissions" element={<ProtectedRoute><FeatureGate featureKey="granular_permissions"><UserPermissionsPage /></FeatureGate></ProtectedRoute>} />

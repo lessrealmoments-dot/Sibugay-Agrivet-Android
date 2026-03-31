@@ -9,7 +9,7 @@ import secrets
 import string
 import asyncio
 from config import db, _raw_db
-from utils import get_current_user, now_iso, new_id, create_token
+from utils import get_current_user, now_iso, new_id, create_token, verify_password
 from routes.terminal_ws import terminal_ws_manager
 
 router = APIRouter(prefix="/terminal", tags=["Terminal"])
@@ -242,6 +242,91 @@ async def qr_pair_terminal(data: dict):
         "user_name": doc.get("user_name", ""),
         "organization_id": doc.get("organization_id", ""),
     }
+
+
+@router.post("/credential-pair")
+async def credential_pair_terminal(data: dict):
+    """Login directly on the terminal with email + password.
+    Manager → auto-links to their assigned branch.
+    Admin → requires branch_id selection (returned branches list if not provided)."""
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password", "")
+    branch_id = data.get("branch_id")
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+
+    user = await _raw_db.users.find_one({"email": email, "active": True}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not verify_password(password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    is_admin = user.get("role") == "admin" or user.get("is_super_admin")
+    org_id = user.get("organization_id")
+
+    # Manager / non-admin: must have an assigned branch
+    if not is_admin:
+        user_branch = user.get("branch_id")
+        if not user_branch:
+            raise HTTPException(status_code=400, detail="Your account has no branch assigned. Contact your admin.")
+        branch_id = user_branch
+
+    # Admin without branch_id → return available branches for selection
+    if is_admin and not branch_id:
+        query = {}
+        if org_id:
+            query["organization_id"] = org_id
+        branches = await _raw_db.branches.find(query, {"_id": 0, "id": 1, "name": 1}).to_list(50)
+        return {
+            "status": "select_branch",
+            "branches": branches,
+            "user_name": user.get("full_name", user.get("username", "")),
+            "is_admin": True,
+        }
+
+    # Validate branch exists
+    branch = await _raw_db.branches.find_one({"id": branch_id}, {"_id": 0})
+    if not branch:
+        raise HTTPException(status_code=404, detail="Branch not found")
+
+    # Create terminal session
+    terminal_id = new_id()
+    token = create_token(user["id"], user["role"], org_id=org_id)
+
+    session = {
+        "id": new_id(), "terminal_id": terminal_id, "code": f"CRED-{email[:8]}",
+        "branch_id": branch_id, "branch_name": branch.get("name", ""),
+        "user_id": user["id"],
+        "user_name": user.get("full_name", user.get("username", "")),
+        "organization_id": org_id, "token": token,
+        "status": "active", "paired_at": now_iso(), "last_seen": now_iso(),
+        "paired_via": "credential",
+        "is_admin": is_admin,
+    }
+    await _raw_db.terminal_sessions.insert_one(session)
+
+    return {
+        "status": "paired",
+        "token": token,
+        "terminal_id": terminal_id,
+        "branch_id": branch_id,
+        "branch_name": branch.get("name", ""),
+        "user_name": user.get("full_name", user.get("username", "")),
+        "organization_id": org_id or "",
+        "is_admin": is_admin,
+    }
+
+
+@router.get("/branches")
+async def list_branches_for_terminal(user=Depends(get_current_user)):
+    """List available branches for admin terminal selection."""
+    org_id = user.get("organization_id")
+    query = {}
+    if org_id:
+        query["organization_id"] = org_id
+    branches = await _raw_db.branches.find(query, {"_id": 0, "id": 1, "name": 1}).to_list(50)
+    return branches
 
 
 @router.get("/session")

@@ -368,6 +368,11 @@ async def create_invoice(data: dict, user=Depends(get_current_user)):
         partial_meta=partial_meta_arg,
     )
     
+    # SMS hook: notify customer on credit sale
+    if balance > 0 and data.get("customer_id") and sale_type not in ("interest_charge", "penalty_charge"):
+        from routes.sms_hooks import on_credit_sale_created
+        await on_credit_sale_created(invoice)
+    
     return invoice
 
 

@@ -49,6 +49,7 @@ from routes.doc_lookup import router as doc_lookup_router
 from routes.stock_releases import router as stock_releases_router
 from routes.qr_actions import router as qr_actions_router
 from routes.documents import router as documents_router
+from routes.sms import router as sms_router
 
 # =============================================================================
 # APP SETUP
@@ -188,6 +189,9 @@ api_router.include_router(qr_actions_router)
 
 # Business Documents (AgriDocs)
 api_router.include_router(documents_router)
+
+# SMS Engine
+api_router.include_router(sms_router)
 
 # =============================================================================
 # WEBSOCKET ROUTES (must be on app directly with /api prefix)
@@ -669,6 +673,176 @@ async def startup():
         _daily_compliance_check,
         CronTrigger(hour=8, minute=30),  # 8:30 AM daily
         id="daily_compliance_check",
+        replace_existing=True,
+    )
+
+    # ── SMS Reminder Scheduler (daily at 8:00 AM) ────────────────────────────
+    async def _daily_sms_reminders():
+        """Scan invoices for 15-day, 7-day, and overdue windows. Queue SMS reminders."""
+        from routes.sms import queue_sms
+        from routes.sms_hooks import get_company_name, get_branch_name
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today_dt = datetime.strptime(today, "%Y-%m-%d")
+        day_15 = (today_dt + timedelta(days=15)).strftime("%Y-%m-%d")
+        day_7 = (today_dt + timedelta(days=7)).strftime("%Y-%m-%d")
+
+        company_name = await get_company_name()
+
+        # Find all open invoices with due dates
+        invoices = await db.invoices.find(
+            {"status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0},
+             "due_date": {"$ne": None}, "sale_type": {"$nin": ["interest_charge", "penalty_charge"]}},
+            {"_id": 0}
+        ).to_list(5000)
+
+        queued = 0
+        for inv in invoices:
+            cust_id = inv.get("customer_id")
+            if not cust_id:
+                continue
+            customer = await db.customers.find_one({"id": cust_id}, {"_id": 0})
+            if not customer:
+                continue
+            phone = customer.get("phone", "")
+            if not phone:
+                continue
+
+            due_date = inv.get("due_date", "")
+            balance = inv.get("balance", 0)
+            branch_name = await get_branch_name(inv.get("branch_id", ""))
+            total_bal = customer.get("balance", 0)
+            interest_rate = customer.get("interest_rate", 0)
+            est_interest = round(balance * (interest_rate / 30) * 30, 2) if interest_rate > 0 else 0
+
+            # 15-day reminder
+            if due_date == day_15:
+                await queue_sms(
+                    template_key="reminder_15day",
+                    customer_id=cust_id,
+                    customer_name=customer.get("name", ""),
+                    phone=phone,
+                    variables={
+                        "customer_name": customer.get("name", ""),
+                        "total_balance": f"{total_bal:,.2f}",
+                        "company_name": company_name,
+                        "amount_due_soon": f"{balance:,.2f}",
+                        "due_date": due_date,
+                    },
+                    branch_id=inv.get("branch_id", ""),
+                    branch_name=branch_name,
+                    trigger="scheduled",
+                    trigger_ref=inv.get("id", ""),
+                    dedup_key=f"reminder_15day:{inv.get('id', '')}:{today}",
+                )
+                queued += 1
+
+            # 7-day reminder
+            elif due_date == day_7:
+                await queue_sms(
+                    template_key="reminder_7day",
+                    customer_id=cust_id,
+                    customer_name=customer.get("name", ""),
+                    phone=phone,
+                    variables={
+                        "customer_name": customer.get("name", ""),
+                        "amount_due_soon": f"{balance:,.2f}",
+                        "company_name": company_name,
+                        "due_date": due_date,
+                        "est_interest": f"{est_interest:,.2f}",
+                        "interest_rate": str(interest_rate),
+                        "total_balance": f"{total_bal:,.2f}",
+                    },
+                    branch_id=inv.get("branch_id", ""),
+                    branch_name=branch_name,
+                    trigger="scheduled",
+                    trigger_ref=inv.get("id", ""),
+                    dedup_key=f"reminder_7day:{inv.get('id', '')}:{today}",
+                )
+                queued += 1
+
+            # Overdue notice (past due, send weekly)
+            elif due_date < today:
+                days_overdue = (today_dt - datetime.strptime(due_date, "%Y-%m-%d")).days
+                # Send overdue notice every 7 days
+                if days_overdue > 0 and days_overdue % 7 == 0:
+                    await queue_sms(
+                        template_key="overdue_notice",
+                        customer_id=cust_id,
+                        customer_name=customer.get("name", ""),
+                        phone=phone,
+                        variables={
+                            "customer_name": customer.get("name", ""),
+                            "amount_overdue": f"{balance:,.2f}",
+                            "company_name": company_name,
+                            "days_overdue": str(days_overdue),
+                            "interest_rate": str(interest_rate),
+                            "total_balance": f"{total_bal:,.2f}",
+                        },
+                        branch_id=inv.get("branch_id", ""),
+                        branch_name=branch_name,
+                        trigger="scheduled",
+                        trigger_ref=inv.get("id", ""),
+                        dedup_key=f"overdue:{inv.get('id', '')}:{today}",
+                    )
+                    queued += 1
+
+        logger.info("SMS reminders: %d messages queued", queued)
+
+    # Monthly summary — 1st of each month
+    async def _monthly_sms_summary():
+        """Send monthly balance summary to all customers with outstanding balance."""
+        from routes.sms import queue_sms
+        from routes.sms_hooks import get_company_name
+        company_name = await get_company_name()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        customers = await db.customers.find(
+            {"active": True, "balance": {"$gt": 0}}, {"_id": 0}
+        ).to_list(5000)
+
+        queued = 0
+        for c in customers:
+            phone = c.get("phone", "")
+            if not phone:
+                continue
+            # Compute overdue
+            overdue_invs = await db.invoices.find(
+                {"customer_id": c["id"], "status": {"$nin": ["voided", "paid"]},
+                 "balance": {"$gt": 0}, "due_date": {"$lt": today}},
+                {"_id": 0, "balance": 1}
+            ).to_list(500)
+            overdue_total = sum(i.get("balance", 0) for i in overdue_invs)
+
+            await queue_sms(
+                template_key="monthly_summary",
+                customer_id=c["id"],
+                customer_name=c.get("name", ""),
+                phone=phone,
+                variables={
+                    "customer_name": c.get("name", ""),
+                    "company_name": company_name,
+                    "total_balance": f"{c.get('balance', 0):,.2f}",
+                    "overdue_amount": f"{overdue_total:,.2f}",
+                },
+                branch_id=c.get("branch_id", ""),
+                trigger="scheduled",
+                trigger_ref=f"monthly:{today}",
+                dedup_key=f"monthly:{c['id']}:{today[:7]}",
+            )
+            queued += 1
+        logger.info("Monthly SMS summary: %d messages queued", queued)
+
+    _scheduler.add_job(
+        _daily_sms_reminders,
+        CronTrigger(hour=8, minute=0),
+        id="daily_sms_reminders",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        _monthly_sms_summary,
+        CronTrigger(day=1, hour=9, minute=0),
+        id="monthly_sms_summary",
         replace_existing=True,
     )
 

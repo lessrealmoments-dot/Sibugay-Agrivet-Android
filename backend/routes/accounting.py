@@ -1461,6 +1461,12 @@ async def generate_interest_invoice(customer_id: str, data: dict, user=Depends(g
     del interest_invoice["_id"]
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": round(total_interest, 2)}})
 
+    # SMS hook: notify customer of interest charge
+    from routes.sms_hooks import on_charge_applied
+    updated_cust = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    await on_charge_applied(customer_id, "Interest", round(total_interest, 2),
+                            updated_cust.get("balance", 0) if updated_cust else 0, branch_id)
+
     return {"message": "Interest invoice created", "invoice_number": inv_number,
             "total_interest": round(total_interest, 2), "invoice": interest_invoice}
 
@@ -1528,6 +1534,12 @@ async def generate_penalty_invoice(customer_id: str, data: dict, user=Depends(ge
     await db.invoices.insert_one(penalty_invoice)
     del penalty_invoice["_id"]
     await db.customers.update_one({"id": customer_id}, {"$inc": {"balance": round(total_penalty, 2)}})
+
+    # SMS hook: notify customer of penalty charge
+    from routes.sms_hooks import on_charge_applied
+    updated_cust = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    await on_charge_applied(customer_id, "Penalty", round(total_penalty, 2),
+                            updated_cust.get("balance", 0) if updated_cust else 0, branch_id)
 
     return {"message": "Penalty invoice created", "invoice_number": inv_number,
             "total_penalty": round(total_penalty, 2), "invoice": penalty_invoice}
@@ -1629,6 +1641,21 @@ async def receive_customer_payment(customer_id: str, data: dict, user=Depends(ge
             await update_cashier_wallet(branch_id, total_applied, ref_text)
 
     deposited_to = "Digital / E-Wallet" if digital else "Cashier Drawer"
+
+    # SMS hook: notify customer of payment received
+    if total_applied > 0:
+        from routes.sms_hooks import on_payment_received
+        updated_cust = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+        remaining = updated_cust.get("balance", 0) if updated_cust else 0
+        # Find next due invoice
+        next_inv = await db.invoices.find_one(
+            {"customer_id": customer_id, "status": {"$nin": ["voided", "paid"]}, "balance": {"$gt": 0}, "due_date": {"$ne": None}},
+            {"_id": 0, "due_date": 1},
+            sort=[("due_date", 1)],
+        )
+        next_due_info = f"Next due: {next_inv['due_date']}. " if next_inv else ""
+        await on_payment_received(customer_id, total_applied, remaining, branch_id, next_due_info)
+
     return {"message": "Payment applied", "total_applied": total_applied, "total_discounted": total_discounted,
             "applied_invoices": applied_invoices, "deposited_to": deposited_to}
 

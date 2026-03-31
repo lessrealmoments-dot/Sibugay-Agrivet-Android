@@ -21,7 +21,7 @@ QR_LOCK_WINDOW_MINUTES   = 15  # rolling window for failure counting
 QR_LOCK_DURATION_MINUTES = 15  # how long a lockout lasts after the last failure
 
 
-async def log_failed_pin_attempt(user: dict, context: str, attempt_type: str):
+async def log_failed_pin_attempt(user: dict, context: str, attempt_type: str, doc_id: str = "", doc_type: str = ""):
     """
     Log a failed PIN/TOTP attempt for the authenticated user.
     Triggers a security alert to admins when threshold is reached.
@@ -30,6 +30,8 @@ async def log_failed_pin_attempt(user: dict, context: str, attempt_type: str):
         user:         The currently logged-in user (who submitted the wrong PIN)
         context:      Human-readable description of what they were trying to do
         attempt_type: One of "transaction_verify" | "fund_transfer" | "admin_action"
+        doc_id:       Optional UUID of the related document (PO, transfer, etc.)
+        doc_type:     Optional document type (purchase_order, branch_transfer, etc.)
     """
     user_id   = user.get("id", "unknown")
     user_name = user.get("full_name") or user.get("username") or "Unknown User"
@@ -57,7 +59,7 @@ async def log_failed_pin_attempt(user: dict, context: str, attempt_type: str):
 
     # 3. Alert on threshold and every subsequent attempt (5, 6, 7, ...)
     if recent_failures >= ATTEMPT_THRESHOLD:
-        await _raise_security_alert(user_id, user_name, branch_id, recent_failures, context, attempt_type, user=user)
+        await _raise_security_alert(user_id, user_name, branch_id, recent_failures, context, attempt_type, user=user, doc_id=doc_id, doc_type=doc_type)
 
 
 async def log_successful_pin_attempt(user: dict, context: str, attempt_type: str):
@@ -77,7 +79,7 @@ async def log_successful_pin_attempt(user: dict, context: str, attempt_type: str
     })
 
 
-async def _raise_security_alert(user_id, user_name, branch_id, failure_count, context, attempt_type, user: dict = None):
+async def _raise_security_alert(user_id, user_name, branch_id, failure_count, context, attempt_type, user: dict = None, doc_id: str = "", doc_type: str = ""):
     """
     Create a security notification for admins and log to security_events.
     Only fires once per threshold crossing (every attempt at/above threshold).
@@ -169,6 +171,8 @@ async def _raise_security_alert(user_id, user_name, branch_id, failure_count, co
             "attempt_type":  attempt_type,
             "action_label":  action_label,
             "context":       context,
+            "doc_id":        doc_id,
+            "doc_type":      doc_type,
             "severity":      "high" if failure_count >= 10 else "medium",
         },
         "target_user_ids": target_ids,

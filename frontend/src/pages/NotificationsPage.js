@@ -138,6 +138,7 @@ function SecurityAlertDetail({ n, onOpenDoc }) {
   const cardBase = 'rounded-lg border p-3 text-[11px] space-y-1.5 flex-1 min-w-0';
 
   if (isAuth) {
+    const canOpen = !!(m.doc_id && m.doc_type);
     return (
       <div className="mt-2 flex gap-2">
         <div className={`${cardBase} border-red-100 bg-red-50/60`}>
@@ -156,12 +157,21 @@ function SecurityAlertDetail({ n, onOpenDoc }) {
           <AlertRow label="Action" value={m.action_label || '—'} />
           <AlertRow label="Detail" value={m.context || '—'} />
           <AlertRow label="Fails"  value={`${m.failure_count}x in 30 min`} />
-          <div className="pt-1">
+          <div className="flex items-center justify-between pt-1 gap-2 flex-wrap">
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
               m.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
             }`}>
               {m.severity === 'high' ? 'HIGH — Possible brute force' : 'Warning — Monitor'}
             </span>
+            {canOpen && (
+              <button
+                onClick={() => onOpenDoc(m.doc_id, m.doc_type)}
+                className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md px-2 py-0.5 transition-colors"
+                data-testid="security-alert-view-receipt-btn"
+              >
+                <FileText size={10} /> View Receipt
+              </button>
+            )}
           </div>
         </div>
       </div>

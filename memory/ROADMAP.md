@@ -8,21 +8,17 @@
 |---|---|---|---|
 | Phase 1 | A1 (ReviewDetailDialog) absorbs A3 (PODetailModal) | DONE | 7 pages migrated, PODetailModal.js orphaned |
 | Phase 2 | A2 (InvoiceDetailModal) absorbs A4 (SaleDetailModal) | DONE | 14 files migrated, SaleDetailModal.js orphaned |
-| Phase 3 | C1+C2 merge into AuthDialog | PENDING | New AuthDialog.js, C1/C2 become thin wrappers |
-| Phase 4 | Extract F7 FundTransferDialog | PENDING | New FundTransferDialog.js |
+| Phase 3 | C1+C2 merge into AuthDialog | DONE | AuthDialog.js created, C1/C2 are thin wrappers |
+| Phase 4 | Extract F7 FundTransferDialog | DONE | FundTransferDialog.js extracted from FundManagementPage |
 
 ### Phase 2 Detail — DONE
 `compact={true}` prop added to `InvoiceDetailModal.js` (A2). `saleId` backward-compat alias for `invoiceId`. 14 files migrated. SaleDetailModal.js orphaned.
 
-### Phase 3 Detail — NEXT TASK
-- New `components/AuthDialog.js` with `mode="pin"|"totp"|"either"` prop
-- VerifyPinDialog.js → `<AuthDialog mode="pin" />` wrapper
-- TotpVerifyDialog.js → `<AuthDialog mode="totp" />` wrapper
-- No page-level changes (wrappers preserve backward compat)
+### Phase 3 Detail — DONE
+`AuthDialog.js` created with `mode="pin"|"totp"|"either"`. VerifyPinDialog → thin wrapper `<AuthDialog mode="pin">`. TotpVerifyDialog → thin wrapper `<AuthDialog mode="totp">`. No page-level changes needed.
 
-### Phase 4 Detail
-- New `components/FundTransferDialog.js`
-- Replace inline fund transfer dialogs in FundManagementPage + AccountingPage
+### Phase 4 Detail — DONE
+`FundTransferDialog.js` extracted from FundManagementPage inline dialog. Accepts `transferType`, `walletByType`, `branchId`, `onSuccess` props. FundManagementPage updated to use the component.
 
 ---
 
@@ -133,6 +129,17 @@
 ### Dead Files (can be deleted after confirming stable)
 - `components/PODetailModal.js` — zero imports since Phase 1
 - `components/SaleDetailModal.js` — zero imports since Phase 2
+
+### Modal Hierarchy (CANONICAL — use these going forward)
+1. **To show a PO:** Use `ReviewDetailDialog` with `poId` or `poNumber`
+2. **To show a Sale/Invoice:** Use `InvoiceDetailModal` with `compact` prop (or without for full tabbed view)
+3. **To show a Transfer:** Use `TransferDetailModal` (A5)
+4. **To show an Expense:** Use `ExpenseDetailModal` (A6)
+5. **To upload a receipt:** Use `UploadQRDialog` (D1) — UNIVERSAL
+6. **To view receipts:** Use `ViewQRDialog` (D2) — UNIVERSAL
+7. **For PIN verification:** Use `VerifyPinDialog` (wrapper) or `AuthDialog mode="pin"`
+8. **For admin authorization:** Use `TotpVerifyDialog` (wrapper) or `AuthDialog mode="totp"`
+9. **For fund transfers:** Use `FundTransferDialog`
 
 ---
 

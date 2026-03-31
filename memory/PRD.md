@@ -352,6 +352,20 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - **14 files migrated** from SaleDetailModal → InvoiceDetailModal with `compact`: SalesPage, AccountingPage, ExpensesPage, CustomersPage, CloseWizardPage, DailyLogPage, PaymentsPage, PendingReleasesPage, InternalInvoicesPage, ReportsPage (2x), DashboardPage, AuditCenterPage, QuickSearch (2x), TransactionSearchPage
 - SaleDetailModal.js retained as legacy file (zero imports remain — safe to delete in future cleanup)
 - Z-reports: zero impact (UI-only migration, same API endpoints)
+
+### Modal Consolidation Phase 3 — C1 + C2 → AuthDialog (Complete — Mar 2026)
+- **AuthDialog.js** created as unified PIN/TOTP/Password authorization dialog
+- `mode="pin"`: single PIN input with optional discrepancy fields, calls `/api/verify/{docType}/{docId}`
+- `mode="totp"`: mode tabs (Owner PIN / Authenticator / Password), calls `/api/auth/verify-admin-action`
+- **VerifyPinDialog.js** → thin wrapper `<AuthDialog mode="pin" />`
+- **TotpVerifyDialog.js** → thin wrapper `<AuthDialog mode="totp" />`
+- Zero page-level changes — backward compatible via wrapper pattern
+
+### Modal Consolidation Phase 4 — Extract FundTransferDialog (Complete — Mar 2026)
+- **FundTransferDialog.js** extracted from FundManagementPage inline transfer dialog
+- Props: `open`, `onClose`, `transferType`, `walletByType`, `branchId`, `onSuccess`
+- Supports all 4 transfer types with appropriate auth fields
+- FundManagementPage updated to use the extracted component
 - All migrated pages use `showReviewAction={false} showPayAction={false}` for view-only contexts; AuditCenterPage uses `showReviewAction={true}`
 - Z-reports: zero impact (modals are UI-only; no backend/DB changes)
 

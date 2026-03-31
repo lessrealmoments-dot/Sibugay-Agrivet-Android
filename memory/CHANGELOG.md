@@ -1,5 +1,23 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — Modal Consolidation Phase 4 (Extract FundTransferDialog)
+- **FundTransferDialog.js** extracted from FundManagementPage inline transfer dialog
+- Accepts `transferType`, `walletByType`, `branchId`, `onSuccess` props
+- Supports all 4 transfer types: Cashier→Safe, Safe→Cashier, Safe→Bank, Capital Injection
+- Each type shows appropriate auth fields (Manager PIN, TOTP, Owner PIN)
+- FundManagementPage updated to use the extracted component
+- Tested: 9/9 tests passed including Phase 2-3 regressions (iteration_148.json)
+
+## Mar 31, 2026 — Modal Consolidation Phase 3 (C1 + C2 → AuthDialog)
+- **AuthDialog.js** created as unified PIN/TOTP/Password authorization dialog
+- `mode="pin"`: single PIN input with discrepancy fields (matches old VerifyPinDialog)
+- `mode="totp"`: mode tabs (Owner PIN / Authenticator / Password) matching old TotpVerifyDialog
+- `mode="either"`: multi-mode tabs (same as totp)
+- **VerifyPinDialog.js** converted to thin wrapper `<AuthDialog mode="pin" />`
+- **TotpVerifyDialog.js** converted to thin wrapper `<AuthDialog mode="totp" />`
+- Zero page-level changes — backward compatible via wrapper pattern
+- Tested: 5/5 tests passed (iteration_147.json)
+
 ## Mar 31, 2026 — Modal Consolidation Phase 2 (A2 Absorbs A4)
 - **InvoiceDetailModal** (A2) extended with `compact` prop and `saleId` backward-compat alias
 - When `compact=true`: renders single-view layout matching old SaleDetailModal (narrower dialog, no tabs, print buttons, inline receipts/payments/edit history, void button)

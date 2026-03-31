@@ -153,14 +153,13 @@ DEFAULT_TEMPLATES = [
 
 
 async def _ensure_templates():
-    """Seed default templates if none exist."""
+    """Seed default templates for the current org if none exist yet."""
     count = await db.sms_templates.count_documents({})
     if count == 0:
+        docs = []
         for t in DEFAULT_TEMPLATES:
-            t["id"] = new_id()
-            t["created_at"] = now_iso()
-            t["updated_at"] = now_iso()
-        await db.sms_templates.insert_many(DEFAULT_TEMPLATES)
+            docs.append({**t, "id": new_id(), "created_at": now_iso(), "updated_at": now_iso()})
+        await db.sms_templates.insert_many(docs)
 
 
 # ── Template rendering helper ───────────────────────────────────────────────
@@ -181,38 +180,51 @@ async def queue_sms(
     customer_name: str,
     phone: str,
     variables: dict,
+    organization_id: str = "",
     branch_id: str = "",
     branch_name: str = "",
     trigger: str = "auto",
     trigger_ref: str = "",
     dedup_key: str = "",
 ):
-    """Insert an SMS into the queue. Respects template active flag + settings."""
+    """Insert an SMS into the queue. Scoped to organization_id for multi-tenant isolation."""
     if not phone or not phone.strip():
         return None
 
-    # Check template — use _raw_db to bypass tenant filter
-    template = await _raw_db.sms_templates.find_one({"key": template_key}, {"_id": 0})
+    # Build org filter for _raw_db reads
+    org_filter = {"organization_id": organization_id} if organization_id else {}
+
+    # Check template — org-scoped first, fallback to global default
+    template = None
+    if organization_id:
+        template = await _raw_db.sms_templates.find_one({"key": template_key, "organization_id": organization_id}, {"_id": 0})
+    if not template:
+        template = await _raw_db.sms_templates.find_one({"key": template_key, "organization_id": {"$exists": False}}, {"_id": 0})
+    if not template:
+        template = await _raw_db.sms_templates.find_one({"key": template_key}, {"_id": 0})
     if not template or not template.get("active", True):
         return None
 
-    # Check per-trigger setting — use _raw_db
-    setting = await _raw_db.sms_settings.find_one(
-        {"trigger_key": template_key, "$or": [{"branch_id": branch_id}, {"branch_id": None}, {"branch_id": ""}]},
-        {"_id": 0},
-    )
+    # Check per-trigger setting — org-scoped first, fallback to global
+    setting = None
+    base_setting_query = {"trigger_key": template_key, "$or": [{"branch_id": branch_id}, {"branch_id": None}, {"branch_id": ""}]}
+    if organization_id:
+        setting = await _raw_db.sms_settings.find_one({**base_setting_query, "organization_id": organization_id}, {"_id": 0})
+    if not setting:
+        setting = await _raw_db.sms_settings.find_one(base_setting_query, {"_id": 0})
     if setting and not setting.get("enabled", True):
         return None
 
-    # De-duplication — use _raw_db
+    # De-duplication — always org-scoped to prevent cross-company dedup conflicts
     if dedup_key:
-        existing = await _raw_db.sms_queue.find_one({"dedup_key": dedup_key}, {"_id": 0})
+        existing = await _raw_db.sms_queue.find_one({"dedup_key": dedup_key, **org_filter}, {"_id": 0})
         if existing:
             return None
 
     message = render_template(template["body"], variables)
     doc = {
         "id": new_id(),
+        "organization_id": organization_id,
         "template_key": template_key,
         "customer_id": customer_id,
         "customer_name": customer_name,

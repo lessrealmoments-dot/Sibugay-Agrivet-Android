@@ -22,7 +22,12 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
-### SMS Auto-Queue Bug Fix (2026-04-01) — Complete
+### SMS Multi-Tenant Isolation (2026-04-01) — Complete
+- Added `sms_queue`, `sms_templates`, `sms_settings` to `TENANT_COLLECTIONS` — all REST endpoints auto-scoped via TenantCollection
+- `queue_sms()` now accepts `organization_id` param; uses org-scoped dedup; falls back to global templates if org-specific template not yet customized
+- `sms_hooks.py` resolves `org_id` from invoice's `branch_id` and passes to all hook calls
+- Scheduled jobs (`_daily_sms_reminders`, `_monthly_sms_summary`) now iterate per active organization using `_raw_db`
+- **Result:** Company A's Android gateway only sees Company A's `pending` queue; Company B's templates, settings, and queue are completely isolated
 - **Root Cause:** `ensure_org_context(branch_id=branch_id)` in `log_movement()` was setting the org ContextVar to the branch's organization ID mid-request. Subsequent `db.customers.find_one()` calls in `sms_hooks.py` then filtered by `organization_id`, missing customers who had no org tag (pre-migration data).
 - **Fix:** All `sms_hooks.py` and `queue_sms()` in `sms.py` now use `_raw_db` (unscoped MongoDB client) for all lookups, bypassing tenant isolation entirely. This is safe since IDs are UUIDs and the hooks are server-triggered, not user-scoped.
 - **Verified:** Credit sale → SMS queued `pending` immediately → Android gateway marks `sent`. All three hooks (credit sale, payment received, charge applied) now use `_raw_db`.

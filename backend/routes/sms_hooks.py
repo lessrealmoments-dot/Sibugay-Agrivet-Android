@@ -1,13 +1,26 @@
 """
 SMS trigger hooks — called from invoice creation, payment receipt, etc.
 Each function is fire-and-forget (errors logged, never blocks the caller).
-Uses _raw_db (unscoped) for lookups since org context may be mutated by prior operations.
+Uses _raw_db (unscoped) for lookups to bypass tenant ContextVar mutations.
+organization_id is resolved explicitly and passed to queue_sms for proper isolation.
 """
 from config import _raw_db as raw_db, logger
 
 
-async def get_company_name() -> str:
-    biz = await raw_db.settings.find_one({"key": "business_info"}, {"_id": 0})
+async def _resolve_org_id(branch_id: str) -> str:
+    """Resolve organization_id from a branch_id. Returns empty string if not found."""
+    if not branch_id:
+        return ""
+    branch = await raw_db.branches.find_one({"id": branch_id}, {"_id": 0, "organization_id": 1})
+    return (branch or {}).get("organization_id", "") if branch else ""
+
+
+async def get_company_name(organization_id: str = "") -> str:
+    """Get the business name for the given org (or fallback to AgriBooks)."""
+    query = {"key": "business_info"}
+    if organization_id:
+        query["organization_id"] = organization_id
+    biz = await raw_db.settings.find_one(query, {"_id": 0})
     return biz.get("value", {}).get("business_name", "AgriBooks") if biz else "AgriBooks"
 
 
@@ -32,8 +45,10 @@ async def on_credit_sale_created(invoice: dict):
         if not phone:
             return
 
-        company_name = await get_company_name()
-        branch_name = await get_branch_name(invoice.get("branch_id", ""))
+        branch_id = invoice.get("branch_id", "")
+        org_id = await _resolve_org_id(branch_id)
+        company_name = await get_company_name(org_id)
+        branch_name = await get_branch_name(branch_id)
 
         await queue_sms(
             template_key="credit_new",
@@ -49,7 +64,8 @@ async def on_credit_sale_created(invoice: dict):
                 "due_date": invoice.get("due_date", ""),
                 "total_balance": f"{customer.get('balance', 0) + invoice.get('balance', 0):,.2f}",
             },
-            branch_id=invoice.get("branch_id", ""),
+            organization_id=org_id,
+            branch_id=branch_id,
             branch_name=branch_name,
             trigger="auto",
             trigger_ref=invoice.get("id", ""),
@@ -71,7 +87,8 @@ async def on_payment_received(customer_id: str, amount_paid: float, remaining_ba
         if not phone:
             return
 
-        company_name = await get_company_name()
+        org_id = await _resolve_org_id(branch_id)
+        company_name = await get_company_name(org_id)
 
         await queue_sms(
             template_key="payment_received",
@@ -85,6 +102,7 @@ async def on_payment_received(customer_id: str, amount_paid: float, remaining_ba
                 "next_due_info": next_due_info,
                 "company_name": company_name,
             },
+            organization_id=org_id,
             branch_id=branch_id,
             branch_name=await get_branch_name(branch_id),
             trigger="auto",
@@ -106,7 +124,8 @@ async def on_charge_applied(customer_id: str, charge_type: str, charge_amount: f
         if not phone:
             return
 
-        company_name = await get_company_name()
+        org_id = await _resolve_org_id(branch_id)
+        company_name = await get_company_name(org_id)
 
         await queue_sms(
             template_key="charge_applied",
@@ -120,6 +139,7 @@ async def on_charge_applied(customer_id: str, charge_type: str, charge_amount: f
                 "total_balance": f"{total_balance:,.2f}",
                 "company_name": company_name,
             },
+            organization_id=org_id,
             branch_id=branch_id,
             branch_name=await get_branch_name(branch_id),
             trigger="auto",

@@ -49,6 +49,10 @@ TENANT_COLLECTIONS = {
     'upload_sessions',               # Receipt/document upload sessions
     'business_documents',            # AgriDocs — business document cloud
     'doc_upload_tokens',             # QR upload tokens for phone uploads
+    # SMS — per-company isolation
+    'sms_queue',                     # Outbound SMS queue per company
+    'sms_templates',                 # Customizable message templates per company
+    'sms_settings',                  # Per-trigger enable/disable settings per company
 }
 
 

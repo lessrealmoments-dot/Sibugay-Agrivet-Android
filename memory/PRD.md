@@ -340,7 +340,12 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ---
 
-### Notification System Phase 5 — Scheduled Compliance Deadlines (Complete — Mar 2026)
+### Security Alert Notification Enrichment — Phases 1-3 (Complete — Mar 2026)
+- **Phase 1 — Authenticated PIN alerts:** `_raise_security_alert()` now resolves `branch_name` from DB, enriches `user_role` and `user_email`. Message format: `"Test Manager (Manager) entered wrong PIN 6x at Branch 1 — Transaction Verification: Verify PO-XXX"`
+- **Phase 2 — QR Terminal alerts:** `_raise_qr_security_alert()` accepts `terminal_id`, resolves to `"AgriSmart Terminal at Branch X"` from `terminal_sessions`. Enriches with `doc_id`, `doc_number`, `counterparty`, `doc_amount` via doc_codes + invoice/PO/transfer lookup. `qr_actions.py` passes `terminal_id` at all 3 terminal-only call sites.
+- **Phase 3 — Frontend SecurityAlertDetail:** Expandable two-card layout — WHO+WHAT (authenticated) / TERMINAL+DOCUMENT (QR). Clickable doc number opens existing `ReviewDetailDialog` (same pattern as dashboard widgets). Lock banner for documents locked after 10 failures.
+
+
 - APScheduler daily job at 8:30 AM: `_daily_compliance_check` in `main.py`
 - Fires `compliance_deadline` notifications for:
   - Expired docs (critical severity) — dedup per doc per day

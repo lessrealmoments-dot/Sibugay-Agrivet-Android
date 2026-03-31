@@ -17,12 +17,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import FundTransferDialog from '../components/FundTransferDialog';
 import {
   Banknote, Lock, Smartphone, Building2, RefreshCw, ArrowRight,
-  ArrowRightLeft, Shield, Eye, EyeOff, History, TrendingUp, AlertTriangle, Plus
+  ArrowRightLeft, Shield, EyeOff, History, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatPHP } from '../lib/utils';
@@ -110,13 +109,6 @@ export default function FundManagementPage() {
 
   // Transfer form state
   const [activeTransfer, setActiveTransfer] = useState(null); // TRANSFER_TYPES entry
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [managerPin, setManagerPin] = useState('');
-  const [totpCode, setTotpCode] = useState('');
-  const [ownerPin, setOwnerPin] = useState(''); // Owner PIN or TOTP for capital_add
-  const [showAuth, setShowAuth] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   // Wallet movements
   const [selectedWallet, setSelectedWallet] = useState(null);
@@ -145,41 +137,6 @@ export default function FundManagementPage() {
 
   const openTransfer = (ttype) => {
     setActiveTransfer(ttype);
-    setAmount('');
-    setNote('');
-    setManagerPin('');
-    setTotpCode('');
-    setOwnerPin('');
-    setShowAuth(false);
-  };
-
-  const [capitalTarget, setCapitalTarget] = useState('cashier'); // for capital_add
-
-  const executeTransfer = async () => {
-    if (!amount || parseFloat(amount) <= 0) { toast.error('Enter a valid amount'); return; }
-    if (!activeTransfer) return;
-    if (activeTransfer.key !== 'capital_add' && !note.trim()) { toast.error('Please add a note'); return; }
-
-    setSaving(true);
-    try {
-      const payload = {
-        branch_id: branchId,
-        transfer_type: activeTransfer.key,
-        amount: parseFloat(amount),
-        note,
-        target_wallet: activeTransfer.key === 'capital_add' ? capitalTarget : undefined,
-        manager_pin: managerPin || undefined,
-        totp_code: totpCode || undefined,
-        owner_pin: ownerPin || undefined,
-      };
-      const res = await api.post(`${BACKEND_URL}/api/fund-transfers`, payload);
-      toast.success(res.data.message);
-      setActiveTransfer(null);
-      loadData();
-    } catch (e) {
-      toast.error(e.response?.data?.detail || 'Transfer failed');
-    }
-    setSaving(false);
   };
 
   const loadMovements = async (wallet) => {
@@ -357,120 +314,14 @@ export default function FundManagementPage() {
       )}
 
       {/* Transfer Dialog */}
-      {activeTransfer && (
-        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 9999 }}
-          onClick={e => { if (e.target === e.currentTarget) setActiveTransfer(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full p-5 overflow-y-auto" style={{ maxWidth: '400px', maxHeight: '90vh' }}>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl">{activeTransfer.icon}</span>
-              <div>
-                <p className="font-bold text-slate-800">{activeTransfer.label}</p>
-                <p className="text-xs text-slate-400">{activeTransfer.desc}</p>
-              </div>
-            </div>
-
-            {/* Fund availability info */}
-            {activeTransfer.from && (
-              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 mb-4">
-                <p className="text-xs text-slate-500">Available in {WALLET_META[activeTransfer.from]?.label}:</p>
-                <p className="font-bold text-slate-800 font-mono">
-                  {(() => {
-                    const w = walletByType(activeTransfer.from);
-                    return w ? formatPHP(w.balance || 0) : '—';
-                  })()}
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs text-slate-600">Amount (₱) *</Label>
-                <Input type="number" value={amount} onChange={e => setAmount(e.target.value)}
-                  placeholder="0.00" className="mt-1 h-10 text-lg font-mono" autoFocus />
-              </div>
-              {activeTransfer.key !== 'capital_add' && (
-                <div>
-                  <Label className="text-xs text-slate-600">Note / Reason *</Label>
-                  <Input value={note} onChange={e => setNote(e.target.value)}
-                    placeholder="e.g. End of shift cash deposit" className="mt-1 h-9" />
-                </div>
-              )}
-              {activeTransfer.key === 'capital_add' && (
-                <div>
-                  <Label className="text-xs text-slate-600">Note (optional)</Label>
-                  <Input value={note} onChange={e => setNote(e.target.value)}
-                    placeholder="e.g. Initial operating capital" className="mt-1 h-9" />
-                </div>
-              )}
-
-              {/* Authorization */}
-              {(activeTransfer.key === 'cashier_to_safe' || activeTransfer.key === 'safe_to_cashier') && (
-                <div>
-                  <Label className="text-xs text-slate-600 flex items-center gap-1">
-                    <Shield size={11} /> Manager PIN *
-                  </Label>
-                  <Input type="password" autoComplete="new-password" value={managerPin} onChange={e => setManagerPin(e.target.value)}
-                    placeholder="Enter manager PIN" className="mt-1 h-9"
-                    onKeyDown={e => e.key === 'Enter' && executeTransfer()} />
-                </div>
-              )}
-              {activeTransfer.key === 'safe_to_bank' && (
-                <div>
-                  <Label className="text-xs text-slate-600 flex items-center gap-1">
-                    <Shield size={11} /> TOTP Code *
-                  </Label>
-                  <Input type="password" autoComplete="new-password" value={totpCode} onChange={e => setTotpCode(e.target.value)}
-                    placeholder="6-digit authenticator code" className="mt-1 h-9 font-mono text-lg text-center"
-                    maxLength={6}
-                    onKeyDown={e => e.key === 'Enter' && executeTransfer()} />
-                  <p className="text-[10px] text-slate-400 mt-1">From your Google Authenticator app</p>
-                </div>
-              )}
-              {activeTransfer.key === 'capital_add' && (
-                <div className="space-y-2">
-                  <div>
-                    <Label className="text-xs text-slate-600">Deposit Into *</Label>
-                    <div className="flex gap-2 mt-1">
-                      {['cashier', 'safe'].map(t => (
-                        <button key={t} onClick={() => setCapitalTarget(t)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors capitalize ${capitalTarget === t ? 'bg-[#1A4D2E] text-white border-[#1A4D2E]' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                          {t === 'cashier' ? '💵 Cashier' : '🔒 Safe'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-slate-600 flex items-center gap-1">
-                      <Shield size={11} /> Owner PIN or TOTP Code *
-                    </Label>
-                    <Input
-                      type="password" autoComplete="new-password"
-                      value={ownerPin}
-                      onChange={e => setOwnerPin(e.target.value)}
-                      placeholder="Enter PIN or 6-digit TOTP"
-                      className="mt-1 h-9 font-mono"
-                      onKeyDown={e => e.key === 'Enter' && executeTransfer()}
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      If admin is present: Owner PIN. If away: call admin for TOTP code.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2 mt-5">
-              <button onClick={() => setActiveTransfer(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50">Cancel</button>
-              <button onClick={executeTransfer} disabled={saving || !amount}
-                className="flex-1 py-2.5 rounded-xl bg-[#1A4D2E] hover:bg-[#14532d] text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
-                {saving ? <RefreshCw size={14} className="animate-spin" /> : <ArrowRightLeft size={14} />}
-                Confirm Transfer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FundTransferDialog
+        open={!!activeTransfer}
+        onClose={() => setActiveTransfer(null)}
+        transferType={activeTransfer}
+        walletByType={walletByType}
+        branchId={branchId}
+        onSuccess={loadData}
+      />
     </div>
   );
 }

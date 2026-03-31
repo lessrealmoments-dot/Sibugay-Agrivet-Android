@@ -1,0 +1,79 @@
+{
+  "summary": "Phase 4 Modal Consolidation Testing - FundTransferDialog extracted from FundManagementPage. All tests PASSED. FundTransferDialog correctly opens for all 4 transfer types with appropriate auth fields. Phase 2 and Phase 3 regression tests also passed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FundTransferDialog.js correctly implements reusable fund transfer dialog with props: open, onClose, transferType, walletByType, branchId, onSuccess",
+    "All data-testid attributes correctly implemented: fund-transfer-dialog, fund-transfer-title, fund-transfer-available, fund-transfer-amount, fund-transfer-note, fund-transfer-manager-pin, fund-transfer-totp, fund-transfer-owner-pin, fund-transfer-target-cashier, fund-transfer-target-safe, fund-transfer-cancel, fund-transfer-confirm",
+    "FundManagementPage.js correctly imports and uses FundTransferDialog component instead of inline dialog code",
+    "Dialog uses custom overlay (z-9999, raw div) consistent with AuthDialog pattern",
+    "Confirm button correctly disabled when amount is empty"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (skipped per request)",
+    "frontend": "100%"
+  },
+  "test_credentials": "Super Admin: janmarkeahig@gmail.com / Aa@58798546521325, Manager PIN: 521325",
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 4 modal consolidation complete. FundTransferDialog.js is the extracted component from FundManagementPage. All 4 transfer types tested: Cashier→Safe (Manager PIN), Safe→Cashier (Manager PIN), Safe→Bank (TOTP), Capital Injection (Owner PIN/TOTP + target selector). Phase 2 InvoiceDetailModal and Phase 3 VerifyPinDialog/AuthDialog regression tests passed.",
+  "tests_performed": [
+    {
+      "test": "FundManagementPage loads with 4 wallet cards",
+      "result": "PASS",
+      "details": "Page shows Cashier Drawer (₱126,377.25), Physical Safe (₱1,000,000.00), Digital/E-Wallet (₱10,261.00), Bank Account (₱0.00) when Branch 1 is selected"
+    },
+    {
+      "test": "Cashier → Safe transfer button opens FundTransferDialog",
+      "result": "PASS",
+      "details": "Dialog opens with correct title, available balance from Cashier Drawer, amount input, note input, Manager PIN field, Cancel and Confirm Transfer buttons"
+    },
+    {
+      "test": "Safe → Cashier transfer button opens FundTransferDialog",
+      "result": "PASS",
+      "details": "Dialog opens with Manager PIN auth field, available balance from Physical Safe"
+    },
+    {
+      "test": "Safe → Bank transfer button opens FundTransferDialog",
+      "result": "PASS",
+      "details": "Dialog opens with TOTP Code auth field (6-digit authenticator code), available balance from Physical Safe"
+    },
+    {
+      "test": "Capital Injection button opens FundTransferDialog",
+      "result": "PASS",
+      "details": "Dialog opens with Cashier/Safe target selector buttons and Owner PIN/TOTP field"
+    },
+    {
+      "test": "FundTransferDialog Cancel button closes dialog",
+      "result": "PASS",
+      "details": "Cancel button successfully closes the dialog for all transfer types"
+    },
+    {
+      "test": "Confirm Transfer button disabled when amount empty",
+      "result": "PASS",
+      "details": "Confirm button has disabled attribute when amount input is empty"
+    },
+    {
+      "test": "Phase 2 regression: InvoiceDetailModal compact mode",
+      "result": "PASS",
+      "details": "InvoiceDetailModal opens from Sales History with Print Full, Print 58mm, View on Phone, Upload Receipt, Verify, Edit buttons"
+    },
+    {
+      "test": "Phase 3 regression: VerifyPinDialog (AuthDialog wrapper)",
+      "result": "PASS",
+      "details": "VerifyPinDialog opens from sale detail Verify button with PIN input, Flag a discrepancy toggle, Cancel and Verify Transaction buttons"
+    }
+  ],
+  "tests_not_completed": []
+}

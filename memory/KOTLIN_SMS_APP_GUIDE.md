@@ -139,7 +139,7 @@ Open `app/src/main/res/layout/activity_main.xml` and REPLACE with:
         android:id="@+id/serverUrlInput"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:hint="https://your-app.preview.emergentagent.com"
+        android:hint="https://sms-trigger-fix.preview.emergentagent.com"
         android:inputType="textUri"
         android:textSize="14sp"
         android:background="@android:color/white"
@@ -733,7 +733,7 @@ class MainActivity : AppCompatActivity() {
 
 1. Open **AgriSMS Gateway** app on your phone
 2. Grant **SMS permission** when prompted
-3. Enter your server URL: `https://modal-optimize.preview.emergentagent.com`
+3. Enter your server URL: `https://sms-trigger-fix.preview.emergentagent.com`
 4. Tap **"Login with Credentials"** → enter your admin email + password
 5. Tap **"Start Gateway"**
 6. Done! The app will now automatically send SMS from your queue every 30 seconds

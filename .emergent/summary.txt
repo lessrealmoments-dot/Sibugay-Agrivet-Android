@@ -1,26 +1,244 @@
-<analysis>**original_problem_statement**: The user requested major enhancements to system observability and frontend technical debt, specifically focusing on consolidating the UI modals to eliminate redundancies (Modal Consolidation Plan). In the latest interactions, the user required immediate fixes for modal overflow and scrolling issues on small screens and expanded views.
-PRODUCT REQUIREMENTS: 
-1. Complete Modal Consolidation Phases 2, 3, and 4.
-2. Fix frontend UI bugs where modals require horizontal scrolling instead of button wrapping.
-3. Fix vertical scrolling in modals (specifically  in the Dashboard) so all expanded content is reachable.
+<analysis>Here is the handover summary for the next agent:
+
+**original_problem_statement**: 
+The user requested UI enhancements to the Payments page to show a left sidebar of customers with balances (matching the Pay Supplier page layout). Subsequently, the user requested an SMS notification system for credit sales, 15-day reminders, and 7-day reminders. To save costs, the user opted to use a custom Android app on a local store phone with unlimited texting to act as the SMS Gateway, requiring a backend SMS queue engine. Lastly, the user requested credential-based login for POS Terminals, and encountered bugs where online sales fell back to offline  syncs.
+
+PRODUCT REQUIREMENTS:
+1. Revamp  with a left-panel customer receivables list.
+2. Build an SMS Queue engine (Templates, Webhooks, Scheduled jobs).
+3. Build an Admin UI to manage SMS templates, queues, and blasts.
+4. Provide code for a custom Kotlin Android app that polls the backend to send SMS.
+5. Add credential login to POS Terminal pairing.
 
 **User's preferred language**: English (Next agent MUST respond in English)
 
 **what currently exists?** 
-A highly observable, stable full-stack POS application with fully consolidated frontend modals. Phases 1-4 of the Modal Consolidation Plan are complete, meaning redundant dialogs have been eliminated or merged using backward-compatible props and thin wrapper patterns. Critical UI bugs regarding horizontal button overflow and broken vertical scrolling (due to flexbox constraints) have been fully resolved.
+A stable POS with a fully functional SMS queuing backend. The  page now mirrors the  layout with a left sidebar for receivables. The Terminal allows standard pairing or credential login. An Admin-only  was created in the main app to manage SMS templates, view the queue, and send blasts. Daily  jobs exist to queue 15-day and 7-day payment reminders. A custom Kotlin app was successfully compiled by the user to poll  and send the texts via their local carrier.
 
 **Last working item**: 
-    - Last item agent was working: Fixing vertical and horizontal scrolling issues across multiple modals (, , ). Replacing Shadcn  with a native  div to fix flex-column scroll constraints.
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y
-    - Which testing method agent to use? Screenshot tool (for frontend UI checks).
+    - Last item agent was working: Debugging the  SMS hook in . The user created a live credit sale (), but it did not generate an SMS in the pending queue. 
+    - Status: IN PROGRESS
+    - Agent Testing Done: N (Agent just added debug  statements right before asking for human confirmation)
+    - Which testing method agent to use? backend minor issue: main agent to test via curl and check backend logs.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**: 
-  Issue 1: React-hooks/exhaustive-deps ESLint warnings (P2)
-     - Attempted fixes: Purposefully backlogged to focus on feature delivery and UI bugs.
-     - Next debug checklist: Review ESLint warnings in the terminal (e.g., , ) and correctly define dependency arrays in  and  hooks.
-     - Why fix this issue and what will be achieved with the fix? Improves code quality, prevents stale closure bugs, and cleans up the build logs.
+  Issue 1: SMS hook  not firing on live  (P0)
+     - Attempted fixes: The agent previously found a 500  for  which was forcing the frontend into offline sync ( naming). Fixed this by changing  to . However, the hook is still silently bypassed during live sales. Added  to trace the condition block at line ~582 in .
+     - Next debug checklist: 
+        1. Check backend supervisor logs (==> /var/log/supervisor/backend.err.log <==
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_backup_job" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_subscription_check" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_invoice_check" to job store "default"
+2026-03-31 16:51:58,598 - apscheduler.scheduler - INFO - Added job "process_expired_reservations" to job store "default"
+2026-03-31 16:51:58,599 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_compliance_check" to job store "default"
+2026-03-31 16:51:58,599 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_sms_reminders" to job store "default"
+2026-03-31 16:51:58,599 - apscheduler.scheduler - INFO - Added job "startup.<locals>._monthly_sms_summary" to job store "default"
+2026-03-31 16:51:58,599 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-31 16:51:58,599 - config - INFO - Backup scheduler started — daily at 01:00
+INFO:     Application startup complete.
+/root/.venv/lib/python3.11/site-packages/jwt/api_jwt.py:371: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+2026-03-31 16:53:22,533 - pin_verify - INFO - verify-manager-pin called: action=credit_sale_approval, user=Platform Admin, org=None
+2026-03-31 16:53:22,534 - pin_verify - INFO - PIN verify: len=6, methods={'manager_pin', 'admin_pin', 'totp'}, branch=sms-trigger-fix
+2026-03-31 16:53:22,755 - pin_verify - INFO - PIN matched: admin_pin (system_settings)
+/root/.venv/lib/python3.11/site-packages/jwt/api_jwt.py:153: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+WARNING:  WatchFiles detected changes in 'routes/sales.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-03-31 17:00:11,988 - apscheduler.scheduler - INFO - Scheduler has been shut down
+INFO:     Application shutdown complete.
+INFO:     Finished server process [5382]
+INFO:     Started server process [5715]
+INFO:     Waiting for application startup.
+2026-03-31 17:00:13,690 - config - WARNING - ⚠️  JWT_SECRET is too short (28 chars). Generate a strong key with: openssl rand -hex 32
+2026-03-31 17:00:13,700 - config - INFO - Database indexes created
+2026-03-31 17:00:13,758 - config - INFO - Wallet provisioning complete — 44 branches checked
+2026-03-31 17:00:13,758 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,758 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,758 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,759 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_backup_job" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_subscription_check" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_invoice_check" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "process_expired_reservations" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_compliance_check" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_sms_reminders" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Added job "startup.<locals>._monthly_sms_summary" to job store "default"
+2026-03-31 17:00:13,760 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-31 17:00:13,760 - config - INFO - Backup scheduler started — daily at 01:00
+INFO:     Application startup complete.
+/root/.venv/lib/python3.11/site-packages/jwt/api_jwt.py:371: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+2026-03-31 17:01:38,396 - pin_verify - INFO - verify-manager-pin called: action=credit_sale_approval, user=Platform Admin, org=None
+2026-03-31 17:01:38,397 - pin_verify - INFO - PIN verify: len=6, methods={'manager_pin', 'admin_pin', 'totp'}, branch=sms-trigger-fix
+2026-03-31 17:01:38,619 - pin_verify - INFO - Admin PIN check: hash_exists=True, match=False
+2026-03-31 17:01:38,620 - pin_verify - INFO - Manager PIN check: found 34 admin/manager/owner users
+2026-03-31 17:01:38,620 - pin_verify - INFO - PIN matched: manager_pin for user Platform Admin
+INFO:     Will watch for changes in these directories: ['/app/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [47] using WatchFiles
+INFO:     Started server process [82]
+INFO:     Waiting for application startup.
+2026-03-31 17:06:16,989 - config - WARNING - ⚠️  JWT_SECRET is too short (28 chars). Generate a strong key with: openssl rand -hex 32
+2026-03-31 17:06:17,007 - config - INFO - Database indexes created
+2026-03-31 17:06:17,059 - config - INFO - Wallet provisioning complete — 44 branches checked
+2026-03-31 17:06:17,059 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,059 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,059 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,059 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,059 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,062 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,062 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,062 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,062 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,063 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,063 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_backup_job" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._org_backup_job" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_subscription_check" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_invoice_check" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "process_expired_reservations" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_compliance_check" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._daily_sms_reminders" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Added job "startup.<locals>._monthly_sms_summary" to job store "default"
+2026-03-31 17:06:17,064 - apscheduler.scheduler - INFO - Scheduler started
+2026-03-31 17:06:17,064 - config - INFO - Backup scheduler started — daily at 01:00
+INFO:     Application startup complete.
+
+==> /var/log/supervisor/backend.out.log <==
+INFO:     10.201.1.69:36422 - "GET /api/uploads/record/invoice/7c10643f-b1b5-40b6-a8f9-c173b544b219 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:59838 - "GET /api/uploads/record/invoice/7c10643f-b1b5-40b6-a8f9-c173b544b219 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:33008 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49280 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49280 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49280 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:58712 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:39568 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:47082 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:47082 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     10.201.1.69:47082 - "GET /api/sms/queue?status=pending&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:59964 - "GET /api/sms/queue?status=sent&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:59964 - "GET /api/sms/queue?status=failed&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:47082 - "GET /api/sms/queue?status=sent&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:47082 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:47082 - "GET /api/products/pricing-scan?branch_id=sms-trigger-fix&notify=true&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:52138 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48620 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48614 - "GET /api/invoices?skip=0&limit=50&sort_by=created_at&sort_dir=desc&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:44180 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:44180 - "GET /api/invoices?skip=0&limit=50&sort_by=created_at&sort_dir=desc&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48614 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48614 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48614 - "PATCH /api/sms/queue/25897380-3506-4965-8f51-ec2919dae52d/mark-sent HTTP/1.1" 200 OK
+INFO:     10.201.2.69:44180 - "GET /api/invoices/7c10643f-b1b5-40b6-a8f9-c173b544b219?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:44180 - "GET /api/uploads/record/invoice/7c10643f-b1b5-40b6-a8f9-c173b544b219?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48614 - "GET /api/uploads/record/invoice/7c10643f-b1b5-40b6-a8f9-c173b544b219?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:44186 - "GET /api/products/pricing-scan?notify=true HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48614 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:44180 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:44912 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52974 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:42736 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53636 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53636 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53642 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52790 - "GET /api/customers?limit=500&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52808 - "GET /api/settings/terms-options?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52794 - "GET /api/settings/invoice-prefixes?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52790 - "GET /api/sync/pos-data?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53642 - "GET /api/price-schemes HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53652 - "GET /api/users?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53636 - "GET /api/daily-close/unclosed-days?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52794 - "GET /api/customers?limit=500&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53642 - "GET /api/settings/invoice-prefixes?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52794 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52808 - "GET /api/settings/terms-options?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52794 - "GET /api/price-schemes HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53642 - "GET /api/users?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53652 - "GET /api/sync/pos-data?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52794 - "GET /api/daily-close/unclosed-days?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:53652 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:58150 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:45558 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:59468 - "POST /api/auth/verify-manager-pin HTTP/1.1" 200 OK
+INFO:     10.201.1.69:59468 - "POST /api/unified-sale HTTP/1.1" 200 OK
+INFO:     10.201.1.69:48694 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:45964 - "GET /api/sms/queue?status=pending&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:35756 - "GET /api/sms/stats?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:35756 - "GET /api/sms/queue?status=pending&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:45964 - "GET /api/sms/stats?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:35756 - "GET /api/sms/queue?status=sent&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:45964 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:45964 - "GET /api/sms/queue?status=pending&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:45964 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:35730 - "GET /api/sms/queue?status=sent&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/sms/queue?status=failed&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:35730 - "GET /api/sms/queue?status=sent&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:35730 - "GET /api/sms/queue?status=pending&limit=100&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/invoices?skip=0&limit=50&sort_by=created_at&sort_dir=desc&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:50344 - "GET /api/invoices?skip=0&limit=50&sort_by=created_at&sort_dir=desc&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:50344 - "GET /api/settings/business-info?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:50344 - "GET /api/invoices/3eef1987-6bc5-473d-adec-ff64ef091194?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/uploads/record/invoice/3eef1987-6bc5-473d-adec-ff64ef091194?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:50344 - "GET /api/uploads/record/invoice/3eef1987-6bc5-473d-adec-ff64ef091194?branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49514 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:39200 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:38026 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:42986 - "GET /api/products/pricing-scan?branch_id=sms-trigger-fix&notify=true&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:58934 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:50032 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:50032 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:34688 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:54140 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:52916 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:51610 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:51610 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:44154 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:48906 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:49682 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.2.69:49682 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.1.69:59350 - "GET /api/notifications?limit=1&branch_id=sms-trigger-fix HTTP/1.1" 200 OK
+INFO:     10.201.2.69:49208 - "GET /api/sms/queue/pending?limit=10 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49882 - "GET /api/notifications?limit=1 HTTP/1.1" 200 OK
+INFO:     10.201.1.69:49882 - "GET /api/products/pricing-scan?notify=true HTTP/1.1" 200 OK) to view the newly added logger outputs for  or trigger a new credit sale via curl.
+        2. Evaluate the  condition. One of these variables is likely evaluating to False/None unexpectedly during the live request context.
+        3. Fix the condition, test via curl, and ensure the SMS appears in .
+     - Why fix this issue and what will be achieved with the fix? This is the core trigger for the entire SMS notification feature requested by the user.
+     - Status: IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? backend
+     - Blocked on other issue: None
+
+  Issue 2: React-hooks/exhaustive-deps ESLint warnings (P2)
+     - Attempted fixes: Purposefully backlogged to focus on feature delivery.
+     - Next debug checklist: Review ESLint warnings in the terminal and correctly define dependency arrays in  and  hooks.
      - Status: NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix? frontend
@@ -31,96 +249,98 @@ A highly observable, stable full-stack POS application with fully consolidated f
 
 **Upcoming and Future Tasks**
   Upcoming Tasks:
-  - **P0 - Clean up Orphaned Files**: Delete  and  as they now have zero imports across the application and their stability is confirmed.
-  - **P1 - Compliance Calendar Widget**: Build the dashboard widget showing upcoming business document deadlines (the backend data/notification engine is already complete from a previous session).
+  - **P1 - Compliance Calendar Widget**: Build the dashboard widget showing upcoming business document deadlines (data API already exists).
   - **P1 - Finance Reports**: Add Discount cashier drill-down and AP payment history per supplier views.
   
   Future Tasks:
   - **P1 - Terminal Features**: Implement Quick Stock Check, Price Check, and Quick Count.
   - **P2 - Codebase Refactoring**: Refactor .
-  - **P2 - Global Modal Context**: Potential improvement to add a global modal registry/context so any page can open a doc detail modal via a simple function call () instead of managing local dialog state.
+  - **P2 - Global Modal Context**: Add a global modal registry/context to open doc detail modals via a simple function call.
 
 **Completed work in this session**
-- Modal Consolidation Phase 2:  (compact mode) absorbed  across 14 files (DONE).
-- Modal Consolidation Phase 3: Created unified  and converted  and  into thin backward-compatible wrappers (DONE).
-- Modal Consolidation Phase 4: Extracted inline fund transfer UI from  into reusable  (DONE).
-- Modal UI Scroll Fixes: Added  to  action buttons, added  to avoid horizontal scroll on small viewports, and fixed vertical scrolling in  (DONE).
+- Payments page layout updated with left-side customer receivables list (DONE)
+- Orphaned legacy modal files deleted (DONE)
+- SMS Backend Engine created (queues, hooks,  daily jobs) (DONE)
+- Terminal credential-based login implemented (DONE)
+- Main App Admin SMS Messages UI () built (DONE)
+- Kotlin Android Gateway code provided and successfully compiled by user (DONE)
 
 **Earlier issues found/mentioned but not fixed**
 None.
 
 **Known issue recurrence from previous fork**
   - Issue recurrence in previous fork:  warnings for .
-  - Recurrence count: 6+
+  - Recurrence count: 7+
   - Status: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Wrapper Pattern**: Legacy components (, ) were stripped of logic and turned into thin wrappers around  to preserve backward compatibility without changing consuming pages.
-- **Prop Aliasing**:  takes a  boolean to render a single-view, and uses  to alias  for seamless  replacement.
-- **Flexbox Scrolling Mechanics**: Replaced Shadcn's  with native  divs using . This is required for scrollable containers inside a flex column to calculate their height correctly.
+- **Custom Polling SMS Gateway**: To avoid Twilio/API costs, the system uses a custom architecture. The backend *does not* push SMS to an external provider. Instead, it creates entries in the  MongoDB collection. The user has installed a custom Kotlin Android app on a store phone that constantly polls , sends the text via the local carrier SIM, and reports back via .
 
 **key DB schema**
-- (Refer to previous handoffs for full schema; no DB changes made this session).
+- : uid=0(root) gid=0(root) groups=0(root), , ,  (pending, sent, failed, skipped), , , .
+- : uid=0(root) gid=0(root) groups=0(root), , , , , .
 
 **changes in tech stack**
-- None
+- Added scheduled jobs for SMS reminders to  in  (, ).
 
 **All files of reference** 
--  (New unified auth modal)
--  (New extracted transfer modal)
--  (Compact mode reference)
--  (Reference for scrolling fixes)
--  (Created explicitly for auth tests)
+-  (Currently debugging hook logic at line ~582)
+-  (Source of )
+-  (API endpoints for queue)
+- 
+- 
 
 **Areas that need refactoring**: 
-- Orphaned components (, ) must be deleted.
 -  (Identified in PRD backlog).
 
 **key api endpoints**
-- No API changes; backend was untouched this session.
+-  (The endpoint currently failing to queue SMS)
+-  (Polled by the external Android app)
 
 **Critical Info for New Agent** 
-All 4 phases of Modal Consolidation are finished. The previous legacy modals ( and ) are safely disconnected and exist as empty/orphaned files—you may delete them in your next cleanup task. Remember that the UI scroll fix involved removing the generic Shadcn  component because it lacked  inside a  parent. Do not reintroduce  for complex flex-column dialogs.
+The user was heavily involved in compiling the Kotlin app locally using Android Studio. **Do not attempt to modify or interact with the Kotlin app code anymore; the user has successfully built and installed it on their device.** Your strict focus right now is fixing the backend  hook. The user reported that a live sale () did not generate an SMS. The previous agent fixed a  that was crashing  entirely, but the SMS hook logic itself is still evaluating to false and being skipped. Look at the  the previous agent just placed in  to identify which variable (, , ) is failing the condition.
 
 **documents and test reports created in this job** 
 - 
 - 
 - 
 - 
--  (Updated)
--  (Updated)
--  (Updated)
+- 
+- , , 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-- User: proceed accordingly (Approving Phase 2 Modal consolidation plan).
-- User: proceed to next phase (Approving Phase 3 & 4 Modal consolidation).
-- User: So tell what changed and what area are now using the same modal I wanna check each modal to confirm (Requested a mapping of changes).
-- User: Check these for me: [URLs]... It seems that the modal is not optimized properly some I have to scroll left and right to see the other options... What I want is we can scroll up or down, and not scroll left and right (Reported horizontal overflow bugs).
-- User: continue (While agent was verifying).
-- User: Check again po-b1-001012... Pending Reviews - receipts awaiting review. Still cant scroll down. if I expand the verify and approve this PO (Reported specific vertical scroll issue in the Dashboard PO modal).
+- User: Compiled Kotlin app, hit Gradle errors, resolved them.
+- User: installed now. but what is this server url is empty and theres also login with credentials"
+- User: "Created a new credit for elline macay for branch 1 no notification or pending status send? Also got something like currently offline will sync when online again"
+- Agent: Investigated and found the frontend forced it offline because the backend crashed with a 500 error (`NameError`).
+- User: "I actually did it in the main website. Also why is it Sale Detail — SYNC-0a8d9d19"
+- Agent: Fixed the `NameError`.
+- User: "I created a new sale and it is using proper naming now... I dont even know if it sync or not because I didnt receive the message
+- User: https://[preview-url]/messages Everything is empty here. And Agri SMS gateway is not receiving anything
+- Agent: Fired the hook manually via python and saw it worked, realized the live request is bypassing the hook block. Added loggers.
+- User: you sure, so why is this not in the pending SI-B1-001043? (Pending HUMAN message context: waiting for the result of the newly placed loggers).
 
 **Project Health Check:**
-- Broken: None
-- Mocked: None
+- Broken: SMS auto-queueing trigger inside .
+- Mocked: Actual SMS dispatch (handled natively by the user's external Android app).
 
 **3rd Party Integrations**
 - APScheduler (Backend background jobs)
 - Boto3 (Cloudflare R2 for object storage) — uses User API Key.
 
 **Testing status**
-- Testing agent used after significant changes: YES (Iterations 146, 147, 148 for consolidation phases)
+- Testing agent used after significant changes: YES (Iterations 149-152)
 - Troubleshoot agent used after agent stuck in loop: NO
 - Test files created: None
-- Known regressions: None. (Scroll issues introduced during consolidation have been fixed).
+- Known regressions: Bug in SMS hook execution during live sales.
 
 **Credentials to test flow:**
 - Super Admin:  / 
-- Company Admin:  / 
 - Manager PIN: 
 *(Available at )*
 
 **What agent forgot to execute**
-Nothing. The agent successfully addressed the scheduled plans and gracefully handled the real-time UI bugs the user reported during verifications.</analysis>
+The agent addressed everything up to the very recent bug discovery. The only remaining action is reading the logs outputted by the newly inserted debug lines to fix the  condition.</analysis>

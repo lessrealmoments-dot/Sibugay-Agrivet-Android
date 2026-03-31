@@ -17,7 +17,6 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
-import { ScrollArea } from './ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import ViewQRDialog from './ViewQRDialog';
 import {
@@ -201,15 +200,15 @@ export default function ReviewDetailDialog({
   return (
     <>
       <Dialog open={open && (!!resolvedId || loading)} onOpenChange={v => { if (!v && effectiveClose) effectiveClose(); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col overflow-x-hidden" data-testid="review-detail-dialog">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col overflow-hidden p-0" data-testid="review-detail-dialog">
+          <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
               <FileCheck size={18} className="text-[#1A4D2E]" />
               {title}
             </DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
             <div className="space-y-4 pb-2">
               {loading ? (
                 <div className="flex items-center justify-center py-8 text-slate-400 text-sm">
@@ -690,10 +689,10 @@ export default function ReviewDetailDialog({
                 </>
               ) : null}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* ── Footer ── */}
-          <div className="flex justify-between items-center pt-3 border-t -mx-6 px-6">
+          <div className="flex justify-between items-center pt-3 pb-4 border-t px-6 shrink-0">
             <Button variant="ghost" size="sm" onClick={goToFullPage} className="text-xs text-slate-500 hover:text-[#1A4D2E]">
               <ExternalLink size={12} className="mr-1" /> Open Full Page
             </Button>

@@ -22,6 +22,11 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
+### SMS Auto-Queue Bug Fix (2026-04-01) — Complete
+- **Root Cause:** `ensure_org_context(branch_id=branch_id)` in `log_movement()` was setting the org ContextVar to the branch's organization ID mid-request. Subsequent `db.customers.find_one()` calls in `sms_hooks.py` then filtered by `organization_id`, missing customers who had no org tag (pre-migration data).
+- **Fix:** All `sms_hooks.py` and `queue_sms()` in `sms.py` now use `_raw_db` (unscoped MongoDB client) for all lookups, bypassing tenant isolation entirely. This is safe since IDs are UUIDs and the hooks are server-triggered, not user-scoped.
+- **Verified:** Credit sale → SMS queued `pending` immediately → Android gateway marks `sent`. All three hooks (credit sale, payment received, charge applied) now use `_raw_db`.
+
 ### QR Security Hardening (2026-03-17) — Complete
 - **Gap 1 fixed:** PIN brute-force lockout per doc_code. 5 failures → admin alert; 10 failures → 15-min 429 lockout. Auto-resets on success.
 - **Gap 2 fixed:** `receive_payment` and `transfer_receive` now require idempotency UUID (`payment_ref`, `transfer_ref`) — duplicate submissions rejected with 409.

@@ -585,7 +585,7 @@ async def create_unified_sale(data: dict, user=Depends(get_current_user)):
             await on_credit_sale_created(invoice)
         except Exception as sms_err:
             import logging
-            logging.getLogger("sms").error(f"SMS hook error in unified-sale: {sms_err}")
+            logging.getLogger("sms").error(f"SMS hook error in unified-sale: {sms_err}", exc_info=True)
 
     # ── Discount / Price Override Audit Log ───────────────────────────────────
     overall_disc = float(data.get("overall_discount", 0))

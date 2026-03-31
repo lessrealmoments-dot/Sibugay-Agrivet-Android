@@ -1,19 +1,20 @@
 """
 SMS trigger hooks — called from invoice creation, payment receipt, etc.
 Each function is fire-and-forget (errors logged, never blocks the caller).
+Uses _raw_db (unscoped) for lookups since org context may be mutated by prior operations.
 """
-from config import db, logger
+from config import _raw_db as raw_db, logger
 
 
 async def get_company_name() -> str:
-    biz = await db.settings.find_one({"key": "business_info"}, {"_id": 0})
+    biz = await raw_db.settings.find_one({"key": "business_info"}, {"_id": 0})
     return biz.get("value", {}).get("business_name", "AgriBooks") if biz else "AgriBooks"
 
 
 async def get_branch_name(branch_id: str) -> str:
     if not branch_id:
         return ""
-    branch = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
+    branch = await raw_db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
     return branch.get("name", "") if branch else ""
 
 
@@ -24,7 +25,7 @@ async def on_credit_sale_created(invoice: dict):
         customer_id = invoice.get("customer_id", "")
         if not customer_id:
             return
-        customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+        customer = await raw_db.customers.find_one({"id": customer_id}, {"_id": 0})
         if not customer:
             return
         phone = customer.get("phone") or invoice.get("customer_phone", "")
@@ -63,7 +64,7 @@ async def on_payment_received(customer_id: str, amount_paid: float, remaining_ba
     """Called after a customer payment is applied."""
     try:
         from routes.sms import queue_sms
-        customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+        customer = await raw_db.customers.find_one({"id": customer_id}, {"_id": 0})
         if not customer:
             return
         phone = customer.get("phone", "")
@@ -98,7 +99,7 @@ async def on_charge_applied(customer_id: str, charge_type: str, charge_amount: f
     """Called after interest or penalty is generated."""
     try:
         from routes.sms import queue_sms
-        customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+        customer = await raw_db.customers.find_one({"id": customer_id}, {"_id": 0})
         if not customer:
             return
         phone = customer.get("phone", "")

@@ -6,7 +6,7 @@ GET /pending and marks sent via PATCH /{id}/mark-sent.
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone, timedelta
-from config import db
+from config import db, _raw_db, logger as _config_logger
 from utils import get_current_user, check_perm, now_iso, new_id
 
 router = APIRouter(prefix="/sms", tags=["SMS"])
@@ -191,22 +191,22 @@ async def queue_sms(
     if not phone or not phone.strip():
         return None
 
-    # Check template
-    template = await db.sms_templates.find_one({"key": template_key}, {"_id": 0})
+    # Check template — use _raw_db to bypass tenant filter
+    template = await _raw_db.sms_templates.find_one({"key": template_key}, {"_id": 0})
     if not template or not template.get("active", True):
         return None
 
-    # Check per-trigger setting
-    setting = await db.sms_settings.find_one(
+    # Check per-trigger setting — use _raw_db
+    setting = await _raw_db.sms_settings.find_one(
         {"trigger_key": template_key, "$or": [{"branch_id": branch_id}, {"branch_id": None}, {"branch_id": ""}]},
         {"_id": 0},
     )
     if setting and not setting.get("enabled", True):
         return None
 
-    # De-duplication
+    # De-duplication — use _raw_db
     if dedup_key:
-        existing = await db.sms_queue.find_one({"dedup_key": dedup_key}, {"_id": 0})
+        existing = await _raw_db.sms_queue.find_one({"dedup_key": dedup_key}, {"_id": 0})
         if existing:
             return None
 
@@ -230,7 +230,7 @@ async def queue_sms(
         "error": None,
         "retry_count": 0,
     }
-    await db.sms_queue.insert_one(doc)
+    await _raw_db.sms_queue.insert_one(doc)
     del doc["_id"]
     return doc
 

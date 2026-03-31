@@ -10,11 +10,13 @@ import { formatPHP } from '../lib/utils';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 import {
   Bell, CheckCheck, Shield, AlertTriangle, Tag, Zap,
   ArrowLeftRight, Banknote, TrendingDown, Package,
   CreditCard, RefreshCw, ChevronLeft, X,
-  ShieldAlert, ClipboardCheck, Receipt, BarChart3, FileWarning
+  ShieldAlert, ClipboardCheck, Receipt, BarChart3, FileWarning,
+  User, MapPin, Smartphone, FileText, ExternalLink, Lock
 } from 'lucide-react';
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -124,6 +126,113 @@ function timeAgo(isoStr) {
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(isoStr).toLocaleDateString();
+}
+
+// ── Security Alert detail inline block ───────────────────────────────────────
+function SecurityAlertDetail({ n, onOpenDoc }) {
+  const m = n.metadata || {};
+  const isQR   = m.alert_source === 'qr_terminal';
+  const isAuth = m.alert_source === 'authenticated_pin';
+  const locked = m.locked;
+
+  const cardBase = 'rounded-lg border p-3 text-[11px] space-y-1.5 flex-1 min-w-0';
+
+  if (isAuth) {
+    return (
+      <div className="mt-2 flex gap-2">
+        <div className={`${cardBase} border-red-100 bg-red-50/60`}>
+          <p className="font-semibold text-red-700 flex items-center gap-1 text-[10px] uppercase tracking-wide mb-1">
+            <User size={10} /> Who
+          </p>
+          <AlertRow label="Name"   value={m.user_name} />
+          <AlertRow label="Role"   value={m.user_role ? m.user_role.charAt(0).toUpperCase() + m.user_role.slice(1) : '—'} />
+          <AlertRow label="Email"  value={m.user_email || '—'} mono />
+          <AlertRow label="Branch" value={m.branch_name || '—'} />
+        </div>
+        <div className={`${cardBase} border-slate-100 bg-slate-50/60`}>
+          <p className="font-semibold text-slate-600 flex items-center gap-1 text-[10px] uppercase tracking-wide mb-1">
+            <Shield size={10} /> What
+          </p>
+          <AlertRow label="Action" value={m.action_label || '—'} />
+          <AlertRow label="Detail" value={m.context || '—'} />
+          <AlertRow label="Fails"  value={`${m.failure_count}x in 30 min`} />
+          <div className="pt-1">
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+              m.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+            }`}>
+              {m.severity === 'high' ? 'HIGH — Possible brute force' : 'Warning — Monitor'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isQR) {
+    const canOpen = !!(m.doc_id && m.doc_type);
+    const docTypeLabel = { invoice: 'Invoice', purchase_order: 'Purchase Order', branch_transfer: 'Branch Transfer' };
+    return (
+      <div className="mt-2 space-y-2">
+        <div className="flex gap-2">
+          <div className={`${cardBase} border-blue-100 bg-blue-50/60`}>
+            <p className="font-semibold text-blue-700 flex items-center gap-1 text-[10px] uppercase tracking-wide mb-1">
+              <Smartphone size={10} /> Terminal
+            </p>
+            <AlertRow label="Device" value={m.terminal_label || '—'} />
+            <AlertRow label="Branch" value={m.branch_name || '—'} />
+            <AlertRow label="Action" value={m.action_label || '—'} />
+            <AlertRow label="Fails"  value={`${m.failure_count}x`} />
+          </div>
+          <div className={`${cardBase} border-slate-100 bg-slate-50/60`}>
+            <p className="font-semibold text-slate-600 flex items-center gap-1 text-[10px] uppercase tracking-wide mb-1">
+              <FileText size={10} /> Document
+            </p>
+            <AlertRow label="Type" value={docTypeLabel[m.doc_type] || m.doc_type || '—'} />
+            <AlertRow label="Number" value={
+              canOpen ? (
+                <button
+                  onClick={() => onOpenDoc(m.doc_id, m.doc_type)}
+                  className="font-mono text-blue-600 hover:underline flex items-center gap-0.5"
+                  data-testid="security-alert-view-doc-btn"
+                >
+                  {m.doc_number || m.doc_code} <ExternalLink size={9} />
+                </button>
+              ) : (
+                <span className="font-mono">{m.doc_number || m.doc_code || '—'}</span>
+              )
+            } />
+            <AlertRow label={m.doc_type === 'purchase_order' ? 'Supplier' : 'Customer'} value={m.counterparty || '—'} />
+            {m.doc_amount != null && <AlertRow label="Amount" value={formatPHP(m.doc_amount)} />}
+          </div>
+        </div>
+        {locked && (
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+            <Lock size={11} /> Document locked for 15 minutes — too many failed attempts
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback for old-format alerts (no alert_source)
+  return (
+    <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50/60 p-2.5 text-[11px] text-slate-600 space-y-0.5">
+      {m.context && <p><span className="font-medium">Context:</span> {m.context}</p>}
+      {m.user_name && <p><span className="font-medium">User:</span> {m.user_name}</p>}
+      {m.failure_count && <p><span className="font-medium">Failures:</span> {m.failure_count}</p>}
+    </div>
+  );
+}
+
+function AlertRow({ label, value, mono }) {
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <span className="text-slate-400 shrink-0">{label}:</span>
+      <span className={`text-slate-700 text-right break-all ${mono ? 'font-mono text-[10px]' : ''}`}>
+        {value ?? '—'}
+      </span>
+    </div>
+  );
 }
 
 // ── Compliance detail inline block ───────────────────────────────────────────
@@ -237,11 +346,11 @@ function ApPaymentDetail({ n }) {
 }
 
 // ── Notification row ──────────────────────────────────────────────────────────
-function NotifRow({ n, onMarkRead }) {
+function NotifRow({ n, onMarkRead, onOpenDoc }) {
   const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.admin_action;
   const Icon = cfg.icon;
   const [expanded, setExpanded] = useState(false);
-  const hasDetail = ['discount_given', 'below_cost_sale', 'ap_payment', 'compliance_deadline'].includes(n.type);
+  const hasDetail = ['discount_given', 'below_cost_sale', 'ap_payment', 'compliance_deadline', 'security_alert'].includes(n.type);
 
   return (
     <div
@@ -295,6 +404,7 @@ function NotifRow({ n, onMarkRead }) {
           {expanded && n.type === 'below_cost_sale' && <DiscountDetail n={n} />}
           {expanded && n.type === 'ap_payment' && <ApPaymentDetail n={n} />}
           {expanded && n.type === 'compliance_deadline' && <ComplianceDetail n={n} />}
+          {expanded && n.type === 'security_alert' && <SecurityAlertDetail n={n} onOpenDoc={onOpenDoc} />}
         </div>
       </div>
     </div>
@@ -309,6 +419,7 @@ export default function NotificationsPage() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [reviewRecord, setReviewRecord] = useState(null); // { id, type }
 
   const load = useCallback(async (cat = activeCategory) => {
     setLoading(true);
@@ -439,7 +550,7 @@ export default function NotificationsPage() {
         <ScrollArea className="flex-1">
           <div className="divide-y divide-slate-50">
             {notifications.map(n => (
-              <NotifRow key={n.id} n={n} onMarkRead={markRead} />
+              <NotifRow key={n.id} n={n} onMarkRead={markRead} onOpenDoc={(id, type) => setReviewRecord({ id, type })} />
             ))}
           </div>
           <div className="py-4 text-center text-xs text-slate-400 border-t border-slate-100">
@@ -447,6 +558,17 @@ export default function NotificationsPage() {
           </div>
         </ScrollArea>
       )}
+
+      {/* ── Review Dialog (opened from security alert doc links) ── */}
+      <ReviewDetailDialog
+        open={!!reviewRecord}
+        onClose={() => setReviewRecord(null)}
+        recordType={reviewRecord?.type}
+        recordId={reviewRecord?.id}
+        showReviewAction={reviewRecord?.type === 'purchase_order' || reviewRecord?.type === 'branch_transfer'}
+        showPayAction={false}
+        onReviewed={() => setReviewRecord(null)}
+      />
     </div>
   );
 }

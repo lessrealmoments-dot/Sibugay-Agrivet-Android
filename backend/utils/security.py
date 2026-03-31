@@ -353,41 +353,37 @@ async def _raise_qr_security_alert(
 
     # ── Resolve document details ───────────────────────────────────────────────
     doc_number   = doc_code
+    doc_id_meta  = ""        # UUID for ReviewDetailDialog
     counterparty = ""
     doc_amount   = None
 
     try:
-        if doc_type == "invoice":
-            inv = await db.invoices.find_one({"id": {"$exists": True}},
-                {"_id": 0, "id": 1, "invoice_number": 1, "customer_name": 1, "grand_total": 1})
-            # Look up via doc_codes table for accurate doc_id
-            dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
-            if dc:
-                inv = await db.invoices.find_one({"id": dc["doc_id"]},
-                    {"_id": 0, "invoice_number": 1, "customer_name": 1, "grand_total": 1})
+        dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
+        if dc:
+            doc_id_meta = dc["doc_id"]
+
+        if doc_type == "invoice" and doc_id_meta:
+            inv = await db.invoices.find_one({"id": doc_id_meta},
+                {"_id": 0, "invoice_number": 1, "customer_name": 1, "grand_total": 1})
             if inv:
                 doc_number   = inv.get("invoice_number", doc_code)
                 counterparty = inv.get("customer_name", "")
                 doc_amount   = inv.get("grand_total")
 
-        elif doc_type == "purchase_order":
-            dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
-            if dc:
-                po = await db.purchase_orders.find_one({"id": dc["doc_id"]},
-                    {"_id": 0, "po_number": 1, "supplier_name": 1, "grand_total": 1})
-                if po:
-                    doc_number   = po.get("po_number", doc_code)
-                    counterparty = po.get("supplier_name", "")
-                    doc_amount   = po.get("grand_total")
+        elif doc_type == "purchase_order" and doc_id_meta:
+            po = await db.purchase_orders.find_one({"id": doc_id_meta},
+                {"_id": 0, "po_number": 1, "supplier_name": 1, "grand_total": 1})
+            if po:
+                doc_number   = po.get("po_number", doc_code)
+                counterparty = po.get("supplier_name", "")
+                doc_amount   = po.get("grand_total")
 
-        elif doc_type == "branch_transfer":
-            dc = await db.doc_codes.find_one({"code": doc_code}, {"_id": 0, "doc_id": 1})
-            if dc:
-                bt = await db.branch_transfers.find_one({"id": dc["doc_id"]},
-                    {"_id": 0, "transfer_number": 1, "from_branch_name": 1, "to_branch_name": 1})
-                if bt:
-                    doc_number   = bt.get("transfer_number", doc_code)
-                    counterparty = f"{bt.get('from_branch_name','')} → {bt.get('to_branch_name','')}"
+        elif doc_type == "branch_transfer" and doc_id_meta:
+            bt = await db.branch_transfers.find_one({"id": doc_id_meta},
+                {"_id": 0, "transfer_number": 1, "from_branch_name": 1, "to_branch_name": 1})
+            if bt:
+                doc_number   = bt.get("transfer_number", doc_code)
+                counterparty = f"{bt.get('from_branch_name','')} → {bt.get('to_branch_name','')}"
     except Exception:
         pass  # Doc enrichment is best-effort; never block the alert
 
@@ -449,21 +445,22 @@ async def _raise_qr_security_alert(
         "branch_id":   branch_id,
         "branch_name": branch_name,
         "metadata": {
-            "alert_source":  "qr_terminal",
-            "terminal_id":   terminal_id,
+            "alert_source":   "qr_terminal",
+            "terminal_id":    terminal_id,
             "terminal_label": terminal_label,
-            "doc_code":      doc_code,
-            "doc_type":      doc_type,
-            "doc_number":    doc_number,
-            "counterparty":  counterparty,
-            "doc_amount":    doc_amount,
-            "action":        action,
-            "action_label":  action_label,
-            "client_ip":     client_ip,
-            "branch_name":   branch_name,
-            "failure_count": failure_count,
-            "severity":      severity,
-            "locked":        locked,
+            "doc_code":       doc_code,
+            "doc_type":       doc_type,
+            "doc_id":         doc_id_meta,
+            "doc_number":     doc_number,
+            "counterparty":   counterparty,
+            "doc_amount":     doc_amount,
+            "action":         action,
+            "action_label":   action_label,
+            "client_ip":      client_ip,
+            "branch_name":    branch_name,
+            "failure_count":  failure_count,
+            "severity":       severity,
+            "locked":         locked,
         },
         "target_user_ids": [a["id"] for a in admins],
         "read_by":         [],

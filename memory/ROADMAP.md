@@ -25,6 +25,18 @@
 
 ## P0 — DONE
 
+### SMS Engine Phase 1-3 — DONE
+- Backend: `sms_queue`, `sms_templates`, `sms_settings` collections
+- 10 templates: credit_new, reminder_15day, reminder_7day, overdue_notice, payment_received, charge_applied, delivery_ready, promo_blast, monthly_summary, custom
+- Auto-triggers: on credit sale, payment received, interest/penalty generated
+- Scheduled: APScheduler daily 8AM (15d/7d/overdue reminders), monthly 1st 9AM (balance summary)
+- API: full CRUD for templates, settings; queue management (pending/sent/failed/retry/skip)
+- SMS delivery via external gateway (phone app polls `/api/sms/queue/pending`)
+
+### Terminal Credential Login Phase 1 — DONE
+- `POST /api/terminal/credential-pair`: manager auto-links, admin selects branch
+- TerminalPairScreen.jsx: "Pairing Code" + "Login" tabs
+
 ### Customer Receivables Left Panel (PaymentsPage) — DONE
 - Left sidebar panel on `/payments` matching `/pay-supplier` pattern
 - Backend: `GET /api/customers/receivables-summary` with include_zero, branch_id params

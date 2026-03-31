@@ -1,5 +1,18 @@
 # AgriBooks Changelog
 
+## Mar 31, 2026 — SMS Engine Phase 1-3 + Terminal Credential Login
+- **SMS Engine**: Full queue-based SMS system with 10 templates, auto-triggers, scheduled reminders
+  - `sms_queue`, `sms_templates`, `sms_settings` collections
+  - Auto-triggers: credit sale → SMS, payment received → SMS, interest/penalty applied → SMS
+  - Scheduled: daily 8AM reminders (15-day, 7-day, overdue), monthly 1st summary
+  - Manual: compose single SMS, promo blast with customer filters
+  - Gateway API: `GET /pending`, `PATCH /mark-sent`, `PATCH /mark-failed`, retry, skip
+- **Terminal Credential Login**: New "Login" tab on terminal pairing screen
+  - Manager login → auto-links to assigned branch
+  - Admin login → branch selector dropdown
+  - `POST /api/terminal/credential-pair` endpoint
+- Tested: 100% backend (22/22), 100% frontend (iteration_150.json)
+
 ## Mar 31, 2026 — Customer Receivables Left Panel on PaymentsPage
 - **New backend endpoint**: `GET /api/customers/receivables-summary` — aggregates open invoices per customer with total balance, overdue balance, invoice count using MongoDB aggregation pipeline
 - **PaymentsPage.js rewritten** with left sidebar panel (matching PaySupplierPage pattern)

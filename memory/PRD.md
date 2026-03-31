@@ -340,7 +340,15 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 
 ---
 
-### Security Alert Notification Enrichment — Phases 1-3 (Complete — Mar 2026)
+### Modal Consolidation Phase 1 — A1 Absorbs A3 (Complete — Mar 2026)
+- **ReviewDetailDialog (A1)** extended with backward-compat props: `poId`, `poNumber`, `onUpdated`, `onOpenChange`
+- When `poNumber` passed: resolves UUID via `/invoices/by-number/{poNumber}` → feeds into `/dashboard/review-detail` endpoint
+- **7 pages migrated** from PODetailModal → ReviewDetailDialog: CloseWizardPage, PaySupplierPage, QuickSearch, AuditCenterPage, SuppliersPage, TransactionSearchPage, DashboardPage
+- PODetailModal.js retained as legacy file (zero imports remain — safe to delete in future cleanup)
+- All migrated pages use `showReviewAction={false} showPayAction={false}` for view-only contexts; AuditCenterPage uses `showReviewAction={true}`
+- Z-reports: zero impact (modals are UI-only; no backend/DB changes)
+
+
 - **Phase 1 — Authenticated PIN alerts:** `_raise_security_alert()` now resolves `branch_name` from DB, enriches `user_role` and `user_email`. Message format: `"Test Manager (Manager) entered wrong PIN 6x at Branch 1 — Transaction Verification: Verify PO-XXX"`
 - **Phase 2 — QR Terminal alerts:** `_raise_qr_security_alert()` accepts `terminal_id`, resolves to `"AgriSmart Terminal at Branch X"` from `terminal_sessions`. Enriches with `doc_id`, `doc_number`, `counterparty`, `doc_amount` via doc_codes + invoice/PO/transfer lookup. `qr_actions.py` passes `terminal_id` at all 3 terminal-only call sites.
 - **Phase 3 — Frontend SecurityAlertDetail:** Expandable two-card layout — WHO+WHAT (authenticated) / TERMINAL+DOCUMENT (QR). Clickable doc number opens existing `ReviewDetailDialog` (same pattern as dashboard widgets). Lock banner for documents locked after 10 failures.

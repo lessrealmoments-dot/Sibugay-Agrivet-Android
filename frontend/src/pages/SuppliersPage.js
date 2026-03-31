@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Search, Truck, FileText, DollarSign, ArrowRight, CheckCircle, AlertCircle, History, Plus, Edit2, Phone, Mail, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
-import PODetailModal from '../components/PODetailModal';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 
 export default function SuppliersPage() {
   const { currentBranch } = useAuth();
@@ -434,11 +434,13 @@ export default function SuppliersPage() {
       </div>
 
       {/* PO Detail Modal */}
-      <PODetailModal
+      <ReviewDetailDialog
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         poNumber={selectedInvoiceNumber}
         onUpdated={fetchData}
+        showReviewAction={false}
+        showPayAction={false}
       />
 
       {/* New/Edit Supplier Dialog */}

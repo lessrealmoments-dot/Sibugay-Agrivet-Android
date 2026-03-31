@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
-import PODetailModal from '../components/PODetailModal';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 import SaleDetailModal from '../components/SaleDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
@@ -2375,10 +2375,12 @@ export default function CloseWizardPage() {
         recordType="expense"
         recordId={wizUploadExpenseId}
       />
-      <PODetailModal
+      <ReviewDetailDialog
         open={invoiceModalOpen && detailType === 'po'}
         onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
         poNumber={selectedInvoiceNumber}
+        showReviewAction={false}
+        showPayAction={false}
       />
       <SaleDetailModal
         open={invoiceModalOpen && detailType === 'sale'}

@@ -40,10 +40,51 @@ export default function ReviewDetailDialog({
   showReviewAction = true,
   showPayAction = false,   // Phase 3 — Pay Now (only from AP widget)
   onReviewed,
+  // ── Backward-compat aliases (Phase 1 migration from PODetailModal) ──────────
+  poId,           // alias for recordId when recordType='purchase_order'
+  poNumber,       // resolve UUID by PO number when recordId/poId not available
+  onUpdated,      // alias for onReviewed
+  onOpenChange,   // alias for (v) => { if (!v) onClose(); }
 }) {
   const navigate = useNavigate();
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // Resolve backward-compat aliases
+  const effectiveClose = onClose || (onOpenChange ? () => onOpenChange(false) : undefined);
+  const effectiveReviewed = onReviewed || onUpdated;
+
+  // Resolve recordId: direct > poId alias > resolved from poNumber
+  const [resolvedId, setResolvedId] = useState(null);
+  const [resolvedType, setResolvedType] = useState(null);
+
+  useEffect(() => {
+    if (!open) return;
+    if (recordId && recordType) {
+      setResolvedId(recordId);
+      setResolvedType(recordType);
+      return;
+    }
+    if (poId) {
+      setResolvedId(poId);
+      setResolvedType('purchase_order');
+      return;
+    }
+    if (poNumber) {
+      // Resolve PO UUID by number
+      api.get(`/invoices/by-number/${encodeURIComponent(poNumber)}`)
+        .then(r => {
+          setResolvedId(r.data.id);
+          setResolvedType('purchase_order');
+        })
+        .catch(() => toast.error('PO not found'));
+    }
+  }, [open, recordId, recordType, poId, poNumber]);
+
+  // Clear resolved state on close
+  useEffect(() => {
+    if (!open) { setResolvedId(null); setResolvedType(null); }
+  }, [open]);
 
   // Verify section state
   const [verifyExpanded, setVerifyExpanded] = useState(false);
@@ -66,13 +107,13 @@ export default function ReviewDetailDialog({
   const [uploadOpen, setUploadOpen] = useState(false); // receipt upload after payment
 
   useEffect(() => {
-    if (open && recordType && recordId) {
+    if (open && resolvedType && resolvedId) {
       setLoading(true);
       setDetail(null);
       setReviewPin('');
       setReviewNotes('');
       setVerifyExpanded(false);
-      api.get(`/dashboard/review-detail/${recordType}/${recordId}`)
+      api.get(`/dashboard/review-detail/${resolvedType}/${resolvedId}`)
         .then(res => {
           setDetail(res.data);
           setPayAmount((res.data.balance || 0).toFixed(2));
@@ -81,7 +122,7 @@ export default function ReviewDetailDialog({
         .catch(() => toast.error('Failed to load record details'))
         .finally(() => setLoading(false));
     }
-  }, [open, recordType, recordId]);
+  }, [open, resolvedType, resolvedId]);
 
   const handleReview = async () => {
     if (!reviewPin) { toast.error('Enter PIN or TOTP code'); return; }
@@ -89,16 +130,16 @@ export default function ReviewDetailDialog({
     try {
       let endpoint;
       if (recordType === 'purchase_order') {
-        endpoint = `/purchase-orders/${recordId}/mark-reviewed`;
+        endpoint = `/purchase-orders/${resolvedId}/mark-reviewed`;
       } else {
-        endpoint = `/uploads/mark-reviewed/${recordType}/${recordId}`;
+        endpoint = `/uploads/mark-reviewed/${resolvedType}/${resolvedId}`;
       }
       const res = await api.post(endpoint, { pin: reviewPin, notes: reviewNotes });
       toast.success(res.data.message || 'Verified & approved');
       setDetail(prev => prev ? { ...prev, receipt_review_status: 'reviewed' } : prev);
       setReviewPin('');
       setVerifyExpanded(false);
-      if (onReviewed) onReviewed();
+      if (effectiveReviewed) effectiveReviewed();
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Verification failed');
     }
@@ -111,7 +152,7 @@ export default function ReviewDetailDialog({
     if (!amount || amount <= 0) { toast.error('Enter a valid payment amount'); return; }
     setPayProcessing(true);
     try {
-      const res = await api.post(`/purchase-orders/${recordId}/pay`, {
+      const res = await api.post(`/purchase-orders/${resolvedId}/pay`, {
         amount,
         fund_source: payFundSource,
         method: payMethod,
@@ -124,10 +165,10 @@ export default function ReviewDetailDialog({
       setPayPin('');
       setPayRef('');
       setUploadOpen(true); // auto-open receipt upload
-      const updated = await api.get(`/dashboard/review-detail/${recordType}/${recordId}`);
+      const updated = await api.get(`/dashboard/review-detail/${resolvedType}/${resolvedId}`);
       setDetail(updated.data);
       setPayAmount((updated.data.balance || 0).toFixed(2));
-      if (onReviewed) onReviewed();
+      if (effectiveReviewed) effectiveReviewed();
     } catch (e) {
       const detail = e.response?.data?.detail;
       if (typeof detail === 'object' && detail?.type === 'insufficient_funds') {
@@ -140,9 +181,9 @@ export default function ReviewDetailDialog({
   };
 
   const goToFullPage = () => {
-    onClose();
-    if (recordType === 'purchase_order') navigate(`/purchase-orders?open=${recordId}`);
-    else if (recordType === 'branch_transfer') navigate(`/branch-transfers?tab=history&view=${recordId}`);
+    if (effectiveClose) effectiveClose();
+    if (resolvedType === 'purchase_order') navigate(`/purchase-orders?open=${resolvedId}`);
+    else if (resolvedType === 'branch_transfer') navigate(`/branch-transfers?tab=history&view=${resolvedId}`);
     else navigate('/accounting');
   };
 
@@ -154,12 +195,12 @@ export default function ReviewDetailDialog({
   // For POs: verify button shows regardless of files
   // For other types: only when files exist (original behavior)
   const showVerifySection = showReviewAction && !isReviewed && (
-    recordType === 'purchase_order' ? true : files.length > 0
+    resolvedType === 'purchase_order' ? true : files.length > 0
   );
 
   return (
     <>
-      <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <Dialog open={open && (!!resolvedId || loading)} onOpenChange={v => { if (!v && effectiveClose) effectiveClose(); }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col" data-testid="review-detail-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2" style={{ fontFamily: 'Manrope' }}>
@@ -382,7 +423,7 @@ export default function ReviewDetailDialog({
                       <div className="p-3 flex flex-wrap gap-2">
                         {files.map((f, i) => {
                           const isImage = (f.content_type || '').startsWith('image/');
-                          const url = `${BACKEND_URL}/api/uploads/file/${recordType}/${recordId}/${f.id}`;
+                          const url = `${BACKEND_URL}/api/uploads/file/${resolvedType}/${resolvedId}/${f.id}`;
                           return (
                             <div key={f.id || i} className="relative">
                               <a href={url} target="_blank" rel="noopener noreferrer"
@@ -464,7 +505,7 @@ export default function ReviewDetailDialog({
                           <div>
                             <label className="text-[10px] text-slate-600 font-medium flex items-center gap-1 mb-1">
                               <Shield size={10} className="text-amber-500" />
-                              {recordType === 'purchase_order' ? PO_VERIFY_METHODS : OTHER_VERIFY_METHODS}
+                              {resolvedType === 'purchase_order' ? PO_VERIFY_METHODS : OTHER_VERIFY_METHODS}
                             </label>
                             <Input
                               type="password"
@@ -656,7 +697,7 @@ export default function ReviewDetailDialog({
             <Button variant="ghost" size="sm" onClick={goToFullPage} className="text-xs text-slate-500 hover:text-[#1A4D2E]">
               <ExternalLink size={12} className="mr-1" /> Open Full Page
             </Button>
-            <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+            <Button variant="outline" size="sm" onClick={effectiveClose}>Close</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -664,8 +705,8 @@ export default function ReviewDetailDialog({
       <ViewQRDialog
         open={viewQROpen}
         onClose={() => setViewQROpen(false)}
-        recordType={recordType}
-        recordId={recordId}
+        recordType={resolvedType}
+        recordId={resolvedId}
         fileCount={files.length}
       />
 
@@ -676,9 +717,8 @@ export default function ReviewDetailDialog({
           setUploadOpen(false);
           if (count > 0) {
             toast.success(`${count} receipt photo(s) saved`);
-            // Reload to show new photos
-            if (recordType && recordId) {
-              api.get(`/dashboard/review-detail/${recordType}/${recordId}`)
+            if (resolvedType && resolvedId) {
+              api.get(`/dashboard/review-detail/${resolvedType}/${resolvedId}`)
                 .then(res => setDetail(res.data))
                 .catch(() => {});
             }
@@ -687,7 +727,7 @@ export default function ReviewDetailDialog({
           }
         }}
         recordType="purchase_order"
-        recordId={recordId}
+        recordId={resolvedId}
       />
     </>
   );

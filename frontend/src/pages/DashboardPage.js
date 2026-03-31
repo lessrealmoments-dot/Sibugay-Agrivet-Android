@@ -17,7 +17,7 @@ import {
   RotateCcw, Smartphone
 } from 'lucide-react';
 import { formatPHP } from '../lib/utils';
-import PODetailModal from '../components/PODetailModal';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 import SaleDetailModal from '../components/SaleDetailModal';
 import PendingReviewsWidget from '../components/PendingReviewsWidget';
 import SalesTrendsWidget from '../components/dashboard/SalesTrendsWidget';
@@ -687,10 +687,12 @@ export default function DashboardPage() {
       </Responsive>
       )}
       </div>
-      <PODetailModal
+      <ReviewDetailDialog
         open={invoiceModalOpen && detailType === 'po'}
         onOpenChange={(open) => { if (!open) setInvoiceModalOpen(false); }}
         poNumber={selectedInvoiceNumber}
+        showReviewAction={false}
+        showPayAction={false}
       />
       <SaleDetailModal
         open={invoiceModalOpen && detailType === 'sale'}

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
-import PODetailModal from '../components/PODetailModal';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 
 // payMethod is derived from fundSource — no separate method picker needed
 const FUND_METHOD_MAP = {
@@ -805,7 +805,7 @@ export default function PaySupplierPage() {
         }}
         recordType="purchase_order" recordId={batchCurrentPoId} />
 
-      <PODetailModal open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} poNumber={selectedPoNumber} onUpdated={loadSuppliers} />
+      <ReviewDetailDialog open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} poNumber={selectedPoNumber} onUpdated={loadSuppliers} showReviewAction={false} showPayAction={false} />
     </div>
   );
 }

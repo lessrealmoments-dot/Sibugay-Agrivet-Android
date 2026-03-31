@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Search, Filter, Calendar, X, FileText, Truck, Receipt, ArrowLeftRight, Wallet, ChevronRight, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
-import PODetailModal from '../components/PODetailModal';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 import SaleDetailModal from '../components/SaleDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
@@ -317,12 +317,14 @@ export default function TransactionSearchPage() {
         </div>
       )}
 
-      <PODetailModal
+      <ReviewDetailDialog
         open={detailModal.type === 'po'}
         onOpenChange={(open) => { if (!open) setDetailModal({ type: null, number: '', id: '' }); }}
         poId={detailModal.id}
         poNumber={detailModal.number}
         onUpdated={() => doSearch(query, type, dateFrom, dateTo, branchId)}
+        showReviewAction={false}
+        showPayAction={false}
       />
       <SaleDetailModal
         open={detailModal.type === 'sale'}

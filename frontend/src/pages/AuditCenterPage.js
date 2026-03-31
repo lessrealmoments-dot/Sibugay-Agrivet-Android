@@ -18,7 +18,7 @@ import {
   KeyRound, Eye, ImageIcon, CircleAlert, Receipt, ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
-import PODetailModal from '../components/PODetailModal';
+import ReviewDetailDialog from '../components/ReviewDetailDialog';
 import SaleDetailModal from '../components/SaleDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 import ReceiptGallery from '../components/ReceiptGallery';
@@ -2129,11 +2129,13 @@ export default function AuditCenterPage() {
           </DialogContent>
         </Dialog>
       )}
-      <PODetailModal
+      <ReviewDetailDialog
         open={invoiceModalOpen && detailType === 'po'}
         onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
         poNumber={selectedInvoiceNumber}
         onUpdated={() => { if (auditData) runAudit(); }}
+        showReviewAction={true}
+        showPayAction={false}
       />
       <SaleDetailModal
         open={invoiceModalOpen && detailType === 'sale'}

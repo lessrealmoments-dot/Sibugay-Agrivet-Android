@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../contexts/AuthContext';
 import { Search, FileText, Truck, Receipt, ArrowLeftRight, Wallet, X, Loader2, RotateCcw, Building2, CreditCard, QrCode, ScanLine } from 'lucide-react';
-import PODetailModal from './PODetailModal';
+import ReviewDetailDialog from './ReviewDetailDialog';
 import SaleDetailModal from './SaleDetailModal';
 import ExpenseDetailModal from './ExpenseDetailModal';
 
@@ -138,7 +138,7 @@ export default function QuickSearch() {
             Ctrl+K
           </kbd>
         </button>
-        <PODetailModal open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} poId={detailModal.id} />
+        <ReviewDetailDialog open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} poId={detailModal.id} showReviewAction={false} showPayAction={false} />
         <SaleDetailModal open={detailModal.type === 'sale'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} invoiceNumber={detailModal.number} />
         <ExpenseDetailModal open={detailModal.type === 'expense'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} expenseId={detailModal.id} />
       </>
@@ -220,7 +220,7 @@ export default function QuickSearch() {
           </button>
         </div>
       )}
-      <PODetailModal open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} />
+      <ReviewDetailDialog open={detailModal.type === 'po'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} poNumber={detailModal.number} showReviewAction={false} showPayAction={false} />
       <SaleDetailModal open={detailModal.type === 'sale'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} invoiceNumber={detailModal.number} />
       <ExpenseDetailModal open={detailModal.type === 'expense'} onOpenChange={(o) => { if (!o) setDetailModal({ type: null, number: '', id: '' }); }} expenseId={detailModal.id} />
     </div>

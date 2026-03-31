@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { Edit3, Search, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, ChevronLeft, ChevronRight, MoreHorizontal, Printer, FileText, Ban, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const STATUS_FILTERS = [
   { key: 'all', label: 'All' },
@@ -342,7 +342,7 @@ export default function SalesPage() {
         </div>
       )}
 
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         saleId={selectedInvoiceId}

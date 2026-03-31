@@ -14,7 +14,7 @@ import {
   TrendingUp, AlertCircle, DollarSign, Calendar, RefreshCw, Filter, UserCheck, AlertTriangle, Percent, TrendingDown
 } from 'lucide-react';
 import { toast } from 'sonner';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -252,7 +252,7 @@ function ArAgingReport({ branches, selectedBranchId, canExport }) {
           </Table>
         </CardContent>
       </Card>
-      <SaleDetailModal open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} invoiceNumber={selectedInvoiceNumber} />
+      <InvoiceDetailModal compact open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} invoiceNumber={selectedInvoiceNumber} />
     </div>
   );
 }
@@ -522,7 +522,7 @@ function SalesReport({ branches, selectedBranchId, canExport }) {
           </CardContent>
         </Card>
       )}
-      <SaleDetailModal open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} invoiceNumber={selectedInvoiceNumber} />
+      <InvoiceDetailModal compact open={invoiceModalOpen} onOpenChange={setInvoiceModalOpen} invoiceNumber={selectedInvoiceNumber} />
     </div>
   );
 }

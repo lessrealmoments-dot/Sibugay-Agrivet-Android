@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { formatPHP } from '../lib/utils';
 import ReviewDetailDialog from '../components/ReviewDetailDialog';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import PendingReviewsWidget from '../components/PendingReviewsWidget';
 import SalesTrendsWidget from '../components/dashboard/SalesTrendsWidget';
 import BranchComparisonWidget from '../components/dashboard/BranchComparisonWidget';
@@ -694,7 +694,7 @@ export default function DashboardPage() {
         showReviewAction={false}
         showPayAction={false}
       />
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen && detailType === 'sale'}
         onOpenChange={(open) => { if (!open) setInvoiceModalOpen(false); }}
         invoiceNumber={selectedInvoiceNumber}

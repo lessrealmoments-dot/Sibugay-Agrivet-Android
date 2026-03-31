@@ -16,7 +16,7 @@ import {
   Building2, Smartphone, X, Tag
 } from 'lucide-react';
 import { toast } from 'sonner';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const METHODS = [
   { value: 'Cash', label: 'Cash', icon: Banknote },
@@ -687,7 +687,7 @@ export default function PaymentsPage() {
       </Dialog>
 
       {/* Invoice Detail Modal */}
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         saleId={selectedInvoiceId}

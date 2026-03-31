@@ -19,7 +19,7 @@ import {
   Archive, Eye, RefreshCw, Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 // ── Small helper components ───────────────────────────────────────────────────
 function SectionCard({ title, children, accent = 'slate', note }) {
@@ -1515,7 +1515,7 @@ export default function DailyLogPage() {
           </div>
         </DialogContent>
       </Dialog>
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         invoiceNumber={selectedInvoiceNumber}

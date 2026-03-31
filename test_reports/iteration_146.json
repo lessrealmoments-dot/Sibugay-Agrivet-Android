@@ -1,0 +1,83 @@
+{
+  "summary": "Modal Consolidation Phase 2 Testing - InvoiceDetailModal compact mode successfully tested across multiple pages. All 14 migrated files now use InvoiceDetailModal with compact={true} prop instead of the old SaleDetailModal.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "SalesPage": {
+      "status": "PASS",
+      "details": "Compact modal opens correctly when clicking sale row. Shows invoice number, action bar, print buttons, verify/edit buttons, items table, totals, payment history, void button."
+    },
+    "SalesPage_CreditSale": {
+      "status": "PASS",
+      "details": "Edit and Void buttons visible on credit/open sales. Edit mode shows editable items with qty/price inputs, sale date picker, reason input. Void dialog shows reason and PIN inputs."
+    },
+    "PaymentsPage": {
+      "status": "PASS",
+      "details": "Compact modal opens when clicking invoice link in customer invoices table."
+    },
+    "CustomersPage": {
+      "status": "PASS",
+      "details": "Compact modal opens when clicking invoice link (INT-B1-001001) in Account History modal."
+    },
+    "ReportsPage_ARaging": {
+      "status": "PASS",
+      "details": "Compact modal opens when clicking invoice link (SI-B1-001034) in expanded customer row."
+    },
+    "QuickSearch": {
+      "status": "PASS",
+      "details": "Compact modal opens when clicking search result from Ctrl+K quick search."
+    },
+    "PendingReleasesPage": {
+      "status": "PASS",
+      "details": "Compact modal opens when clicking invoice link (SI-B1-001034) in pending releases table."
+    },
+    "FindTransactionPage": {
+      "status": "PASS",
+      "details": "Compact modal opens when clicking search result. Shows all compact mode elements."
+    },
+    "DashboardPage": {
+      "status": "NOT_TESTED",
+      "details": "No recent sale links found on dashboard to test. May require specific data setup."
+    },
+    "CloseWizardPage": {
+      "status": "NOT_TESTED",
+      "details": "Requires branch selection and active close process to test. Page shows 'Please select a branch first to run the Close Wizard.'"
+    }
+  },
+  "compact_mode_elements_verified": {
+    "invoice-detail-modal": "PASS - Modal container with data-testid",
+    "invoice-number": "PASS - Shows 'Sale Detail — {invoice_number}'",
+    "sale-action-bar": "PASS - Contains all action buttons",
+    "sale-print-full": "PASS - Print Full button",
+    "sale-print-thermal": "PASS - Print 58mm button",
+    "sale-view-phone-btn": "PASS - View on Phone button",
+    "sale-upload-receipt-btn": "PASS - Upload Receipt button",
+    "sale-verify-btn": "PASS - Verify button (visible on unverified sales)",
+    "sale-edit-btn": "PASS - Edit button (visible on open/credit sales)",
+    "sale-void-btn": "PASS - Void Sale button (visible on open/credit sales)",
+    "sale-void-dialog": "PASS - Void dialog with reason and PIN inputs",
+    "void-reason-input": "PASS - Reason for voiding input",
+    "void-pin-input": "PASS - Manager/Admin PIN input",
+    "void-confirm-btn": "PASS - Void Sale confirm button"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only test)",
+    "frontend": "100% (8/8 tested pages passed, 2 pages require specific data/state)"
+  },
+  "test_credentials": "Super Admin: janmarkeahig@gmail.com / Aa@58798546521325",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Modal Consolidation Phase 2 complete. InvoiceDetailModal compact mode is working correctly across all tested pages. The compact prop renders a single-view layout matching the old SaleDetailModal. The saleId prop works as backward-compat alias for invoiceId. SaleDetailModal.js is now orphaned with zero imports."
+}

@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Card } from '../components/ui/card';
 import { Search, Filter, Calendar, X, FileText, Truck, Receipt, ArrowLeftRight, Wallet, ChevronRight, Loader2, RotateCcw, Building2, CreditCard } from 'lucide-react';
 import ReviewDetailDialog from '../components/ReviewDetailDialog';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
 const TYPE_CONFIG = {
@@ -326,7 +326,7 @@ export default function TransactionSearchPage() {
         showReviewAction={false}
         showPayAction={false}
       />
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={detailModal.type === 'sale'}
         onOpenChange={(open) => { if (!open) setDetailModal({ type: null, number: '', id: '' }); }}
         invoiceNumber={detailModal.number}

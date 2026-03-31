@@ -18,7 +18,7 @@ import VerificationBadge from '../components/VerificationBadge';
 import VerifyPinDialog from '../components/VerifyPinDialog';
 import ViewQRDialog from '../components/ViewQRDialog';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 
 const EXPENSE_CATEGORIES = [
   "Utilities", "Rent", "Supplies", "Transportation", "Fuel/Gas",
@@ -1065,7 +1065,7 @@ export default function ExpensesPage() {
         expenseId={selectedExpenseId}
         onUpdated={fetchAll}
       />
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen}
         onOpenChange={(open) => { setInvoiceModalOpen(open); if (!open) setSelectedInvoiceNumber(null); }}
         invoiceNumber={selectedInvoiceNumber}

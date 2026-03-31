@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ReviewDetailDialog from '../components/ReviewDetailDialog';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 import ReceiptGallery from '../components/ReceiptGallery';
 
@@ -2137,7 +2137,7 @@ export default function AuditCenterPage() {
         showReviewAction={true}
         showPayAction={false}
       />
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen && detailType === 'sale'}
         onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
         invoiceNumber={selectedInvoiceNumber}

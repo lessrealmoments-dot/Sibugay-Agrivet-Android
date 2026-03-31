@@ -20,7 +20,7 @@ import {
 import { toast } from 'sonner';
 import UploadQRDialog from '../components/UploadQRDialog';
 import ReviewDetailDialog from '../components/ReviewDetailDialog';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import ExpenseDetailModal from '../components/ExpenseDetailModal';
 
 const STEPS = [
@@ -2382,7 +2382,7 @@ export default function CloseWizardPage() {
         showReviewAction={false}
         showPayAction={false}
       />
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen && detailType === 'sale'}
         onOpenChange={(open) => { if (!open) { setInvoiceModalOpen(false); setSelectedInvoiceNumber(null); } }}
         invoiceNumber={selectedInvoiceNumber}

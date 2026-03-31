@@ -14,18 +14,25 @@ import { Card, CardContent } from './ui/card';
 import ReceiptGallery from './ReceiptGallery';
 import UploadQRDialog from './UploadQRDialog';
 import ViewQRDialog from './ViewQRDialog';
+import VerificationBadge from './VerificationBadge';
+import VerifyPinDialog from './VerifyPinDialog';
+import PrintEngine from '../lib/PrintEngine';
 import {
   FileText, Edit3, History, Save, X, AlertTriangle, Package,
   User, Calendar, DollarSign, Trash2, Clock, CheckCircle2,
   Copy, Check, ShieldCheck, Ban, ImageIcon, Upload, Smartphone,
-  Truck, CreditCard, Wallet
+  Truck, CreditCard, Wallet, Pencil, RefreshCw, Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function InvoiceDetailModal({
-  open, onOpenChange, invoiceId, invoiceNumber, expenseId, onUpdated
+  open, onOpenChange, invoiceId, invoiceNumber, expenseId, onUpdated,
+  saleId, compact = false
 }) {
-  const { hasPerm, user } = useAuth();
+  // saleId is a backward-compat alias for invoiceId (Phase 2 consolidation)
+  const resolvedInvoiceId = invoiceId || saleId;
+
+  const { hasPerm, user, currentBranch } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
@@ -33,6 +40,7 @@ export default function InvoiceDetailModal({
   const [showHistory, setShowHistory] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [businessInfo, setBusinessInfo] = useState({});
 
   // Edit form state
   const [editData, setEditData] = useState({ items: [], customer_name: '', notes: '', freight: 0, overall_discount: 0 });
@@ -47,6 +55,13 @@ export default function InvoiceDetailModal({
   const [verifyPin, setVerifyPin] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Compact-mode edit state
+  const [editOrderDate, setEditOrderDate] = useState('');
+  const [editDateClosed, setEditDateClosed] = useState(false);
+
+  // External verify dialog (compact mode)
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+
   // QR dialogs
   const [uploadQROpen, setUploadQROpen] = useState(false);
   const [viewQROpen, setViewQROpen] = useState(false);
@@ -54,15 +69,20 @@ export default function InvoiceDetailModal({
   // Active section
   const [section, setSection] = useState('detail'); // detail | receipts | payments | history
 
+  // Load business info for printing (compact mode)
   useEffect(() => {
-    if (open && (invoiceId || invoiceNumber || expenseId)) {
+    if (compact) api.get('/settings/business-info').then(r => setBusinessInfo(r.data)).catch(() => {});
+  }, [compact]);
+
+  useEffect(() => {
+    if (open && (resolvedInvoiceId || invoiceNumber || expenseId)) {
       loadInvoice();
       setSection('detail');
       setEditMode(false);
       setShowHistory(false);
     }
   // eslint-disable-next-line
-  }, [open, invoiceId, invoiceNumber, expenseId]);
+  }, [open, resolvedInvoiceId, invoiceNumber, expenseId]);
 
   const loadInvoice = async () => {
     setLoading(true);
@@ -71,8 +91,8 @@ export default function InvoiceDetailModal({
       if (expenseId) {
         res = await api.get(`/expenses/${expenseId}`);
         res.data._collection = 'expenses';
-      } else if (invoiceId) {
-        res = await api.get(`/invoices/${invoiceId}`);
+      } else if (resolvedInvoiceId) {
+        res = await api.get(`/invoices/${resolvedInvoiceId}`);
       } else {
         res = await api.get(`/invoices/by-number/${encodeURIComponent(invoiceNumber)}`);
       }
@@ -200,6 +220,77 @@ export default function InvoiceDetailModal({
     } catch { toast.error('Failed to load edit history'); }
   };
 
+  // ── Print (compact mode) ──────────────────────────────────────────────
+  const handlePrint = async (format) => {
+    if (!invoice) return;
+    const docType = PrintEngine.getDocType(invoice);
+    let docCode = invoice.doc_code || '';
+    if (!docCode && invoice.id) {
+      try {
+        const res = await api.post('/doc/generate-code', { doc_type: 'invoice', doc_id: invoice.id });
+        docCode = res.data?.code || '';
+        setInvoice(prev => prev ? { ...prev, doc_code: docCode } : prev);
+      } catch { /* print without QR */ }
+    }
+    PrintEngine.print({ type: docType, data: invoice, format, businessInfo, docCode });
+  };
+
+  // ── Compact edit helpers ──────────────────────────────────────────────
+  const openCompactEdit = () => {
+    setEditData({
+      items: JSON.parse(JSON.stringify(invoice.items || [])),
+      customer_name: invoice.customer_name || '',
+      notes: invoice.notes || '',
+      freight: invoice.freight || 0,
+      overall_discount: invoice.overall_discount || 0,
+    });
+    setEditReason('');
+    setEditOrderDate(invoice.order_date || invoice.created_at?.slice(0, 10) || '');
+    const branchId = invoice.branch_id || currentBranch?.id;
+    if (branchId && invoice.order_date) {
+      api.get('/invoices/check-date-closed', { params: { date: invoice.order_date, branch_id: branchId } })
+        .then(r => setEditDateClosed(r.data.closed))
+        .catch(() => setEditDateClosed(false));
+    }
+    setEditMode(true);
+  };
+
+  const saveCompactEdit = async () => {
+    if (!editReason.trim()) { toast.error('Please provide a reason for the edit'); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        items: editData.items, notes: editData.notes, reason: editReason,
+        customer_name: editData.customer_name, freight: editData.freight || 0,
+        overall_discount: editData.overall_discount || 0,
+        branch_id: invoice.branch_id || currentBranch?.id,
+      };
+      if (editOrderDate && editOrderDate !== (invoice.order_date || invoice.created_at?.slice(0, 10))) {
+        payload.order_date = editOrderDate;
+        payload.invoice_date = editOrderDate;
+      }
+      await api.put(`/invoices/${invoice.id}/edit`, payload);
+      toast.success('Sale updated');
+      setEditMode(false);
+      loadInvoice();
+      onUpdated?.();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to save'); }
+    setSaving(false);
+  };
+
+  // ── Compact void ──────────────────────────────────────────────────────
+  const handleCompactVoid = async () => {
+    if (!voidReason || !voidPin) { toast.error('Reason and PIN required'); return; }
+    setActionLoading(true);
+    try {
+      await api.post(`/invoices/${invoice.id}/void`, { reason: voidReason, manager_pin: voidPin });
+      toast.success('Sale voided');
+      setVoidOpen(false); setVoidReason(''); setVoidPin('');
+      loadInvoice(); onUpdated?.();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Failed to void'); }
+    setActionLoading(false);
+  };
+
   // ── Type info ──────────────────────────────────────────────────────────
   const getTypeInfo = () => {
     if (!invoice) return { label: 'Invoice', color: 'bg-blue-100 text-blue-700' };
@@ -223,6 +314,292 @@ export default function InvoiceDetailModal({
   const typeInfo = getTypeInfo();
   const { subtotal, grandTotal } = calculateTotals();
 
+  // ══════════════════════════════════════════════════════════════════════
+  // COMPACT MODE — single-view layout (replaces SaleDetailModal / A4)
+  // ══════════════════════════════════════════════════════════════════════
+  if (compact) {
+    const saleNumber = invoice?.invoice_number || invoice?.sale_number || '';
+
+    return (
+      <>
+        <Dialog open={open} onOpenChange={v => { onOpenChange(v); if (!v) setEditMode(false); }}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto" data-testid="invoice-detail-modal">
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'Manrope' }} data-testid="invoice-number">
+                {editMode ? `Edit Sale — ${saleNumber}` : `Sale Detail — ${saleNumber}`}
+              </DialogTitle>
+              {invoice?.verified && (
+                <div className="mt-1 flex items-center gap-2">
+                  <VerificationBadge doc={invoice} />
+                  {invoice.verified_at && <span className="text-[10px] text-slate-400">{invoice.verified_at?.slice(0, 16)?.replace('T', ' ')}</span>}
+                </div>
+              )}
+            </DialogHeader>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12"><div className="text-slate-400">Loading...</div></div>
+            ) : invoice ? (
+              <>
+                {/* Action toolbar */}
+                <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100" data-testid="sale-action-bar">
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => handlePrint('full_page')} data-testid="sale-print-full">
+                    <Printer size={12} className="mr-1" /> Print Full
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => handlePrint('thermal')} data-testid="sale-print-thermal">
+                    <Printer size={12} className="mr-1" /> Print 58mm
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => setViewQROpen(true)} data-testid="sale-view-phone-btn">
+                    <Wallet size={12} className="mr-1" /> View on Phone
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => setUploadQROpen(true)} data-testid="sale-upload-receipt-btn">
+                    <Upload size={12} className="mr-1" /> Upload Receipt
+                  </Button>
+                  {!invoice.verified && !isVoided && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-[#1A4D2E] border-[#1A4D2E]/30 hover:bg-[#1A4D2E]/5"
+                      onClick={() => setVerifyDialogOpen(true)} data-testid="sale-verify-btn">
+                      <ShieldCheck size={12} className="mr-1" /> Verify
+                    </Button>
+                  )}
+                  {canEdit && !editMode && (
+                    <Button size="sm" variant="outline" className="h-7 text-xs text-amber-600 border-amber-200 hover:bg-amber-50"
+                      onClick={openCompactEdit} data-testid="sale-edit-btn">
+                      <Pencil size={12} className="mr-1" /> Edit
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {/* Receipts gallery */}
+                  <ReceiptGallery recordType="invoice" recordId={invoice.id} />
+
+                  {/* Header info */}
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div><span className="text-slate-500">Customer:</span> <b>{invoice.customer_name || 'Walk-in'}</b></div>
+                    <div><span className="text-slate-500">Date:</span> {invoice.order_date || invoice.created_at?.slice(0, 10)}</div>
+                    <div><span className="text-slate-500">Cashier:</span> {invoice.cashier_name || '—'}</div>
+                    <div><span className="text-slate-500">Payment:</span> <Badge variant="outline" className="text-[10px]">{invoice.payment_method || 'Cash'}</Badge></div>
+                    <div><span className="text-slate-500">Status:</span>
+                      <Badge className={`text-[10px] ml-1 ${isVoided ? 'bg-red-100 text-red-700' : invoice.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : invoice.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                        {invoice.status || 'completed'}
+                      </Badge>
+                    </div>
+                    {invoice.terms && <div><span className="text-slate-500">Terms:</span> {invoice.terms_label || invoice.terms}</div>}
+                    {invoice.due_date && <div><span className="text-slate-500">Due:</span> {invoice.due_date}</div>}
+                    {invoice.balance > 0 && <div><span className="text-slate-500">Balance:</span> <b className="text-red-600">{formatPHP(invoice.balance)}</b></div>}
+                  </div>
+
+                  {/* Digital payment info */}
+                  {(invoice.digital_platform || invoice.fund_source === 'digital' || invoice.fund_source === 'split') && (
+                    <div className="grid grid-cols-2 gap-3 text-sm bg-slate-50 rounded-lg p-3">
+                      {invoice.digital_platform && <div><span className="text-slate-500">Platform:</span> <span className="flex items-center gap-1 inline-flex"><Wallet size={12} className="text-blue-500" />{invoice.digital_platform}</span></div>}
+                      {invoice.digital_ref_number && <div><span className="text-slate-500">Ref #:</span> <span className="font-mono">{invoice.digital_ref_number}</span></div>}
+                      {invoice.digital_sender && <div><span className="text-slate-500">Sender:</span> {invoice.digital_sender}</div>}
+                      {invoice.fund_source && <div><span className="text-slate-500">Fund Source:</span> <span className="capitalize">{invoice.fund_source}</span></div>}
+                      {invoice.cash_amount > 0 && <div><span className="text-slate-500">Cash Portion:</span> {formatPHP(invoice.cash_amount)}</div>}
+                      {invoice.digital_amount > 0 && <div><span className="text-slate-500">Digital Portion:</span> {formatPHP(invoice.digital_amount)}</div>}
+                    </div>
+                  )}
+
+                  {/* Items table / edit mode */}
+                  {editMode ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500 font-medium uppercase">Edit Items</p>
+                      {editData.items.map((item, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-1.5 items-center p-2 bg-slate-50 rounded-lg border border-slate-200">
+                          <div className="col-span-5 text-xs font-medium truncate">{item.product_name}</div>
+                          <div className="col-span-3">
+                            <Label className="text-[9px] text-slate-400">Qty</Label>
+                            <Input type="number" min={0} value={item.quantity}
+                              onChange={e => handleItemChange(i, 'quantity', parseFloat(e.target.value) || 0)}
+                              className="h-7 text-sm text-right font-mono" />
+                          </div>
+                          <div className="col-span-4">
+                            <Label className="text-[9px] text-slate-400">Price</Label>
+                            <Input type="number" min={0} value={item.rate || item.unit_price || item.price}
+                              onChange={e => handleItemChange(i, 'rate', parseFloat(e.target.value) || 0)}
+                              className="h-7 text-sm text-right font-mono" />
+                          </div>
+                        </div>
+                      ))}
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs text-slate-500">Sale Date</Label>
+                          <Input type="date" value={editOrderDate}
+                            onChange={e => setEditOrderDate(e.target.value)}
+                            className="mt-1 h-9 text-sm" />
+                          {editDateClosed && editOrderDate === (invoice.order_date || invoice.created_at?.slice(0, 10)) && (
+                            <p className="text-[9px] text-amber-600 mt-0.5">This date is closed. PIN required to save changes.</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs text-slate-500">Reason for Edit <span className="text-red-500">*</span></Label>
+                          <Input value={editReason} onChange={e => setEditReason(e.target.value)}
+                            placeholder="e.g. Customer correction, wrong item..."
+                            className="mt-1 h-9 text-sm" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button variant="outline" onClick={() => setEditMode(false)} className="flex-1">Cancel</Button>
+                        <Button onClick={saveCompactEdit} disabled={saving} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white">
+                          {saving ? <RefreshCw size={13} className="animate-spin mr-1.5" /> : <Check size={13} className="mr-1.5" />}
+                          Save Changes
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Product</TableHead>
+                          <TableHead className="text-xs text-right">Qty</TableHead>
+                          <TableHead className="text-xs text-right">Price</TableHead>
+                          <TableHead className="text-xs text-right">Disc</TableHead>
+                          <TableHead className="text-xs text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoice.items?.map((item, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="text-sm">
+                              {item.product_name}
+                              {item.is_repack && <Badge variant="outline" className="text-[9px] ml-1">R</Badge>}
+                            </TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right font-mono">{formatPHP(item.rate || item.unit_price || item.price || 0)}</TableCell>
+                            <TableCell className="text-right text-xs text-emerald-600">{(item.discount_amount || 0) > 0 ? `-${formatPHP(item.discount_amount)}` : '—'}</TableCell>
+                            <TableCell className="text-right font-semibold font-mono">{formatPHP(item.total || 0)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  {!editMode && (
+                    <>
+                      <div className="text-sm space-y-1 border-t pt-3">
+                        <div className="flex justify-between"><span className="text-slate-500">Subtotal</span><span className="font-mono">{formatPHP(invoice.subtotal || invoice.line_subtotal || 0)}</span></div>
+                        {(invoice.overall_discount || invoice.overall_discount_amount || 0) > 0 && (
+                          <div className="flex justify-between text-emerald-600"><span>Discount</span><span className="font-mono">-{formatPHP(invoice.overall_discount || invoice.overall_discount_amount || 0)}</span></div>
+                        )}
+                        {(invoice.freight || 0) > 0 && <div className="flex justify-between"><span className="text-slate-500">Freight</span><span className="font-mono">{formatPHP(invoice.freight)}</span></div>}
+                        {(invoice.tax_amount || 0) > 0 && <div className="flex justify-between"><span className="text-slate-500">Tax</span><span className="font-mono">{formatPHP(invoice.tax_amount)}</span></div>}
+                        <div className="flex justify-between font-bold text-base pt-1 border-t"><span>Grand Total</span><span className="font-mono text-[#1A4D2E]">{formatPHP(invoice.grand_total || invoice.total || 0)}</span></div>
+                        {(invoice.amount_paid || 0) > 0 && <div className="flex justify-between text-sm text-emerald-600"><span>Paid</span><span className="font-mono">{formatPHP(invoice.amount_paid)}</span></div>}
+                        {(invoice.balance || 0) > 0 && <div className="flex justify-between text-sm text-red-600"><span>Balance</span><span className="font-mono">{formatPHP(invoice.balance)}</span></div>}
+                      </div>
+
+                      {invoice.notes && <p className="text-sm text-slate-500 border-t pt-2">Notes: {invoice.notes}</p>}
+
+                      {/* Sales rep / created info */}
+                      <div className="text-xs text-slate-400 space-y-0.5 border-t pt-2">
+                        {invoice.sales_rep_name && <p>Sales Rep: {invoice.sales_rep_name}</p>}
+                        <p>Created: {invoice.created_at ? new Date(invoice.created_at).toLocaleString() : '—'} by {invoice.cashier_name || '—'}</p>
+                        {invoice.edited && <p>Last edited: {invoice.last_edited_at ? new Date(invoice.last_edited_at).toLocaleString() : '—'} by {invoice.last_edited_by || '—'}</p>}
+                      </div>
+
+                      {/* Payment history */}
+                      {payments.length > 0 && (
+                        <div className="border-t pt-2">
+                          <p className="text-xs font-semibold uppercase text-slate-400 mb-2">Payment History</p>
+                          {payments.map((pay, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                              <div className="flex items-center gap-2">
+                                <Check size={10} className="text-emerald-500" />
+                                <span>{pay.date || '—'}</span>
+                                {pay.method && <Badge variant="outline" className="text-[9px]">{pay.method}</Badge>}
+                                {pay.fund_source && <span className="text-slate-400">{pay.fund_source}</span>}
+                              </div>
+                              <span className="font-bold text-emerald-600">{formatPHP(pay.amount || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Edit history */}
+                      {invoice.edit_history?.length > 0 && (
+                        <div className="border-t pt-2">
+                          <p className="text-xs font-semibold uppercase text-slate-400 mb-2">Edit History</p>
+                          {invoice.edit_history.map((edit, i) => (
+                            <div key={i} className="text-xs p-2 bg-amber-50 rounded mb-1.5 border border-amber-100">
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className="font-semibold text-amber-800">{edit.edited_by_name || edit.changed_by}</span>
+                                <span className="text-slate-400">{(edit.edited_at || edit.changed_at)?.slice(0, 10)}</span>
+                              </div>
+                              <p className="text-slate-600 italic">"{edit.reason}"</p>
+                              {edit.change_summary && <p className="text-slate-500 mt-0.5">{edit.change_summary}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Void button */}
+                      {canVoid && (
+                        <Button variant="destructive" className="w-full" onClick={() => setVoidOpen(true)} data-testid="sale-void-btn">
+                          <Ban size={14} className="mr-2" /> Void Sale
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center py-12"><div className="text-slate-400">Sale not found</div></div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Upload QR Dialog */}
+        <UploadQRDialog
+          open={uploadQROpen}
+          onClose={(count) => { setUploadQROpen(false); if (count > 0) { toast.success(`${count} photo(s) uploaded`); onUpdated?.(); } }}
+          recordType="invoice"
+          recordId={invoice?.id}
+        />
+        {/* View QR Dialog */}
+        <ViewQRDialog open={viewQROpen} onClose={() => setViewQROpen(false)} recordType="invoice" recordId={invoice?.id} />
+        {/* Verify PIN Dialog */}
+        <VerifyPinDialog
+          open={verifyDialogOpen}
+          onClose={() => setVerifyDialogOpen(false)}
+          docType="invoice"
+          docId={invoice?.id}
+          docLabel={saleNumber}
+          onVerified={(result) => {
+            setVerifyDialogOpen(false);
+            setInvoice(prev => ({ ...prev, verified: true, verified_by_name: result.verified_by, verified_at: new Date().toISOString() }));
+            onUpdated?.();
+          }}
+        />
+        {/* Void dialog */}
+        <Dialog open={voidOpen} onOpenChange={setVoidOpen}>
+          <DialogContent className="sm:max-w-sm" data-testid="sale-void-dialog">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600"><Ban size={18} /> Void Sale</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <Input placeholder="Reason for voiding" value={voidReason} onChange={e => setVoidReason(e.target.value)} data-testid="void-reason-input" />
+              <Input type="password" autoComplete="new-password" placeholder="Manager/Admin PIN" value={voidPin} onChange={e => setVoidPin(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && voidReason && voidPin) handleCompactVoid(); }} data-testid="void-pin-input" />
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setVoidOpen(false); setVoidReason(''); setVoidPin(''); }}>Cancel</Button>
+                <Button variant="destructive" className="flex-1" onClick={handleCompactVoid} disabled={!voidReason || !voidPin || actionLoading} data-testid="void-confirm-btn">
+                  {actionLoading ? 'Processing...' : 'Void Sale'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // FULL MODE — tabbed layout (original InvoiceDetailModal)
+  // ══════════════════════════════════════════════════════════════════════
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>

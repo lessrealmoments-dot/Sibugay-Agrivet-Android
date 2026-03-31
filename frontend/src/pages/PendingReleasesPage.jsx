@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import SaleDetailModal from '../components/SaleDetailModal';
+import InvoiceDetailModal from '../components/InvoiceDetailModal';
 import { toast } from 'sonner';
 import {
   Package, RefreshCw, ExternalLink, AlertTriangle, Search,
@@ -600,7 +600,7 @@ export default function PendingReleasesPage() {
       />
 
       {/* Invoice Detail Modal — same as Sales History */}
-      <SaleDetailModal
+      <InvoiceDetailModal compact
         open={invoiceModalOpen}
         onOpenChange={setInvoiceModalOpen}
         saleId={selectedInvoiceId}

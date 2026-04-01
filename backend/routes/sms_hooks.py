@@ -62,7 +62,7 @@ async def on_credit_sale_created(invoice: dict):
             phone=phone,
             variables={
                 "customer_name": customer.get("name", invoice.get("customer_name", "")),
-                "amount": f"{invoice.get('grand_total', 0):,.2f}",
+                "amount": f"{invoice.get('balance', 0):,.2f}",
                 "company_name": company_name,
                 "branch_name": branch_name,
                 "date": invoice.get("order_date", ""),

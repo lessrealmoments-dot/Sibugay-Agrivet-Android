@@ -722,7 +722,7 @@ async def startup():
                     branch_name = await get_branch_name(branch_id)
                     total_bal = customer.get("balance", 0)
                     interest_rate = customer.get("interest_rate", 0)
-                    est_interest = round(balance * (interest_rate / 30) * 30, 2) if interest_rate > 0 else 0
+                    est_interest = round(balance * (interest_rate / 100), 2) if interest_rate > 0 else 0
 
                     if due_date == day_15:
                         await queue_sms(

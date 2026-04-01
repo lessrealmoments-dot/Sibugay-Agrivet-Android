@@ -132,14 +132,34 @@ Replace `app/src/main/res/layout/activity_main.xml`:
         android:textColor="#94a3b8"
         android:layout_marginBottom="24dp" />
 
-    <!-- Server URL -->
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="Server URL" android:textSize="12sp" android:textColor="#64748b"
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Server" android:textSize="12sp" android:textColor="#64748b"
         android:layout_marginBottom="4dp" />
+
+    <!-- Quick-select buttons -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginBottom="8dp">
+
+        <Button android:id="@+id/btnProduction"
+            android:layout_width="0dp" android:layout_height="40dp"
+            android:layout_weight="1" android:layout_marginEnd="6dp"
+            android:text="agri-books.com"
+            android:textSize="11sp" android:backgroundTint="#1A4D2E" />
+
+        <Button android:id="@+id/btnPreview"
+            android:layout_width="0dp" android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="Preview (Emergent)"
+            android:textSize="11sp" android:backgroundTint="#475569" />
+
+    </LinearLayout>
+
     <EditText android:id="@+id/serverUrlInput"
         android:layout_width="match_parent" android:layout_height="48dp"
-        android:hint="https://your-server.emergentagent.com"
-        android:inputType="textUri" android:textSize="14sp"
+        android:hint="or type a custom URL"
+        android:inputType="textUri" android:textSize="13sp"
         android:background="@android:color/white" android:padding="12dp"
         android:layout_marginBottom="12dp" />
 
@@ -570,12 +590,19 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        const val URL_PRODUCTION = "https://agri-books.com"
+        const val URL_PREVIEW    = "https://sms-trigger-fix.preview.emergentagent.com"
+    }
+
     private lateinit var prefs: SharedPreferences
     private lateinit var serverUrlInput: EditText
     private lateinit var emailInput: EditText
     private lateinit var passwordInput: EditText
     private lateinit var saveBtn: Button
     private lateinit var stopBtn: Button
+    private lateinit var btnProduction: Button
+    private lateinit var btnPreview: Button
     private lateinit var statusText: TextView
     private lateinit var statsText: TextView
     private lateinit var lastCheckText: TextView
@@ -587,22 +614,40 @@ class MainActivity : AppCompatActivity() {
 
         prefs = getSharedPreferences("agri_sms", MODE_PRIVATE)
 
-        serverUrlInput = findViewById(R.id.serverUrlInput)
-        emailInput = findViewById(R.id.emailInput)
-        passwordInput = findViewById(R.id.passwordInput)
-        saveBtn = findViewById(R.id.saveBtn)
-        stopBtn = findViewById(R.id.stopBtn)
-        statusText = findViewById(R.id.statusText)
-        statsText = findViewById(R.id.statsText)
-        lastCheckText = findViewById(R.id.lastCheckText)
-        logText = findViewById(R.id.logText)
+        serverUrlInput  = findViewById(R.id.serverUrlInput)
+        emailInput      = findViewById(R.id.emailInput)
+        passwordInput   = findViewById(R.id.passwordInput)
+        saveBtn         = findViewById(R.id.saveBtn)
+        stopBtn         = findViewById(R.id.stopBtn)
+        btnProduction   = findViewById(R.id.btnProduction)
+        btnPreview      = findViewById(R.id.btnPreview)
+        statusText      = findViewById(R.id.statusText)
+        statsText       = findViewById(R.id.statsText)
+        lastCheckText   = findViewById(R.id.lastCheckText)
+        logText         = findViewById(R.id.logText)
 
         // Load saved values
-        serverUrlInput.setText(prefs.getString("server_url", ""))
+        serverUrlInput.setText(prefs.getString("server_url", URL_PRODUCTION))
         emailInput.setText(prefs.getString("email", ""))
-        // Don't pre-fill password for security, but user only needs to enter it once
 
         requestPermissions()
+
+        // Quick-select server buttons
+        btnProduction.setOnClickListener {
+            serverUrlInput.setText(URL_PRODUCTION)
+            highlightSelected(btnProduction, btnPreview)
+        }
+        btnPreview.setOnClickListener {
+            serverUrlInput.setText(URL_PREVIEW)
+            highlightSelected(btnPreview, btnProduction)
+        }
+
+        // Highlight whichever matches the saved URL
+        val saved = prefs.getString("server_url", URL_PRODUCTION)
+        when (saved) {
+            URL_PRODUCTION -> highlightSelected(btnProduction, btnPreview)
+            URL_PREVIEW    -> highlightSelected(btnPreview, btnProduction)
+        }
 
         saveBtn.setOnClickListener { saveAndStart() }
         stopBtn.setOnClickListener { stopGateway() }
@@ -610,7 +655,7 @@ class MainActivity : AppCompatActivity() {
         SmsGatewayService.onUpdate = { runOnUiThread { refreshUI() } }
 
         // Auto-start if already configured
-        val savedUrl = prefs.getString("server_url", "")
+        val savedUrl   = prefs.getString("server_url", "")
         val savedEmail = prefs.getString("email", "")
         if (!savedUrl.isNullOrEmpty() && !savedEmail.isNullOrEmpty()) {
             autoStart()
@@ -619,13 +664,18 @@ class MainActivity : AppCompatActivity() {
         refreshUI()
     }
 
+    private fun highlightSelected(active: Button, inactive: Button) {
+        active.setBackgroundColor(0xFF1A4D2E.toInt())
+        inactive.setBackgroundColor(0xFF475569.toInt())
+    }
+
     private fun saveAndStart() {
-        val url = serverUrlInput.text.toString().trim().trimEnd('/')
-        val email = emailInput.text.toString().trim()
+        val url      = serverUrlInput.text.toString().trim().trimEnd('/')
+        val email    = emailInput.text.toString().trim()
         val password = passwordInput.text.toString()
 
         if (url.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Enter server URL, email and password", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Enter server, email and password", Toast.LENGTH_SHORT).show()
             return
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
@@ -634,21 +684,20 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(); return
         }
 
-        // Save credentials
         prefs.edit()
             .putString("server_url", url)
             .putString("email", email)
             .putString("password", password)
-            .putString("auth_token", "") // Force fresh login
+            .putString("auth_token", "")
             .apply()
 
         SmsGatewayService.serverUrl = url
-        SmsGatewayService.email = email
-        SmsGatewayService.password = password
+        SmsGatewayService.email     = email
+        SmsGatewayService.password  = password
         SmsGatewayService.authToken = ""
 
         startGatewayService()
-        Toast.makeText(this, "Gateway started! Will auto-start on every reboot.", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Gateway started! Auto-starts on every reboot.", Toast.LENGTH_LONG).show()
     }
 
     private fun autoStart() {
@@ -675,11 +724,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshUI() {
-        statsText.text = "Sent: ${SmsGatewayService.sentCount}  |  " +
+        statsText.text    = "Sent: ${SmsGatewayService.sentCount}  |  " +
                 "Failed: ${SmsGatewayService.failedCount}  |  " +
                 "Pending: ${SmsGatewayService.pendingCount}"
         lastCheckText.text = "Last check: ${SmsGatewayService.lastCheck.ifEmpty { "never" }}"
-        logText.text = SmsGatewayService.logLines.joinToString("\n")
+        logText.text       = SmsGatewayService.logLines.joinToString("\n")
     }
 
     private fun requestPermissions() {

@@ -62,7 +62,7 @@ async def on_credit_sale_created(invoice: dict):
                 "branch_name": branch_name,
                 "date": invoice.get("order_date", ""),
                 "due_date": invoice.get("due_date", ""),
-                "total_balance": f"{customer.get('balance', 0) + invoice.get('balance', 0):,.2f}",
+                "total_balance": f"{customer.get('balance', 0):,.2f}",
             },
             organization_id=org_id,
             branch_id=branch_id,

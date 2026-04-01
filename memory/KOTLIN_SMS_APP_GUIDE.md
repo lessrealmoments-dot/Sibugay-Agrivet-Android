@@ -1,33 +1,32 @@
 # AgriBooks SMS Gateway — Android App Setup Guide
 
 ## What This App Does
-- Runs silently on your admin phone
-- Every 30 seconds, checks your AgriBooks server for pending SMS messages
-- Automatically sends them using your Globe SIM (unlimited text plan)
-- Reports back to the server that the message was sent
-- Shows a simple dashboard with stats
+- Runs **silently and automatically** on your admin phone — no button pressing needed
+- Starts itself automatically when the phone boots
+- Every 30 seconds, checks AgriBooks for pending SMS messages
+- Sends them via your Globe SIM, completely in the background
+- Auto-refreshes its login token — never expires
+- Shows a persistent notification so Android won't kill it
 
 ---
 
 ## STEP 1: Create New Project in Android Studio
 
-1. Open Android Studio Panda 2
-2. Click **"New Project"**
-3. Select **"Empty Views Activity"** (NOT Compose) → Click Next
-4. Fill in:
+1. Open Android Studio
+2. Click **"New Project"** → **"Empty Views Activity"** → Next
+3. Fill in:
    - **Name:** `AgriSMS Gateway`
    - **Package name:** `com.agribooks.smsgateway`
-   - **Save location:** wherever you want
    - **Language:** `Kotlin`
    - **Minimum SDK:** `API 26 (Android 8.0)`
    - **Build configuration language:** `Kotlin DSL`
-5. Click **Finish** and wait for the project to load
+4. Click **Finish**
 
 ---
 
 ## STEP 2: Update build.gradle.kts (Module: app)
 
-Open `app/build.gradle.kts` and REPLACE the entire `dependencies { }` block with:
+Open `app/build.gradle.kts` and replace the `dependencies { }` block with:
 
 ```kotlin
 dependencies {
@@ -35,35 +34,31 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-
-    // HTTP client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
-    // JSON parsing
     implementation("org.json:json:20231013")
 }
 ```
 
-Then click **"Sync Now"** when the yellow bar appears at the top.
+Click **"Sync Now"** when the yellow bar appears.
 
 ---
 
-## STEP 3: Update AndroidManifest.xml
+## STEP 3: AndroidManifest.xml
 
-Open `app/src/main/AndroidManifest.xml` and REPLACE its entire content with:
+Replace the entire content of `app/src/main/AndroidManifest.xml`:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -84,10 +79,22 @@ Open `app/src/main/AndroidManifest.xml` and REPLACE its entire content with:
             </intent-filter>
         </activity>
 
+        <!-- Foreground service -->
         <service
             android:name=".SmsGatewayService"
             android:foregroundServiceType="specialUse"
             android:exported="false" />
+
+        <!-- Auto-start on phone boot -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>
@@ -95,9 +102,9 @@ Open `app/src/main/AndroidManifest.xml` and REPLACE its entire content with:
 
 ---
 
-## STEP 4: Create the Layout File
+## STEP 4: Layout (activity_main.xml)
 
-Open `app/src/main/res/layout/activity_main.xml` and REPLACE with:
+Replace `app/src/main/res/layout/activity_main.xml`:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -108,7 +115,6 @@ Open `app/src/main/res/layout/activity_main.xml` and REPLACE with:
     android:padding="24dp"
     android:background="#F5F5F0">
 
-    <!-- Header -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -121,130 +127,91 @@ Open `app/src/main/res/layout/activity_main.xml` and REPLACE with:
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Sends SMS from your AgriBooks queue"
+        android:text="Fully automatic — runs silently in background"
         android:textSize="13sp"
         android:textColor="#94a3b8"
         android:layout_marginBottom="24dp" />
 
     <!-- Server URL -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Server URL"
-        android:textSize="12sp"
-        android:textColor="#64748b"
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Server URL" android:textSize="12sp" android:textColor="#64748b"
         android:layout_marginBottom="4dp" />
-
-    <EditText
-        android:id="@+id/serverUrlInput"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:hint="https://sms-trigger-fix.preview.emergentagent.com"
-        android:inputType="textUri"
-        android:textSize="14sp"
-        android:background="@android:color/white"
-        android:padding="12dp"
+    <EditText android:id="@+id/serverUrlInput"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:hint="https://your-server.emergentagent.com"
+        android:inputType="textUri" android:textSize="14sp"
+        android:background="@android:color/white" android:padding="12dp"
         android:layout_marginBottom="12dp" />
 
-    <!-- Auth Token -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Auth Token (from login)"
-        android:textSize="12sp"
-        android:textColor="#64748b"
+    <!-- Email -->
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Email" android:textSize="12sp" android:textColor="#64748b"
         android:layout_marginBottom="4dp" />
+    <EditText android:id="@+id/emailInput"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:hint="admin@yourcompany.com"
+        android:inputType="textEmailAddress" android:textSize="14sp"
+        android:background="@android:color/white" android:padding="12dp"
+        android:layout_marginBottom="12dp" />
 
-    <EditText
-        android:id="@+id/authTokenInput"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:hint="Paste your JWT token here"
-        android:inputType="text"
-        android:textSize="14sp"
-        android:background="@android:color/white"
-        android:padding="12dp"
-        android:layout_marginBottom="8dp" />
-
-    <Button
-        android:id="@+id/loginBtn"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:text="Login with Credentials"
-        android:textSize="13sp"
-        android:backgroundTint="#1A4D2E"
-        android:layout_marginBottom="24dp" />
+    <!-- Password -->
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Password" android:textSize="12sp" android:textColor="#64748b"
+        android:layout_marginBottom="4dp" />
+    <EditText android:id="@+id/passwordInput"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:hint="Your password"
+        android:inputType="textPassword" android:textSize="14sp"
+        android:background="@android:color/white" android:padding="12dp"
+        android:layout_marginBottom="16dp" />
 
     <!-- Status Card -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@android:color/white"
-        android:padding="16dp"
-        android:layout_marginBottom="16dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:background="@android:color/white"
+        android:padding="16dp" android:layout_marginBottom="16dp">
 
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Status: Stopped"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#334155"
+        <TextView android:id="@+id/statusText"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Status: Not configured" android:textSize="16sp"
+            android:textStyle="bold" android:textColor="#334155"
             android:layout_marginBottom="8dp" />
 
-        <TextView
-            android:id="@+id/statsText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+        <TextView android:id="@+id/statsText"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="Sent: 0  |  Failed: 0  |  Pending: 0"
-            android:textSize="13sp"
-            android:textColor="#64748b"
+            android:textSize="13sp" android:textColor="#64748b"
             android:layout_marginBottom="8dp" />
 
-        <TextView
-            android:id="@+id/lastCheckText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Last check: never"
-            android:textSize="11sp"
+        <TextView android:id="@+id/lastCheckText"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Last check: never" android:textSize="11sp"
             android:textColor="#94a3b8" />
     </LinearLayout>
 
-    <!-- Start/Stop Button -->
-    <Button
-        android:id="@+id/toggleBtn"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="Start Gateway"
-        android:textSize="16sp"
-        android:backgroundTint="#1A4D2E" />
+    <!-- Save & Start Button -->
+    <Button android:id="@+id/saveBtn"
+        android:layout_width="match_parent" android:layout_height="56dp"
+        android:text="Save &amp; Start Gateway"
+        android:textSize="16sp" android:backgroundTint="#1A4D2E"
+        android:layout_marginBottom="8dp" />
+
+    <Button android:id="@+id/stopBtn"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:text="Stop Gateway"
+        android:textSize="14sp" android:backgroundTint="#DC2626"
+        android:layout_marginBottom="16dp" />
 
     <!-- Log -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Recent Activity"
-        android:textSize="12sp"
-        android:textColor="#64748b"
-        android:layout_marginTop="16dp"
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Recent Activity" android:textSize="12sp" android:textColor="#64748b"
         android:layout_marginBottom="4dp" />
 
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
+    <ScrollView android:layout_width="match_parent" android:layout_height="0dp"
         android:layout_weight="1">
-
-        <TextView
-            android:id="@+id/logText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="11sp"
-            android:textColor="#475569"
-            android:fontFamily="monospace"
-            android:background="@android:color/white"
+        <TextView android:id="@+id/logText"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="" android:textSize="11sp" android:textColor="#475569"
+            android:fontFamily="monospace" android:background="@android:color/white"
             android:padding="12dp" />
     </ScrollView>
 
@@ -253,16 +220,15 @@ Open `app/src/main/res/layout/activity_main.xml` and REPLACE with:
 
 ---
 
-## STEP 5: Create SmsGatewayService.kt
+## STEP 5: SmsGatewayService.kt
 
-Right-click on your package folder (`com.agribooks.smsgateway`) → New → Kotlin Class/File → Name: `SmsGatewayService`
-
-REPLACE its content with:
+Create `SmsGatewayService.kt` in your package folder:
 
 ```kotlin
 package com.agribooks.smsgateway
 
 import android.app.*
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
@@ -286,9 +252,11 @@ class SmsGatewayService : Service() {
         const val TAG = "SmsGateway"
         const val CHANNEL_ID = "sms_gateway_channel"
         const val NOTIFICATION_ID = 1
-        const val POLL_INTERVAL_MS = 30_000L // 30 seconds
+        const val POLL_INTERVAL_MS = 30_000L
 
         var serverUrl = ""
+        var email = ""
+        var password = ""
         var authToken = ""
         var sentCount = 0
         var failedCount = 0
@@ -296,6 +264,14 @@ class SmsGatewayService : Service() {
         var lastCheck = ""
         var logLines = mutableListOf<String>()
         var onUpdate: (() -> Unit)? = null
+
+        fun loadFromPrefs(context: Context) {
+            val prefs = context.getSharedPreferences("agri_sms", Context.MODE_PRIVATE)
+            serverUrl = prefs.getString("server_url", "") ?: ""
+            email = prefs.getString("email", "") ?: ""
+            password = prefs.getString("password", "") ?: ""
+            authToken = prefs.getString("auth_token", "") ?: ""
+        }
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -314,15 +290,22 @@ class SmsGatewayService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        loadFromPrefs(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = buildNotification("Gateway running...")
+        loadFromPrefs(this)
+        val notification = buildNotification("Gateway running — checking every 30s")
         startForeground(NOTIFICATION_ID, notification)
         running = true
-        addLog("Gateway started")
-        handler.post(pollRunnable)
-        return START_STICKY
+        addLog("Gateway started (auto)")
+        // Login first if we have credentials but no token
+        if (authToken.isEmpty() && email.isNotEmpty() && password.isNotEmpty()) {
+            loginAndStart()
+        } else {
+            handler.post(pollRunnable)
+        }
+        return START_STICKY // Restart automatically if killed
     }
 
     override fun onDestroy() {
@@ -334,12 +317,51 @@ class SmsGatewayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun pollAndSend() {
-        if (serverUrl.isEmpty() || authToken.isEmpty()) return
-
-        val url = "$serverUrl/api/sms/queue/pending?limit=10"
+    /** Login with stored credentials and start polling */
+    private fun loginAndStart() {
+        if (serverUrl.isEmpty() || email.isEmpty() || password.isEmpty()) return
+        val json = JSONObject().put("email", email).put("password", password).toString()
         val request = Request.Builder()
-            .url(url)
+            .url("$serverUrl/api/auth/login")
+            .post(json.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                addLog("Auto-login failed: ${e.message}")
+                // Retry in 60 seconds
+                handler.postDelayed({ loginAndStart() }, 60_000L)
+            }
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: ""
+                response.close()
+                if (response.isSuccessful) {
+                    try {
+                        authToken = JSONObject(body).getString("token")
+                        // Save new token
+                        getSharedPreferences("agri_sms", MODE_PRIVATE)
+                            .edit().putString("auth_token", authToken).apply()
+                        addLog("Auto-login OK")
+                        handler.post(pollRunnable)
+                    } catch (e: Exception) {
+                        addLog("Auto-login parse error: ${e.message}")
+                    }
+                } else {
+                    addLog("Auto-login error: ${response.code}")
+                }
+            }
+        })
+    }
+
+    private fun pollAndSend() {
+        if (serverUrl.isEmpty() || authToken.isEmpty()) {
+            // Try to login first
+            if (email.isNotEmpty() && password.isNotEmpty()) loginAndStart()
+            return
+        }
+
+        val request = Request.Builder()
+            .url("$serverUrl/api/sms/queue/pending?limit=10")
             .header("Authorization", "Bearer $authToken")
             .get()
             .build()
@@ -352,6 +374,14 @@ class SmsGatewayService : Service() {
 
             override fun onResponse(call: Call, response: Response) {
                 updateLastCheck()
+                // If token expired, auto-relogin
+                if (response.code == 401) {
+                    response.close()
+                    addLog("Token expired — re-logging in...")
+                    authToken = ""
+                    loginAndStart()
+                    return
+                }
                 if (!response.isSuccessful) {
                     addLog("Poll error: ${response.code}")
                     response.close()
@@ -364,22 +394,16 @@ class SmsGatewayService : Service() {
                 try {
                     val messages = JSONArray(body)
                     pendingCount = messages.length()
-
-                    if (messages.length() == 0) {
-                        onUpdate?.invoke()
-                        return
-                    }
-
+                    if (messages.length() == 0) { onUpdate?.invoke(); return }
                     addLog("Found ${messages.length()} pending")
-
                     for (i in 0 until messages.length()) {
                         val msg = messages.getJSONObject(i)
-                        val id = msg.getString("id")
-                        val phone = msg.getString("phone")
-                        val text = msg.getString("message")
-                        val name = msg.optString("customer_name", "")
-
-                        sendSms(id, phone, text, name)
+                        sendSms(
+                            msg.getString("id"),
+                            msg.getString("phone"),
+                            msg.getString("message"),
+                            msg.optString("customer_name", "")
+                        )
                     }
                 } catch (e: Exception) {
                     addLog("Parse error: ${e.message}")
@@ -396,21 +420,16 @@ class SmsGatewayService : Service() {
                 @Suppress("DEPRECATION")
                 SmsManager.getDefault()
             }
-
-            // Split long messages
             val parts = smsManager.divideMessage(message)
             if (parts.size > 1) {
                 smsManager.sendMultipartTextMessage(phone, null, parts, null, null)
             } else {
                 smsManager.sendTextMessage(phone, null, message, null, null)
             }
-
-            // Report success
             markSent(id)
             sentCount++
             addLog("Sent to $customerName ($phone)")
             updateNotification("Last sent: $customerName")
-
         } catch (e: Exception) {
             markFailed(id, e.message ?: "Send failed")
             failedCount++
@@ -419,9 +438,8 @@ class SmsGatewayService : Service() {
     }
 
     private fun markSent(id: String) {
-        val url = "$serverUrl/api/sms/queue/$id/mark-sent"
         val request = Request.Builder()
-            .url(url)
+            .url("$serverUrl/api/sms/queue/$id/mark-sent")
             .header("Authorization", "Bearer $authToken")
             .patch("{}".toRequestBody("application/json".toMediaType()))
             .build()
@@ -432,10 +450,9 @@ class SmsGatewayService : Service() {
     }
 
     private fun markFailed(id: String, error: String) {
-        val url = "$serverUrl/api/sms/queue/$id/mark-failed"
         val json = JSONObject().put("error", error).toString()
         val request = Request.Builder()
-            .url(url)
+            .url("$serverUrl/api/sms/queue/$id/mark-failed")
             .header("Authorization", "Bearer $authToken")
             .patch(json.toRequestBody("application/json".toMediaType()))
             .build()
@@ -464,18 +481,15 @@ class SmsGatewayService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                CHANNEL_ID, "SMS Gateway",
-                NotificationManager.IMPORTANCE_LOW
+                CHANNEL_ID, "SMS Gateway", NotificationManager.IMPORTANCE_LOW
             ).apply { description = "AgriBooks SMS sending service" }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 
     private fun buildNotification(text: String): Notification {
-        val intent = Intent(this, MainActivity::class.java)
         val pending = PendingIntent.getActivity(
-            this, 0, intent,
+            this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -483,22 +497,59 @@ class SmsGatewayService : Service() {
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentIntent(pending)
-            .setOngoing(true)
+            .setOngoing(true) // Can't be swiped away
             .build()
     }
 
     private fun updateNotification(text: String) {
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID, buildNotification(text))
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification(text))
     }
 }
 ```
 
 ---
 
-## STEP 6: Update MainActivity.kt
+## STEP 6: BootReceiver.kt (NEW — Auto-start on phone reboot)
 
-Open `app/src/main/java/com/agribooks/smsgateway/MainActivity.kt` and REPLACE with:
+Create a new file `BootReceiver.kt`:
+
+```kotlin
+package com.agribooks.smsgateway
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == "android.intent.action.QUICKBOOT_POWERON") {
+
+            // Only auto-start if credentials are saved
+            val prefs = context.getSharedPreferences("agri_sms", Context.MODE_PRIVATE)
+            val serverUrl = prefs.getString("server_url", "") ?: ""
+            val email = prefs.getString("email", "") ?: ""
+
+            if (serverUrl.isNotEmpty() && email.isNotEmpty()) {
+                val serviceIntent = Intent(context, SmsGatewayService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+            }
+        }
+    }
+}
+```
+
+---
+
+## STEP 7: MainActivity.kt
+
+Replace `app/src/main/java/com/agribooks/smsgateway/MainActivity.kt`:
 
 ```kotlin
 package com.agribooks.smsgateway
@@ -513,28 +564,22 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var prefs: SharedPreferences
     private lateinit var serverUrlInput: EditText
-    private lateinit var authTokenInput: EditText
-    private lateinit var toggleBtn: Button
-    private lateinit var loginBtn: Button
+    private lateinit var emailInput: EditText
+    private lateinit var passwordInput: EditText
+    private lateinit var saveBtn: Button
+    private lateinit var stopBtn: Button
     private lateinit var statusText: TextView
     private lateinit var statsText: TextView
     private lateinit var lastCheckText: TextView
     private lateinit var logText: TextView
-    private var serviceRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -543,9 +588,10 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences("agri_sms", MODE_PRIVATE)
 
         serverUrlInput = findViewById(R.id.serverUrlInput)
-        authTokenInput = findViewById(R.id.authTokenInput)
-        toggleBtn = findViewById(R.id.toggleBtn)
-        loginBtn = findViewById(R.id.loginBtn)
+        emailInput = findViewById(R.id.emailInput)
+        passwordInput = findViewById(R.id.passwordInput)
+        saveBtn = findViewById(R.id.saveBtn)
+        stopBtn = findViewById(R.id.stopBtn)
         statusText = findViewById(R.id.statusText)
         statsText = findViewById(R.id.statsText)
         lastCheckText = findViewById(R.id.lastCheckText)
@@ -553,21 +599,87 @@ class MainActivity : AppCompatActivity() {
 
         // Load saved values
         serverUrlInput.setText(prefs.getString("server_url", ""))
-        authTokenInput.setText(prefs.getString("auth_token", ""))
+        emailInput.setText(prefs.getString("email", ""))
+        // Don't pre-fill password for security, but user only needs to enter it once
 
-        // Request SMS permission
         requestPermissions()
 
-        // Login button — get token via email/password
-        loginBtn.setOnClickListener { showLoginDialog() }
+        saveBtn.setOnClickListener { saveAndStart() }
+        stopBtn.setOnClickListener { stopGateway() }
 
-        // Start/Stop toggle
-        toggleBtn.setOnClickListener {
-            if (serviceRunning) stopGateway() else startGateway()
+        SmsGatewayService.onUpdate = { runOnUiThread { refreshUI() } }
+
+        // Auto-start if already configured
+        val savedUrl = prefs.getString("server_url", "")
+        val savedEmail = prefs.getString("email", "")
+        if (!savedUrl.isNullOrEmpty() && !savedEmail.isNullOrEmpty()) {
+            autoStart()
         }
 
-        // Listen for service updates
-        SmsGatewayService.onUpdate = { runOnUiThread { refreshUI() } }
+        refreshUI()
+    }
+
+    private fun saveAndStart() {
+        val url = serverUrlInput.text.toString().trim().trimEnd('/')
+        val email = emailInput.text.toString().trim()
+        val password = passwordInput.text.toString()
+
+        if (url.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "Enter server URL, email and password", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
+            != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "SMS permission required!", Toast.LENGTH_LONG).show()
+            requestPermissions(); return
+        }
+
+        // Save credentials
+        prefs.edit()
+            .putString("server_url", url)
+            .putString("email", email)
+            .putString("password", password)
+            .putString("auth_token", "") // Force fresh login
+            .apply()
+
+        SmsGatewayService.serverUrl = url
+        SmsGatewayService.email = email
+        SmsGatewayService.password = password
+        SmsGatewayService.authToken = ""
+
+        startGatewayService()
+        Toast.makeText(this, "Gateway started! Will auto-start on every reboot.", Toast.LENGTH_LONG).show()
+    }
+
+    private fun autoStart() {
+        SmsGatewayService.loadFromPrefs(this)
+        startGatewayService()
+    }
+
+    private fun startGatewayService() {
+        val intent = Intent(this, SmsGatewayService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+        statusText.text = "Status: Running"
+        statusText.setTextColor(0xFF16a34a.toInt())
+    }
+
+    private fun stopGateway() {
+        stopService(Intent(this, SmsGatewayService::class.java))
+        statusText.text = "Status: Stopped"
+        statusText.setTextColor(0xFF334155.toInt())
+        Toast.makeText(this, "Gateway stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun refreshUI() {
+        statsText.text = "Sent: ${SmsGatewayService.sentCount}  |  " +
+                "Failed: ${SmsGatewayService.failedCount}  |  " +
+                "Pending: ${SmsGatewayService.pendingCount}"
+        lastCheckText.text = "Last check: ${SmsGatewayService.lastCheck.ifEmpty { "never" }}"
+        logText.text = SmsGatewayService.logLines.joinToString("\n")
     }
 
     private fun requestPermissions() {
@@ -582,189 +694,75 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, needed.toTypedArray(), 100)
         }
     }
-
-    private fun startGateway() {
-        val url = serverUrlInput.text.toString().trim().trimEnd('/')
-        val token = authTokenInput.text.toString().trim()
-
-        if (url.isEmpty()) {
-            Toast.makeText(this, "Enter server URL first", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (token.isEmpty()) {
-            Toast.makeText(this, "Login or paste auth token first", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        // Check SMS permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS)
-            != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "SMS permission required!", Toast.LENGTH_LONG).show()
-            requestPermissions()
-            return
-        }
-
-        // Save config
-        prefs.edit()
-            .putString("server_url", url)
-            .putString("auth_token", token)
-            .apply()
-
-        SmsGatewayService.serverUrl = url
-        SmsGatewayService.authToken = token
-
-        val intent = Intent(this, SmsGatewayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-
-        serviceRunning = true
-        toggleBtn.text = "Stop Gateway"
-        toggleBtn.setBackgroundColor(0xFFDC2626.toInt())
-        statusText.text = "Status: Running"
-        statusText.setTextColor(0xFF16a34a.toInt())
-    }
-
-    private fun stopGateway() {
-        stopService(Intent(this, SmsGatewayService::class.java))
-        serviceRunning = false
-        toggleBtn.text = "Start Gateway"
-        toggleBtn.setBackgroundColor(0xFF1A4D2E.toInt())
-        statusText.text = "Status: Stopped"
-        statusText.setTextColor(0xFF334155.toInt())
-    }
-
-    private fun refreshUI() {
-        statsText.text = "Sent: ${SmsGatewayService.sentCount}  |  " +
-                "Failed: ${SmsGatewayService.failedCount}  |  " +
-                "Pending: ${SmsGatewayService.pendingCount}"
-        lastCheckText.text = "Last check: ${SmsGatewayService.lastCheck.ifEmpty { "never" }}"
-        logText.text = SmsGatewayService.logLines.joinToString("\n")
-    }
-
-    private fun showLoginDialog() {
-        val url = serverUrlInput.text.toString().trim().trimEnd('/')
-        if (url.isEmpty()) {
-            Toast.makeText(this, "Enter server URL first", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val layout = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 0)
-        }
-        val emailInput = EditText(this).apply {
-            hint = "Email"
-            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-        }
-        val passInput = EditText(this).apply {
-            hint = "Password"
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-        }
-        layout.addView(emailInput)
-        layout.addView(passInput)
-
-        AlertDialog.Builder(this)
-            .setTitle("Login to AgriBooks")
-            .setView(layout)
-            .setPositiveButton("Login") { _, _ ->
-                login(url, emailInput.text.toString(), passInput.text.toString())
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun login(url: String, email: String, password: String) {
-        val json = JSONObject()
-            .put("email", email)
-            .put("password", password)
-            .toString()
-
-        val request = Request.Builder()
-            .url("$url/api/auth/login")
-            .post(json.toRequestBody("application/json".toMediaType()))
-            .build()
-
-        OkHttpClient().newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string() ?: ""
-                response.close()
-                runOnUiThread {
-                    if (response.isSuccessful) {
-                        try {
-                            val token = JSONObject(body).getString("token")
-                            authTokenInput.setText(token)
-                            prefs.edit().putString("auth_token", token).apply()
-                            Toast.makeText(this@MainActivity, "Login successful!", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(this@MainActivity, "Login error: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
-                    } else {
-                        Toast.makeText(this@MainActivity, "Login failed: $body", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        })
-    }
 }
 ```
 
 ---
 
-## STEP 7: Build & Install
+## STEP 8: Build & Install
 
-1. Connect your admin phone via USB (enable **Developer Options** + **USB Debugging**)
-   - Go to phone Settings → About Phone → tap "Build Number" 7 times
-   - Go to Settings → Developer Options → enable USB Debugging
-2. In Android Studio, select your phone from the device dropdown (top toolbar)
+1. Connect your admin phone via USB (Developer Options + USB Debugging enabled)
+2. Select your device from the dropdown in Android Studio
 3. Click the green **Run** button (▶)
-4. Wait for it to build and install (first build takes 2-3 minutes)
+4. Wait for it to install (~2-3 minutes first time)
 
 ---
 
-## STEP 8: First Time Setup on Phone
+## STEP 9: First Time Setup (ONE TIME ONLY)
 
-1. Open **AgriSMS Gateway** app on your phone
-2. Grant **SMS permission** when prompted
-3. Enter your server URL: `https://sms-trigger-fix.preview.emergentagent.com`
-4. Tap **"Login with Credentials"** → enter your admin email + password
-5. Tap **"Start Gateway"**
-6. Done! The app will now automatically send SMS from your queue every 30 seconds
+1. Open **AgriSMS Gateway** on your phone
+2. Grant **SMS permission** when asked
+3. Fill in:
+   - **Server URL:** `https://your-server.emergentagent.com`
+   - **Email:** your AgriBooks admin email
+   - **Password:** your password
+4. Tap **"Save & Start Gateway"**
+5. **Done.** You never have to touch it again.
+
+After this:
+- Phone reboots → gateway auto-starts ✓
+- Token expires → gateway auto-logs in ✓
+- New credit sale created → SMS sent within 30 seconds ✓
+- Phone locked → SMS still sends ✓
 
 ---
 
-## How It Works
+## IMPORTANT: Disable Battery Optimization (Required!)
+
+Android aggressively kills background apps. You MUST do this:
+
+1. Go to **Settings → Apps → AgriSMS Gateway**
+2. Tap **Battery**
+3. Select **"Unrestricted"** (not "Optimized")
+
+On Samsung phones:
+- Settings → Device Care → Battery → Background usage limits → Never sleeping apps → Add AgriSMS Gateway
+
+On Xiaomi/MIUI phones:
+- Settings → Apps → Manage Apps → AgriSMS Gateway → Battery saver → No restrictions
+- Also: Settings → Battery & Performance → App battery saver → AgriSMS Gateway → No restrictions
+
+---
+
+## How It Works (Fully Automatic)
 
 ```
-AgriBooks (your website)
-    ↓ creates pending SMS
-AgriSMS Gateway (this app on your phone)
-    ↓ polls every 30 seconds
-    ↓ sends SMS via your Globe SIM
-    ↓ reports back: sent or failed
-AgriBooks updates the SMS queue status
+Customer makes credit purchase on AgriBooks
+    ↓ (immediately)
+AgriBooks backend queues SMS (pending)
+    ↓ (within 30 seconds)
+AgriSMS Gateway app (running silently on store phone)
+    ↓ polls server
+    ↓ sends SMS via Globe SIM — NO button press
+    ↓ reports back: sent
+Customer receives text message
 ```
 
 ---
 
 ## Troubleshooting
 
-- **"SMS permission required"** → Go to phone Settings → Apps → AgriSMS Gateway → Permissions → SMS → Allow
-- **Messages not sending** → Check the log at the bottom of the app
-- **Token expired** → Tap "Login with Credentials" again
-- **App killed in background** → Some phones kill background apps aggressively. Go to Settings → Battery → AgriSMS Gateway → "Don't optimize" or "Allow background activity"
-
----
-
-## Notes
-- The app uses a Foreground Service (persistent notification) to stay alive
-- Globe unlimited text plan handles all sending costs
-- The app saves your server URL and token — you only configure once
-- Long messages (>160 chars) are automatically split into multiple SMS parts
+- **SMS not sending** → Check the log in the app — most likely SMS permission was revoked
+- **"Poll failed"** → Phone has no internet — check WiFi or mobile data
+- **Stopped after phone reboot** → Battery optimization not disabled (see above)
+- **"Auto-login error 401"** → Wrong password saved — tap "Save & Start" again with correct password

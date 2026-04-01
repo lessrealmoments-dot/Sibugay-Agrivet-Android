@@ -16,12 +16,17 @@ async def _resolve_org_id(branch_id: str) -> str:
 
 
 async def get_company_name(organization_id: str = "") -> str:
-    """Get the business name for the given org (or fallback to AgriBooks)."""
-    query = {"key": "business_info"}
+    """Get business name — org-scoped first, fallback to any company_info setting."""
+    biz = None
     if organization_id:
-        query["organization_id"] = organization_id
-    biz = await raw_db.settings.find_one(query, {"_id": 0})
-    return biz.get("value", {}).get("business_name", "AgriBooks") if biz else "AgriBooks"
+        biz = await raw_db.settings.find_one(
+            {"key": "company_info", "organization_id": organization_id}, {"_id": 0}
+        )
+    if not biz:
+        biz = await raw_db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    if not biz:
+        return "AgriBooks"
+    return biz.get("value", {}).get("name", "AgriBooks")
 
 
 async def get_branch_name(branch_id: str) -> str:

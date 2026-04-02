@@ -4,13 +4,43 @@ Customer management routes with multi-branch support.
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime, timezone
-from config import db
+from config import db, _raw_db
 from utils import (
     get_current_user, check_perm, now_iso, new_id,
     get_default_branch, ensure_branch_access
 )
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
+
+
+async def _auto_migrate_sms(phone: str, customer_id: str, customer_name: str, branch_id: str):
+    """When a customer is created or assigned a phone number, automatically
+    migrate any existing sms_inbox records for that phone from Unknown → this customer.
+    This makes the system smart: registering Guillermo Ahig with his number instantly
+    moves his conversation from Unknown to his branch.
+    """
+    if not phone:
+        return 0
+
+    # Build all phone variants so we catch +63... and 09... formats
+    normalized = phone.lstrip("+")
+    if normalized.startswith("63") and len(normalized) > 10:
+        normalized = "0" + normalized[2:]
+    variants = list({phone, normalized})
+    if normalized.startswith("09") and len(normalized) == 11:
+        variants.append("+63" + normalized[1:])
+
+    result = await _raw_db.sms_inbox.update_many(
+        {"phone": {"$in": variants}, "customer_id": ""},   # Only unregistered records
+        {"$set": {
+            "customer_id": customer_id,
+            "customer_name": customer_name,
+            "branch_id": branch_id,
+            "registered": True,
+            "phone": normalized,    # Normalize to local format
+        }}
+    )
+    return result.modified_count
 
 
 @router.get("")
@@ -80,6 +110,13 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
     }
     await db.customers.insert_one(customer)
     del customer["_id"]
+
+    # Auto-migrate any existing Unknown SMS for this phone to the new customer
+    if customer.get("phone"):
+        await _auto_migrate_sms(
+            customer["phone"], customer["id"], customer["name"], branch_id or ""
+        )
+
     return customer
 
 
@@ -183,6 +220,13 @@ async def update_customer(customer_id: str, data: dict, user=Depends(get_current
     
     await db.customers.update_one({"id": customer_id}, {"$set": update})
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+
+    # If phone was updated, auto-migrate any Unknown SMS for that number
+    if "phone" in update and update["phone"] and customer:
+        await _auto_migrate_sms(
+            update["phone"], customer["id"], customer["name"], customer.get("branch_id", "")
+        )
+
     return customer
 
 

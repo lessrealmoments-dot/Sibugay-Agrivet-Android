@@ -13,31 +13,37 @@ from utils import (
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
 
-async def _auto_migrate_sms(phone: str, customer_id: str, customer_name: str, branch_id: str):
-    """When a customer is created or assigned a phone number, automatically
-    migrate any existing sms_inbox records for that phone from Unknown → this customer.
-    This makes the system smart: registering Guillermo Ahig with his number instantly
-    moves his conversation from Unknown to his branch.
-    """
-    if not phone:
-        return 0
+def _norm_phone(p: str) -> str:
+    """Normalize phone to local 09... format."""
+    n = p.strip().lstrip("+")
+    if n.startswith("63") and len(n) > 10:
+        n = "0" + n[2:]
+    return n
 
-    # Build all phone variants so we catch +63... and 09... formats
-    normalized = phone.lstrip("+")
-    if normalized.startswith("63") and len(normalized) > 10:
-        normalized = "0" + normalized[2:]
-    variants = list({phone, normalized})
-    if normalized.startswith("09") and len(normalized) == 11:
-        variants.append("+63" + normalized[1:])
+
+async def _auto_migrate_sms(phones: list, customer_id: str, customer_name: str, branch_id: str):
+    """When a customer is created/updated with phone(s), auto-migrate any Unknown
+    sms_inbox records for those numbers into this customer's conversation.
+    """
+    if not phones:
+        return 0
+    all_variants = set()
+    for p in phones:
+        if not p:
+            continue
+        normalized = _norm_phone(p)
+        all_variants.add(p)
+        all_variants.add(normalized)
+        if normalized.startswith("09") and len(normalized) == 11:
+            all_variants.add("+63" + normalized[1:])
 
     result = await _raw_db.sms_inbox.update_many(
-        {"phone": {"$in": variants}, "customer_id": ""},   # Only unregistered records
+        {"phone": {"$in": list(all_variants)}, "customer_id": ""},
         {"$set": {
             "customer_id": customer_id,
             "customer_name": customer_name,
             "branch_id": branch_id,
             "registered": True,
-            "phone": normalized,    # Normalize to local format
         }}
     )
     return result.modified_count
@@ -85,18 +91,25 @@ async def list_customers(
 
 @router.post("")
 async def create_customer(data: dict, user=Depends(get_current_user)):
-    """Create a new customer."""
+    """Create a new customer. Accepts phones[] array or a single phone string."""
     check_perm(user, "customers", "create")
     
-    # Determine branch_id
     branch_id = data.get("branch_id")
     if not branch_id:
         branch_id = await get_default_branch(user)
-    
+
+    # Build unified phones list — deduplicated, normalized
+    phones_raw = data.get("phones") or []
+    if data.get("phone") and data["phone"].strip():
+        phones_raw = [data["phone"]] + [p for p in phones_raw if p != data["phone"]]
+    phones = list(dict.fromkeys(_norm_phone(p) for p in phones_raw if p.strip()))
+    phone_primary = phones[0] if phones else ""
+
     customer = {
         "id": new_id(),
         "name": data["name"],
-        "phone": data.get("phone", ""),
+        "phone": phone_primary,
+        "phones": phones,
         "email": data.get("email", ""),
         "address": data.get("address", ""),
         "price_scheme": data.get("price_scheme", "retail"),
@@ -104,18 +117,16 @@ async def create_customer(data: dict, user=Depends(get_current_user)):
         "interest_rate": float(data.get("interest_rate", 0)),
         "grace_period": int(data.get("grace_period", 7)),
         "balance": 0.0,
-        "branch_id": branch_id,  # Branch assignment
+        "branch_id": branch_id,
         "active": True,
         "created_at": now_iso(),
     }
     await db.customers.insert_one(customer)
     del customer["_id"]
 
-    # Auto-migrate any existing Unknown SMS for this phone to the new customer
-    if customer.get("phone"):
-        await _auto_migrate_sms(
-            customer["phone"], customer["id"], customer["name"], branch_id or ""
-        )
+    # Auto-migrate Unknown SMS for all registered phones
+    if phones:
+        await _auto_migrate_sms(phones, customer["id"], customer["name"], branch_id or "")
 
     return customer
 
@@ -210,24 +221,81 @@ async def get_customer(customer_id: str, user=Depends(get_current_user)):
 
 @router.put("/{customer_id}")
 async def update_customer(customer_id: str, data: dict, user=Depends(get_current_user)):
-    """Update customer details."""
+    """Update customer details. Supports phones[] array or single phone."""
     check_perm(user, "customers", "edit")
     
-    allowed = ["name", "phone", "email", "address", "price_scheme", 
+    allowed = ["name", "email", "address", "price_scheme",
                "credit_limit", "interest_rate", "grace_period"]
     update = {k: v for k, v in data.items() if k in allowed}
+
+    # Handle phones update
+    old_phones = []
+    if "phones" in data or "phone" in data:
+        existing = await db.customers.find_one({"id": customer_id}, {"_id": 0, "phones": 1, "phone": 1, "branch_id": 1, "name": 1})
+        old_phones = (existing or {}).get("phones") or []
+        phones_raw = data.get("phones") or []
+        if data.get("phone") and data["phone"].strip():
+            phones_raw = [data["phone"]] + [p for p in phones_raw if p != data["phone"]]
+        if not phones_raw and old_phones:
+            phones_raw = old_phones
+        phones = list(dict.fromkeys(_norm_phone(p) for p in phones_raw if p.strip()))
+        update["phones"] = phones
+        update["phone"] = phones[0] if phones else ""
+
     update["updated_at"] = now_iso()
-    
     await db.customers.update_one({"id": customer_id}, {"$set": update})
     customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
 
-    # If phone was updated, auto-migrate any Unknown SMS for that number
-    if "phone" in update and update["phone"] and customer:
-        await _auto_migrate_sms(
-            update["phone"], customer["id"], customer["name"], customer.get("branch_id", "")
-        )
+    # Auto-migrate Unknown SMS for any newly added phones
+    if customer and update.get("phones"):
+        new_phones = [p for p in update["phones"] if p not in old_phones]
+        if new_phones:
+            await _auto_migrate_sms(new_phones, customer["id"], customer["name"], customer.get("branch_id", ""))
 
     return customer
+
+
+@router.post("/{customer_id}/phones")
+async def add_customer_phone(customer_id: str, data: dict, user=Depends(get_current_user)):
+    """Add a phone number to an existing customer's phones list."""
+    check_perm(user, "customers", "edit")
+    phone = _norm_phone((data.get("phone") or "").strip())
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number required")
+
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    existing_phones = customer.get("phones") or ([customer["phone"]] if customer.get("phone") else [])
+    if phone in existing_phones:
+        return customer  # Already registered — no-op
+
+    new_phones = existing_phones + [phone]
+    await db.customers.update_one(
+        {"id": customer_id},
+        {"$set": {"phones": new_phones, "phone": new_phones[0], "updated_at": now_iso()}}
+    )
+    # Migrate Unknown SMS for the new phone
+    await _auto_migrate_sms([phone], customer_id, customer["name"], customer.get("branch_id", ""))
+    return await db.customers.find_one({"id": customer_id}, {"_id": 0})
+
+
+@router.delete("/{customer_id}/phones/{phone_num}")
+async def remove_customer_phone(customer_id: str, phone_num: str, user=Depends(get_current_user)):
+    """Remove a phone number from a customer's phones list."""
+    check_perm(user, "customers", "edit")
+    phone = _norm_phone(phone_num)
+    customer = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    phones = [p for p in (customer.get("phones") or []) if p != phone]
+    await db.customers.update_one(
+        {"id": customer_id},
+        {"$set": {"phones": phones, "phone": phones[0] if phones else "", "updated_at": now_iso()}}
+    )
+    return await db.customers.find_one({"id": customer_id}, {"_id": 0})
 
 
 @router.delete("/{customer_id}")

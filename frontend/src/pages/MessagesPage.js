@@ -171,7 +171,10 @@ export default function MessagesPage() {
           .catch(() => {});
 
         if (hasThread) {
-          api.get(`/sms/conversation/${encodeURIComponent(activeConvo.phone)}`)
+          const threadUrl = activeConvo.customer_id
+            ? `/sms/conversation/customer/${activeConvo.customer_id}`
+            : `/sms/conversation/${encodeURIComponent(activeConvo.phone)}`;
+          api.get(threadUrl)
             .then(res => setThread(res.data.messages || []))
             .catch(() => {});
         }
@@ -214,9 +217,17 @@ export default function MessagesPage() {
     setActiveConvo(convo);
     setThreadLoading(true);
     try {
-      const res = await api.get(`/sms/conversation/${encodeURIComponent(convo.phone)}`);
+      let res;
+      if (convo.customer_id) {
+        // Registered customer — load all phones merged into one thread
+        res = await api.get(`/sms/conversation/customer/${convo.customer_id}`);
+        // Enrich activeConvo with phones from response
+        setActiveConvo(prev => ({ ...prev, phones: res.data.phones || [] }));
+      } else {
+        // Unknown number — load by phone
+        res = await api.get(`/sms/conversation/${encodeURIComponent(convo.phone)}`);
+      }
       setThread(res.data.messages || []);
-      // Refresh to clear unread
       loadConversations(convoSection);
     } catch { setThread([]); }
     setThreadLoading(false);
@@ -255,16 +266,25 @@ export default function MessagesPage() {
     if (!activeConvo || !replyMsg.trim()) return;
     setReplying(true);
     try {
-      await api.post('/sms/send', {
-        phone: activeConvo.phone,
-        customer_name: activeConvo.customer_name,
-        customer_id: activeConvo.customer_id || '',
+      const payload = {
         message: replyMsg,
         branch_id: currentBranch?.id || '',
         branch_name: currentBranch?.name || '',
-      });
+      };
+      if (activeConvo.customer_id) {
+        // Registered customer — backend sends to ALL their phones
+        payload.customer_id = activeConvo.customer_id;
+        payload.customer_name = activeConvo.customer_name;
+      } else {
+        // Unknown number — send to specific phone only
+        payload.phone = activeConvo.phone;
+        payload.customer_name = activeConvo.phone;
+      }
+      await api.post('/sms/send', payload);
       setReplyMsg('');
-      toast.success('Message queued');
+      toast.success(activeConvo.phones?.length > 1
+        ? `Message queued to ${activeConvo.phones.length} numbers`
+        : 'Message queued');
       openConversation(activeConvo);
     } catch (e) { toast.error('Failed to send'); }
     setReplying(false);
@@ -551,7 +571,17 @@ export default function MessagesPage() {
                         <span className="text-[9px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded font-medium">Unregistered</span>
                       )}
                     </div>
-                    {convoSection !== 'unknown' && (
+                    {/* Show all registered phones for this customer */}
+                    {convoSection !== 'unknown' && activeConvo.phones?.length > 0 ? (
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        <Phone size={9} className="text-slate-400" />
+                        {activeConvo.phones.map((p, i) => (
+                          <span key={i} className={`text-[10px] font-mono ${i === 0 ? 'text-slate-600' : 'text-slate-400'}`}>
+                            {p}{i < activeConvo.phones.length - 1 ? ' ·' : ''}
+                          </span>
+                        ))}
+                      </div>
+                    ) : convoSection !== 'unknown' && (
                       <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
                         <Phone size={9} /> {activeConvo.phone}
                       </p>
@@ -620,13 +650,19 @@ export default function MessagesPage() {
 
                 {/* Reply box */}
                 <div className="px-4 py-3 border-t border-slate-100">
-                  {/* Auto-signature hint — read-only, always appended by server */}
+                  {/* Auto-signature hint */}
                   {currentBranch && (
                     <p className="text-[10px] text-slate-400 mb-1.5 flex items-center gap-1">
                       <span className="font-mono bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-slate-500">
                         Auto-signature: - {[companyName, currentBranch.name].filter(Boolean).join(' | ')}
                       </span>
                       <span className="text-slate-300">(cannot be removed)</span>
+                    </p>
+                  )}
+                  {/* Multi-phone hint */}
+                  {activeConvo?.phones?.length > 1 && (
+                    <p className="text-[10px] text-[#1A4D2E] font-medium mb-1.5 flex items-center gap-1">
+                      <Phone size={9} /> Replying to {activeConvo.phones.length} numbers: {activeConvo.phones.join(', ')}
                     </p>
                   )}
                   <div className="flex items-center gap-2">

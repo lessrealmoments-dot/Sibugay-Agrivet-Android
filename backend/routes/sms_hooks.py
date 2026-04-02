@@ -46,36 +46,39 @@ async def on_credit_sale_created(invoice: dict):
         customer = await raw_db.customers.find_one({"id": customer_id}, {"_id": 0})
         if not customer:
             return
-        phone = customer.get("phone") or invoice.get("customer_phone", "")
-        if not phone:
+        phones = customer.get("phones") or ([customer["phone"]] if customer.get("phone") else [])
+        if not phones:
             return
 
         branch_id = invoice.get("branch_id", "")
         org_id = await _resolve_org_id(branch_id)
         company_name = await get_company_name(org_id)
         branch_name = await get_branch_name(branch_id)
-
-        await queue_sms(
-            template_key="credit_new",
-            customer_id=customer_id,
-            customer_name=customer.get("name", invoice.get("customer_name", "")),
-            phone=phone,
-            variables={
-                "customer_name": customer.get("name", invoice.get("customer_name", "")),
-                "amount": f"{invoice.get('balance', 0):,.2f}",
-                "company_name": company_name,
-                "branch_name": branch_name,
-                "date": invoice.get("order_date", ""),
-                "due_date": invoice.get("due_date", ""),
-                "total_balance": f"{customer.get('balance', 0):,.2f}",
-            },
-            organization_id=org_id,
-            branch_id=branch_id,
-            branch_name=branch_name,
-            trigger="auto",
-            trigger_ref=invoice.get("id", ""),
-            dedup_key=f"credit_new:{invoice.get('id', '')}",
-        )
+        variables = {
+            "customer_name": customer.get("name", invoice.get("customer_name", "")),
+            "amount": f"{invoice.get('balance', 0):,.2f}",
+            "company_name": company_name,
+            "branch_name": branch_name,
+            "date": invoice.get("order_date", ""),
+            "due_date": invoice.get("due_date", ""),
+            "total_balance": f"{customer.get('balance', 0):,.2f}",
+        }
+        for phone in phones:
+            if not phone:
+                continue
+            await queue_sms(
+                template_key="credit_new",
+                customer_id=customer_id,
+                customer_name=customer.get("name", invoice.get("customer_name", "")),
+                phone=phone,
+                variables=variables,
+                organization_id=org_id,
+                branch_id=branch_id,
+                branch_name=branch_name,
+                trigger="auto",
+                trigger_ref=invoice.get("id", ""),
+                dedup_key=f"credit_new:{invoice.get('id', '')}:{phone}",
+            )
     except Exception as e:
         logger.error(f"SMS hook on_credit_sale_created failed: {e}")
 
@@ -88,31 +91,34 @@ async def on_payment_received(customer_id: str, amount_paid: float, remaining_ba
         customer = await raw_db.customers.find_one({"id": customer_id}, {"_id": 0})
         if not customer:
             return
-        phone = customer.get("phone", "")
-        if not phone:
+        phones = customer.get("phones") or ([customer["phone"]] if customer.get("phone") else [])
+        if not phones:
             return
 
         org_id = await _resolve_org_id(branch_id)
         company_name = await get_company_name(org_id)
-
-        await queue_sms(
-            template_key="payment_received",
-            customer_id=customer_id,
-            customer_name=customer.get("name", ""),
-            phone=phone,
-            variables={
-                "customer_name": customer.get("name", ""),
-                "amount_paid": f"{amount_paid:,.2f}",
-                "remaining_balance": f"{remaining_balance:,.2f}",
-                "next_due_info": next_due_info,
-                "company_name": company_name,
-            },
-            organization_id=org_id,
-            branch_id=branch_id,
-            branch_name=await get_branch_name(branch_id),
-            trigger="auto",
-            trigger_ref=f"payment:{customer_id}:{amount_paid}",
-        )
+        variables = {
+            "customer_name": customer.get("name", ""),
+            "amount_paid": f"{amount_paid:,.2f}",
+            "remaining_balance": f"{remaining_balance:,.2f}",
+            "next_due_info": next_due_info,
+            "company_name": company_name,
+        }
+        for phone in phones:
+            if not phone:
+                continue
+            await queue_sms(
+                template_key="payment_received",
+                customer_id=customer_id,
+                customer_name=customer.get("name", ""),
+                phone=phone,
+                variables=variables,
+                organization_id=org_id,
+                branch_id=branch_id,
+                branch_name=await get_branch_name(branch_id),
+                trigger="auto",
+                trigger_ref=f"payment:{customer_id}:{amount_paid}:{phone}",
+            )
     except Exception as e:
         logger.error(f"SMS hook on_payment_received failed: {e}")
 
@@ -125,30 +131,33 @@ async def on_charge_applied(customer_id: str, charge_type: str, charge_amount: f
         customer = await raw_db.customers.find_one({"id": customer_id}, {"_id": 0})
         if not customer:
             return
-        phone = customer.get("phone", "")
-        if not phone:
+        phones = customer.get("phones") or ([customer["phone"]] if customer.get("phone") else [])
+        if not phones:
             return
 
         org_id = await _resolve_org_id(branch_id)
         company_name = await get_company_name(org_id)
-
-        await queue_sms(
-            template_key="charge_applied",
-            customer_id=customer_id,
-            customer_name=customer.get("name", ""),
-            phone=phone,
-            variables={
-                "charge_type": charge_type,
-                "charge_amount": f"{charge_amount:,.2f}",
-                "customer_name": customer.get("name", ""),
-                "total_balance": f"{total_balance:,.2f}",
-                "company_name": company_name,
-            },
-            organization_id=org_id,
-            branch_id=branch_id,
-            branch_name=await get_branch_name(branch_id),
-            trigger="auto",
-            trigger_ref=f"charge:{customer_id}:{charge_type}",
-        )
+        variables = {
+            "charge_type": charge_type,
+            "charge_amount": f"{charge_amount:,.2f}",
+            "customer_name": customer.get("name", ""),
+            "total_balance": f"{total_balance:,.2f}",
+            "company_name": company_name,
+        }
+        for phone in phones:
+            if not phone:
+                continue
+            await queue_sms(
+                template_key="charge_applied",
+                customer_id=customer_id,
+                customer_name=customer.get("name", ""),
+                phone=phone,
+                variables=variables,
+                organization_id=org_id,
+                branch_id=branch_id,
+                branch_name=await get_branch_name(branch_id),
+                trigger="auto",
+                trigger_ref=f"charge:{customer_id}:{charge_type}:{phone}",
+            )
     except Exception as e:
         logger.error(f"SMS hook on_charge_applied failed: {e}")

@@ -396,51 +396,80 @@ async def skip_sms(sms_id: str, user=Depends(get_current_user)):
 
 @router.post("/send")
 async def send_manual_sms(data: dict, user=Depends(get_current_user)):
-    """Manually compose and queue an SMS to a customer."""
-    customer_id = data.get("customer_id", "")
+    """Manually compose and queue an SMS to a customer.
+    If customer_id is provided, sends to ALL registered phones for that customer.
+    """
+    customer_id   = data.get("customer_id", "")
     customer_name = data.get("customer_name", "")
-    phone = data.get("phone", "")
-    message = data.get("message", "")
-    branch_id = data.get("branch_id", "")
-    branch_name = data.get("branch_name", "")
+    message       = data.get("message", "")
+    branch_id     = data.get("branch_id", "")
+    branch_name   = data.get("branch_name", "")
 
-    if not phone or not message:
-        raise HTTPException(status_code=400, detail="Phone and message are required")
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    # Resolve phones — all registered numbers when customer_id given
+    if customer_id:
+        customer_doc = await db.customers.find_one(
+            {"id": customer_id}, {"_id": 0, "phones": 1, "phone": 1, "name": 1, "branch_id": 1}
+        )
+        if customer_doc:
+            phones_to_send = customer_doc.get("phones") or (
+                [customer_doc["phone"]] if customer_doc.get("phone") else []
+            )
+            customer_name = customer_name or customer_doc.get("name", "")
+            branch_id = branch_id or customer_doc.get("branch_id", "")
+        else:
+            phones_to_send = [data.get("phone", "")] if data.get("phone") else []
+    else:
+        phones_to_send = [data.get("phone", "")] if data.get("phone") else []
+
+    phones_to_send = [p.strip() for p in phones_to_send if p and p.strip()]
+    if not phones_to_send:
+        raise HTTPException(status_code=400, detail="No phone numbers to send to")
+
+    # Look up branch name if not provided
+    if branch_id and not branch_name:
+        br = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
+        branch_name = (br or {}).get("name", "")
 
     # Auto-append signature server-side — cannot be removed or edited by the sender
     biz = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
     company_name = (biz or {}).get("value", {}).get("name", "")
     sig_parts = [p for p in [company_name, branch_name] if p]
-    if sig_parts:
-        message = message + "\n\n- " + " | ".join(sig_parts)
+    message_with_sig = message + ("\n\n- " + " | ".join(sig_parts) if sig_parts else "")
 
-    sent_by_name = user.get("full_name") or user.get("email", "")
+    sent_by_name    = user.get("full_name") or user.get("email", "")
     organization_id = user.get("organization_id", "")
 
-    doc = {
-        "id": new_id(),
-        "organization_id": organization_id,
-        "template_key": "custom",
-        "customer_id": customer_id,
-        "customer_name": customer_name,
-        "phone": phone.strip(),
-        "message": message,
-        "status": "pending",
-        "trigger": "manual",
-        "trigger_ref": "",
-        "dedup_key": "",
-        "branch_id": branch_id,
-        "branch_name": branch_name,
-        "sent_by_name": sent_by_name,
-        "created_at": now_iso(),
-        "sent_at": None,
-        "failed_at": None,
-        "error": None,
-        "retry_count": 0,
-    }
-    await db.sms_queue.insert_one(doc)
-    del doc["_id"]
-    return doc
+    queued = []
+    for phone in phones_to_send:
+        doc = {
+            "id": new_id(),
+            "organization_id": organization_id,
+            "template_key": "custom",
+            "customer_id": customer_id,
+            "customer_name": customer_name,
+            "phone": phone,
+            "message": message_with_sig,
+            "status": "pending",
+            "trigger": "manual",
+            "trigger_ref": "",
+            "dedup_key": "",
+            "branch_id": branch_id,
+            "branch_name": branch_name,
+            "sent_by_name": sent_by_name,
+            "created_at": now_iso(),
+            "sent_at": None,
+            "failed_at": None,
+            "error": None,
+            "retry_count": 0,
+        }
+        await db.sms_queue.insert_one(doc)
+        del doc["_id"]
+        queued.append(doc)
+
+    return queued[0] if len(queued) == 1 else {"queued": len(queued), "phones": phones_to_send}
 
 
 @router.post("/blast")
@@ -718,58 +747,67 @@ async def list_conversations(
         ]
         return sorted(result, key=lambda x: x.get("last_time", ""), reverse=True)
 
-    # ── Customers section (existing behaviour) ───────────────────────────────
-    phone_filter: dict = {}
+    # ── Customers section — grouped by customer_id (multi-phone safe) ────────
+    # Branch filter: collect customer_ids that have activity in this branch
+    cid_filter: dict = {"customer_id": {"$ne": ""}}
     if branch_id:
-        phones_in_branch = await db.sms_queue.distinct(
-            "phone",
-            {"branch_id": branch_id, "status": {"$in": ["sent", "pending", "failed"]}},
+        queue_cids = await db.sms_queue.distinct(
+            "customer_id",
+            {"branch_id": branch_id, "status": {"$in": ["sent", "pending", "failed"]}, "customer_id": {"$ne": ""}},
         )
-        if not phones_in_branch:
+        inbox_cids = await db.sms_inbox.distinct(
+            "customer_id", {"branch_id": branch_id, "customer_id": {"$ne": ""}},
+        )
+        cids = list(set(queue_cids) | set(inbox_cids))
+        if not cids:
             return []
-        phone_filter = {"phone": {"$in": phones_in_branch}}
+        cid_filter = {"customer_id": {"$in": cids}}
 
-    # Latest outgoing per phone — from ALL branches (full context for collaboration)
+    # Latest outgoing per customer — from ALL branches (collaboration context)
     out_pipeline = [
-        {"$match": {"status": {"$in": ["sent", "pending", "failed"]}, **phone_filter}},
+        {"$match": {"status": {"$in": ["sent", "pending", "failed"]}, "customer_id": {"$ne": ""}, **cid_filter}},
         {"$sort": {"created_at": -1}},
         {"$group": {
-            "_id": "$phone",
+            "_id": "$customer_id",
             "last_message": {"$first": "$message"},
             "last_time": {"$first": "$created_at"},
             "customer_name": {"$first": "$customer_name"},
             "customer_id": {"$first": "$customer_id"},
+            "phones": {"$addToSet": "$phone"},
             "branch_ids": {"$addToSet": "$branch_id"},
             "branch_names": {"$addToSet": "$branch_name"},
         }},
     ]
-    # Latest incoming per phone — only registered customer messages (customer_id not empty)
+    # Latest incoming per customer
     in_pipeline = [
-        {"$match": {"customer_id": {"$ne": ""}, **phone_filter}},
+        {"$match": {"customer_id": {"$ne": ""}, **cid_filter}},
         {"$sort": {"created_at": -1}},
         {"$group": {
-            "_id": "$phone",
+            "_id": "$customer_id",
             "last_message": {"$first": "$message"},
             "last_time": {"$first": "$created_at"},
             "customer_name": {"$first": "$customer_name"},
             "customer_id": {"$first": "$customer_id"},
+            "phones": {"$addToSet": "$phone"},
             "unread": {"$sum": {"$cond": [{"$eq": ["$read", False]}, 1, 0]}},
         }},
     ]
 
     out_items = await db.sms_queue.aggregate(out_pipeline).to_list(500)
-    in_items = await db.sms_inbox.aggregate(in_pipeline).to_list(500)
+    in_items  = await db.sms_inbox.aggregate(in_pipeline).to_list(500)
 
-    # Merge — prefer whichever is most recent for the preview snippet
-    merged = {}
+    # Merge by customer_id
+    merged: dict = {}
     for item in out_items:
-        phone = item["_id"]
-        branch_ids = [b for b in item.get("branch_ids", []) if b]
-        branch_names = [b for b in item.get("branch_names", []) if b]
-        merged[phone] = {
-            "phone": phone,
-            "customer_name": item.get("customer_name", phone),
-            "customer_id": item.get("customer_id", ""),
+        cid = item["_id"]
+        branch_ids   = [b for b in item.get("branch_ids",  []) if b]
+        branch_names = [b for b in item.get("branch_names",[]) if b]
+        phones       = [p for p in item.get("phones", [])       if p]
+        merged[cid] = {
+            "customer_id": cid,
+            "customer_name": item.get("customer_name", cid),
+            "phone": phones[0] if phones else "",
+            "phones": phones,
             "last_message": item.get("last_message", ""),
             "last_time": item.get("last_time", ""),
             "last_direction": "out",
@@ -778,19 +816,24 @@ async def list_conversations(
             "branch_names": branch_names,
         }
     for item in in_items:
-        phone = item["_id"]
+        cid = item["_id"]
         unread = item.get("unread", 0)
-        if phone in merged:
-            if item.get("last_time", "") > merged[phone]["last_time"]:
-                merged[phone]["last_message"] = item.get("last_message", "")
-                merged[phone]["last_time"] = item.get("last_time", "")
-                merged[phone]["last_direction"] = "in"
-            merged[phone]["unread"] = unread
+        phones = [p for p in item.get("phones", []) if p]
+        if cid in merged:
+            if item.get("last_time", "") > merged[cid]["last_time"]:
+                merged[cid]["last_message"]  = item.get("last_message", "")
+                merged[cid]["last_time"]     = item.get("last_time", "")
+                merged[cid]["last_direction"] = "in"
+            merged[cid]["unread"] = unread
+            for p in phones:
+                if p not in merged[cid]["phones"]:
+                    merged[cid]["phones"].append(p)
         else:
-            merged[phone] = {
-                "phone": phone,
-                "customer_name": item.get("customer_name", phone),
-                "customer_id": item.get("customer_id", ""),
+            merged[cid] = {
+                "customer_id": cid,
+                "customer_name": item.get("customer_name", cid),
+                "phone": phones[0] if phones else "",
+                "phones": phones,
                 "last_message": item.get("last_message", ""),
                 "last_time": item.get("last_time", ""),
                 "last_direction": "in",
@@ -799,38 +842,56 @@ async def list_conversations(
                 "branch_names": [],
             }
 
-    result = sorted(merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
-
-    # Merge split conversations caused by +63 vs 09 phone format difference.
-    def _norm(p: str) -> str:
-        n = p.lstrip("+")
-        if n.startswith("63") and len(n) > 10:
-            n = "0" + n[2:]
-        return n
-
-    normalized_merged: dict = {}
-    for raw_phone, data in merged.items():
-        key = _norm(raw_phone)
-        if key in normalized_merged:
-            ex = normalized_merged[key]
-            if data.get("last_time", "") > ex.get("last_time", ""):
-                ex["last_message"] = data["last_message"]
-                ex["last_time"] = data["last_time"]
-                ex["last_direction"] = data["last_direction"]
-            ex["unread"] = ex.get("unread", 0) + data.get("unread", 0)
-            for b in data.get("branch_ids", []):
-                if b and b not in ex["branch_ids"]:
-                    ex["branch_ids"].append(b)
-            for b in data.get("branch_names", []):
-                if b and b not in ex["branch_names"]:
-                    ex["branch_names"].append(b)
-        else:
-            normalized_merged[key] = {**data, "phone": key}
-
-    return sorted(normalized_merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
+    return sorted(merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
 
 
-@router.get("/conversation/{phone}")
+@router.get("/conversation/customer/{customer_id}")
+async def get_conversation_by_customer(customer_id: str, user=Depends(get_current_user)):
+    """Full message thread for a customer — all their phone numbers merged into one thread."""
+    # All phones this customer has ever used (from messages + customer record)
+    queue_phones = await db.sms_queue.distinct("phone", {"customer_id": customer_id})
+    inbox_phones = await db.sms_inbox.distinct("phone", {"customer_id": customer_id})
+    customer_doc = await db.customers.find_one({"id": customer_id}, {"_id": 0, "name": 1, "phones": 1, "phone": 1})
+    cust_phones  = (customer_doc or {}).get("phones") or (
+        [(customer_doc or {}).get("phone")] if (customer_doc or {}).get("phone") else []
+    )
+    all_phones = list(set(queue_phones) | set(inbox_phones) | set(cust_phones))
+
+    out_msgs = await db.sms_queue.find(
+        {"customer_id": customer_id, "status": {"$in": ["sent", "pending", "failed"]}},
+        {"_id": 0, "id": 1, "message": 1, "created_at": 1, "status": 1,
+         "customer_name": 1, "template_key": 1, "branch_id": 1, "branch_name": 1,
+         "sent_by_name": 1, "phone": 1}
+    ).sort("created_at", 1).to_list(500)
+    for m in out_msgs:
+        m["direction"] = "out"
+
+    in_msgs = await db.sms_inbox.find(
+        {"$or": [{"customer_id": customer_id}, {"phone": {"$in": all_phones}}]},
+        {"_id": 0, "id": 1, "message": 1, "created_at": 1, "customer_name": 1, "phone": 1}
+    ).sort("created_at", 1).to_list(500)
+    for m in in_msgs:
+        m["direction"] = "in"
+        m["status"] = "received"
+
+    # Mark all as read
+    await db.sms_inbox.update_many(
+        {"$or": [{"customer_id": customer_id}, {"phone": {"$in": all_phones}}]},
+        {"$set": {"read": True}}
+    )
+
+    all_msgs = sorted(out_msgs + in_msgs, key=lambda x: x.get("created_at", ""))
+    customer_name = (customer_doc or {}).get("name", customer_id)
+    return {
+        "customer_id": customer_id,
+        "customer_name": customer_name,
+        "phones": sorted(p for p in set(m.get("phone", "") for m in all_msgs) if p),
+        "messages": all_msgs,
+        "registered": True,
+    }
+
+
+
 async def get_conversation(phone: str, user=Depends(get_current_user)):
     """Get full message thread for a phone number — sent + received merged."""
     # Build all phone variants: 09... and +63... so old and new records are both found
@@ -903,6 +964,17 @@ async def assign_phone_to_customer(data: dict, user=Depends(get_current_user)):
 
     branch_id = customer.get("branch_id", "")
 
+    # ADD the new phone to customer's phones array (not replace)
+    await db.customers.update_one(
+        {"id": customer_id},
+        {"$addToSet": {"phones": normalized}}
+    )
+    # If customer has no primary phone yet, set it
+    if not customer.get("phone"):
+        await db.customers.update_one(
+            {"id": customer_id}, {"$set": {"phone": normalized, "updated_at": now_iso()}}
+        )
+
     # Migrate all inbox messages for this phone to the customer
     inbox_result = await _raw_db.sms_inbox.update_many(
         {"phone": {"$in": phones}},
@@ -911,11 +983,10 @@ async def assign_phone_to_customer(data: dict, user=Depends(get_current_user)):
             "customer_name": customer["name"],
             "branch_id": branch_id,
             "registered": True,
-            "phone": normalized,    # Normalize stored phone
+            "phone": normalized,
         }}
     )
-
-    # Also update any outgoing queue messages for this phone that lack customer info
+    # Also update any unattributed outgoing queue messages for this phone
     await _raw_db.sms_queue.update_many(
         {"phone": {"$in": phones}, "customer_id": ""},
         {"$set": {
@@ -924,13 +995,6 @@ async def assign_phone_to_customer(data: dict, user=Depends(get_current_user)):
             "branch_id": branch_id,
         }}
     )
-
-    # If customer has no phone number yet, assign this one
-    if not customer.get("phone"):
-        await db.customers.update_one(
-            {"id": customer_id},
-            {"$set": {"phone": normalized, "updated_at": now_iso()}}
-        )
 
     return {
         "migrated_messages": inbox_result.modified_count,

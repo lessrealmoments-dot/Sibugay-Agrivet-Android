@@ -71,14 +71,16 @@ export default function CustomersPage() {
 
   const openCreate = () => { 
     setEditing(null); 
-    setForm({ name: '', phone: '', email: '', address: '', price_scheme: 'retail', credit_limit: 0, interest_rate: 0, grace_period: 7 }); 
+    setForm({ name: '', phones: [''], email: '', address: '', price_scheme: 'retail', credit_limit: 0, interest_rate: 0, grace_period: 7 }); 
     setDialogOpen(true); 
   };
   
   const openEdit = (c) => { 
     setEditing(c); 
     setForm({ 
-      name: c.name, phone: c.phone || '', email: c.email || '', address: c.address || '', 
+      name: c.name,
+      phones: c.phones?.length ? c.phones : (c.phone ? [c.phone] : ['']),
+      email: c.email || '', address: c.address || '', 
       price_scheme: c.price_scheme || 'retail', credit_limit: c.credit_limit || 0,
       interest_rate: c.interest_rate || 0, grace_period: c.grace_period || 7
     }); 
@@ -87,12 +89,12 @@ export default function CustomersPage() {
 
   const handleSave = async () => {
     try {
+      const phones = form.phones.filter(p => p.trim());
+      const payload = { ...form, phones, phone: phones[0] || '' };
       if (editing) {
-        await api.put(`/customers/${editing.id}`, form);
+        await api.put(`/customers/${editing.id}`, payload);
         toast.success('Customer updated');
       } else {
-        // Always assign new customer to the currently selected branch
-        const payload = { ...form };
         if (currentBranch) payload.branch_id = currentBranch.id;
         await api.post('/customers', payload);
         toast.success('Customer created');
@@ -169,7 +171,9 @@ export default function CustomersPage() {
               {customers.map(c => (
                 <TableRow key={c.id} className="table-row-hover cursor-pointer" onClick={() => openHistory(c)}>
                   <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="text-slate-500">{c.phone || '—'}</TableCell>
+                  <TableCell className="text-slate-500 text-xs">
+                    {(c.phones?.length ? c.phones : (c.phone ? [c.phone] : [])).join(', ') || '—'}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-[10px] capitalize">{c.price_scheme}</Badge>
                   </TableCell>
@@ -232,8 +236,49 @@ export default function CustomersPage() {
               <Input data-testid="customer-name-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Phone</Label><Input data-testid="customer-phone-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
-              <div><Label>Email</Label><Input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+              <div>
+                <Label>Email</Label>
+                <Input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+              </div>
+            </div>
+            {/* Multi-phone number list */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label>Phone Numbers</Label>
+                <button type="button"
+                  onClick={() => setForm({ ...form, phones: [...(form.phones || ['']), ''] })}
+                  className="text-xs text-[#1A4D2E] hover:underline flex items-center gap-0.5">
+                  + Add number
+                </button>
+              </div>
+              <div className="space-y-2">
+                {(form.phones || ['']).map((ph, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      data-testid={`customer-phone-input-${i}`}
+                      value={ph}
+                      onChange={e => {
+                        const updated = [...(form.phones || [''])];
+                        updated[i] = e.target.value;
+                        setForm({ ...form, phones: updated });
+                      }}
+                      placeholder={i === 0 ? 'Primary phone' : `Phone ${i + 1}`}
+                      className="flex-1"
+                    />
+                    {i === 0 && form.phones?.length === 1 ? null : (
+                      <button type="button"
+                        onClick={() => {
+                          const updated = (form.phones || ['']).filter((_, idx) => idx !== i);
+                          setForm({ ...form, phones: updated.length ? updated : [''] });
+                        }}
+                        className="text-slate-400 hover:text-red-500 p-1">
+                        <X size={14} />
+                      </button>
+                    )}
+                    {i === 0 && <span className="text-[9px] text-slate-400 shrink-0">Primary</span>}
+                  </div>
+                ))}
+              </div>
             </div>
             <div><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
             <div className="grid grid-cols-4 gap-4">

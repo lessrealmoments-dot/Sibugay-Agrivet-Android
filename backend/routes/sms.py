@@ -570,9 +570,11 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
     if not phone or not message:
         raise HTTPException(status_code=400, detail="phone and message required")
 
+    # Normalize to local format to match customer records
     normalized = phone.lstrip("+")
     if normalized.startswith("63") and len(normalized) > 10:
         normalized = "0" + normalized[2:]
+    stored_phone = normalized
     phones = list({phone, normalized})
 
     # Look up customer
@@ -592,8 +594,8 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
         "organization_id": user.get("organization_id", ""),
         "template_key": "custom",
         "customer_id": customer["id"] if customer else "",
-        "customer_name": customer["name"] if customer else phone,
-        "phone": phone,
+        "customer_name": customer["name"] if customer else stored_phone,
+        "phone": stored_phone,
         "message": message,
         "status": "sent",           # Already delivered — skip the queue
         "trigger": "device",
@@ -625,29 +627,31 @@ async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
     if not phone or not message:
         raise HTTPException(status_code=400, detail="phone and message required")
 
-    # Normalize phone — strip country code prefix if present
+    # Normalize phone — always store in local format (09...) to match customer records
     normalized = phone.lstrip("+")
     if normalized.startswith("63") and len(normalized) > 10:
         normalized = "0" + normalized[2:]
+    stored_phone = normalized  # Always store the normalized version
+    phones = list({phone, normalized})
 
     # Try to match customer by phone
     customer = await _raw_db.customers.find_one(
-        {"phone": {"$in": [phone, normalized]}, "organization_id": user.get("organization_id")},
+        {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
         {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
     )
     if not customer:
         customer = await _raw_db.customers.find_one(
-            {"phone": {"$in": [phone, normalized]}},
+            {"phone": {"$in": phones}},
             {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
         )
 
     doc = {
         "id": new_id(),
-        "phone": phone,
+        "phone": stored_phone,  # Always normalized to local format (09...)
         "message": message,
         "direction": "in",
         "customer_id": customer["id"] if customer else "",
-        "customer_name": customer["name"] if customer else phone,
+        "customer_name": customer["name"] if customer else stored_phone,
         "branch_id": customer.get("branch_id", "") if customer else "",
         "received_at": data.get("received_at", now_iso()),
         "created_at": now_iso(),
@@ -750,17 +754,48 @@ async def list_conversations(
             }
 
     result = sorted(merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
-    return result
+
+    # Merge split conversations caused by +63 vs 09 phone format difference.
+    def _norm(p: str) -> str:
+        n = p.lstrip("+")
+        if n.startswith("63") and len(n) > 10:
+            n = "0" + n[2:]
+        return n
+
+    normalized_merged: dict = {}
+    for raw_phone, data in merged.items():
+        key = _norm(raw_phone)
+        if key in normalized_merged:
+            ex = normalized_merged[key]
+            if data.get("last_time", "") > ex.get("last_time", ""):
+                ex["last_message"] = data["last_message"]
+                ex["last_time"] = data["last_time"]
+                ex["last_direction"] = data["last_direction"]
+            ex["unread"] = ex.get("unread", 0) + data.get("unread", 0)
+            for b in data.get("branch_ids", []):
+                if b and b not in ex["branch_ids"]:
+                    ex["branch_ids"].append(b)
+            for b in data.get("branch_names", []):
+                if b and b not in ex["branch_names"]:
+                    ex["branch_names"].append(b)
+        else:
+            normalized_merged[key] = {**data, "phone": key}
+
+    return sorted(normalized_merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
 
 
 @router.get("/conversation/{phone}")
 async def get_conversation(phone: str, user=Depends(get_current_user)):
     """Get full message thread for a phone number — sent + received merged."""
-    # Normalize for lookup
+    # Build all phone variants: 09... and +63... so old and new records are both found
     normalized = phone.lstrip("+")
     if normalized.startswith("63") and len(normalized) > 10:
         normalized = "0" + normalized[2:]
-    phones = list({phone, normalized})
+    variants: set = {phone, normalized}
+    # Also add the +63 international variant of any 09... number
+    if normalized.startswith("09") and len(normalized) == 11:
+        variants.add("+63" + normalized[1:])
+    phones = list(variants)
 
     # Outgoing messages
     out_msgs = await db.sms_queue.find(

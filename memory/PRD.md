@@ -462,6 +462,13 @@ See `/app/memory/ROADMAP.md` for full implementation spec.
 - Frontend: `compliance_deadline` TYPE_CONFIG with orange `FileWarning` icon + `ComplianceDetail` expandable row
 - `NOTIFICATION_META` updated with `compliance_deadline` → category: action, severity: warning
 
+## AgriGateway 3.0 Android App — Cursor Prompt Written (2026-02-xx)
+- Full Cursor build prompt saved at `/app/memory/AGRIGATEWAY_CURSOR_PROMPT.md`
+- Covers all 3 SMS flows: Outbound Queue, Incoming Reply, Native Send Sync
+- Room DB with dedup guarantees, WorkManager retry, RemoteLogger batch flush
+- Multi-tenant handled 100% server-side via JWT — zero client-side org logic needed
+- SharedPreferences lastProcessedSmsId fix baked into SentSmsObserver architecture
+
 ## Next Up (P0 — Immediate)
 See `/app/memory/ROADMAP.md` for full spec on each item.
 

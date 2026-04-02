@@ -34,7 +34,17 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Scheduled jobs (`_daily_sms_reminders`, `_monthly_sms_summary`) now iterate per active organization using `_raw_db`
 - **Result:** Company A's Android gateway only sees Company A's `pending` queue; Company B's templates, settings, and queue are completely isolated
 
-### SMS Branch-Level Filtering & Auto-Signature (2026-04-02) — Complete
+### SMS Unknown Numbers Inbox + Assign to Customer (2026-04-02) — Complete
+- **Architecture change:** Android app now syncs ALL incoming SMS to backend (no `check-phone` filter). Phone is a dumb pipe.
+- **`POST /api/sms/inbox`** — stores every message. Adds `registered: bool` — `True` if phone matches a customer, `False` if unknown.
+- **`GET /api/sms/conversations?section=customers`** — existing branch-filtered customer conversations. Unknown phones excluded.
+- **`GET /api/sms/conversations?section=unknown`** — admin-only view of unregistered numbers (SMART, PLDT, banks, strangers).
+- **`PATCH /api/sms/assign-phone`** — assigns an unknown phone to an existing customer. Migrates all past `sms_inbox` records to the customer's `branch_id`. If customer had no phone, sets it.
+- **UI: Customers / Unknown toggle** — section switcher in conversations tab. Unknown tab shows amber count badge.
+- **UI: Unknown conversations** — amber `?` avatar, `Unregistered` badge, amber unread dot.
+- **UI: "Assign to Customer" button** — appears in thread header for unregistered conversations.
+- **UI: Assign modal** — customer search with branch name labels. One-click migrate with toast confirmation.
+- **Bug fixed:** Unknown phones were leaking into the customers section when no `branch_id` filter was applied. Fixed by adding `{customer_id: {$ne: ""}}` to the customers pipeline.
 - **Branch filter:** `GET /api/sms/conversations?branch_id=X` returns only conversations where that branch has outgoing history (customers that branch has messaged). Full thread still shown (collaboration model).
 - **Shared incoming:** Customer replies are always visible to all branches that have messaged that customer — enables cross-branch account collaboration.
 - **Auto-signature:** `POST /api/sms/send` now server-side appends `\n\n- {CompanyName} | {BranchName}` to every manual reply. Cannot be removed or edited by user.

@@ -33,6 +33,7 @@ const TEMPLATE_BADGE = {
   delivery_ready: 'bg-teal-100 text-teal-700',
   promo_blast: 'bg-pink-100 text-pink-700',
   monthly_summary: 'bg-indigo-100 text-indigo-700',
+  credit_reminder_blast: 'bg-rose-100 text-rose-700',
   custom: 'bg-slate-100 text-slate-600',
 };
 
@@ -79,6 +80,12 @@ export default function MessagesPage() {
   const [blastMsg, setBlastMsg] = useState('');
   const [blastMinBal, setBlastMinBal] = useState('');
   const [blasting, setBlasting] = useState(false);
+
+  // Credit blast state
+  const [creditBlastMinBal, setCreditBlastMinBal] = useState('');
+  const [creditBlastPreview, setCreditBlastPreview] = useState(null);
+  const [creditBlastLoading, setCreditBlastLoading] = useState(false);
+  const [creditBlastSending, setCreditBlastSending] = useState(false);
 
   // Templates state
   const [templates, setTemplates] = useState([]);
@@ -357,6 +364,38 @@ export default function MessagesPage() {
     setBlasting(false);
   };
 
+  // ── Credit Blast ──
+  const handleCreditBlastPreview = async () => {
+    setCreditBlastLoading(true);
+    setCreditBlastPreview(null);
+    try {
+      const res = await api.post('/sms/credit-blast', {
+        dry_run: true,
+        min_balance: parseFloat(creditBlastMinBal) || 0,
+        branch_id: currentBranch?.id || '',
+      });
+      setCreditBlastPreview(res.data);
+    } catch (e) { toast.error(e.response?.data?.detail || 'Preview failed'); }
+    setCreditBlastLoading(false);
+  };
+
+  const handleCreditBlastSend = async () => {
+    if (!creditBlastPreview || creditBlastPreview.total_customers === 0) return;
+    setCreditBlastSending(true);
+    try {
+      const res = await api.post('/sms/credit-blast', {
+        dry_run: false,
+        min_balance: parseFloat(creditBlastMinBal) || 0,
+        branch_id: currentBranch?.id || '',
+      });
+      toast.success(`${res.data.queued} messages queued to ${res.data.total_customers} customers`);
+      setCreditBlastPreview(null);
+      setCreditBlastMinBal('');
+      loadStats();
+    } catch (e) { toast.error(e.response?.data?.detail || 'Send failed'); }
+    setCreditBlastSending(false);
+  };
+
   // ── Templates ──
   const saveTemplate = async (id) => {
     try {
@@ -411,6 +450,7 @@ export default function MessagesPage() {
           { key: 'conversations', label: 'Conversations', icon: MessageSquare },
           { key: 'queue', label: 'Message Queue', icon: Clock },
           { key: 'compose', label: 'Compose', icon: Send },
+          { key: 'credit-blast', label: 'Credit Blast', icon: Users },
           { key: 'blast', label: 'Promo Blast', icon: Megaphone },
           { key: 'templates', label: 'Templates', icon: FileText },
           { key: 'settings', label: 'Settings', icon: Settings },
@@ -919,6 +959,145 @@ export default function MessagesPage() {
           </CardContent>
         </Card>
       )}
+
+
+      {/* ═══ CREDIT BLAST TAB ═══ */}
+      {activeTab === 'credit-blast' && (
+        <div className="max-w-2xl space-y-5">
+          {/* Header */}
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+              <Users size={18} className="text-rose-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Credit Reminder Blast</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Send personalised credit reminders to all customers with outstanding balances.
+                The system automatically picks the right message — detailed for overdue/near-due, short for general reminders.
+              </p>
+            </div>
+          </div>
+
+          {/* Smart template legend */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-amber-700 mb-1">Detailed Message — Option B</p>
+              <p className="text-[10px] text-amber-600">Used when customer has <strong>overdue balance</strong> OR due date is <strong>within 15 days</strong></p>
+              <p className="text-[10px] text-amber-500 mt-1 font-mono">Includes: balance, overdue, due date, est. interest</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-blue-700 mb-1">Short Message — Option A</p>
+              <p className="text-[10px] text-blue-600">Used for customers with <strong>current balance</strong> and due date more than 15 days away</p>
+              <p className="text-[10px] text-blue-500 mt-1 font-mono">Includes: balance, next due date, interest rate</p>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <Card className="border-slate-200">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Filter size={13} className="text-slate-400" />
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Filters</span>
+              </div>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs text-slate-500 shrink-0">Min Balance:</Label>
+                  <Input type="number" value={creditBlastMinBal}
+                    onChange={e => { setCreditBlastMinBal(e.target.value); setCreditBlastPreview(null); }}
+                    placeholder="0 (all)" className="h-8 w-28 text-xs"
+                    data-testid="credit-blast-min-balance" />
+                </div>
+                <div className="text-xs text-slate-400">
+                  Branch: <strong>{currentBranch?.name || 'All branches'}</strong>
+                </div>
+              </div>
+              <Button onClick={handleCreditBlastPreview}
+                disabled={creditBlastLoading}
+                variant="outline" className="w-full h-9 text-sm border-slate-300"
+                data-testid="credit-blast-preview-btn">
+                {creditBlastLoading
+                  ? <><Loader2 size={14} className="mr-2 animate-spin" /> Analysing customers…</>
+                  : <><Search size={14} className="mr-2" /> Preview Blast</>}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Preview Results */}
+          {creditBlastPreview && (
+            <div className="space-y-4 animate-fadeIn">
+              {creditBlastPreview.total_customers === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-sm border border-slate-200 rounded-xl">
+                  No customers with balance{creditBlastMinBal ? ` above P${creditBlastMinBal}` : ''}.
+                </div>
+              ) : (
+                <>
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-slate-800">{creditBlastPreview.total_customers}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Customers</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                      <p className="text-2xl font-bold text-slate-800">{creditBlastPreview.total_sms}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">SMS to send</p>
+                    </div>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-xs font-bold text-amber-600">{creditBlastPreview.detailed_count} detailed</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="text-xs font-bold text-blue-600">{creditBlastPreview.short_count} short</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Templates</p>
+                    </div>
+                  </div>
+
+                  {/* Sample messages */}
+                  {creditBlastPreview.preview?.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Sample Messages</p>
+                      {creditBlastPreview.preview.map((p, i) => (
+                        <div key={i} className={`border rounded-xl p-3 space-y-2 ${
+                          p.template === 'detailed' ? 'border-amber-200 bg-amber-50/40' : 'border-blue-200 bg-blue-50/40'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-700">{p.customer_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono text-slate-400">{p.phones?.join(', ')}</span>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                p.template === 'detailed' ? 'bg-amber-200 text-amber-700' : 'bg-blue-200 text-blue-700'
+                              }`}>
+                                {p.template === 'detailed' ? 'Detailed' : 'Short'}
+                                {p.overdue_amount > 0 ? ' · OVERDUE' : p.days_until_due !== null && p.days_until_due <= 15 ? ` · Due in ${p.days_until_due}d` : ''}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] font-mono text-slate-600 bg-white rounded-lg p-2.5 border border-slate-100 whitespace-pre-wrap leading-relaxed">
+                            {p.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Send button */}
+                  <Button onClick={handleCreditBlastSend}
+                    disabled={creditBlastSending}
+                    className="w-full bg-rose-600 hover:bg-rose-700 text-white h-11 text-sm font-semibold"
+                    data-testid="credit-blast-send-btn">
+                    {creditBlastSending
+                      ? <><Loader2 size={15} className="mr-2 animate-spin" /> Queueing messages…</>
+                      : <><Users size={15} className="mr-2" /> Send to {creditBlastPreview.total_customers} Customers ({creditBlastPreview.total_sms} SMS)</>}
+                  </Button>
+                  <p className="text-[10px] text-center text-slate-400">
+                    Messages will be sent one-by-one through your gateway phone. Each customer receives a personalised message.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* ═══ BLAST TAB ═══ */}
       {activeTab === 'blast' && (

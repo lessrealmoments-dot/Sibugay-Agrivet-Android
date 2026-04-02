@@ -5,7 +5,7 @@ GET /pending and marks sent via PATCH /{id}/mark-sent.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from config import db, _raw_db, logger as _config_logger
 from utils import get_current_user, check_perm, now_iso, new_id
 
@@ -532,6 +532,191 @@ async def send_promo_blast(data: dict, user=Depends(get_current_user)):
         queued += 1
 
     return {"queued": queued, "total_customers": len(customers), "skipped_no_phone": len(customers) - queued}
+
+
+
+# ── Credit Reminder Blast ─────────────────────────────────────────────────────
+
+@router.post("/credit-blast")
+async def credit_reminder_blast(data: dict, user=Depends(get_current_user)):
+    """Smart credit reminder blast.
+    Automatically selects message template per customer:
+      Option A (short)    — has balance, no overdue, due > 15 days away
+      Option B (detailed) — has overdue OR due within 15 days
+
+    Pass dry_run=true (default) for a preview without queueing.
+    Pass dry_run=false to actually queue.
+    """
+    check_perm(user, "settings", "edit")
+    dry_run   = data.get("dry_run", True)
+    min_bal   = float(data.get("min_balance", 0))
+    branch_id = data.get("branch_id", "")
+
+    today     = date.today()
+    today_str = today.isoformat()
+
+    # 1. Customers with outstanding balance
+    cust_query: dict = {"active": True, "balance": {"$gt": min_bal}}
+    if branch_id:
+        cust_query["branch_id"] = branch_id
+    customers = await db.customers.find(cust_query, {"_id": 0}).to_list(5000)
+    if not customers:
+        return {"dry_run": dry_run, "total_customers": 0, "total_sms": 0,
+                "short_count": 0, "detailed_count": 0, "preview": [], "queued": 0}
+
+    # 2. Open invoices for all these customers in one query
+    cids      = [c["id"] for c in customers]
+    inv_query: dict = {
+        "customer_id": {"$in": cids},
+        "status": {"$nin": ["paid", "voided"]},
+        "balance": {"$gt": 0},
+    }
+    if branch_id:
+        inv_query["branch_id"] = branch_id
+    invoices = await db.invoices.find(
+        inv_query, {"_id": 0, "customer_id": 1, "balance": 1, "due_date": 1}
+    ).to_list(100000)
+    inv_map: dict = {}
+    for inv in invoices:
+        inv_map.setdefault(inv["customer_id"], []).append(inv)
+
+    # 3. Branch names in one query
+    all_bids = list({c.get("branch_id", "") for c in customers if c.get("branch_id")})
+    branch_docs = await db.branches.find(
+        {"id": {"$in": all_bids}}, {"_id": 0, "id": 1, "name": 1}
+    ).to_list(100)
+    branch_map = {b["id"]: b["name"] for b in branch_docs}
+
+    # 4. Company name
+    biz          = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    company_name = (biz or {}).get("value", {}).get("name", "")
+
+    sent_by_name    = user.get("full_name") or user.get("email", "")
+    organization_id = user.get("organization_id", "")
+
+    short_count    = 0
+    detailed_count = 0
+    preview        = []
+    total_sms      = 0
+    queued         = 0
+
+    for customer in customers:
+        cid           = customer["id"]
+        cust_invs     = inv_map.get(cid, [])
+        cust_branch   = branch_map.get(customer.get("branch_id", ""), "")
+        total_balance = customer.get("balance", 0)
+        interest_rate = customer.get("interest_rate", 0)
+
+        # Overdue vs future invoices
+        overdue_invs  = [i for i in cust_invs if i.get("due_date") and i["due_date"] < today_str]
+        future_invs   = [i for i in cust_invs if i.get("due_date") and i["due_date"] >= today_str]
+
+        overdue_amount = sum(i["balance"] for i in overdue_invs)
+        days_overdue   = 0
+        if overdue_invs:
+            oldest       = min(i["due_date"] for i in overdue_invs)
+            days_overdue = (today - date.fromisoformat(oldest)).days
+
+        next_due_date   = None
+        next_due_amount = 0
+        days_until_due  = None
+        if future_invs:
+            next_due_date   = min(i["due_date"] for i in future_invs)
+            next_due_amount = sum(i["balance"] for i in future_invs if i["due_date"] == next_due_date)
+            days_until_due  = (date.fromisoformat(next_due_date) - today).days
+
+        est_interest = total_balance * interest_rate / 100 if interest_rate else 0
+
+        # Smart template selection
+        use_b = overdue_amount > 0 or (days_until_due is not None and days_until_due <= 15)
+        label = "detailed" if use_b else "short"
+
+        company_branch = f"{company_name} - {cust_branch}".strip(" -")
+
+        if use_b:
+            # Option B — Detailed
+            lines = [f"Hi {customer['name']}, balanse summary mo sa {company_branch}:"]
+            lines.append(f"\nKabuuang balanse: P{total_balance:,.2f}")
+            if overdue_amount > 0:
+                lines.append(f"OVERDUE: P{overdue_amount:,.2f} ({days_overdue} araw na!)")
+            if next_due_date:
+                lines.append(f"Susunod na due: P{next_due_amount:,.2f} sa {next_due_date} ({days_until_due} araw na lang)")
+            if interest_rate > 0:
+                lines.append(f"Est. interest: ~P{est_interest:,.2f}/buwan ({interest_rate}%/mo)")
+            lines.append("\nPaki-bisita o bayaran na po agad. Salamat!")
+            message = "\n".join(lines)
+            detailed_count += 1
+        else:
+            # Option A — Short
+            due_line = ""
+            if next_due_date and days_until_due is not None:
+                due_line = f"\n\nPinakamalapit na due: P{next_due_amount:,.2f} sa {next_due_date} ({days_until_due} araw na lang po)"
+            int_line  = (f"\nPara maiwasan ang {interest_rate}%/mo na interest, paki-settle na bago mag-due."
+                         if interest_rate > 0 else "")
+            message = (
+                f"Hi {customer['name']}! Paalala po mula sa {company_branch}.\n\n"
+                f"Kasalukuyang balanse: P{total_balance:,.2f}"
+                f"{due_line}"
+                f"{int_line}\n\nSalamat!"
+            )
+            short_count += 1
+
+        phones = customer.get("phones") or ([customer["phone"]] if customer.get("phone") else [])
+        phones = [p for p in phones if p]
+        if not phones:
+            continue
+
+        total_sms += len(phones)
+
+        # Collect up to 2 preview samples (1 short + 1 detailed if available)
+        if len(preview) < 2 and not any(p["template"] == label for p in preview):
+            preview.append({
+                "customer_name": customer["name"],
+                "phones": phones,
+                "template": label,
+                "message": message,
+                "total_balance": total_balance,
+                "overdue_amount": overdue_amount,
+                "days_until_due": days_until_due,
+            })
+
+        if not dry_run:
+            for phone in phones:
+                doc = {
+                    "id": new_id(),
+                    "organization_id": organization_id,
+                    "template_key": "credit_reminder_blast",
+                    "customer_id": cid,
+                    "customer_name": customer["name"],
+                    "phone": phone,
+                    "message": message,
+                    "status": "pending",
+                    "trigger": "manual",
+                    "trigger_ref": "credit_blast",
+                    "dedup_key": "",
+                    "branch_id": customer.get("branch_id", ""),
+                    "branch_name": cust_branch,
+                    "sent_by_name": sent_by_name,
+                    "created_at": now_iso(),
+                    "sent_at": None,
+                    "failed_at": None,
+                    "error": None,
+                    "retry_count": 0,
+                }
+                await db.sms_queue.insert_one(doc)
+                del doc["_id"]
+                queued += 1
+
+    return {
+        "dry_run": dry_run,
+        "total_customers": short_count + detailed_count,
+        "total_sms": total_sms if dry_run else queued,
+        "short_count": short_count,
+        "detailed_count": detailed_count,
+        "preview": preview,
+        "queued": queued,
+    }
+
 
 
 # ── Stats ───────────────────────────────────────────────────────────────────

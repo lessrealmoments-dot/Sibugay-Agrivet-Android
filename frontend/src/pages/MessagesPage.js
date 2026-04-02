@@ -517,9 +517,9 @@ export default function MessagesPage() {
             </div>
 
             <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
-              <Search size={13} className="text-slate-400" />
+              <Search size={13} className="text-slate-400 shrink-0" />
               <input value={convoSearch} onChange={e => setConvoSearch(e.target.value)}
-                placeholder={convoSection === 'unknown' ? 'Search by number…' : 'Search conversations…'}
+                placeholder="Search by name or number…"
                 className="flex-1 text-xs outline-none bg-transparent text-slate-700 placeholder-slate-400" />
               {/* Live polling indicator */}
               <div className="flex items-center gap-1 shrink-0">
@@ -536,9 +536,22 @@ export default function MessagesPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
-              {conversations.length === 0 && (
+              {conversations.length === 0 && !convoSearch && (
                 <div className="text-center text-slate-400 text-xs py-12">
                   {convoSection === 'unknown' ? 'No unknown numbers' : 'No conversations yet'}
+                </div>
+              )}
+              {convoSearch && conversations.filter(c => {
+                const q = convoSearch.toLowerCase();
+                return (
+                  c.customer_name?.toLowerCase().includes(q) ||
+                  c.phone?.includes(convoSearch) ||
+                  c.phones?.some(p => p.includes(convoSearch))
+                );
+              }).length === 0 && (
+                <div className="text-center text-slate-400 text-xs py-10 px-4">
+                  <Search size={20} className="mx-auto mb-2 opacity-30" />
+                  No results for <strong>"{convoSearch}"</strong>
                 </div>
               )}
               {conversations

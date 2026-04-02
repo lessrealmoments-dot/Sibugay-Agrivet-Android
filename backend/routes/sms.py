@@ -508,19 +508,27 @@ async def send_promo_blast(data: dict, user=Depends(get_current_user)):
 # ── Stats ───────────────────────────────────────────────────────────────────
 
 @router.get("/stats")
-async def sms_stats(user=Depends(get_current_user)):
-    """Get SMS queue statistics."""
+async def sms_stats(branch_id: Optional[str] = None, user=Depends(get_current_user)):
+    """Get SMS queue statistics plus branch-specific unread inbox count."""
     pipeline = [
         {"$group": {"_id": "$status", "count": {"$sum": 1}}}
     ]
     results = await db.sms_queue.aggregate(pipeline).to_list(10)
     stats = {r["_id"]: r["count"] for r in results}
+
+    # Unread incoming messages — branch-scoped for the badge
+    unread_query: dict = {"read": False, "customer_id": {"$ne": ""}}
+    if branch_id:
+        unread_query["branch_id"] = branch_id
+    unread = await db.sms_inbox.count_documents(unread_query)
+
     return {
         "pending": stats.get("pending", 0),
         "sent": stats.get("sent", 0),
         "failed": stats.get("failed", 0),
         "skipped": stats.get("skipped", 0),
         "total": sum(stats.values()),
+        "unread": unread,
     }
 
 

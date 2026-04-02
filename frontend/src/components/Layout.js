@@ -26,6 +26,7 @@ const NAV_SECTIONS = [
     items: [
       { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: null, offlineOk: 'readonly' },
       { path: '/find-transaction', label: 'Find Transaction', icon: Search, perm: null },
+      { path: '/messages', label: 'SMS Messages', icon: MessageSquare, perm: 'settings.edit', adminOnly: true },
     ],
   },
   {
@@ -82,7 +83,6 @@ const NAV_SECTIONS = [
   {
     label: 'Management',
     items: [
-      { path: '/messages',       label: 'SMS Messages', icon: MessageSquare, perm: 'settings.edit', adminOnly: true },
       { path: '/documents',      label: 'Documents',    icon: FolderOpen, perm: null },
       { path: '/employees',       label: 'Employees',    icon: Briefcase, perm: 'settings.manage_users',       featureFlag: 'employee_management' },
       { path: '/price-schemes',   label: 'Price Schemes', icon: Tags,     perm: 'price_schemes.view' },
@@ -114,7 +114,8 @@ export default function Layout({ children }) {
   useEffect(() => {
     if (!user || user.role !== 'admin') return;
     const fetchStats = () => {
-      api.get('/sms/stats').then(res => setSmsPending(res.data.pending || 0)).catch(() => {});
+      // Interceptor auto-appends branch_id when a specific branch is selected
+      api.get('/sms/stats').then(res => setSmsPending(res.data.unread || 0)).catch(() => {});
     };
     fetchStats();
     smsPollRef.current = setInterval(fetchStats, 60000);
@@ -189,9 +190,9 @@ export default function Layout({ children }) {
       >
         <item.icon size={18} strokeWidth={1.5} />
         <span className="flex-1">{item.label}</span>
-        {/* SMS pending badge — visible on all pages */}
+        {/* SMS unread badge — red, branch-specific, visible on all pages */}
         {item.path === '/messages' && smsPending > 0 && (
-          <span className="bg-amber-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+          <span className="bg-red-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
             {smsPending}
           </span>
         )}

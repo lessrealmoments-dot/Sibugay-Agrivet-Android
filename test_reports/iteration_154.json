@@ -1,0 +1,161 @@
+{
+  "summary": "Iteration 154 — SMS Unknown Numbers Inbox & Assign-Phone feature. Found and fixed 1 critical bug (unknown phones leaking into customers section). All 24 backend tests pass. All 9 UI features verified working end-to-end.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/sms/conversations?section=customers",
+        "issue": "Unknown phones (customer_id='') were appearing in customers section when no branch_id filter was applied. The in_pipeline for sms_inbox matched ALL inbox documents (phone_filter={}) including unregistered ones.",
+        "priority": "HIGH",
+        "status": "FIXED",
+        "fix": "Added {\"customer_id\": {\"$ne\": \"\"}} to in_pipeline $match in sms.py line ~738. Now only registered-customer inbox messages contribute to the customers section."
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/sms/blast",
+        "issue": "Still uses 'business_info' key (line 474) while settings DB has 'company_info'. From iteration_153 — not yet fixed.",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Unknown section conversation list",
+        "issues": ["Pre-existing 'SYNGENTA T' appears as the phone identifier instead of a numeric phone — this is likely seeded/old test data artifact, not a code bug"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sms_unknown_inbox_154.py",
+    "/app/test_reports/pytest/pytest_sms_unknown_154.xml"
+  ],
+  "action_items": [
+    "Fix blast endpoint (line 474 in sms.py): change 'business_info' to 'company_info' (carried from iteration_153)"
+  ],
+  "critical_code_review_comments": [
+    "FIXED: sms.py in_pipeline for customers section now filters out unknown phones via customer_id != ''. Previously, all sms_inbox records (including unregistered) showed up in customers section when no branch filter was applied.",
+    "handleAssignPhone in MessagesPage.js calls loadConversations('customers') AND loadConversations('unknown') in sequence. Both call setConversations() creating a potential race condition — the second call always wins since convoSection stays as 'unknown'. This is functionally correct (shows updated unknown list) but slightly confusing code. The loadConversations('customers') call is effectively a no-op from UI perspective when convoSection='unknown'. Minor code quality issue only.",
+    "Unknown section: SYNGENTA T appears as phone identifier in Unknown section — suggests some old sms_inbox record has 'phone' field set to a name string. This is data integrity issue from old test seeds.",
+    "After assign, the phone correctly disappears from unknown section and its conversation moves to customers section with the assigned customer's name and branch."
+  ],
+  "updated_files": [
+    "/app/backend/routes/sms.py",
+    "/app/backend/tests/test_sms_unknown_inbox_154.py"
+  ],
+  "success_rate": {
+    "backend": "100% (24/24 tests passed after fix)",
+    "frontend": "100% (all 9 UI features verified working)"
+  },
+  "test_credentials": {
+    "super_admin": "janmarkeahig@gmail.com / Aa@58798546521325"
+  },
+  "seed_data_creation": "Created test inbox messages via POST /sms/inbox for phones: 09700000001, 09700000002, 09700000003, 09700000098, 09700000099, +639700000003. Assigned 09700000003 and 09700000098/09700000099 to known customers during tests.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "SMS Unknown Numbers feature fully tested and working. Critical bug fixed: sms.py in_pipeline now filters unknown phones from customers section. Backend test file at /app/backend/tests/test_sms_unknown_inbox_154.py (24 tests). UI features: section toggle, amber avatars, Unregistered badge, Assign modal, branch name in search results — all working. Branch 1 ID: c435277f-9fc7-4d83-83e7-38be5b4423ac. Branch 2 ID: 18c02daa-bce0-45de-860a-70ccc6ed6c6d.",
+  "mocked_apis": {
+    "note": "Physical SMS dispatch is MOCKED — messages are queued but not actually sent via SIM/Android gateway."
+  },
+  "tests_performed": [
+    {
+      "test": "POST /sms/inbox unknown number → registered=False, customer_id=''",
+      "result": "PASS",
+      "details": "Unknown phones stored with registered=False and empty customer_id"
+    },
+    {
+      "test": "POST /sms/inbox known customer phone → registered=True, customer_id set",
+      "result": "PASS",
+      "details": "Known customer phones correctly matched and stored with registered=True"
+    },
+    {
+      "test": "POST /sms/inbox validation (missing phone/message → 400)",
+      "result": "PASS",
+      "details": "Both validation cases correctly return 400"
+    },
+    {
+      "test": "GET /sms/conversations?section=customers excludes unknown phones",
+      "result": "PASS (after fix)",
+      "details": "Before fix: unknown phones appeared in customers section. After fix: correctly excluded."
+    },
+    {
+      "test": "GET /sms/conversations?section=unknown shows only unregistered phones",
+      "result": "PASS",
+      "details": "Returns only phones with customer_id='', correct fields (registered=False, customer_id='')"
+    },
+    {
+      "test": "GET /sms/conversations (default) behaves as customers section",
+      "result": "PASS (after fix)",
+      "details": "Default section excludes unknown phones"
+    },
+    {
+      "test": "PATCH /sms/assign-phone validation (missing phone/customer → 400, bad customer → 404)",
+      "result": "PASS",
+      "details": "All 3 error cases return correct status codes"
+    },
+    {
+      "test": "PATCH /sms/assign-phone success → migrates messages, updates customer_id/branch_id",
+      "result": "PASS",
+      "details": "Returns 200 with migrated_messages count, correct customer_id and branch_id"
+    },
+    {
+      "test": "After assign-phone, phone removed from unknown section",
+      "result": "PASS",
+      "details": "Phone no longer appears in GET /sms/conversations?section=unknown after assignment"
+    },
+    {
+      "test": "After assign-phone, conversation appears in customers section",
+      "result": "PASS",
+      "details": "Customer conversation visible in GET /sms/conversations?section=customers"
+    },
+    {
+      "test": "+63 phone normalization → stored as 09...",
+      "result": "PASS",
+      "details": "+639700000003 stored as 09700000003"
+    },
+    {
+      "test": "UI: Customers/Unknown section toggle visible in conversations tab",
+      "result": "PASS",
+      "details": "Both buttons visible, Unknown shows count badge"
+    },
+    {
+      "test": "UI: Unknown conversations show amber avatar with ? and Unregistered badge",
+      "result": "PASS",
+      "details": "4 amber avatars with '?' text, all 4 have Unregistered badge"
+    },
+    {
+      "test": "UI: Assign to Customer button in thread header for unknown conversations",
+      "result": "PASS",
+      "details": "Button visible in top-right of thread header when unknown conversation selected"
+    },
+    {
+      "test": "UI: Assign modal opens with customer search and shows branch name",
+      "result": "PASS",
+      "details": "Modal shows 09700000003 phone, search input auto-focused, results show 'IPIL BRANCH' / 'Branch 1' badges"
+    },
+    {
+      "test": "UI: Clicking customer in assign modal assigns phone and shows migration toast",
+      "result": "PASS",
+      "details": "Toast: '09700000003 assigned to JANMARK — 2 messages migrated'. Modal closes."
+    },
+    {
+      "test": "UI: After assign, phone removed from Unknown section and appears in Customers",
+      "result": "PASS",
+      "details": "Unknown count went from 4→3. 09700000003 now shows as 'JANMARK' in Customers section."
+    }
+  ],
+  "rca_of_bug": {
+    "bug": "Unknown phones appearing in customers section",
+    "root_cause": "In list_conversations() (sms.py ~line 737), the in_pipeline for the customers section used phone_filter = {} (empty dict when no branch_id provided), which matched ALL documents in sms_inbox including unregistered ones. These unknown phones were then added as new entries in the merged dict (since they had no matching outgoing queue messages).",
+    "reproduction_steps": [
+      "1. POST /sms/inbox with a completely unknown phone (no matching customer)",
+      "2. GET /sms/conversations?section=customers (no branch_id)",
+      "3. Unknown phone appears in response with customer_id='', customer_name=phone number"
+    ],
+    "fix": "Added {\"customer_id\": {\"$ne\": \"\"}} to the in_pipeline $match. This ensures only inbox records that were matched to a customer (customer_id != '') contribute to the customers section conversation list.",
+    "file": "/app/backend/routes/sms.py",
+    "line": "~738"
+  }
+}

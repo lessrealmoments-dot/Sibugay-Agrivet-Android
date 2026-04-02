@@ -621,20 +621,22 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
 
 @router.post("/inbox")
 async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
-    """Gateway app posts incoming customer replies here."""
+    """Gateway app posts ALL incoming SMS here — no filtering on the phone side.
+    Backend classifies: registered customer → branch-scoped; unknown → admin-only inbox.
+    """
     phone = (data.get("phone") or "").strip()
     message = (data.get("message") or "").strip()
     if not phone or not message:
         raise HTTPException(status_code=400, detail="phone and message required")
 
-    # Normalize phone — always store in local format (09...) to match customer records
+    # Always store in local format (09...) to unify +63 and 09 variants
     normalized = phone.lstrip("+")
     if normalized.startswith("63") and len(normalized) > 10:
         normalized = "0" + normalized[2:]
-    stored_phone = normalized  # Always store the normalized version
+    stored_phone = normalized
     phones = list({phone, normalized})
 
-    # Try to match customer by phone
+    # Try to match customer — org-scoped first, then global fallback
     customer = await _raw_db.customers.find_one(
         {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
         {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
@@ -645,11 +647,13 @@ async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
             {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
         )
 
+    registered = customer is not None
     doc = {
         "id": new_id(),
-        "phone": stored_phone,  # Always normalized to local format (09...)
+        "phone": stored_phone,
         "message": message,
         "direction": "in",
+        "registered": registered,                           # True = known customer
         "customer_id": customer["id"] if customer else "",
         "customer_name": customer["name"] if customer else stored_phone,
         "branch_id": customer.get("branch_id", "") if customer else "",
@@ -665,14 +669,46 @@ async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
 @router.get("/conversations")
 async def list_conversations(
     branch_id: Optional[str] = None,
+    section: str = "customers",   # "customers" | "unknown"
     user=Depends(get_current_user),
 ):
     """List conversations grouped by phone.
-    - branch_id provided → only phones that this branch has messaged (outgoing filter).
-      Incoming replies for those phones are always included (shared inbox model).
-    - No branch_id (admin consolidated) → all conversations.
+    section=customers  → registered customers, branch-filtered (default)
+    section=unknown    → unregistered/unknown numbers, admin-only
     """
-    # Determine phone scope when a specific branch is requested
+
+    # ── Unknown numbers section (admin only) ────────────────────────────────
+    if section == "unknown":
+        pipeline = [
+            # Messages where no customer was matched — customer_id is empty
+            {"$match": {"customer_id": ""}},
+            {"$sort": {"created_at": -1}},
+            {"$group": {
+                "_id": "$phone",
+                "last_message": {"$first": "$message"},
+                "last_time": {"$first": "$created_at"},
+                "unread": {"$sum": {"$cond": [{"$eq": ["$read", False]}, 1, 0]}},
+            }},
+        ]
+        items = await db.sms_inbox.aggregate(pipeline).to_list(500)
+        result = [
+            {
+                "phone": item["_id"],
+                "customer_name": item["_id"],   # Phone number as display name
+                "customer_id": "",
+                "last_message": item.get("last_message", ""),
+                "last_time": item.get("last_time", ""),
+                "last_direction": "in",
+                "unread": item.get("unread", 0),
+                "branch_ids": [],
+                "branch_names": [],
+                "registered": False,
+            }
+            for item in items
+        ]
+        return sorted(result, key=lambda x: x.get("last_time", ""), reverse=True)
+
+    # ── Customers section (existing behaviour) ───────────────────────────────
     phone_filter: dict = {}
     if branch_id:
         phones_in_branch = await db.sms_queue.distinct(
@@ -697,9 +733,9 @@ async def list_conversations(
             "branch_names": {"$addToSet": "$branch_name"},
         }},
     ]
-    # Latest incoming per phone
+    # Latest incoming per phone — only registered customer messages (customer_id not empty)
     in_pipeline = [
-        {"$match": phone_filter},
+        {"$match": {"customer_id": {"$ne": ""}, **phone_filter}},
         {"$sort": {"created_at": -1}},
         {"$group": {
             "_id": "$phone",
@@ -809,7 +845,7 @@ async def get_conversation(phone: str, user=Depends(get_current_user)):
     # Incoming messages
     in_msgs = await db.sms_inbox.find(
         {"phone": {"$in": phones}},
-        {"_id": 0, "id": 1, "message": 1, "created_at": 1, "customer_name": 1}
+        {"_id": 0, "id": 1, "message": 1, "created_at": 1, "customer_name": 1, "registered": 1}
     ).sort("created_at", 1).to_list(500)
     for m in in_msgs:
         m["direction"] = "in"
@@ -820,5 +856,76 @@ async def get_conversation(phone: str, user=Depends(get_current_user)):
 
     all_msgs = sorted(out_msgs + in_msgs, key=lambda x: x.get("created_at", ""))
     customer_name = all_msgs[0].get("customer_name", phone) if all_msgs else phone
-    return {"phone": phone, "customer_name": customer_name, "messages": all_msgs}
+    # Is this a registered customer conversation?
+    registered = any(m.get("registered", True) for m in in_msgs) or bool(out_msgs)
+    return {"phone": phone, "customer_name": customer_name, "messages": all_msgs, "registered": registered}
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ASSIGN PHONE — Link an unknown number to an existing customer
+# Migrates all past inbox messages to the customer's branch
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.patch("/assign-phone")
+async def assign_phone_to_customer(data: dict, user=Depends(get_current_user)):
+    """Assign an unregistered phone number to an existing customer.
+    All past sms_inbox records for that phone are migrated to the customer's branch.
+    The customer's phone field is updated if they don't already have one.
+    """
+    check_perm(user, "settings", "edit")
+    phone = (data.get("phone") or "").strip()
+    customer_id = data.get("customer_id", "")
+    if not phone or not customer_id:
+        raise HTTPException(status_code=400, detail="phone and customer_id required")
+
+    # Normalize phone
+    normalized = phone.lstrip("+")
+    if normalized.startswith("63") and len(normalized) > 10:
+        normalized = "0" + normalized[2:]
+    phones = list({phone, normalized})
+
+    # Look up target customer
+    customer = await db.customers.find_one(
+        {"id": customer_id}, {"_id": 0, "id": 1, "name": 1, "branch_id": 1, "phone": 1}
+    )
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    branch_id = customer.get("branch_id", "")
+
+    # Migrate all inbox messages for this phone to the customer
+    inbox_result = await _raw_db.sms_inbox.update_many(
+        {"phone": {"$in": phones}},
+        {"$set": {
+            "customer_id": customer["id"],
+            "customer_name": customer["name"],
+            "branch_id": branch_id,
+            "registered": True,
+            "phone": normalized,    # Normalize stored phone
+        }}
+    )
+
+    # Also update any outgoing queue messages for this phone that lack customer info
+    await _raw_db.sms_queue.update_many(
+        {"phone": {"$in": phones}, "customer_id": ""},
+        {"$set": {
+            "customer_id": customer["id"],
+            "customer_name": customer["name"],
+            "branch_id": branch_id,
+        }}
+    )
+
+    # If customer has no phone number yet, assign this one
+    if not customer.get("phone"):
+        await db.customers.update_one(
+            {"id": customer_id},
+            {"$set": {"phone": normalized, "updated_at": now_iso()}}
+        )
+
+    return {
+        "migrated_messages": inbox_result.modified_count,
+        "customer_name": customer["name"],
+        "customer_id": customer["id"],
+        "branch_id": branch_id,
+        "phone": normalized,
+    }

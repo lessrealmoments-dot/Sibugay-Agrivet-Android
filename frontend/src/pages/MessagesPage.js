@@ -12,7 +12,7 @@ import {
   MessageSquare, Send, Clock, AlertTriangle, SkipForward,
   RefreshCw, Users, Filter, Edit3, Check, X, Search,
   Megaphone, Loader2, Settings, CheckCircle2, XCircle,
-  ChevronDown, ChevronUp, Phone, FileText
+  ChevronDown, ChevronUp, Phone, FileText, UserPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -37,7 +37,7 @@ const TEMPLATE_BADGE = {
 };
 
 export default function MessagesPage() {
-  const { user, currentBranch } = useAuth();
+  const { user, currentBranch, branches } = useAuth();
   const [activeTab, setActiveTab] = useState('queue');
 
   // Queue state
@@ -51,6 +51,8 @@ export default function MessagesPage() {
   const [companyName, setCompanyName] = useState('');
 
   // Conversations state
+  const [convoSection, setConvoSection] = useState('customers'); // 'customers' | 'unknown'
+  const [unknownCount, setUnknownCount] = useState(0);
   const [conversations, setConversations] = useState([]);
   const [activeConvo, setActiveConvo] = useState(null);
   const [thread, setThread] = useState([]);
@@ -58,6 +60,12 @@ export default function MessagesPage() {
   const [replyMsg, setReplyMsg] = useState('');
   const [replying, setReplying] = useState(false);
   const [convoSearch, setConvoSearch] = useState('');
+
+  // Assign-to-customer modal state
+  const [assignModal, setAssignModal] = useState(false);
+  const [assignSearch, setAssignSearch] = useState('');
+  const [assignResults, setAssignResults] = useState([]);
+  const [assigning, setAssigning] = useState(false);
 
   // Compose state
   const [customers, setCustomers] = useState([]);
@@ -122,8 +130,15 @@ export default function MessagesPage() {
   useEffect(() => { if (activeTab === 'queue') loadQueue(); }, [activeTab, loadQueue]);
   useEffect(() => { if (activeTab === 'templates') loadTemplates(); }, [activeTab, loadTemplates]);
   useEffect(() => { if (activeTab === 'settings') loadSettings(); }, [activeTab, loadSettings]);
-  // Reload conversations whenever the tab is active OR the branch selection changes
-  useEffect(() => { if (activeTab === 'conversations') loadConversations(); }, [activeTab, currentBranch]);
+  // Reload conversations + unknown count when tab, section, or branch changes
+  useEffect(() => {
+    if (activeTab === 'conversations') {
+      loadConversations(convoSection);
+      loadUnknownCount();
+      setActiveConvo(null);
+      setThread([]);
+    }
+  }, [activeTab, convoSection, currentBranch]); // eslint-disable-line
 
   // Fetch company name once for the auto-signature hint
   useEffect(() => {
@@ -133,32 +148,28 @@ export default function MessagesPage() {
   }, []);
 
   // ── Adaptive polling ──────────────────────────────────────────────────────
-  // • Viewing a thread      → poll every 7s  (fast, real-time feel)
-  // • Conversations tab     → poll every 30s (watching for new threads)
-  // • Any other tab         → poll every 60s (stats only, user isn't watching messages)
-  // Polling pauses when the browser tab is hidden to save resources.
   useEffect(() => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
     const isConvoTab = activeTab === 'conversations';
     const hasThread  = Boolean(activeConvo?.phone);
-
     const pollMs = hasThread ? 7000 : isConvoTab ? 30000 : 60000;
 
     const poll = () => {
-      if (document.hidden) return; // Browser tab not visible — skip
-      // Always keep stats badge fresh
+      if (document.hidden) return;
       api.get('/sms/stats').then(res => setStats(res.data)).catch(() => {});
 
       if (isConvoTab) {
-        // Silently refresh the conversation list
-        const params = {};
-        if (currentBranch?.id) params.branch_id = currentBranch.id;
+        const params = { section: convoSection };
+        if (convoSection === 'customers' && currentBranch?.id) params.branch_id = currentBranch.id;
         api.get('/sms/conversations', { params })
           .then(res => setConversations(res.data || []))
           .catch(() => {});
+        // Keep unknown count badge fresh
+        api.get('/sms/conversations', { params: { section: 'unknown' } })
+          .then(res => setUnknownCount(res.data.length || 0))
+          .catch(() => {});
 
-        // Silently refresh the open thread
         if (hasThread) {
           api.get(`/sms/conversation/${encodeURIComponent(activeConvo.phone)}`)
             .then(res => setThread(res.data.messages || []))
@@ -169,7 +180,7 @@ export default function MessagesPage() {
 
     pollIntervalRef.current = setInterval(poll, pollMs);
     return () => clearInterval(pollIntervalRef.current);
-  }, [activeTab, activeConvo?.phone, currentBranch?.id]); // eslint-disable-line
+  }, [activeTab, activeConvo?.phone, currentBranch?.id, convoSection]); // eslint-disable-line
 
   // Cleanup on unmount
   useEffect(() => () => clearInterval(pollIntervalRef.current), []);
@@ -182,10 +193,19 @@ export default function MessagesPage() {
   }, [thread.length]);
 
   // ── Conversations ──
-  const loadConversations = async () => {
+  const loadConversations = async (section = convoSection) => {
     try {
-      const res = await api.get('/sms/conversations');
+      const params = { section };
+      if (section === 'customers' && currentBranch?.id) params.branch_id = currentBranch.id;
+      const res = await api.get('/sms/conversations', { params });
       setConversations(res.data || []);
+    } catch { /* ignore */ }
+  };
+
+  const loadUnknownCount = async () => {
+    try {
+      const res = await api.get('/sms/conversations', { params: { section: 'unknown' } });
+      setUnknownCount(res.data.length || 0);
     } catch { /* ignore */ }
   };
 
@@ -196,9 +216,38 @@ export default function MessagesPage() {
       const res = await api.get(`/sms/conversation/${encodeURIComponent(convo.phone)}`);
       setThread(res.data.messages || []);
       // Refresh to clear unread
-      loadConversations();
+      loadConversations(convoSection);
     } catch { setThread([]); }
     setThreadLoading(false);
+  };
+
+  const searchAssignCustomers = async (q) => {
+    setAssignSearch(q);
+    if (!q.trim()) { setAssignResults([]); return; }
+    try {
+      const res = await api.get('/customers', { params: { search: q, limit: 10 } });
+      setAssignResults(res.data.customers || []);
+    } catch { setAssignResults([]); }
+  };
+
+  const handleAssignPhone = async (customer) => {
+    if (!activeConvo) return;
+    setAssigning(true);
+    try {
+      const res = await api.patch('/sms/assign-phone', {
+        phone: activeConvo.phone,
+        customer_id: customer.id,
+      });
+      toast.success(`${activeConvo.phone} assigned to ${customer.name} — ${res.data.migrated_messages} messages migrated`);
+      setAssignModal(false);
+      setAssignSearch('');
+      setAssignResults([]);
+      setActiveConvo(null);
+      setThread([]);
+      loadConversations('customers');
+      loadConversations('unknown').then(() => loadUnknownCount());
+    } catch (e) { toast.error(e.response?.data?.detail || 'Assignment failed'); }
+    setAssigning(false);
   };
 
   const sendReply = async () => {
@@ -365,10 +414,33 @@ export default function MessagesPage() {
         <div className="flex gap-4 h-[calc(100vh-220px)]">
           {/* Left — conversation list */}
           <div className="w-72 shrink-0 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white">
-            <div className="px-3 py-2.5 border-b border-slate-100 flex items-center gap-2">
+            {/* Section toggle — Customers / Unknown */}
+            <div className="flex border-b border-slate-100">
+              <button onClick={() => setConvoSection('customers')}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                  convoSection === 'customers' ? 'bg-[#1A4D2E] text-white' : 'text-slate-400 hover:bg-slate-50'
+                }`}
+                data-testid="section-customers">
+                Customers
+              </button>
+              <button onClick={() => setConvoSection('unknown')}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
+                  convoSection === 'unknown' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:bg-slate-50'
+                }`}
+                data-testid="section-unknown">
+                Unknown
+                {unknownCount > 0 && (
+                  <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
+                    convoSection === 'unknown' ? 'bg-white/30 text-white' : 'bg-amber-500 text-white'
+                  }`}>{unknownCount}</span>
+                )}
+              </button>
+            </div>
+
+            <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
               <Search size={13} className="text-slate-400" />
               <input value={convoSearch} onChange={e => setConvoSearch(e.target.value)}
-                placeholder="Search conversations…"
+                placeholder={convoSection === 'unknown' ? 'Search by number…' : 'Search conversations…'}
                 className="flex-1 text-xs outline-none bg-transparent text-slate-700 placeholder-slate-400" />
               {/* Live polling indicator */}
               <div className="flex items-center gap-1 shrink-0">
@@ -380,53 +452,72 @@ export default function MessagesPage() {
                   {activeConvo ? '7s' : '30s'}
                 </span>
               </div>
-              <button onClick={loadConversations} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => loadConversations(convoSection)} className="text-slate-400 hover:text-slate-600">
                 <RefreshCw size={12} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
               {conversations.length === 0 && (
-                <div className="text-center text-slate-400 text-xs py-12">No conversations yet</div>
+                <div className="text-center text-slate-400 text-xs py-12">
+                  {convoSection === 'unknown' ? 'No unknown numbers' : 'No conversations yet'}
+                </div>
               )}
               {conversations
                 .filter(c => !convoSearch || c.customer_name?.toLowerCase().includes(convoSearch.toLowerCase()) || c.phone?.includes(convoSearch))
-                .map(c => (
-                <button key={c.phone} onClick={() => openConversation(c)}
-                  className={`w-full text-left px-3 py-3 hover:bg-slate-50 transition-colors ${activeConvo?.phone === c.phone ? 'bg-[#f0f7f3]' : ''}`}>
-                  <div className="flex items-start justify-between gap-1">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold text-slate-800 truncate">{c.customer_name}</span>
-                        {c.unread > 0 && (
-                          <span className="shrink-0 bg-[#1A4D2E] text-white text-[9px] font-bold rounded-full px-1.5 py-0.5">{c.unread}</span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-mono">{c.phone}</p>
-                      {/* Branch badges — shown when multiple branches are involved */}
-                      {c.branch_names?.length > 1 && (
-                        <div className="flex gap-1 mt-0.5 flex-wrap">
-                          {c.branch_names.filter(Boolean).map((bn, i) => (
-                            <span key={i} className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
-                              bn === currentBranch?.name
-                                ? 'bg-[#1A4D2E] text-white'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>{bn}</span>
-                          ))}
+                .map(c => {
+                  const isUnknown = convoSection === 'unknown';
+                  return (
+                    <button key={c.phone} onClick={() => openConversation(c)}
+                      className={`w-full text-left px-3 py-3 hover:bg-slate-50 transition-colors ${activeConvo?.phone === c.phone ? 'bg-[#f0f7f3]' : ''}`}
+                      data-testid={`convo-${c.phone}`}>
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                            isUnknown ? 'bg-amber-400' : 'bg-[#1A4D2E]'
+                          }`}>
+                            {isUnknown ? '?' : c.customer_name?.[0]?.toUpperCase() || '?'}
+                          </div>
                         </div>
-                      )}
-                      {c.branch_names?.length === 1 && c.branch_names[0] && (
-                        <span className="text-[9px] text-slate-400">{c.branch_names[0]}</span>
-                      )}
-                      <p className={`text-[10px] mt-0.5 truncate ${c.last_direction === 'in' ? 'text-[#1A4D2E] font-medium' : 'text-slate-400'}`}>
-                        {c.last_direction === 'in' ? '← ' : '→ '}{c.last_message}
-                      </p>
-                    </div>
-                    <span className="text-[9px] text-slate-300 shrink-0 mt-0.5">
-                      {c.last_time ? new Date(c.last_time).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-slate-800 truncate">
+                              {isUnknown ? c.phone : c.customer_name}
+                            </span>
+                            {c.unread > 0 && (
+                              <span className={`shrink-0 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 ${isUnknown ? 'bg-amber-500' : 'bg-[#1A4D2E]'}`}>{c.unread}</span>
+                            )}
+                            {isUnknown && (
+                              <span className="text-[8px] bg-amber-50 text-amber-600 border border-amber-200 px-1 py-0.5 rounded font-medium">Unregistered</span>
+                            )}
+                          </div>
+                          {!isUnknown && (
+                            <>
+                              <p className="text-[10px] text-slate-400 font-mono">{c.phone}</p>
+                              {c.branch_names?.length > 1 && (
+                                <div className="flex gap-1 mt-0.5 flex-wrap">
+                                  {c.branch_names.filter(Boolean).map((bn, i) => (
+                                    <span key={i} className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
+                                      bn === currentBranch?.name ? 'bg-[#1A4D2E] text-white' : 'bg-blue-100 text-blue-700'
+                                    }`}>{bn}</span>
+                                  ))}
+                                </div>
+                              )}
+                              {c.branch_names?.length === 1 && c.branch_names[0] && (
+                                <span className="text-[9px] text-slate-400">{c.branch_names[0]}</span>
+                              )}
+                            </>
+                          )}
+                          <p className={`text-[10px] mt-0.5 truncate ${c.last_direction === 'in' ? isUnknown ? 'text-amber-600 font-medium' : 'text-[#1A4D2E] font-medium' : 'text-slate-400'}`}>
+                            {c.last_direction === 'in' ? '← ' : '→ '}{c.last_message}
+                          </p>
+                        </div>
+                        <span className="text-[9px] text-slate-300 shrink-0 mt-0.5">
+                          {c.last_time ? new Date(c.last_time).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           </div>
 
@@ -443,18 +534,35 @@ export default function MessagesPage() {
               <>
                 {/* Thread header */}
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#1A4D2E] flex items-center justify-center text-white text-xs font-bold">
-                    {activeConvo.customer_name?.[0]?.toUpperCase() || '?'}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
+                    convoSection === 'unknown' ? 'bg-amber-400' : 'bg-[#1A4D2E]'
+                  }`}>
+                    {convoSection === 'unknown' ? '?' : activeConvo.customer_name?.[0]?.toUpperCase() || '?'}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{activeConvo.customer_name}</p>
-                    <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                      <Phone size={9} /> {activeConvo.phone}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {convoSection === 'unknown' ? activeConvo.phone : activeConvo.customer_name}
+                      </p>
+                      {convoSection === 'unknown' && (
+                        <span className="text-[9px] bg-amber-50 text-amber-600 border border-amber-200 px-1.5 py-0.5 rounded font-medium">Unregistered</span>
+                      )}
+                    </div>
+                    {convoSection !== 'unknown' && (
+                      <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                        <Phone size={9} /> {activeConvo.phone}
+                      </p>
+                    )}
                   </div>
-                  {/* Branch context pill */}
+                  {/* Branch context + Assign button */}
                   <div className="ml-auto flex items-center gap-2">
-                    {currentBranch ? (
+                    {convoSection === 'unknown' ? (
+                      <button onClick={() => setAssignModal(true)}
+                        className="flex items-center gap-1.5 text-xs bg-[#1A4D2E] text-white px-3 py-1.5 rounded-lg hover:bg-[#14532d] transition-colors"
+                        data-testid="assign-phone-btn">
+                        <UserPlus size={12} /> Assign to Customer
+                      </button>
+                    ) : currentBranch ? (
                       <span className="text-[10px] bg-[#1A4D2E]/10 text-[#1A4D2E] px-2 py-0.5 rounded-full font-medium">
                         {currentBranch.name}
                       </span>
@@ -532,6 +640,76 @@ export default function MessagesPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ASSIGN TO CUSTOMER MODAL ═══ */}
+      {assignModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md space-y-4 p-5">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <UserPlus size={16} className="text-[#1A4D2E]" />
+                Assign Number to Customer
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                <span className="font-mono font-semibold text-slate-600">{activeConvo?.phone}</span>
+                {' '}→ all past messages will move to the customer's branch.
+              </p>
+            </div>
+
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input
+                autoFocus
+                value={assignSearch}
+                onChange={e => searchAssignCustomers(e.target.value)}
+                placeholder="Search customer by name or phone..."
+                className="pl-8 h-9 text-sm"
+                data-testid="assign-search-input"
+              />
+            </div>
+
+            {assignResults.length > 0 && (
+              <div className="border border-slate-200 rounded-lg overflow-hidden max-h-52 overflow-y-auto">
+                {assignResults.map(c => {
+                  const branchName = branches?.find(b => b.id === c.branch_id)?.name || '';
+                  return (
+                    <button key={c.id}
+                      onClick={() => handleAssignPhone(c)}
+                      disabled={assigning}
+                      className="w-full text-left px-3 py-2.5 hover:bg-slate-50 border-b last:border-0 flex items-center justify-between gap-2 transition-colors"
+                      data-testid={`assign-customer-${c.id}`}>
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{c.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{c.phone || 'No phone'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {branchName && (
+                          <span className="text-[9px] bg-[#1A4D2E]/10 text-[#1A4D2E] px-1.5 py-0.5 rounded-full font-medium">
+                            {branchName}
+                          </span>
+                        )}
+                        {assigning && <Loader2 size={12} className="animate-spin text-slate-400 ml-1 inline" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {assignSearch && assignResults.length === 0 && (
+              <p className="text-xs text-center text-slate-400 py-2">No customers found</p>
+            )}
+
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={() => {
+                setAssignModal(false);
+                setAssignSearch('');
+                setAssignResults([]);
+              }}>Cancel</Button>
+            </div>
           </div>
         </div>
       )}

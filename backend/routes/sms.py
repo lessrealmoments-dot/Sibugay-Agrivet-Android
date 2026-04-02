@@ -433,8 +433,11 @@ async def send_manual_sms(data: dict, user=Depends(get_current_user)):
         br = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
         branch_name = (br or {}).get("name", "")
 
-    # Auto-append short signature — identifies sender without leaking full company name
-    message_with_sig = message + "\n\n- SAS Admin"
+    # Auto-append signature server-side — cannot be removed or edited by the sender
+    biz = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    company_name = (biz or {}).get("value", {}).get("name", "")
+    sig_parts = [p for p in [company_name, branch_name] if p]
+    message_with_sig = message + ("\n\n- " + " | ".join(sig_parts) if sig_parts else "")
 
     sent_by_name    = user.get("full_name") or user.get("email", "")
     organization_id = user.get("organization_id", "")
@@ -821,6 +824,18 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
     if not org_id:
         org_id = user.get("organization_id") or ""
 
+    # Build short signature: initials of company name + "| Admin"
+    # e.g. "Sibugay Agricultural Supply" → "SAS | Admin"
+    biz = await _raw_db.settings.find_one({"key": "company_info", "organization_id": org_id}, {"_id": 0})
+    if not biz:
+        biz = await _raw_db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    company_name = (biz or {}).get("value", {}).get("name", "")
+    initials = "".join(w[0].upper() for w in company_name.split() if w and w[0].isalpha()) if company_name else ""
+    device_sig = f"\n\n- {initials} | Admin" if initials else "\n\n- Admin"
+
+    # Only append signature if the message doesn't already have one
+    message_with_sig = message if message.endswith("| Admin") else message + device_sig
+
     # Store as already-sent with Admin attribution, no branch scope
     doc = {
         "id": new_id(),
@@ -829,7 +844,7 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
         "customer_id": customer["id"] if customer else "",
         "customer_name": customer["name"] if customer else stored_phone,
         "phone": stored_phone,
-        "message": message,
+        "message": message_with_sig,
         "status": "sent",           # Already delivered — skip the queue
         "trigger": "device",
         "trigger_ref": "admin_device",

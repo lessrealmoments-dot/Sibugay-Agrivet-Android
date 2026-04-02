@@ -34,6 +34,18 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Scheduled jobs (`_daily_sms_reminders`, `_monthly_sms_summary`) now iterate per active organization using `_raw_db`
 - **Result:** Company A's Android gateway only sees Company A's `pending` queue; Company B's templates, settings, and queue are completely isolated
 
+### Gateway Activity Log (2026-04-02) — Complete
+- **New `POST /api/sms/gateway/log`** — Android APK posts single log entry (level, event_type, message, phone, queue_id, device_id)
+- **New `POST /api/sms/gateway/logs/batch`** — Batch POST up to 500 buffered entries (offline-first support)
+- **New `GET /api/sms/gateway/logs`** — Web fetches logs with level/event_type filter, org-scoped
+- **New `DELETE /api/sms/gateway/logs`** — Admin clears old logs
+- **UI: "Gateway Log" tab** in Messages page — terminal-style dark panel, mac-style title bar
+- **UI: Live mode** — auto-refreshes every 5s, pulsing LIVE indicator, pause/resume toggle
+- **UI: Color-coded log lines** — ERROR=red, WARN=amber, INFO=gray, DEBUG=violet; event-specific colors (sent=green, received=blue, poll=gray, boot=purple, db_error=red)
+- **UI: Level filters** — ALL/INFO/WARN/ERROR/DEBUG buttons
+- **UI: Android Integration card** — shows all event types and exact payload format for Cursor agent
+- Provided Cursor prompt for Android app: RemoteLogger class with Room DB buffering, batch flush in SyncEngine.syncAll(), Retrofit endpoint, full addLogLine() replacement guide
+
 ### Credit Reminder Blast (2026-04-02) — Complete
 - **New `POST /api/sms/credit-blast`** — smart personalised credit reminder blast.
 - **Smart template selection per customer:**

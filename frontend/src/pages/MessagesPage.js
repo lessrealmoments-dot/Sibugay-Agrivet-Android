@@ -12,7 +12,7 @@ import {
   MessageSquare, Send, Clock, AlertTriangle, SkipForward,
   RefreshCw, Users, Filter, Edit3, Check, X, Search,
   Megaphone, Loader2, Settings, CheckCircle2, XCircle,
-  ChevronDown, ChevronUp, Phone, FileText, UserPlus
+  ChevronDown, ChevronUp, Phone, FileText, UserPlus, Activity, Wifi
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,6 +36,55 @@ const TEMPLATE_BADGE = {
   credit_reminder_blast: 'bg-rose-100 text-rose-700',
   custom: 'bg-slate-100 text-slate-600',
 };
+
+// ── Gateway Log helpers ───────────────────────────────────────────────────────
+const LOG_LEVEL_BG = {
+  INFO:  'bg-slate-700 text-slate-300',
+  DEBUG: 'bg-violet-900 text-violet-300',
+  WARN:  'bg-amber-900 text-amber-300',
+  ERROR: 'bg-red-900 text-red-400',
+};
+const LOG_MSG_COLOR = {
+  INFO:  'text-slate-300',
+  DEBUG: 'text-violet-300',
+  WARN:  'text-amber-300',
+  ERROR: 'text-red-400',
+};
+const EVENT_COLOR = {
+  sent:            'text-emerald-400',
+  send_queued:     'text-sky-400',
+  received:        'text-blue-400',
+  device_sent:     'text-teal-400',
+  poll:            'text-slate-500',
+  boot:            'text-violet-400',
+  observer_start:  'text-emerald-500',
+  observer_stop:   'text-red-400',
+  token_loaded:    'text-cyan-400',
+  sync:            'text-teal-400',
+  db_error:        'text-red-400',
+  error:           'text-red-400',
+  failed:          'text-red-400',
+};
+
+function GatewayLogLine({ log }) {
+  const ts = new Date(log.created_at);
+  const timeStr = ts.toLocaleTimeString('en-PH', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = ts.toLocaleDateString('en-PH', { month: '2-digit', day: '2-digit' });
+  const msgColor = LOG_MSG_COLOR[log.level] || 'text-slate-300';
+  const levelBg  = LOG_LEVEL_BG[log.level]  || 'bg-slate-700 text-slate-300';
+  const evColor  = EVENT_COLOR[log.event_type] || 'text-slate-400';
+  return (
+    <div className="flex items-start gap-2 py-0.5 hover:bg-white/5 px-2 rounded group min-w-0">
+      <span className="text-slate-600 shrink-0 select-none text-[10px] tabular-nums">{dateStr} {timeStr}</span>
+      <span className={`shrink-0 px-1.5 py-px rounded text-[9px] font-bold ${levelBg}`}>{log.level}</span>
+      {log.event_type && log.event_type !== 'custom' && (
+        <span className={`shrink-0 ${evColor} text-[10px] font-mono`}>[{log.event_type}]</span>
+      )}
+      {log.phone && <span className="text-slate-500 shrink-0 text-[10px]">{log.phone}</span>}
+      <span className={`${msgColor} leading-relaxed break-all text-[11px]`}>{log.message}</span>
+    </div>
+  );
+}
 
 export default function MessagesPage() {
   const { user, currentBranch, branches } = useAuth();
@@ -95,6 +144,14 @@ export default function MessagesPage() {
   // Settings state
   const [smsSettings, setSmsSettings] = useState([]);
 
+  // Gateway log state
+  const [gatewayLogs, setGatewayLogs] = useState([]);
+  const [gatewayLogsTotal, setGatewayLogsTotal] = useState(0);
+  const [gatewayLogLevel, setGatewayLogLevel] = useState('ALL');
+  const [gatewayLogLoading, setGatewayLogLoading] = useState(false);
+  const [gatewayLogLive, setGatewayLogLive] = useState(true);
+  const gatewayLogPollRef = useRef(null);
+
   // Adaptive polling ref + thread scroll anchor
   const pollIntervalRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -133,10 +190,34 @@ export default function MessagesPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const loadGatewayLogs = useCallback(async () => {
+    setGatewayLogLoading(true);
+    try {
+      const params = { limit: 300 };
+      if (gatewayLogLevel !== 'ALL') params.level = gatewayLogLevel;
+      const res = await api.get('/sms/gateway/logs', { params });
+      setGatewayLogs(res.data.items || []);
+      setGatewayLogsTotal(res.data.total || 0);
+    } catch { /* ignore */ }
+    setGatewayLogLoading(false);
+  }, [gatewayLogLevel]);
+
   useEffect(() => { loadStats(); }, [loadStats]);
   useEffect(() => { if (activeTab === 'queue') loadQueue(); }, [activeTab, loadQueue]);
   useEffect(() => { if (activeTab === 'templates') loadTemplates(); }, [activeTab, loadTemplates]);
   useEffect(() => { if (activeTab === 'settings') loadSettings(); }, [activeTab, loadSettings]);
+  useEffect(() => { if (activeTab === 'gateway-log') loadGatewayLogs(); }, [activeTab, loadGatewayLogs]);
+
+  // Gateway log live polling
+  useEffect(() => {
+    if (gatewayLogPollRef.current) clearInterval(gatewayLogPollRef.current);
+    if (activeTab === 'gateway-log' && gatewayLogLive) {
+      gatewayLogPollRef.current = setInterval(() => {
+        if (!document.hidden) loadGatewayLogs();
+      }, 5000);
+    }
+    return () => clearInterval(gatewayLogPollRef.current);
+  }, [activeTab, gatewayLogLive, loadGatewayLogs]); // eslint-disable-line
   // Reload conversations + unknown count when tab, section, or branch changes
   useEffect(() => {
     if (activeTab === 'conversations') {
@@ -437,6 +518,16 @@ export default function MessagesPage() {
     loadSettings();
   };
 
+  const clearGatewayLogs = async () => {
+    if (!window.confirm('Clear all gateway logs? This cannot be undone.')) return;
+    try {
+      await api.delete('/sms/gateway/logs');
+      toast.success('Gateway logs cleared');
+      setGatewayLogs([]);
+      setGatewayLogsTotal(0);
+    } catch { toast.error('Failed to clear logs'); }
+  };
+
   const fmtTime = (iso) => {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -470,6 +561,7 @@ export default function MessagesPage() {
           { key: 'blast', label: 'Promo Blast', icon: Megaphone },
           { key: 'templates', label: 'Templates', icon: FileText },
           { key: 'settings', label: 'Settings', icon: Settings },
+          { key: 'gateway-log', label: 'Gateway Log', icon: Activity },
         ].map(t => {
           const Icon = t.icon;
           return (
@@ -1282,6 +1374,117 @@ export default function MessagesPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* ═══ GATEWAY LOG TAB ═══ */}
+      {activeTab === 'gateway-log' && (
+        <div className="space-y-3" data-testid="gateway-log-panel">
+          {/* Controls row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-block w-2 h-2 rounded-full ${gatewayLogLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                <span className={`text-xs font-medium ${gatewayLogLive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  {gatewayLogLive ? 'LIVE' : 'PAUSED'}
+                </span>
+              </div>
+              <span className="text-xs text-slate-400">{gatewayLogsTotal} total entries</span>
+              {/* Level filter */}
+              <div className="flex items-center gap-1">
+                {['ALL', 'INFO', 'WARN', 'ERROR', 'DEBUG'].map(l => (
+                  <button key={l} onClick={() => setGatewayLogLevel(l)}
+                    data-testid={`log-filter-${l}`}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                      gatewayLogLevel === l
+                        ? l === 'ERROR' ? 'bg-red-600 text-white'
+                          : l === 'WARN' ? 'bg-amber-500 text-white'
+                          : l === 'DEBUG' ? 'bg-violet-600 text-white'
+                          : 'bg-slate-700 text-white'
+                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setGatewayLogLive(p => !p)}
+                data-testid="toggle-live"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  gatewayLogLive ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}>
+                <Wifi size={12} /> {gatewayLogLive ? 'Live On' : 'Live Off'}
+              </button>
+              <button onClick={loadGatewayLogs} data-testid="refresh-logs"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-medium text-slate-600 transition-colors">
+                <RefreshCw size={12} className={gatewayLogLoading ? 'animate-spin' : ''} /> Refresh
+              </button>
+              {user?.role === 'admin' && (
+                <button onClick={clearGatewayLogs} data-testid="clear-logs"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-medium text-red-500 transition-colors">
+                  <X size={12} /> Clear All
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Terminal window */}
+          <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-700" style={{ height: 'calc(100vh - 285px)' }}>
+            {/* Mac-style title bar */}
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700/80 bg-slate-800">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-400/80" />
+                <div className="w-3 h-3 rounded-full bg-amber-400/80" />
+                <div className="w-3 h-3 rounded-full bg-green-400/80" />
+              </div>
+              <div className="flex items-center gap-2 ml-2">
+                <Activity size={12} className="text-slate-400" />
+                <span className="text-slate-400 text-xs font-mono">AgriSMS Gateway — Activity Log</span>
+              </div>
+              {gatewayLogLoading && <Loader2 size={11} className="text-slate-500 animate-spin ml-auto" />}
+            </div>
+            {/* Log lines */}
+            <div className="h-[calc(100%-42px)] overflow-y-auto p-2 space-y-px" data-testid="log-lines">
+              {gatewayLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center pb-8">
+                  <Activity size={28} className="text-slate-700 mb-3" />
+                  <p className="text-slate-500 text-sm font-mono">No logs yet</p>
+                  <p className="text-slate-600 text-xs font-mono mt-1">Start the AgriSMS Gateway app to see activity here</p>
+                  <p className="text-slate-700 text-[10px] font-mono mt-4">Endpoint: POST /api/sms/gateway/log</p>
+                </div>
+              ) : gatewayLogs.map(log => (
+                <GatewayLogLine key={log.id} log={log} />
+              ))}
+            </div>
+          </div>
+
+          {/* Integration hint card */}
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-300 flex items-center gap-2">
+                <Activity size={13} className="text-emerald-400" /> Android Integration
+              </span>
+              <span className="text-slate-500 font-mono text-[10px]">POST /api/sms/gateway/log</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              <div className="space-y-1">
+                <p className="text-slate-400 font-semibold">Event types to log from your APK:</p>
+                {['boot', 'poll', 'send_queued', 'sent', 'failed', 'received', 'device_sent', 'token_loaded', 'observer_start', 'observer_stop', 'error', 'db_error'].map(e => (
+                  <span key={e} className={`inline-block mr-1.5 px-1.5 py-px rounded font-mono ${EVENT_COLOR[e] || 'text-slate-400'}`}>{e}</span>
+                ))}
+              </div>
+              <div className="space-y-1">
+                <p className="text-slate-400 font-semibold">Payload format:</p>
+                <pre className="text-slate-400 bg-slate-900 rounded p-2 leading-relaxed text-[9px] overflow-x-auto">{`{
+  "level": "INFO",
+  "event_type": "sent",
+  "message": "Sent → 09xxxxxxxx",
+  "phone": "09xxxxxxxx",
+  "queue_id": "abc-123",
+  "device_id": "phone-model"
+}`}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

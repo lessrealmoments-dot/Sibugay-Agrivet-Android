@@ -1140,6 +1140,105 @@ async def get_conversation(phone: str, user=Depends(get_current_user)):
 # Migrates all past inbox messages to the customer's branch
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════════════════════
+# GATEWAY ACTIVITY LOG — Android APK keylogger / debug feed synced to web
+# POST /gateway/log       — single entry (used during foreground)
+# POST /gateway/logs/batch — bulk entries (used for buffered offline logs)
+# GET  /gateway/logs      — web UI fetches the feed
+# DELETE /gateway/logs    — admin clears old logs
+# ══════════════════════════════════════════════════════════════════════════════
+
+VALID_LEVELS = {"INFO", "WARN", "ERROR", "DEBUG"}
+VALID_EVENTS = {
+    "boot", "poll", "send_queued", "sent", "failed",
+    "received", "device_sent", "sync", "token_loaded",
+    "observer_start", "observer_stop", "db_error", "error", "custom",
+}
+
+
+def _build_log_doc(entry: dict, org_id: str) -> dict:
+    level = (entry.get("level") or "INFO").upper()
+    if level not in VALID_LEVELS:
+        level = "INFO"
+    event_type = (entry.get("event_type") or "custom").lower()
+    if event_type not in VALID_EVENTS:
+        event_type = "custom"
+    return {
+        "id": new_id(),
+        "organization_id": org_id,
+        "level": level,
+        "event_type": event_type,
+        "message": (entry.get("message") or "").strip(),
+        "phone": (entry.get("phone") or "").strip(),
+        "queue_id": (entry.get("queue_id") or "").strip(),
+        "device_id": (entry.get("device_id") or "").strip(),
+        "metadata": entry.get("metadata") or {},
+        "created_at": entry.get("created_at") or now_iso(),
+        "logged_at": now_iso(),
+    }
+
+
+@router.post("/gateway/log")
+async def post_gateway_log(data: dict, user=Depends(get_current_user)):
+    """Android APK posts a single activity log entry for real-time debugging."""
+    if not data.get("message", "").strip():
+        raise HTTPException(status_code=400, detail="message required")
+    org_id = user.get("organization_id", "")
+    doc = _build_log_doc(data, org_id)
+    await _raw_db.sms_gateway_logs.insert_one(doc)
+    del doc["_id"]
+    return {"ok": True}
+
+
+@router.post("/gateway/logs/batch")
+async def post_gateway_logs_batch(data: dict, user=Depends(get_current_user)):
+    """Android APK posts buffered log entries in one call (offline-first support)."""
+    entries = data.get("entries") or []
+    if not entries:
+        return {"inserted": 0}
+    org_id = user.get("organization_id", "")
+    docs = [_build_log_doc(e, org_id) for e in entries[:500] if (e.get("message") or "").strip()]
+    if docs:
+        await _raw_db.sms_gateway_logs.insert_many(docs)
+        for d in docs:
+            del d["_id"]
+    return {"inserted": len(docs)}
+
+
+@router.get("/gateway/logs")
+async def get_gateway_logs(
+    level: Optional[str] = None,
+    event_type: Optional[str] = None,
+    limit: int = 300,
+    skip: int = 0,
+    user=Depends(get_current_user),
+):
+    """Fetch gateway activity logs for the web debug panel."""
+    query: dict = {"organization_id": user.get("organization_id", "")}
+    if level and level.upper() not in ("ALL", ""):
+        query["level"] = level.upper()
+    if event_type and event_type not in ("all", ""):
+        query["event_type"] = event_type.lower()
+    total = await _raw_db.sms_gateway_logs.count_documents(query)
+    items = (
+        await _raw_db.sms_gateway_logs.find(query, {"_id": 0})
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(min(limit, 500))
+        .to_list(min(limit, 500))
+    )
+    return {"items": items, "total": total}
+
+
+@router.delete("/gateway/logs")
+async def clear_gateway_logs(user=Depends(get_current_user)):
+    """Clear all gateway logs for this organization (admin only)."""
+    check_perm(user, "settings", "edit")
+    org_id = user.get("organization_id", "")
+    result = await _raw_db.sms_gateway_logs.delete_many({"organization_id": org_id})
+    return {"deleted": result.deleted_count}
+
+
 @router.patch("/assign-phone")
 async def assign_phone_to_customer(data: dict, user=Depends(get_current_user)):
     """Assign an unregistered phone number to an existing customer.

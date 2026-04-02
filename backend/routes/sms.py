@@ -577,12 +577,13 @@ async def check_phone(phone: str, user=Depends(get_current_user)):
     phones = list({phone, normalized})
 
     customer = await _raw_db.customers.find_one(
-        {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
+        {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}],
+         "organization_id": user.get("organization_id")},
         {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
     )
     if not customer:
         customer = await _raw_db.customers.find_one(
-            {"phone": {"$in": phones}},
+            {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}]},
             {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
         )
 
@@ -614,14 +615,15 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
     stored_phone = normalized
     phones = list({phone, normalized})
 
-    # Look up customer
+    # Look up customer — checks both primary phone and phones[] array
     customer = await _raw_db.customers.find_one(
-        {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
+        {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}],
+         "organization_id": user.get("organization_id")},
         {"_id": 0, "id": 1, "name": 1}
     )
     if not customer:
         customer = await _raw_db.customers.find_one(
-            {"phone": {"$in": phones}},
+            {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}]},
             {"_id": 0, "id": 1, "name": 1}
         )
 
@@ -673,14 +675,15 @@ async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
     stored_phone = normalized
     phones = list({phone, normalized})
 
-    # Try to match customer — org-scoped first, then global fallback
+    # Try to match customer — checks primary phone AND phones[] array
     customer = await _raw_db.customers.find_one(
-        {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
+        {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}],
+         "organization_id": user.get("organization_id")},
         {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
     )
     if not customer:
         customer = await _raw_db.customers.find_one(
-            {"phone": {"$in": phones}},
+            {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}]},
             {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
         )
 
@@ -882,10 +885,12 @@ async def get_conversation_by_customer(customer_id: str, user=Depends(get_curren
 
     all_msgs = sorted(out_msgs + in_msgs, key=lambda x: x.get("created_at", ""))
     customer_name = (customer_doc or {}).get("name", customer_id)
+    # Return ALL registered phones (including those not yet used in messages)
+    all_registered_phones = sorted(p for p in all_phones if p)
     return {
         "customer_id": customer_id,
         "customer_name": customer_name,
-        "phones": sorted(p for p in set(m.get("phone", "") for m in all_msgs) if p),
+        "phones": all_registered_phones,
         "messages": all_msgs,
         "registered": True,
     }

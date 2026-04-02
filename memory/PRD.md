@@ -34,7 +34,23 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Scheduled jobs (`_daily_sms_reminders`, `_monthly_sms_summary`) now iterate per active organization using `_raw_db`
 - **Result:** Company A's Android gateway only sees Company A's `pending` queue; Company B's templates, settings, and queue are completely isolated
 
-### SMS Unknown Numbers Inbox + Assign to Customer (2026-04-02) — Complete
+### Multi-Phone Customers + Unified Conversations (2026-04-02) — Complete
+- **`phones[]` array on customers** — customers now store all phone numbers. `phone` = primary (first), `phones[]` = all numbers. Backwards compatible with existing single-phone customers.
+- **`POST /customers`** — accepts `phones[]` array. Auto-deduplicates, normalizes (+63→09).
+- **`PUT /customers/{id}`** — updates entire phones array.
+- **New `POST /customers/{id}/phones`** — adds a single phone to existing customer.
+- **New `DELETE /customers/{id}/phones/{phone}`** — removes a phone.
+- **Auto-migrate on create/update** — adding a phone to a customer auto-migrates any Unknown inbox messages from that number to the customer's branch.
+- **`POST /sms/inbox`, `GET /sms/check-phone`, `POST /sms/sent-from-device`** — all customer lookups now check BOTH `phone` (primary) AND `phones[]` array. Secondary phones are recognized as registered.
+- **`POST /sms/send` with `customer_id`** — queues one message per registered phone. A customer with 3 phones gets 3 queued SMS.
+- **`GET /sms/conversations`** — now groups by `customer_id` (not phone). One entry per customer regardless of phone count. Returns `phones[]` array.
+- **New `GET /sms/conversation/customer/{customer_id}`** — unified thread for a customer across ALL their phones. Shows all registered phones (even unused ones).
+- **SMS Hooks** — all 3 hooks (credit_new, payment_received, charge_applied) iterate `customer.phones[]` and send to every registered number.
+- **PATCH /sms/assign-phone** — now ADDs the phone to `phones[]` array (not replaces). Existing primary phone preserved.
+- **UI: Customer form** — multi-phone input list with "+ Add number" and remove buttons. First phone labelled "Primary".
+- **UI: Customers table** — shows all phones comma-separated.
+- **UI: Thread header** — shows all customer phone numbers.
+- **UI: Reply box** — shows "Replying to N numbers: ..." hint when customer has multiple phones.
 - **Architecture change:** Android app now syncs ALL incoming SMS to backend (no `check-phone` filter). Phone is a dumb pipe.
 - **`POST /api/sms/inbox`** — stores every message. Adds `registered: bool` — `True` if phone matches a customer, `False` if unknown.
 - **`GET /api/sms/conversations?section=customers`** — existing branch-filtered customer conversations. Unknown phones excluded.

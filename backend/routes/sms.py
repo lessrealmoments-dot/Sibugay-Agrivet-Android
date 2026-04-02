@@ -679,6 +679,8 @@ async def list_conversations(
 
     # ── Unknown numbers section (admin only) ────────────────────────────────
     if section == "unknown":
+        if user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required for unknown numbers inbox")
         pipeline = [
             # Messages where no customer was matched — customer_id is empty
             {"$match": {"customer_id": ""}},

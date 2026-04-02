@@ -51,7 +51,7 @@ export default function MessagesPage() {
   const [companyName, setCompanyName] = useState('');
 
   // Conversations state
-  const [convoSection, setConvoSection] = useState('customers'); // 'customers' | 'unknown'
+  const [convoSection, setConvoSection] = useState('customers'); // 'customers' | 'unknown' (admin only)
   const [unknownCount, setUnknownCount] = useState(0);
   const [conversations, setConversations] = useState([]);
   const [activeConvo, setActiveConvo] = useState(null);
@@ -203,6 +203,7 @@ export default function MessagesPage() {
   };
 
   const loadUnknownCount = async () => {
+    if (user?.role !== 'admin') return;
     try {
       const res = await api.get('/sms/conversations', { params: { section: 'unknown' } });
       setUnknownCount(res.data.length || 0);
@@ -414,7 +415,7 @@ export default function MessagesPage() {
         <div className="flex gap-4 h-[calc(100vh-220px)]">
           {/* Left — conversation list */}
           <div className="w-72 shrink-0 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white">
-            {/* Section toggle — Customers / Unknown */}
+            {/* Section toggle — Customers / Unknown (admin only) */}
             <div className="flex border-b border-slate-100">
               <button onClick={() => setConvoSection('customers')}
                 className={`flex-1 py-2 text-xs font-semibold transition-colors ${
@@ -423,18 +424,20 @@ export default function MessagesPage() {
                 data-testid="section-customers">
                 Customers
               </button>
-              <button onClick={() => setConvoSection('unknown')}
-                className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
-                  convoSection === 'unknown' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:bg-slate-50'
-                }`}
-                data-testid="section-unknown">
-                Unknown
-                {unknownCount > 0 && (
-                  <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
-                    convoSection === 'unknown' ? 'bg-white/30 text-white' : 'bg-amber-500 text-white'
-                  }`}>{unknownCount}</span>
-                )}
-              </button>
+              {user?.role === 'admin' && (
+                <button onClick={() => setConvoSection('unknown')}
+                  className={`flex-1 py-2 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
+                    convoSection === 'unknown' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:bg-slate-50'
+                  }`}
+                  data-testid="section-unknown">
+                  Unknown
+                  {unknownCount > 0 && (
+                    <span className={`text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
+                      convoSection === 'unknown' ? 'bg-white/30 text-white' : 'bg-amber-500 text-white'
+                    }`}>{unknownCount}</span>
+                  )}
+                </button>
+              )}
             </div>
 
             <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">

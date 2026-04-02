@@ -525,6 +525,95 @@ async def sms_stats(user=Depends(get_current_user)):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PHONE CHECK — Whitelist filter used by Android gateway before processing SMS
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/check-phone")
+async def check_phone(phone: str, user=Depends(get_current_user)):
+    """Check if a phone number belongs to a known customer.
+    Android app calls this before processing any incoming or outgoing SMS.
+    Unknown numbers are silently ignored by the app.
+    """
+    normalized = phone.lstrip("+")
+    if normalized.startswith("63") and len(normalized) > 10:
+        normalized = "0" + normalized[2:]
+    phones = list({phone, normalized})
+
+    customer = await _raw_db.customers.find_one(
+        {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
+        {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
+    )
+    if not customer:
+        customer = await _raw_db.customers.find_one(
+            {"phone": {"$in": phones}},
+            {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
+        )
+
+    if customer:
+        return {"exists": True, "customer_name": customer.get("name", ""), "customer_id": customer.get("id", "")}
+    return {"exists": False, "customer_name": "", "customer_id": ""}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SENT FROM DEVICE — Outgoing SMS typed directly on the gateway phone
+# No signature = Admin sent it. Visible to all branches.
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/sent-from-device")
+async def sent_from_device(data: dict, user=Depends(get_current_user)):
+    """Gateway app posts an SMS it sent directly from the native SMS app.
+    These are attributed to Admin (device holder) with no branch scope.
+    They appear in ALL branch conversation views for that customer.
+    """
+    phone = (data.get("phone") or "").strip()
+    message = (data.get("message") or "").strip()
+    if not phone or not message:
+        raise HTTPException(status_code=400, detail="phone and message required")
+
+    normalized = phone.lstrip("+")
+    if normalized.startswith("63") and len(normalized) > 10:
+        normalized = "0" + normalized[2:]
+    phones = list({phone, normalized})
+
+    # Look up customer
+    customer = await _raw_db.customers.find_one(
+        {"phone": {"$in": phones}, "organization_id": user.get("organization_id")},
+        {"_id": 0, "id": 1, "name": 1}
+    )
+    if not customer:
+        customer = await _raw_db.customers.find_one(
+            {"phone": {"$in": phones}},
+            {"_id": 0, "id": 1, "name": 1}
+        )
+
+    # Store as already-sent with Admin attribution, no branch scope
+    doc = {
+        "id": new_id(),
+        "organization_id": user.get("organization_id", ""),
+        "template_key": "custom",
+        "customer_id": customer["id"] if customer else "",
+        "customer_name": customer["name"] if customer else phone,
+        "phone": phone,
+        "message": message,
+        "status": "sent",           # Already delivered — skip the queue
+        "trigger": "device",
+        "trigger_ref": "admin_device",
+        "dedup_key": "",
+        "branch_id": None,          # No branch — visible to all
+        "branch_name": "",
+        "sent_by_name": "Admin (via device)",
+        "created_at": data.get("sent_at", now_iso()),
+        "sent_at": data.get("sent_at", now_iso()),
+        "failed_at": None,
+        "error": None,
+        "retry_count": 0,
+    }
+    await _raw_db.sms_queue.insert_one(doc)
+    del doc["_id"]
+    return doc
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # INBOX — Incoming SMS from gateway phone (replies from customers)
 # ══════════════════════════════════════════════════════════════════════════════
 

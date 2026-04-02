@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, api } from '../contexts/AuthContext';
 import { useOnlineStatus } from '../lib/useOnlineStatus';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -107,6 +107,20 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isOnline = useOnlineStatus();
 
+  // Background SMS unread badge — polls every 60s so the nav badge stays fresh
+  // even when the user is on Sales, Inventory, etc.
+  const [smsPending, setSmsPending] = useState(0);
+  const smsPollRef = useRef(null);
+  useEffect(() => {
+    if (!user || user.role !== 'admin') return;
+    const fetchStats = () => {
+      api.get('/sms/stats').then(res => setSmsPending(res.data.pending || 0)).catch(() => {});
+    };
+    fetchStats();
+    smsPollRef.current = setInterval(fetchStats, 60000);
+    return () => clearInterval(smsPollRef.current);
+  }, [user?.role]); // eslint-disable-line
+
   // Section override dialog state
   const [overrideDialog, setOverrideDialog] = useState({ open: false, module: '', label: '', path: '' });
 
@@ -175,6 +189,12 @@ export default function Layout({ children }) {
       >
         <item.icon size={18} strokeWidth={1.5} />
         <span className="flex-1">{item.label}</span>
+        {/* SMS pending badge — visible on all pages */}
+        {item.path === '/messages' && smsPending > 0 && (
+          <span className="bg-amber-500 text-white text-[9px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+            {smsPending}
+          </span>
+        )}
         {offlineLocked && <WifiOff size={11} className="text-slate-500 shrink-0" />}
         {permLocked && <Lock size={11} className="text-amber-500/70 shrink-0" />}
         {readOnly && !active && <span className="text-[9px] text-slate-500 shrink-0">cached</span>}

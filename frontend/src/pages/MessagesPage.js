@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -80,6 +80,10 @@ export default function MessagesPage() {
   // Settings state
   const [smsSettings, setSmsSettings] = useState([]);
 
+  // Adaptive polling ref + thread scroll anchor
+  const pollIntervalRef = useRef(null);
+  const messagesEndRef = useRef(null);
+
   // ── Data loaders ──
   const loadStats = useCallback(async () => {
     try {
@@ -127,6 +131,55 @@ export default function MessagesPage() {
       setCompanyName(res.data.business_name || '');
     }).catch(() => {});
   }, []);
+
+  // ── Adaptive polling ──────────────────────────────────────────────────────
+  // • Viewing a thread      → poll every 7s  (fast, real-time feel)
+  // • Conversations tab     → poll every 30s (watching for new threads)
+  // • Any other tab         → poll every 60s (stats only, user isn't watching messages)
+  // Polling pauses when the browser tab is hidden to save resources.
+  useEffect(() => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+
+    const isConvoTab = activeTab === 'conversations';
+    const hasThread  = Boolean(activeConvo?.phone);
+
+    const pollMs = hasThread ? 7000 : isConvoTab ? 30000 : 60000;
+
+    const poll = () => {
+      if (document.hidden) return; // Browser tab not visible — skip
+      // Always keep stats badge fresh
+      api.get('/sms/stats').then(res => setStats(res.data)).catch(() => {});
+
+      if (isConvoTab) {
+        // Silently refresh the conversation list
+        const params = {};
+        if (currentBranch?.id) params.branch_id = currentBranch.id;
+        api.get('/sms/conversations', { params })
+          .then(res => setConversations(res.data || []))
+          .catch(() => {});
+
+        // Silently refresh the open thread
+        if (hasThread) {
+          api.get(`/sms/conversation/${encodeURIComponent(activeConvo.phone)}`)
+            .then(res => setThread(res.data.messages || []))
+            .catch(() => {});
+        }
+      }
+    };
+
+    pollIntervalRef.current = setInterval(poll, pollMs);
+    return () => clearInterval(pollIntervalRef.current);
+  }, [activeTab, activeConvo?.phone, currentBranch?.id]); // eslint-disable-line
+
+  // Cleanup on unmount
+  useEffect(() => () => clearInterval(pollIntervalRef.current), []);
+
+  // Auto-scroll thread to bottom when new messages arrive
+  useEffect(() => {
+    if (thread.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [thread.length]);
 
   // ── Conversations ──
   const loadConversations = async () => {
@@ -317,6 +370,16 @@ export default function MessagesPage() {
               <input value={convoSearch} onChange={e => setConvoSearch(e.target.value)}
                 placeholder="Search conversations…"
                 className="flex-1 text-xs outline-none bg-transparent text-slate-700 placeholder-slate-400" />
+              {/* Live polling indicator */}
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[9px] text-slate-400">
+                  {activeConvo ? '7s' : '30s'}
+                </span>
+              </div>
               <button onClick={loadConversations} className="text-slate-400 hover:text-slate-600">
                 <RefreshCw size={12} />
               </button>
@@ -440,6 +503,8 @@ export default function MessagesPage() {
                       </div>
                     );
                   })}
+                  {/* Scroll anchor — new messages auto-scroll here */}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Reply box */}

@@ -34,7 +34,22 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - Scheduled jobs (`_daily_sms_reminders`, `_monthly_sms_summary`) now iterate per active organization using `_raw_db`
 - **Result:** Company A's Android gateway only sees Company A's `pending` queue; Company B's templates, settings, and queue are completely isolated
 
-### Multi-Phone Customers + Unified Conversations (2026-04-02) — Complete
+### Credit Reminder Blast (2026-04-02) — Complete
+- **New `POST /api/sms/credit-blast`** — smart personalised credit reminder blast.
+- **Smart template selection per customer:**
+  - **Option A (Short):** Balance reminder with next due date — used when no overdue and due > 15 days away.
+  - **Option B (Detailed):** Full breakdown — used when customer has OVERDUE balance OR due date ≤ 15 days.
+- **Preview mode (`dry_run: true`):** Returns stats (customer count, SMS count, short/detailed split) and up to 2 sample messages before committing.
+- **Send mode (`dry_run: false`):** Queues personalised messages for all eligible customers. Sends to ALL registered phones per customer.
+- **Filters:** `branch_id` (auto from current branch), `min_balance` threshold.
+- **No-phone customers automatically skipped** — `total_customers` only counts customers who will actually receive SMS.
+- **Detailed message includes:** customer name, total balance, OVERDUE amount + days overdue, next due date + amount + days until due, estimated monthly interest.
+- **Short message includes:** customer name, balance, next due date + days, interest rate reminder.
+- **UI: New "Credit Blast" tab** in Messages page (between Compose and Promo Blast).
+- **UI: Template legend** showing when each template is used.
+- **UI: Preview stats card** — Customers, SMS, breakdown counts.
+- **UI: Sample message cards** — shows formatted message with template badge (Detailed/Short + OVERDUE indicator).
+- **UI: Send button** shows exact customer and SMS count before confirming.
 - **`phones[]` array on customers** — customers now store all phone numbers. `phone` = primary (first), `phones[]` = all numbers. Backwards compatible with existing single-phone customers.
 - **`POST /customers`** — accepts `phones[]` array. Auto-deduplicates, normalizes (+63→09).
 - **`PUT /customers/{id}`** — updates entire phones array.

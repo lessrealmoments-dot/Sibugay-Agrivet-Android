@@ -645,7 +645,6 @@ async def credit_reminder_blast(data: dict, user=Depends(get_current_user)):
                 lines.append(f"Est. interest: ~P{est_interest:,.2f}/buwan ({interest_rate}%/mo)")
             lines.append("\nPaki-bisita o bayaran na po agad. Salamat!")
             message = "\n".join(lines)
-            detailed_count += 1
         else:
             # Option A — Short
             due_line = ""
@@ -659,12 +658,16 @@ async def credit_reminder_blast(data: dict, user=Depends(get_current_user)):
                 f"{due_line}"
                 f"{int_line}\n\nSalamat!"
             )
-            short_count += 1
-
         phones = customer.get("phones") or ([customer["phone"]] if customer.get("phone") else [])
         phones = [p for p in phones if p]
         if not phones:
             continue
+
+        # Count only customers that will actually receive SMS
+        if use_b:
+            detailed_count += 1
+        else:
+            short_count += 1
 
         total_sms += len(phones)
 

@@ -11,7 +11,7 @@ import time
 import uuid
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://sms-trigger-fix.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://agri-sms-hub.preview.emergentagent.com').rstrip('/')
 
 # Test data storage
 TEST_DATA = {}

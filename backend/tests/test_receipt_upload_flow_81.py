@@ -16,7 +16,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://sms-trigger-fix.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://agri-sms-hub.preview.emergentagent.com')
 
 @pytest.fixture(scope="module")
 def auth_token():

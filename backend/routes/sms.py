@@ -407,8 +407,19 @@ async def send_manual_sms(data: dict, user=Depends(get_current_user)):
     if not phone or not message:
         raise HTTPException(status_code=400, detail="Phone and message are required")
 
+    # Auto-append signature server-side — cannot be removed or edited by the sender
+    biz = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    company_name = (biz or {}).get("value", {}).get("name", "")
+    sig_parts = [p for p in [company_name, branch_name] if p]
+    if sig_parts:
+        message = message + "\n\n- " + " | ".join(sig_parts)
+
+    sent_by_name = user.get("full_name") or user.get("email", "")
+    organization_id = user.get("organization_id", "")
+
     doc = {
         "id": new_id(),
+        "organization_id": organization_id,
         "template_key": "custom",
         "customer_id": customer_id,
         "customer_name": customer_name,
@@ -420,6 +431,7 @@ async def send_manual_sms(data: dict, user=Depends(get_current_user)):
         "dedup_key": "",
         "branch_id": branch_id,
         "branch_name": branch_name,
+        "sent_by_name": sent_by_name,
         "created_at": now_iso(),
         "sent_at": None,
         "failed_at": None,
@@ -558,11 +570,29 @@ async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
 
 
 @router.get("/conversations")
-async def list_conversations(user=Depends(get_current_user)):
-    """List all conversations grouped by phone — latest message first."""
-    # Get latest outgoing per phone
+async def list_conversations(
+    branch_id: Optional[str] = None,
+    user=Depends(get_current_user),
+):
+    """List conversations grouped by phone.
+    - branch_id provided → only phones that this branch has messaged (outgoing filter).
+      Incoming replies for those phones are always included (shared inbox model).
+    - No branch_id (admin consolidated) → all conversations.
+    """
+    # Determine phone scope when a specific branch is requested
+    phone_filter: dict = {}
+    if branch_id:
+        phones_in_branch = await db.sms_queue.distinct(
+            "phone",
+            {"branch_id": branch_id, "status": {"$in": ["sent", "pending", "failed"]}},
+        )
+        if not phones_in_branch:
+            return []
+        phone_filter = {"phone": {"$in": phones_in_branch}}
+
+    # Latest outgoing per phone — from ALL branches (full context for collaboration)
     out_pipeline = [
-        {"$match": {"status": {"$in": ["sent", "pending", "failed"]}}},
+        {"$match": {"status": {"$in": ["sent", "pending", "failed"]}, **phone_filter}},
         {"$sort": {"created_at": -1}},
         {"$group": {
             "_id": "$phone",
@@ -570,11 +600,13 @@ async def list_conversations(user=Depends(get_current_user)):
             "last_time": {"$first": "$created_at"},
             "customer_name": {"$first": "$customer_name"},
             "customer_id": {"$first": "$customer_id"},
-            "direction": {"$first": "out"},
+            "branch_ids": {"$addToSet": "$branch_id"},
+            "branch_names": {"$addToSet": "$branch_name"},
         }},
     ]
-    # Get latest incoming per phone
+    # Latest incoming per phone
     in_pipeline = [
+        {"$match": phone_filter},
         {"$sort": {"created_at": -1}},
         {"$group": {
             "_id": "$phone",
@@ -582,7 +614,6 @@ async def list_conversations(user=Depends(get_current_user)):
             "last_time": {"$first": "$created_at"},
             "customer_name": {"$first": "$customer_name"},
             "customer_id": {"$first": "$customer_id"},
-            "direction": {"$first": "in"},
             "unread": {"$sum": {"$cond": [{"$eq": ["$read", False]}, 1, 0]}},
         }},
     ]
@@ -590,10 +621,12 @@ async def list_conversations(user=Depends(get_current_user)):
     out_items = await db.sms_queue.aggregate(out_pipeline).to_list(500)
     in_items = await db.sms_inbox.aggregate(in_pipeline).to_list(500)
 
-    # Merge — prefer whichever is most recent
+    # Merge — prefer whichever is most recent for the preview snippet
     merged = {}
     for item in out_items:
         phone = item["_id"]
+        branch_ids = [b for b in item.get("branch_ids", []) if b]
+        branch_names = [b for b in item.get("branch_names", []) if b]
         merged[phone] = {
             "phone": phone,
             "customer_name": item.get("customer_name", phone),
@@ -602,6 +635,8 @@ async def list_conversations(user=Depends(get_current_user)):
             "last_time": item.get("last_time", ""),
             "last_direction": "out",
             "unread": 0,
+            "branch_ids": branch_ids,
+            "branch_names": branch_names,
         }
     for item in in_items:
         phone = item["_id"]
@@ -621,6 +656,8 @@ async def list_conversations(user=Depends(get_current_user)):
                 "last_time": item.get("last_time", ""),
                 "last_direction": "in",
                 "unread": unread,
+                "branch_ids": [],
+                "branch_names": [],
             }
 
     result = sorted(merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
@@ -640,7 +677,7 @@ async def get_conversation(phone: str, user=Depends(get_current_user)):
     out_msgs = await db.sms_queue.find(
         {"phone": {"$in": phones}, "status": {"$in": ["sent", "pending", "failed"]}},
         {"_id": 0, "id": 1, "message": 1, "created_at": 1, "status": 1,
-         "customer_name": 1, "template_key": 1}
+         "customer_name": 1, "template_key": 1, "branch_id": 1, "branch_name": 1, "sent_by_name": 1}
     ).sort("created_at", 1).to_list(500)
     for m in out_msgs:
         m["direction"] = "out"

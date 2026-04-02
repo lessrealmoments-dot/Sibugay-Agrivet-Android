@@ -47,6 +47,9 @@ export default function MessagesPage() {
   const [stats, setStats] = useState({ pending: 0, sent: 0, failed: 0, skipped: 0, total: 0 });
   const [loading, setLoading] = useState(false);
 
+  // Company name for signature hint
+  const [companyName, setCompanyName] = useState('');
+
   // Conversations state
   const [conversations, setConversations] = useState([]);
   const [activeConvo, setActiveConvo] = useState(null);
@@ -115,7 +118,15 @@ export default function MessagesPage() {
   useEffect(() => { if (activeTab === 'queue') loadQueue(); }, [activeTab, loadQueue]);
   useEffect(() => { if (activeTab === 'templates') loadTemplates(); }, [activeTab, loadTemplates]);
   useEffect(() => { if (activeTab === 'settings') loadSettings(); }, [activeTab, loadSettings]);
-  useEffect(() => { if (activeTab === 'conversations') loadConversations(); }, [activeTab]);
+  // Reload conversations whenever the tab is active OR the branch selection changes
+  useEffect(() => { if (activeTab === 'conversations') loadConversations(); }, [activeTab, currentBranch]);
+
+  // Fetch company name once for the auto-signature hint
+  useEffect(() => {
+    api.get('/settings/business-info').then(res => {
+      setCompanyName(res.data.business_name || '');
+    }).catch(() => {});
+  }, []);
 
   // ── Conversations ──
   const loadConversations = async () => {
@@ -328,6 +339,21 @@ export default function MessagesPage() {
                         )}
                       </div>
                       <p className="text-[10px] text-slate-400 font-mono">{c.phone}</p>
+                      {/* Branch badges — shown when multiple branches are involved */}
+                      {c.branch_names?.length > 1 && (
+                        <div className="flex gap-1 mt-0.5 flex-wrap">
+                          {c.branch_names.filter(Boolean).map((bn, i) => (
+                            <span key={i} className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium ${
+                              bn === currentBranch?.name
+                                ? 'bg-[#1A4D2E] text-white'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>{bn}</span>
+                          ))}
+                        </div>
+                      )}
+                      {c.branch_names?.length === 1 && c.branch_names[0] && (
+                        <span className="text-[9px] text-slate-400">{c.branch_names[0]}</span>
+                      )}
                       <p className={`text-[10px] mt-0.5 truncate ${c.last_direction === 'in' ? 'text-[#1A4D2E] font-medium' : 'text-slate-400'}`}>
                         {c.last_direction === 'in' ? '← ' : '→ '}{c.last_message}
                       </p>
@@ -363,9 +389,21 @@ export default function MessagesPage() {
                       <Phone size={9} /> {activeConvo.phone}
                     </p>
                   </div>
-                  <button onClick={() => openConversation(activeConvo)} className="ml-auto text-slate-400 hover:text-slate-600">
-                    <RefreshCw size={13} className={threadLoading ? 'animate-spin' : ''} />
-                  </button>
+                  {/* Branch context pill */}
+                  <div className="ml-auto flex items-center gap-2">
+                    {currentBranch ? (
+                      <span className="text-[10px] bg-[#1A4D2E]/10 text-[#1A4D2E] px-2 py-0.5 rounded-full font-medium">
+                        {currentBranch.name}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-medium">
+                        All Branches
+                      </span>
+                    )}
+                    <button onClick={() => openConversation(activeConvo)} className="text-slate-400 hover:text-slate-600">
+                      <RefreshCw size={13} className={threadLoading ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Bubbles */}
@@ -378,15 +416,23 @@ export default function MessagesPage() {
                   )}
                   {thread.map((msg, i) => {
                     const isOut = msg.direction === 'out';
+                    const isMyBranch = !currentBranch || msg.branch_id === currentBranch?.id || !msg.branch_id;
                     return (
                       <div key={msg.id || i} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[70%] px-3 py-2 text-xs leading-relaxed shadow-sm ${
-                          isOut
+                          isOut && isMyBranch
                             ? 'bg-[#1A4D2E] text-white rounded-t-2xl rounded-bl-2xl rounded-br-sm'
+                            : isOut && !isMyBranch
+                            ? 'bg-blue-600 text-white rounded-t-2xl rounded-bl-2xl rounded-br-sm opacity-80'
                             : 'bg-slate-100 text-slate-800 rounded-t-2xl rounded-br-2xl rounded-bl-sm'
                         }`}>
-                          <p>{msg.message}</p>
+                          {/* Other-branch label */}
+                          {isOut && !isMyBranch && msg.branch_name && (
+                            <p className="text-[9px] font-semibold text-blue-200 mb-1">{msg.branch_name}</p>
+                          )}
+                          <p className="whitespace-pre-wrap">{msg.message}</p>
                           <p className={`text-[9px] mt-1 ${isOut ? 'text-white/60' : 'text-slate-400'}`}>
+                            {msg.sent_by_name && <span className="mr-1">{msg.sent_by_name} ·</span>}
                             {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : ''}
                             {isOut && msg.status && <span className="ml-1 opacity-60">· {msg.status}</span>}
                           </p>
@@ -397,16 +443,27 @@ export default function MessagesPage() {
                 </div>
 
                 {/* Reply box */}
-                <div className="px-4 py-3 border-t border-slate-100 flex items-center gap-2">
-                  <input value={replyMsg} onChange={e => setReplyMsg(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()}
-                    placeholder="Type a message…"
-                    className="flex-1 text-sm border border-slate-200 rounded-full px-4 py-2 outline-none focus:border-[#1A4D2E] transition-colors" />
-                  <button onClick={sendReply} disabled={replying || !replyMsg.trim()}
-                    className="w-9 h-9 rounded-full bg-[#1A4D2E] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#14532d] transition-colors"
-                    data-testid="send-reply-btn">
-                    {replying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  </button>
+                <div className="px-4 py-3 border-t border-slate-100">
+                  {/* Auto-signature hint — read-only, always appended by server */}
+                  {currentBranch && (
+                    <p className="text-[10px] text-slate-400 mb-1.5 flex items-center gap-1">
+                      <span className="font-mono bg-slate-50 border border-slate-200 rounded px-1.5 py-0.5 text-slate-500">
+                        Auto-signature: - {[companyName, currentBranch.name].filter(Boolean).join(' | ')}
+                      </span>
+                      <span className="text-slate-300">(cannot be removed)</span>
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <input value={replyMsg} onChange={e => setReplyMsg(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()}
+                      placeholder="Type a message…"
+                      className="flex-1 text-sm border border-slate-200 rounded-full px-4 py-2 outline-none focus:border-[#1A4D2E] transition-colors" />
+                    <button onClick={sendReply} disabled={replying || !replyMsg.trim()}
+                      className="w-9 h-9 rounded-full bg-[#1A4D2E] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#14532d] transition-colors"
+                      data-testid="send-reply-btn">
+                      {replying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    </button>
+                  </div>
                 </div>
               </>
             )}

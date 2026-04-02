@@ -11,7 +11,7 @@ import time
 import uuid
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://sms-multi-tenant.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://sms-sync-debug.preview.emergentagent.com').rstrip('/')
 
 # Test data storage
 TEST_DATA = {}

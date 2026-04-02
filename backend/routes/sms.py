@@ -471,8 +471,8 @@ async def send_promo_blast(data: dict, user=Depends(get_current_user)):
     customers = await db.customers.find(query, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(5000)
 
     # Get company name from settings
-    biz = await db.settings.find_one({"key": "business_info"}, {"_id": 0})
-    company_name = biz.get("value", {}).get("business_name", "AgriBooks") if biz else "AgriBooks"
+    biz = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
+    company_name = (biz or {}).get("value", {}).get("name", "")
 
     queued = 0
     for c in customers:

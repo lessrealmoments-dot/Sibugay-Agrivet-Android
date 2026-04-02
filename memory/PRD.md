@@ -33,9 +33,19 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 - `sms_hooks.py` resolves `org_id` from invoice's `branch_id` and passes to all hook calls
 - Scheduled jobs (`_daily_sms_reminders`, `_monthly_sms_summary`) now iterate per active organization using `_raw_db`
 - **Result:** Company A's Android gateway only sees Company A's `pending` queue; Company B's templates, settings, and queue are completely isolated
-- **Root Cause:** `ensure_org_context(branch_id=branch_id)` in `log_movement()` was setting the org ContextVar to the branch's organization ID mid-request. Subsequent `db.customers.find_one()` calls in `sms_hooks.py` then filtered by `organization_id`, missing customers who had no org tag (pre-migration data).
-- **Fix:** All `sms_hooks.py` and `queue_sms()` in `sms.py` now use `_raw_db` (unscoped MongoDB client) for all lookups, bypassing tenant isolation entirely. This is safe since IDs are UUIDs and the hooks are server-triggered, not user-scoped.
-- **Verified:** Credit sale → SMS queued `pending` immediately → Android gateway marks `sent`. All three hooks (credit sale, payment received, charge applied) now use `_raw_db`.
+
+### SMS Branch-Level Filtering & Auto-Signature (2026-04-02) — Complete
+- **Branch filter:** `GET /api/sms/conversations?branch_id=X` returns only conversations where that branch has outgoing history (customers that branch has messaged). Full thread still shown (collaboration model).
+- **Shared incoming:** Customer replies are always visible to all branches that have messaged that customer — enables cross-branch account collaboration.
+- **Auto-signature:** `POST /api/sms/send` now server-side appends `\n\n- {CompanyName} | {BranchName}` to every manual reply. Cannot be removed or edited by user.
+- **Sender attribution:** `sent_by_name` stored on every manual outgoing message (logged-in user's full_name).
+- **`GET /sms/conversation/{phone}`** now returns `branch_id`, `branch_name`, `sent_by_name` on outgoing messages.
+- **UI: Branch badges** — conversation list items show colored branch pills when customer has messages from multiple branches (green = current branch, blue = other).
+- **UI: Bubble color coding** — own-branch outgoing = dark green, other-branch outgoing = blue (dimmed), incoming = grey.
+- **UI: Thread header** — shows current branch name pill ("Branch 1" or "All Branches").
+- **UI: Auto-signature hint** — read-only label below reply box: `Auto-signature: - CompanyName | BranchName (cannot be removed)`.
+- **UI: Auto-reload** — conversations reload automatically when user switches branches.
+- **Fixed:** Blast endpoint was using wrong settings key (`business_info`); corrected to `company_info` to get real company name.
 
 ### QR Security Hardening (2026-03-17) — Complete
 - **Gap 1 fixed:** PIN brute-force lockout per doc_code. 5 failures → admin alert; 10 failures → 15-min 429 lockout. Auto-resets on success.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth, api } from '../contexts/AuthContext';
 import { formatPHP } from '../lib/utils';
 import { Button } from '../components/ui/button';
@@ -278,6 +278,18 @@ export default function UnifiedSalesPage() {
   // Closed-day enforcement
   const [lastCloseDate, setLastCloseDate] = useState(null);
   const [floorDate, setFloorDate] = useState(null); // earliest operational date — blocks dates before this
+  const [dateError, setDateError] = useState(null); // inline error shown below the Sale Date field
+
+  // Min selectable date for the date picker — day AFTER the last close date.
+  // The browser natively greys out every date before this, making closed dates visually obvious.
+  const minAllowedDate = useMemo(() => {
+    if (lastCloseDate) {
+      const d = new Date(lastCloseDate + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+    return floorDate || undefined;
+  }, [lastCloseDate, floorDate]);
 
   // Order header collapse
   const [headerCollapsed, setHeaderCollapsed] = useState(true);
@@ -1336,15 +1348,16 @@ export default function UnifiedSalesPage() {
   // Handle date selection from unclosed days banner OR the Sale Date field
   const handleEncodingDateChange = useCallback((date) => {
     if (floorDate && date < floorDate) {
-      toast.error(`${date} is before the system start date (${floorDate}). Cannot encode sales before the system existed.`, { duration: 5000 });
+      setDateError(`Cannot encode before system start date (${floorDate}).`);
       return;
     }
     if (isDateClosed(date)) {
-      toast.error(`${date} is already closed. Sales on closed days won't appear in Z-reports.`, { duration: 5000 });
+      setDateError(`${date} is a closed day — the last close was ${lastCloseDate}. Please choose a date after ${lastCloseDate}.`);
       return; // reject — don't update order_date
     }
+    setDateError(null);
     setHeader(h => ({ ...h, order_date: date }));
-  }, [isDateClosed, floorDate]);
+  }, [isDateClosed, floorDate, lastCloseDate]);
 
   // Handle manager override: retry the pending sale with override PIN
   const handleStockOverride = async (overridePin) => {
@@ -1668,12 +1681,28 @@ export default function UnifiedSalesPage() {
                     </Label>
                     <Input
                       type="date"
-                      className="h-9 border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] font-medium text-[#1A4D2E]"
+                      className={`h-9 font-medium ${dateError
+                        ? 'border-red-400 bg-red-50 text-red-700 focus:border-red-500'
+                        : 'border-[#1A4D2E]/40 bg-emerald-50 focus:border-[#1A4D2E] text-[#1A4D2E]'
+                      }`}
                       value={header.order_date}
-                      min={floorDate || undefined}
+                      min={minAllowedDate}
+                      max={localToday()}
                       onChange={e => handleEncodingDateChange(e.target.value)}
                       data-testid="sale-date-input"
                     />
+                    {/* Closed-through label — always visible when there's a close history */}
+                    {lastCloseDate && !dateError && (
+                      <p className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                        Closed through {lastCloseDate}
+                      </p>
+                    )}
+                    {/* Inline error — shown instead of a toast so it can't be missed */}
+                    {dateError && (
+                      <p className="text-[9px] text-red-600 font-medium mt-0.5 leading-tight">
+                        {dateError}
+                      </p>
+                    )}
                   </div>
                 </>
               )}

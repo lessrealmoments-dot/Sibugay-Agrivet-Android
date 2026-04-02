@@ -807,18 +807,27 @@ async def sent_from_device(data: dict, user=Depends(get_current_user)):
     customer = await _raw_db.customers.find_one(
         {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}],
          "organization_id": user.get("organization_id")},
-        {"_id": 0, "id": 1, "name": 1}
+        {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
     )
     if not customer:
         customer = await _raw_db.customers.find_one(
             {"$or": [{"phone": {"$in": phones}}, {"phones": {"$in": phones}}]},
-            {"_id": 0, "id": 1, "name": 1}
+            {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
         )
+
+    # Resolve organization_id — context var (company admin call) → branch lookup → user token
+    from config import get_org_context
+    org_id = get_org_context()
+    if not org_id and customer and customer.get("branch_id"):
+        br = await _raw_db.branches.find_one({"id": customer["branch_id"]}, {"_id": 0, "organization_id": 1})
+        org_id = (br or {}).get("organization_id", "")
+    if not org_id:
+        org_id = user.get("organization_id") or ""
 
     # Store as already-sent with Admin attribution, no branch scope
     doc = {
         "id": new_id(),
-        "organization_id": user.get("organization_id", ""),
+        "organization_id": org_id,
         "template_key": "custom",
         "customer_id": customer["id"] if customer else "",
         "customer_name": customer["name"] if customer else stored_phone,

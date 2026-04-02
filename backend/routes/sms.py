@@ -433,11 +433,8 @@ async def send_manual_sms(data: dict, user=Depends(get_current_user)):
         br = await db.branches.find_one({"id": branch_id}, {"_id": 0, "name": 1})
         branch_name = (br or {}).get("name", "")
 
-    # Auto-append signature server-side — cannot be removed or edited by the sender
-    biz = await db.settings.find_one({"key": "company_info"}, {"_id": 0})
-    company_name = (biz or {}).get("value", {}).get("name", "")
-    sig_parts = [p for p in [company_name, branch_name] if p]
-    message_with_sig = message + ("\n\n- " + " | ".join(sig_parts) if sig_parts else "")
+    # Auto-append short signature — identifies sender without leaking full company name
+    message_with_sig = message + "\n\n- SAS Admin"
 
     sent_by_name    = user.get("full_name") or user.get("email", "")
     organization_id = user.get("organization_id", "")

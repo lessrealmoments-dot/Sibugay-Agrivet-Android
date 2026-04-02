@@ -1085,6 +1085,7 @@ async def get_conversation_by_customer(customer_id: str, user=Depends(get_curren
 
 
 
+@router.get("/conversation/{phone}")
 async def get_conversation(phone: str, user=Depends(get_current_user)):
     """Get full message thread for a phone number — sent + received merged."""
     # Build all phone variants: 09... and +63... so old and new records are both found

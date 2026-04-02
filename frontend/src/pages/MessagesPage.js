@@ -170,7 +170,12 @@ export default function MessagesPage() {
         const params = { section: convoSection };
         if (convoSection === 'customers' && currentBranch?.id) params.branch_id = currentBranch.id;
         api.get('/sms/conversations', { params })
-          .then(res => setConversations(res.data || []))
+          .then(res => {
+            const sorted = (res.data || []).sort((a, b) =>
+              (b.last_time || '').localeCompare(a.last_time || '')
+            );
+            setConversations(sorted);
+          })
           .catch(() => {});
         // Keep unknown count badge fresh
         api.get('/sms/conversations', { params: { section: 'unknown' } })
@@ -195,12 +200,19 @@ export default function MessagesPage() {
   // Cleanup on unmount
   useEffect(() => () => clearInterval(pollIntervalRef.current), []);
 
-  // Auto-scroll thread to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (thread.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [thread.length]);
+
+  // Scroll to bottom immediately when opening a conversation (no animation)
+  useEffect(() => {
+    if (activeConvo && thread.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+    }
+  }, [activeConvo?.customer_id, activeConvo?.phone]); // eslint-disable-line
 
   // ── Conversations ──
   const loadConversations = async (section = convoSection) => {
@@ -208,7 +220,11 @@ export default function MessagesPage() {
       const params = { section };
       if (section === 'customers' && currentBranch?.id) params.branch_id = currentBranch.id;
       const res = await api.get('/sms/conversations', { params });
-      setConversations(res.data || []);
+      // Ensure most recent first on client side too
+      const sorted = (res.data || []).sort((a, b) =>
+        (b.last_time || '').localeCompare(a.last_time || '')
+      );
+      setConversations(sorted);
     } catch { /* ignore */ }
   };
 
@@ -526,7 +542,15 @@ export default function MessagesPage() {
                 </div>
               )}
               {conversations
-                .filter(c => !convoSearch || c.customer_name?.toLowerCase().includes(convoSearch.toLowerCase()) || c.phone?.includes(convoSearch))
+                .filter(c => {
+                  if (!convoSearch) return true;
+                  const q = convoSearch.toLowerCase();
+                  return (
+                    c.customer_name?.toLowerCase().includes(q) ||
+                    c.phone?.includes(convoSearch) ||
+                    c.phones?.some(p => p.includes(convoSearch))
+                  );
+                })
                 .map(c => {
                   const isUnknown = convoSection === 'unknown';
                   return (

@@ -47,6 +47,15 @@ export default function MessagesPage() {
   const [stats, setStats] = useState({ pending: 0, sent: 0, failed: 0, skipped: 0, total: 0 });
   const [loading, setLoading] = useState(false);
 
+  // Conversations state
+  const [conversations, setConversations] = useState([]);
+  const [activeConvo, setActiveConvo] = useState(null);
+  const [thread, setThread] = useState([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [replyMsg, setReplyMsg] = useState('');
+  const [replying, setReplying] = useState(false);
+  const [convoSearch, setConvoSearch] = useState('');
+
   // Compose state
   const [customers, setCustomers] = useState([]);
   const [custSearch, setCustSearch] = useState('');
@@ -106,6 +115,47 @@ export default function MessagesPage() {
   useEffect(() => { if (activeTab === 'queue') loadQueue(); }, [activeTab, loadQueue]);
   useEffect(() => { if (activeTab === 'templates') loadTemplates(); }, [activeTab, loadTemplates]);
   useEffect(() => { if (activeTab === 'settings') loadSettings(); }, [activeTab, loadSettings]);
+  useEffect(() => { if (activeTab === 'conversations') loadConversations(); }, [activeTab]);
+
+  // ── Conversations ──
+  const loadConversations = async () => {
+    try {
+      const res = await api.get('/sms/conversations');
+      setConversations(res.data || []);
+    } catch { /* ignore */ }
+  };
+
+  const openConversation = async (convo) => {
+    setActiveConvo(convo);
+    setThreadLoading(true);
+    try {
+      const res = await api.get(`/sms/conversation/${encodeURIComponent(convo.phone)}`);
+      setThread(res.data.messages || []);
+      // Refresh to clear unread
+      loadConversations();
+    } catch { setThread([]); }
+    setThreadLoading(false);
+  };
+
+  const sendReply = async () => {
+    if (!activeConvo || !replyMsg.trim()) return;
+    setReplying(true);
+    try {
+      await api.post('/sms/send', {
+        phone: activeConvo.phone,
+        customer_name: activeConvo.customer_name,
+        customer_id: activeConvo.customer_id || '',
+        message: replyMsg,
+        branch_id: currentBranch?.id || '',
+        branch_name: currentBranch?.name || '',
+      });
+      setReplyMsg('');
+      toast.success('Message queued');
+      openConversation(activeConvo);
+    } catch (e) { toast.error('Failed to send'); }
+    setReplying(false);
+  };
+
 
   // ── Queue actions ──
   const markSent = async (id) => {
@@ -224,7 +274,8 @@ export default function MessagesPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 pb-px" data-testid="messages-tabs">
         {[
-          { key: 'queue', label: 'Message Queue', icon: MessageSquare },
+          { key: 'conversations', label: 'Conversations', icon: MessageSquare },
+          { key: 'queue', label: 'Message Queue', icon: Clock },
           { key: 'compose', label: 'Compose', icon: Send },
           { key: 'blast', label: 'Promo Blast', icon: Megaphone },
           { key: 'templates', label: 'Templates', icon: FileText },
@@ -244,6 +295,124 @@ export default function MessagesPage() {
           );
         })}
       </div>
+
+      {/* ═══ CONVERSATIONS TAB ═══ */}
+      {activeTab === 'conversations' && (
+        <div className="flex gap-4 h-[calc(100vh-220px)]">
+          {/* Left — conversation list */}
+          <div className="w-72 shrink-0 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white">
+            <div className="px-3 py-2.5 border-b border-slate-100 flex items-center gap-2">
+              <Search size={13} className="text-slate-400" />
+              <input value={convoSearch} onChange={e => setConvoSearch(e.target.value)}
+                placeholder="Search conversations…"
+                className="flex-1 text-xs outline-none bg-transparent text-slate-700 placeholder-slate-400" />
+              <button onClick={loadConversations} className="text-slate-400 hover:text-slate-600">
+                <RefreshCw size={12} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+              {conversations.length === 0 && (
+                <div className="text-center text-slate-400 text-xs py-12">No conversations yet</div>
+              )}
+              {conversations
+                .filter(c => !convoSearch || c.customer_name?.toLowerCase().includes(convoSearch.toLowerCase()) || c.phone?.includes(convoSearch))
+                .map(c => (
+                <button key={c.phone} onClick={() => openConversation(c)}
+                  className={`w-full text-left px-3 py-3 hover:bg-slate-50 transition-colors ${activeConvo?.phone === c.phone ? 'bg-[#f0f7f3]' : ''}`}>
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-slate-800 truncate">{c.customer_name}</span>
+                        {c.unread > 0 && (
+                          <span className="shrink-0 bg-[#1A4D2E] text-white text-[9px] font-bold rounded-full px-1.5 py-0.5">{c.unread}</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono">{c.phone}</p>
+                      <p className={`text-[10px] mt-0.5 truncate ${c.last_direction === 'in' ? 'text-[#1A4D2E] font-medium' : 'text-slate-400'}`}>
+                        {c.last_direction === 'in' ? '← ' : '→ '}{c.last_message}
+                      </p>
+                    </div>
+                    <span className="text-[9px] text-slate-300 shrink-0 mt-0.5">
+                      {c.last_time ? new Date(c.last_time).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : ''}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right — thread */}
+          <div className="flex-1 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white">
+            {!activeConvo ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+                <div className="text-center">
+                  <MessageSquare size={32} className="mx-auto mb-2 opacity-30" />
+                  <p>Select a conversation</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Thread header */}
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#1A4D2E] flex items-center justify-center text-white text-xs font-bold">
+                    {activeConvo.customer_name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{activeConvo.customer_name}</p>
+                    <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                      <Phone size={9} /> {activeConvo.phone}
+                    </p>
+                  </div>
+                  <button onClick={() => openConversation(activeConvo)} className="ml-auto text-slate-400 hover:text-slate-600">
+                    <RefreshCw size={13} className={threadLoading ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+
+                {/* Bubbles */}
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+                  {threadLoading && (
+                    <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-slate-400" /></div>
+                  )}
+                  {!threadLoading && thread.length === 0 && (
+                    <div className="text-center text-slate-400 text-xs py-8">No messages yet</div>
+                  )}
+                  {thread.map((msg, i) => {
+                    const isOut = msg.direction === 'out';
+                    return (
+                      <div key={msg.id || i} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[70%] px-3 py-2 text-xs leading-relaxed shadow-sm ${
+                          isOut
+                            ? 'bg-[#1A4D2E] text-white rounded-t-2xl rounded-bl-2xl rounded-br-sm'
+                            : 'bg-slate-100 text-slate-800 rounded-t-2xl rounded-br-2xl rounded-bl-sm'
+                        }`}>
+                          <p>{msg.message}</p>
+                          <p className={`text-[9px] mt-1 ${isOut ? 'text-white/60' : 'text-slate-400'}`}>
+                            {msg.created_at ? new Date(msg.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : ''}
+                            {isOut && msg.status && <span className="ml-1 opacity-60">· {msg.status}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Reply box */}
+                <div className="px-4 py-3 border-t border-slate-100 flex items-center gap-2">
+                  <input value={replyMsg} onChange={e => setReplyMsg(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply()}
+                    placeholder="Type a message…"
+                    className="flex-1 text-sm border border-slate-200 rounded-full px-4 py-2 outline-none focus:border-[#1A4D2E] transition-colors" />
+                  <button onClick={sendReply} disabled={replying || !replyMsg.trim()}
+                    className="w-9 h-9 rounded-full bg-[#1A4D2E] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#14532d] transition-colors"
+                    data-testid="send-reply-btn">
+                    {replying ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ═══ QUEUE TAB ═══ */}
       {activeTab === 'queue' && (

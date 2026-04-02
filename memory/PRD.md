@@ -22,7 +22,12 @@ Build a full-featured POS system called **AgriBooks** with multi-tenant, multi-b
 
 ## What's Been Implemented
 
-### SMS Multi-Tenant Isolation (2026-04-01) — Complete
+### SMS Inbox + Conversations (2026-04-02) — Complete
+- Added `sms_inbox` to TENANT_COLLECTIONS — per-company inbox isolation
+- `POST /api/sms/inbox` — gateway app posts incoming customer replies
+- `GET /api/sms/conversations` — merged sent+received list grouped by phone, sorted by latest
+- `GET /api/sms/conversation/{phone}` — full bubble thread (direction: in/out) + marks inbox read
+- Messages page: new **Conversations** tab — left panel shows contact list with unread badge, right panel shows WhatsApp-style bubbles (green=sent, gray=received) + reply box
 - Added `sms_queue`, `sms_templates`, `sms_settings` to `TENANT_COLLECTIONS` — all REST endpoints auto-scoped via TenantCollection
 - `queue_sms()` now accepts `organization_id` param; uses org-scoped dedup; falls back to global templates if org-specific template not yet customized
 - `sms_hooks.py` resolves `org_id` from invoice's `branch_id` and passes to all hook calls

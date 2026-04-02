@@ -53,6 +53,7 @@ TENANT_COLLECTIONS = {
     'sms_queue',                     # Outbound SMS queue per company
     'sms_templates',                 # Customizable message templates per company
     'sms_settings',                  # Per-trigger enable/disable settings per company
+    'sms_inbox',                     # Incoming SMS replies from customers per company
 }
 
 

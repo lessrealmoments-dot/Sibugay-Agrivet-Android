@@ -510,3 +510,154 @@ async def sms_stats(user=Depends(get_current_user)):
         "skipped": stats.get("skipped", 0),
         "total": sum(stats.values()),
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INBOX — Incoming SMS from gateway phone (replies from customers)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/inbox")
+async def receive_inbox_sms(data: dict, user=Depends(get_current_user)):
+    """Gateway app posts incoming customer replies here."""
+    phone = (data.get("phone") or "").strip()
+    message = (data.get("message") or "").strip()
+    if not phone or not message:
+        raise HTTPException(status_code=400, detail="phone and message required")
+
+    # Normalize phone — strip country code prefix if present
+    normalized = phone.lstrip("+")
+    if normalized.startswith("63") and len(normalized) > 10:
+        normalized = "0" + normalized[2:]
+
+    # Try to match customer by phone
+    customer = await _raw_db.customers.find_one(
+        {"phone": {"$in": [phone, normalized]}, "organization_id": user.get("organization_id")},
+        {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
+    )
+    if not customer:
+        customer = await _raw_db.customers.find_one(
+            {"phone": {"$in": [phone, normalized]}},
+            {"_id": 0, "id": 1, "name": 1, "branch_id": 1}
+        )
+
+    doc = {
+        "id": new_id(),
+        "phone": phone,
+        "message": message,
+        "direction": "in",
+        "customer_id": customer["id"] if customer else "",
+        "customer_name": customer["name"] if customer else phone,
+        "branch_id": customer.get("branch_id", "") if customer else "",
+        "received_at": data.get("received_at", now_iso()),
+        "created_at": now_iso(),
+        "read": False,
+    }
+    await db.sms_inbox.insert_one(doc)
+    del doc["_id"]
+    return doc
+
+
+@router.get("/conversations")
+async def list_conversations(user=Depends(get_current_user)):
+    """List all conversations grouped by phone — latest message first."""
+    # Get latest outgoing per phone
+    out_pipeline = [
+        {"$match": {"status": {"$in": ["sent", "pending", "failed"]}}},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": "$phone",
+            "last_message": {"$first": "$message"},
+            "last_time": {"$first": "$created_at"},
+            "customer_name": {"$first": "$customer_name"},
+            "customer_id": {"$first": "$customer_id"},
+            "direction": {"$first": "out"},
+        }},
+    ]
+    # Get latest incoming per phone
+    in_pipeline = [
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": "$phone",
+            "last_message": {"$first": "$message"},
+            "last_time": {"$first": "$created_at"},
+            "customer_name": {"$first": "$customer_name"},
+            "customer_id": {"$first": "$customer_id"},
+            "direction": {"$first": "in"},
+            "unread": {"$sum": {"$cond": [{"$eq": ["$read", False]}, 1, 0]}},
+        }},
+    ]
+
+    out_items = await db.sms_queue.aggregate(out_pipeline).to_list(500)
+    in_items = await db.sms_inbox.aggregate(in_pipeline).to_list(500)
+
+    # Merge — prefer whichever is most recent
+    merged = {}
+    for item in out_items:
+        phone = item["_id"]
+        merged[phone] = {
+            "phone": phone,
+            "customer_name": item.get("customer_name", phone),
+            "customer_id": item.get("customer_id", ""),
+            "last_message": item.get("last_message", ""),
+            "last_time": item.get("last_time", ""),
+            "last_direction": "out",
+            "unread": 0,
+        }
+    for item in in_items:
+        phone = item["_id"]
+        unread = item.get("unread", 0)
+        if phone in merged:
+            if item.get("last_time", "") > merged[phone]["last_time"]:
+                merged[phone]["last_message"] = item.get("last_message", "")
+                merged[phone]["last_time"] = item.get("last_time", "")
+                merged[phone]["last_direction"] = "in"
+            merged[phone]["unread"] = unread
+        else:
+            merged[phone] = {
+                "phone": phone,
+                "customer_name": item.get("customer_name", phone),
+                "customer_id": item.get("customer_id", ""),
+                "last_message": item.get("last_message", ""),
+                "last_time": item.get("last_time", ""),
+                "last_direction": "in",
+                "unread": unread,
+            }
+
+    result = sorted(merged.values(), key=lambda x: x.get("last_time", ""), reverse=True)
+    return result
+
+
+@router.get("/conversation/{phone}")
+async def get_conversation(phone: str, user=Depends(get_current_user)):
+    """Get full message thread for a phone number — sent + received merged."""
+    # Normalize for lookup
+    normalized = phone.lstrip("+")
+    if normalized.startswith("63") and len(normalized) > 10:
+        normalized = "0" + normalized[2:]
+    phones = list({phone, normalized})
+
+    # Outgoing messages
+    out_msgs = await db.sms_queue.find(
+        {"phone": {"$in": phones}, "status": {"$in": ["sent", "pending", "failed"]}},
+        {"_id": 0, "id": 1, "message": 1, "created_at": 1, "status": 1,
+         "customer_name": 1, "template_key": 1}
+    ).sort("created_at", 1).to_list(500)
+    for m in out_msgs:
+        m["direction"] = "out"
+
+    # Incoming messages
+    in_msgs = await db.sms_inbox.find(
+        {"phone": {"$in": phones}},
+        {"_id": 0, "id": 1, "message": 1, "created_at": 1, "customer_name": 1}
+    ).sort("created_at", 1).to_list(500)
+    for m in in_msgs:
+        m["direction"] = "in"
+        m["status"] = "received"
+
+    # Mark inbox as read
+    await db.sms_inbox.update_many({"phone": {"$in": phones}}, {"$set": {"read": True}})
+
+    all_msgs = sorted(out_msgs + in_msgs, key=lambda x: x.get("created_at", ""))
+    customer_name = all_msgs[0].get("customer_name", phone) if all_msgs else phone
+    return {"phone": phone, "customer_name": customer_name, "messages": all_msgs}
+

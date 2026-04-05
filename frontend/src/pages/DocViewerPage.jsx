@@ -9,6 +9,7 @@ import {
   ShieldCheck, RefreshCw, Search, Boxes, Banknote, Wifi, Camera, X, MapPin
 } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import PrintEngine from '../lib/PrintEngine';
 import PrintBridge from '../lib/PrintBridge';
 
@@ -968,7 +969,7 @@ export default function DocViewerPage() {
   };
 
   // Reprint using PrintEngine (proper formatted receipt, not raw window.print)
-  const handleReprint = (format = 'thermal') => {
+  const handleReprint = async (format = 'thermal') => {
     if (!fullData?.document) return;
     const doc = fullData.document;
     let docType;
@@ -976,7 +977,11 @@ export default function DocViewerPage() {
     else if (basic.doc_type === 'purchase_order') docType = 'purchase_order';
     else if (basic.doc_type === 'branch_transfer') docType = 'branch_transfer';
     else docType = 'order_slip';
-    PrintBridge.print({ type: docType, data: doc, format, businessInfo, docCode: code?.toUpperCase() });
+    try {
+      await PrintBridge.print({ type: docType, data: doc, format, businessInfo, docCode: code?.toUpperCase() });
+    } catch (e) {
+      toast.error(e?.message || 'Print failed — check printer service on device');
+    }
   };
 
   // Cross-branch TOTP verification — only 6-digit time-based code accepted

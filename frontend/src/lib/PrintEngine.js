@@ -42,38 +42,63 @@ function qrImgTag(code, size = 120) {
     </div>`;
 }
 
-// ── Thermal Receipt CSS ─────────────────────────────────────────────────────
+/** QR encodes plain text (e.g. invoice number) when there is no doc_code yet. */
+function qrImgTagPlain(text, size = 80) {
+  if (!text) return '';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}&margin=4`;
+  return `
+    <div class="qr-block">
+      <img src="${qrUrl}" alt="QR" width="${size}" height="${size}" />
+      <div class="qr-code-text" style="font-size:9px">${String(text).replace(/</g, '')}</div>
+      <div class="qr-hint">Scan for reference</div>
+    </div>`;
+}
+
+// ── Thermal Receipt CSS (58mm / ~384px — use full WebView width; printer still has ~1–2mm dead zone) ──
 const thermalCSS = `
   @page { size: 58mm auto; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.3; width: 58mm; padding: 2mm; color: #000; }
-  .header { text-align: center; margin-bottom: 4px; }
-  .header .biz-name { font-size: 12px; font-weight: bold; text-transform: uppercase; }
-  .header .biz-detail { font-size: 8px; }
-  .doc-title { text-align: center; font-size: 11px; font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 3px 0; margin: 4px 0; letter-spacing: 1px; }
-  .meta-row { display: flex; justify-content: space-between; font-size: 9px; }
-  .meta-row .label { color: #444; }
-  .sep { border-top: 1px dashed #000; margin: 3px 0; }
-  .items-table { width: 100%; font-size: 9px; }
-  .items-table td { padding: 1px 0; vertical-align: top; }
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+  body {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    line-height: 1.35;
+    padding: 2px 3px;
+    color: #000;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+  .header { text-align: center; margin-bottom: 5px; }
+  .header .biz-name { font-size: 13px; font-weight: bold; text-transform: uppercase; line-height: 1.2; }
+  .header .biz-detail { font-size: 9px; line-height: 1.25; }
+  .doc-title { text-align: center; font-size: 12px; font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin: 4px 0; letter-spacing: 0.5px; }
+  .meta-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; font-size: 10px; }
+  .meta-row > span { min-width: 0; }
+  .meta-row > span:last-child { text-align: right; }
+  .meta-row .label { color: #444; flex-shrink: 0; }
+  .sep { border-top: 1px dashed #000; margin: 4px 0; }
+  .items-table { width: 100%; table-layout: fixed; font-size: 10px; border-collapse: collapse; }
+  .items-table td { padding: 2px 0; vertical-align: top; word-break: break-word; }
   .items-table .item-name { font-weight: bold; }
-  .items-table .item-detail { padding-left: 8px; font-size: 8px; color: #333; }
-  .items-table .item-total { text-align: right; font-weight: bold; }
-  .totals { margin-top: 4px; }
-  .totals .row { display: flex; justify-content: space-between; font-size: 9px; padding: 1px 0; }
-  .totals .grand { font-size: 12px; font-weight: bold; border-top: 1px solid #000; padding-top: 3px; margin-top: 2px; }
-  .payment-info { margin-top: 4px; font-size: 9px; }
-  .trust-terms { margin-top: 6px; font-size: 7px; line-height: 1.2; border-top: 1px dashed #000; padding-top: 4px; }
-  .trust-terms .terms-title { font-weight: bold; font-size: 8px; margin-bottom: 2px; text-align: center; }
+  .items-table .item-detail { width: 58%; padding-left: 4px; font-size: 9px; color: #333; }
+  .items-table .item-total { width: 42%; text-align: right; font-weight: bold; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .totals { margin-top: 5px; }
+  .totals .row { display: flex; justify-content: space-between; gap: 4px; font-size: 10px; padding: 2px 0; }
+  .totals .row > span { min-width: 0; }
+  .totals .row > span:last-child { text-align: right; white-space: nowrap; }
+  .totals .grand { font-size: 13px; font-weight: bold; border-top: 1px solid #000; padding-top: 4px; margin-top: 2px; }
+  .payment-info { margin-top: 5px; font-size: 10px; }
+  .trust-terms { margin-top: 6px; font-size: 8px; line-height: 1.25; border-top: 1px dashed #000; padding-top: 4px; word-break: break-word; }
+  .trust-terms .terms-title { font-weight: bold; font-size: 9px; margin-bottom: 2px; text-align: center; }
   .signature-line { margin-top: 16px; text-align: center; }
   .signature-line .line { border-top: 1px solid #000; width: 70%; margin: 0 auto; }
-  .signature-line .sig-label { font-size: 7px; color: #666; margin-top: 2px; }
-  .footer { text-align: center; font-size: 7px; color: #666; margin-top: 6px; border-top: 1px dashed #000; padding-top: 4px; }
+  .signature-line .sig-label { font-size: 8px; color: #666; margin-top: 2px; }
+  .footer { text-align: center; font-size: 8px; color: #666; margin-top: 6px; border-top: 1px dashed #000; padding-top: 4px; line-height: 1.25; }
   .qr-block { text-align: center; margin: 6px 0 4px; }
-  .qr-block img { display: block; margin: 0 auto; }
-  .qr-code-text { font-size: 10px; font-weight: bold; letter-spacing: 2px; margin-top: 2px; }
-  .qr-hint { font-size: 7px; color: #666; }
-  @media print { body { width: 58mm; } }
+  .qr-block img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .qr-code-text { font-size: 11px; font-weight: bold; letter-spacing: 1px; margin-top: 2px; word-break: break-all; }
+  .qr-hint { font-size: 8px; color: #666; }
+  @media print { body { width: 100%; max-width: 100%; } }
 `;
 
 // ── Full Page CSS (Professional Template) ───────────────────────────────────
@@ -528,11 +553,12 @@ function orderSlipThermal(data, biz, docCode) {
     if (change > 0) html += `<div class="meta-row"><span class="label">Change:</span><span>${formatPHP(change)}</span></div>`;
   }
   html += '</div>';
-  if (docCode) html += qrImgTag(docCode, 80);
+  if (docCode) html += qrImgTag(docCode, 92);
+  else if (inv.invoice_number) html += qrImgTagPlain(`Invoice ${inv.invoice_number}`, 92);
   // Acknowledgment
   const todayThermal = fmtDate(new Date().toISOString());
   html += '<div class="sep"></div>';
-  html += `<div style="font-size:7px;line-height:1.4;margin:4px 0">I acknowledge receipt of the items listed above in good physical condition and complete.</div>`;
+  html += `<div style="font-size:8px;line-height:1.45;margin:4px 0">I acknowledge receipt of the items listed above in good physical condition and complete.</div>`;
   html += `<div class="meta-row" style="margin-top:14px"><span class="label">Customer Signature:</span><span>______________</span></div>`;
   html += `<div class="meta-row" style="margin-top:10px"><span class="label">Printed Name:</span><span>______________</span></div>`;
   html += `<div class="meta-row" style="margin-top:6px"><span class="label">Date:</span><span>${todayThermal}</span></div>`;
@@ -561,7 +587,7 @@ function trustReceiptThermal(data, biz, docCode) {
   const terms = (biz.trust_receipt_terms || '').replace('{business_name}', biz.business_name || '');
   if (terms) html += `<div class="trust-terms"><div class="terms-title">TERMS</div>${terms}</div>`;
   html += '<div class="signature-line"><div style="margin-top:20px"></div><div class="line"></div><div class="sig-label">Customer Signature &amp; Printed Name</div></div>';
-  if (docCode) html += qrImgTag(docCode, 80);
+  if (docCode) html += qrImgTag(docCode, 92);
   html += `<div class="footer">${TAX_DISCLAIMER}</div>`;
   return html;
 }
@@ -579,7 +605,7 @@ function returnSlipThermal(data, biz, docCode) {
   html += '<div class="totals">';
   html += `<div class="row grand"><span>REFUND</span><span>${formatPHP(r.refund_amount || r.total_refund || 0)}</span></div>`;
   html += '</div>';
-  if (docCode) html += qrImgTag(docCode, 80);
+  if (docCode) html += qrImgTag(docCode, 92);
   html += `<div class="footer">${biz.receipt_footer || ''}</div>`;
   return html;
 }
@@ -604,7 +630,7 @@ function purchaseOrderThermal(data, biz, docCode) {
   html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(po.grand_total)}</span></div>`;
   if (po.balance > 0) html += `<div class="row" style="font-weight:bold"><span>BALANCE</span><span>${formatPHP(po.balance)}</span></div>`;
   html += '</div>';
-  if (docCode) html += qrImgTag(docCode, 80);
+  if (docCode) html += qrImgTag(docCode, 92);
   html += `<div class="footer">${biz.receipt_footer || 'AgriBooks — Purchase Order'}</div>`;
   return html;
 }
@@ -635,7 +661,7 @@ function branchTransferThermal(data, biz, docCode) {
   html += `<div class="row"><span>Items</span><span>${items.length}</span></div>`;
   html += `<div class="row grand"><span>TOTAL</span><span>${formatPHP(totalTransfer)}</span></div>`;
   html += '</div>';
-  if (docCode) html += qrImgTag(docCode, 80);
+  if (docCode) html += qrImgTag(docCode, 92);
   html += `<div class="footer">AgriBooks — Branch Transfer</div>`;
   return html;
 }

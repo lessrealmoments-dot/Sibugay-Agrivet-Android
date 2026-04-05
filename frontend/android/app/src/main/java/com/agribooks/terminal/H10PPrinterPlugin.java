@@ -1,19 +1,20 @@
 package com.agribooks.terminal;
 
-import android.content.ComponentName;
+import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.os.IBinder;
-import android.os.RemoteException;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -21,83 +22,50 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import recieptservice.com.recieptservice.PrinterInterface;
+import com.sr.SrPrinter;
+
+import java.lang.reflect.Field;
 
 /**
- * H10PPrinterPlugin — Capacitor native bridge to the H10P built-in 58mm thermal printer.
- *
- * Service: recieptservice.com.recieptservice.service.PrinterService
- * SDK:     printer-release.aar (in app/libs/)
- *
- * Flow:
- *   JS calls printHtml({ html, format })
- *     → renders HTML to Bitmap via headless WebView (same receipt as browser)
- *     → binds to PrinterService
- *     → printer.beginWork() → printer.printBitmap(bitmap) → printer.endWork()
- *
- * Printer width:
- *   58mm thermal  = 384px @ 203 DPI
- *   Full page     = 576px (A4 width approximation)
+ * H10PPrinterPlugin — Senraise H10P: HTML → WebView → Bitmap → SrPrinter.
+ * WebView must use Activity context and be attached to the window for layout/draw on many devices.
  */
 @CapacitorPlugin(name = "H10PPrinter")
 public class H10PPrinterPlugin extends Plugin {
 
     private static final String TAG = "H10PPrinter";
 
-    private PrinterInterface printer = null;
-    private boolean printerConnected = false;
-
-    private final ServiceConnection printerServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            printer = PrinterInterface.Stub.asInterface(service);
-            printerConnected = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            printer = null;
-            printerConnected = false;
-        }
-    };
-
-    @Override
-    public void load() {
-        bindPrinterService();
-    }
-
-    /**
-     * Binds to the vendor printer service (separate APK: recieptservice).
-     * Returns false if bind could not be queued (package missing, etc.).
-     */
-    private boolean bindPrinterService() {
+    /** JSON numbers from JS often arrive as Double in JSObject. */
+    private static int optInt(PluginCall call, String key, int def) {
         try {
-            Intent intent = new Intent();
-            intent.setClassName(
-                "recieptservice.com.recieptservice",
-                "recieptservice.com.recieptservice.service.PrinterService"
-            );
-            boolean ok = getContext().bindService(intent, printerServiceConnection, Context.BIND_AUTO_CREATE);
-            if (!ok) {
-                Log.e(TAG, "bindService returned false — is the Receipt Printer service (recieptservice.com.recieptservice) installed on this device?");
-            }
-            return ok;
-        } catch (Exception e) {
-            Log.e(TAG, "bindPrinterService failed", e);
-            return false;
+            Object v = call.getData().opt(key);
+            if (v == null) return def;
+            if (v instanceof Integer) return (Integer) v;
+            if (v instanceof Double) return ((Double) v).intValue();
+            if (v instanceof Long) return ((Long) v).intValue();
+            if (v instanceof String) return Integer.parseInt((String) v);
+        } catch (Exception ignored) {
         }
+        return def;
     }
 
-    /**
-     * bindService() is asynchronous; onServiceConnected runs later. Printing immediately
-     * used to always fail. Wait up to timeoutMs for the connection.
-     */
-    private boolean waitForPrinterConnection(long timeoutMs) {
-        bindPrinterService();
+    private static boolean waitForSrPrinterReady(Context appContext, long timeoutMs) {
+        SrPrinter.getInstance(appContext);
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
-            if (printerConnected && printer != null) {
-                return true;
+            try {
+                Field f = SrPrinter.class.getDeclaredField("printerInterface");
+                f.setAccessible(true);
+                if (f.get(null) != null) {
+                    Log.e(TAG, "waitForSrPrinterReady: bound OK");
+                    return true;
+                }
+            } catch (NoSuchFieldException e) {
+                Log.e(TAG, "SrPrinter field printerInterface missing", e);
+                return false;
+            } catch (Exception e) {
+                Log.e(TAG, "waitForSrPrinterReady reflect error", e);
+                return false;
             }
             try {
                 Thread.sleep(100);
@@ -106,164 +74,308 @@ public class H10PPrinterPlugin extends Plugin {
                 break;
             }
         }
-        if (!printerConnected || printer == null) {
-            Log.e(TAG, "Printer service not ready after " + timeoutMs + "ms (connected=" + printerConnected + ", printer=" + (printer != null) + ")");
+        Log.e(TAG, "waitForSrPrinterReady: TIMEOUT — try printing anyway (SrPrinter may still work)");
+        return true;
+    }
+
+    private static boolean isSrPrinterBound() {
+        try {
+            Field f = SrPrinter.class.getDeclaredField("printerInterface");
+            f.setAccessible(true);
+            return f.get(null) != null;
+        } catch (Exception e) {
+            return false;
         }
-        return printerConnected && printer != null;
+    }
+
+    @Override
+    public void load() {
+        try {
+            SrPrinter.getInstance(getContext().getApplicationContext());
+        } catch (Exception e) {
+            Log.w(TAG, "SrPrinter warm-up", e);
+        }
     }
 
     /**
-     * printHtml — accepts HTML string from PrintBridge.js, renders it to bitmap,
-     * and sends to the H10P printer SDK.
-     *
-     * Called from JS:
-     *   H10PPrinter.printHtml({ html: '<html>...</html>', format: 'thermal' | 'full_page' })
+     * Trim blank rows from bottom of receipt bitmap so the printer does not feed endless white paper.
      */
+    private static Bitmap trimTrailingBlank(Bitmap src) {
+        if (src == null || src.isRecycled()) return src;
+        int w = src.getWidth();
+        int h = src.getHeight();
+        if (h < 30 || w < 8) return src;
+        final int whiteThreshold = 250;
+        int bottom = h - 1;
+        while (bottom > 24) {
+            if (!isRowMostlyBlank(src, w, bottom, whiteThreshold)) break;
+            bottom--;
+        }
+        bottom += 16;
+        if (bottom >= h - 2) return src;
+        try {
+            Bitmap out = Bitmap.createBitmap(src, 0, 0, w, bottom + 1);
+            if (out != src) src.recycle();
+            Log.e(TAG, "trimTrailingBlank " + h + " -> " + (bottom + 1));
+            return out;
+        } catch (Exception e) {
+            Log.e(TAG, "trimTrailingBlank failed", e);
+            return src;
+        }
+    }
+
+    private static boolean isRowMostlyBlank(Bitmap b, int width, int y, int thr) {
+        int step = Math.max(1, width / 40);
+        for (int x = 0; x < width; x += step) {
+            int p = b.getPixel(x, y);
+            if (Color.red(p) < thr || Color.green(p) < thr || Color.blue(p) < thr) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @PluginMethod
     public void printHtml(PluginCall call) {
         final String html = call.getString("html");
         final String format = call.getString("format", "thermal");
+        final int feedLinesAfter = optInt(call, "feedLinesAfter", 4);
+
+        Log.e(TAG, "printHtml ENTRY len=" + (html != null ? html.length() : 0));
 
         if (html == null || html.isEmpty()) {
             call.reject("html is required");
             return;
         }
 
-        // 58mm @ 203 DPI = 384px; full page approximation = 576px
         final int widthPx = "full_page".equals(format) ? 576 : 384;
+        final Context appCtx = getContext().getApplicationContext();
 
-        // Wait for AIDL bind off the UI thread (bind is async; immediate print always lost the race).
         new Thread(() -> {
-            boolean ready = waitForPrinterConnection(12000);
-            if (!ready) {
-                call.reject("Printer service not connected. On H10P/Senraise devices, ensure the Receipt Printer service app (package recieptservice.com.recieptservice) is installed — ask your supplier if printing still fails.");
-                return;
+            boolean waited = waitForSrPrinterReady(appCtx, 12000);
+            if (!waited) {
+                Log.e(TAG, "wait returned false (unexpected)");
             }
 
-            android.app.Activity activity = getActivity();
+            final Activity activity = getActivity();
             if (activity == null) {
+                Log.e(TAG, "getActivity() null");
                 call.reject("Cannot print: app activity is not ready.");
                 return;
             }
 
-            activity.runOnUiThread(() -> renderHtmlToBitmap(html, widthPx, bitmap -> {
+            activity.runOnUiThread(() -> renderHtmlToBitmap(activity, html, widthPx, bitmap -> {
                 if (bitmap == null) {
+                    Log.e(TAG, "bitmap null after WebView render");
                     call.reject("Failed to render receipt HTML to bitmap");
                     return;
                 }
 
-                new Thread(() -> {
+                Bitmap toPrint = trimTrailingBlank(bitmap);
+
+                try {
+                    SrPrinter sp = SrPrinter.getInstance(appCtx);
+                    Log.e(TAG, "Printing bitmap " + toPrint.getWidth() + "x" + toPrint.getHeight()
+                        + " cfg=" + toPrint.getConfig());
                     try {
-                        printer.beginWork();
-                        printer.printBitmap(bitmap);
-                        printer.nextLine(3);   // Feed 3 blank lines so receipt tears cleanly
-                        printer.endWork();
-                        bitmap.recycle();
-                        call.resolve(new JSObject().put("success", true));
-                    } catch (RemoteException e) {
-                        call.reject("Print SDK error: " + e.getMessage());
-                    } catch (Exception e) {
-                        call.reject("Print failed: " + e.getMessage());
+                        sp.printBitmap(toPrint);
+                    } catch (Exception e1) {
+                        Log.e(TAG, "printBitmap err, try immediately", e1);
+                        sp.printBitmapImmediately(toPrint);
                     }
-                }).start();
+                    int feed = Math.max(0, Math.min(feedLinesAfter, 24));
+                    if (feed > 0) sp.nextLine(feed);
+                    toPrint.recycle();
+                    call.resolve(new JSObject().put("success", true));
+                    Log.e(TAG, "printHtml SUCCESS");
+                } catch (Exception e) {
+                    Log.e(TAG, "SrPrinter failed", e);
+                    try {
+                        toPrint.recycle();
+                    } catch (Exception ignored) {
+                    }
+                    call.reject("Print failed: " + e.getMessage());
+                }
             }));
         }, "h10p-print-wait").start();
     }
 
     /**
-     * checkStatus — returns whether the printer service is bound and ready.
-     * Called from JS as a health check before showing print buttons.
+     * Advance paper without printing (e.g. align tear line after an uneven cut).
+     * lines: typically 4–12 for a few mm on 58mm printers.
      */
+    @PluginMethod
+    public void feedPaper(PluginCall call) {
+        int lines = optInt(call, "lines", 6);
+        lines = Math.max(1, Math.min(lines, 40));
+        final int feed = lines;
+        final Context appCtx = getContext().getApplicationContext();
+        final Activity activity = getActivity();
+        if (activity == null) {
+            call.reject("Activity not ready");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                SrPrinter.getInstance(appCtx).nextLine(feed);
+                call.resolve(new JSObject().put("success", true));
+            } catch (Exception e) {
+                Log.e(TAG, "feedPaper", e);
+                call.reject("Feed failed: " + e.getMessage());
+            }
+        });
+    }
+
     @PluginMethod
     public void checkStatus(PluginCall call) {
         new Thread(() -> {
-            waitForPrinterConnection(4000);
+            Context appCtx = getContext().getApplicationContext();
+            SrPrinter.getInstance(appCtx);
+            waitForSrPrinterReady(appCtx, 4000);
             JSObject result = new JSObject();
-            result.put("connected", printerConnected && printer != null);
+            result.put("connected", isSrPrinterBound());
             call.resolve(result);
         }, "h10p-status").start();
     }
 
     /**
-     * Render an HTML string to a Bitmap using a headless (off-screen) WebView.
-     * The WebView is sized to widthPx wide and expands vertically to fit content.
-     * Callback is called on the main thread with the rendered Bitmap.
+     * Attach WebView to activity content so Chromium lays out; then capture to bitmap.
      */
-    private void renderHtmlToBitmap(String html, int widthPx, BitmapCallback callback) {
-        WebView webView = new WebView(getContext());
+    private void renderHtmlToBitmap(Activity activity, String html, int widthPx, BitmapCallback callback) {
+        Log.e(TAG, "renderHtmlToBitmap start widthPx=" + widthPx);
+
+        final ViewGroup root = activity.findViewById(android.R.id.content);
+        final WebView webView = new WebView(activity);
         webView.setBackgroundColor(Color.WHITE);
 
         WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(false); // No JS needed for receipt rendering
+        settings.setJavaScriptEnabled(false);
         settings.setLoadWithOverviewMode(false);
         settings.setUseWideViewPort(false);
         settings.setTextZoom(100);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Initial measure at the target width
-        webView.measure(
-            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        );
+        final int maxHeight = 16000;
+        FrameLayout.LayoutParams wvLp = new FrameLayout.LayoutParams(widthPx, maxHeight);
+        wvLp.leftMargin = -10000;
+        wvLp.topMargin = 0;
+        webView.setLayoutParams(wvLp);
+
+        final FrameLayout holder = new FrameLayout(activity);
+        FrameLayout.LayoutParams holderLp = new FrameLayout.LayoutParams(widthPx, maxHeight);
+        holderLp.leftMargin = -10000;
+        holder.setLayoutParams(holderLp);
+        holder.addView(webView);
+
+        final Runnable[] cleanup = new Runnable[1];
+        cleanup[0] = () -> {
+            try {
+                root.removeView(holder);
+            } catch (Exception ignored) {
+            }
+            try {
+                webView.destroy();
+            } catch (Exception ignored) {
+            }
+        };
+
+        final boolean[] done = {false};
+        final Runnable finishFail = () -> {
+            if (done[0]) return;
+            done[0] = true;
+            cleanup[0].run();
+            callback.onBitmap(null);
+        };
+
+        final Handler main = new Handler(Looper.getMainLooper());
+        main.postDelayed(() -> {
+            if (!done[0]) {
+                Log.e(TAG, "WebView capture TIMEOUT");
+                finishFail.run();
+            }
+        }, 25000);
+
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onProgressChanged(WebView view, int progress) {
+                if (progress == 100) {
+                    Log.e(TAG, "WebView progress 100");
+                }
+            }
+        });
+
+        final boolean hasRemoteImg = html != null && html.contains("<img");
+        final long captureDelayMs = hasRemoteImg ? 2400L : 600L;
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
-                view.post(() -> {
-                    // Determine rendered content height
-                    int contentHeight = view.getContentHeight();
-                    if (contentHeight <= 0) contentHeight = 2000;
-
-                    // Lay out at the final size
-                    view.measure(
-                        View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-                        View.MeasureSpec.makeMeasureSpec(contentHeight, View.MeasureSpec.EXACTLY)
-                    );
-                    view.layout(0, 0, widthPx, contentHeight);
-
-                    // Render to bitmap
-                    try {
-                        Bitmap bitmap = Bitmap.createBitmap(widthPx, contentHeight, Bitmap.Config.RGB_565);
-                        Canvas canvas = new Canvas(bitmap);
-                        canvas.drawColor(Color.WHITE);
-                        view.draw(canvas);
-                        callback.onBitmap(bitmap);
-                    } catch (OutOfMemoryError e) {
-                        callback.onBitmap(null);
-                    } finally {
-                        view.destroy();
-                    }
-                });
+                Log.e(TAG, "onPageFinished url=" + url + " captureDelayMs=" + captureDelayMs);
+                view.postDelayed(() -> captureToBitmap(view, widthPx, bitmap -> {
+                    if (done[0]) return;
+                    done[0] = true;
+                    cleanup[0].run();
+                    callback.onBitmap(bitmap);
+                }), captureDelayMs);
             }
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                // Still attempt to render whatever loaded
-                view.post(() -> {
-                    int h = Math.max(view.getContentHeight(), 200);
-                    view.measure(
-                        View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-                        View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)
-                    );
-                    view.layout(0, 0, widthPx, h);
-                    Bitmap bitmap = Bitmap.createBitmap(widthPx, h, Bitmap.Config.RGB_565);
-                    Canvas canvas = new Canvas(bitmap);
-                    canvas.drawColor(Color.WHITE);
-                    view.draw(canvas);
-                    callback.onBitmap(bitmap);
-                    view.destroy();
-                });
+                Log.e(TAG, "onReceivedError " + errorCode + " " + description + " " + failingUrl);
+                view.postDelayed(() -> {
+                    if (done[0]) return;
+                    done[0] = true;
+                    int h = Math.max(view.getContentHeight(), 400);
+                    captureSized(view, widthPx, h, bitmap -> {
+                        cleanup[0].run();
+                        callback.onBitmap(bitmap);
+                    });
+                }, 500);
             }
         });
 
-        // Load the HTML. Note: no base URL needed (receipt is self-contained except QR image).
-        // External QR image (api.qrserver.com) loads over internet — H10P has 4G.
+        root.addView(holder);
+        Log.e(TAG, "loadDataWithBaseURL…");
         webView.loadDataWithBaseURL(
-            "https://agri-books.com",   // baseUrl for relative resource resolution
+            "https://agri-books.com",
             html,
             "text/html",
             "UTF-8",
             null
         );
+    }
+
+    private void captureToBitmap(WebView view, int widthPx, BitmapCallback callback) {
+        int contentHeight = view.getContentHeight();
+        Log.e(TAG, "capture contentHeight=" + contentHeight);
+        if (contentHeight <= 0) {
+            contentHeight = 1200;
+        }
+        contentHeight = Math.min(contentHeight + 40, 8000);
+        captureSized(view, widthPx, contentHeight, callback);
+    }
+
+    private void captureSized(WebView view, int widthPx, int heightPx, BitmapCallback callback) {
+        try {
+            view.measure(
+                View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY)
+            );
+            view.layout(0, 0, widthPx, heightPx);
+
+            Bitmap bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            canvas.drawColor(Color.WHITE);
+            view.draw(canvas);
+            Log.e(TAG, "captureSized OK " + widthPx + "x" + heightPx);
+            callback.onBitmap(bitmap);
+        } catch (OutOfMemoryError e) {
+            Log.e(TAG, "OOM bitmap", e);
+            callback.onBitmap(null);
+        } catch (Exception e) {
+            Log.e(TAG, "captureSized", e);
+            callback.onBitmap(null);
+        }
     }
 
     interface BitmapCallback {

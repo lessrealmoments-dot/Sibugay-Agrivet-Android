@@ -27,17 +27,51 @@ import { H10PPrinter } from './H10PPrinterPlugin';
 
 let _nativePrinterReady = null; // Cached status check promise
 
+/** Embed remote QR images as data URLs so the Android print WebView captures them reliably. */
+async function inlineQrServerImages(html) {
+  if (!html || !html.includes('api.qrserver.com')) return html;
+  const urlRegex = /https:\/\/api\.qrserver\.com\/v1\/create-qr-code\/[^"'>\s]+/g;
+  const urls = [...new Set(html.match(urlRegex) || [])];
+  let out = html;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      const b64 = btoa(binary);
+      const ct = res.headers.get('content-type') || 'image/png';
+      const dataUrl = `data:${ct};base64,${b64}`;
+      out = out.split(url).join(dataUrl);
+    } catch (e) {
+      console.warn('[PrintBridge] QR inline failed', e);
+    }
+  }
+  return out;
+}
+
 const PrintBridge = {
   /**
    * Main print function — matches PrintEngine.print() signature exactly.
    * Drop-in replacement: swap `import PrintEngine` → `import PrintBridge`.
    */
-  async print({ type, data, format = 'thermal', businessInfo = {}, docCode = '' }) {
+  /**
+   * @param {object} opts
+   * @param {number} [opts.feedLinesAfter] - Blank lines after bitmap (default 4). Use 6–10 if tear cut is tight.
+   */
+  async print({ type, data, format = 'thermal', businessInfo = {}, docCode = '', feedLinesAfter } = {}) {
     if (Capacitor.isNativePlatform()) {
       // Native H10P path: generate HTML then send to the printer SDK
       try {
-        const html = PrintEngine.generateHtml({ type, data, format, businessInfo, docCode });
-        await H10PPrinter.printHtml({ html, format });
+        let html = PrintEngine.generateHtml({ type, data, format, businessInfo, docCode });
+        html = await inlineQrServerImages(html);
+        const payload = { html, format };
+        if (feedLinesAfter != null && Number.isFinite(Number(feedLinesAfter))) {
+          payload.feedLinesAfter = Math.max(0, Math.min(24, Math.round(Number(feedLinesAfter))));
+        }
+        await H10PPrinter.printHtml(payload);
       } catch (err) {
         console.error('[PrintBridge] Native print failed:', err);
         // Fallback: let the user know the printer isn't ready
@@ -73,6 +107,13 @@ const PrintBridge = {
   /** Pass-through so callers don't need to import PrintEngine for doc type detection */
   getDocType(invoice) {
     return PrintEngine.getDocType(invoice);
+  },
+
+  /** Advance paper only (H10P / SrPrinter). No-op in browser. */
+  async feedPaper(lines = 8) {
+    if (!Capacitor.isNativePlatform()) return;
+    const n = Math.max(1, Math.min(40, Math.round(Number(lines)) || 8));
+    await H10PPrinter.feedPaper({ lines: n });
   },
 };
 

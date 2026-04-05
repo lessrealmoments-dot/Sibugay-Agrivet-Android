@@ -14,6 +14,9 @@ import { registerPlugin } from '@capacitor/core';
  * Delegates to window.open + window.print() exactly as PrintEngine does.
  */
 const H10PPrinterWeb = {
+  async feedPaper() {
+    return { success: true };
+  },
   async printHtml({ html, format }) {
     const winWidth = format === 'full_page' ? 900 : 400;
     const win = window.open('', '_blank', `width=${winWidth},height=700`);

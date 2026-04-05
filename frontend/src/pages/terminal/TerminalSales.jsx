@@ -780,29 +780,66 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
               <span className="font-mono font-bold text-slate-800">{lastSaleData?.invoice_number}</span>
             </p>
             <p className="text-lg font-bold text-[#1A4D2E]">{formatPHP(lastSaleData?.grand_total || 0)}</p>
-            <p className="text-xs text-slate-500">Would you like to print a receipt?</p>
+            <p className="text-xs text-slate-500">Print a receipt, or feed paper after a rough cut.</p>
             <div className="space-y-2 pt-1">
               <Button onClick={async () => {
                 try {
-                  await PrintBridge.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'thermal', businessInfo });
+                  const docCode = lastSaleData?.doc_code || lastSaleData?.docCode || '';
+                  await PrintBridge.print({
+                    type: PrintEngine.getDocType(lastSaleData),
+                    data: lastSaleData,
+                    format: 'thermal',
+                    businessInfo,
+                    docCode,
+                    feedLinesAfter: 4,
+                  });
+                  toast.success('Sent to printer');
                 } catch (e) {
                   toast.error(e?.message || 'Print failed — check printer service on device');
                   return;
                 }
-                setShowPrintPrompt(false); setLastSaleData(null);
               }} className="w-full bg-[#1A4D2E] hover:bg-[#15412a] text-white h-11" data-testid="print-thermal-btn">
                 <Printer size={16} className="mr-2" /> Print Receipt (58mm)
               </Button>
               <Button variant="outline" onClick={async () => {
                 try {
-                  await PrintBridge.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'full_page', businessInfo });
+                  const docCode = lastSaleData?.doc_code || lastSaleData?.docCode || '';
+                  await PrintBridge.print({
+                    type: PrintEngine.getDocType(lastSaleData),
+                    data: lastSaleData,
+                    format: 'thermal',
+                    businessInfo,
+                    docCode,
+                    feedLinesAfter: 10,
+                  });
+                  toast.success('Extra feed after print');
+                } catch (e) {
+                  toast.error(e?.message || 'Print failed');
+                }
+              }} className="w-full h-9 text-xs border-dashed" data-testid="print-thermal-extra-feed-btn">
+                Print again + more feed (cleaner tear)
+              </Button>
+              <Button variant="outline" onClick={async () => {
+                try {
+                  const docCode = lastSaleData?.doc_code || lastSaleData?.docCode || '';
+                  await PrintBridge.print({ type: PrintEngine.getDocType(lastSaleData), data: lastSaleData, format: 'full_page', businessInfo, docCode });
+                  toast.success('Full page sent to printer');
                 } catch (e) {
                   toast.error(e?.message || 'Print failed — check printer service on device');
                   return;
                 }
-                setShowPrintPrompt(false); setLastSaleData(null);
               }} className="w-full h-10" data-testid="print-full-btn">
                 <Printer size={14} className="mr-2" /> Print Full Page
+              </Button>
+              <Button variant="ghost" onClick={async () => {
+                try {
+                  await PrintBridge.feedPaper(10);
+                  toast.success('Paper advanced');
+                } catch (e) {
+                  toast.error(e?.message || 'Feed failed');
+                }
+              }} className="w-full h-9 text-xs text-slate-600" data-testid="feed-paper-btn">
+                Feed paper only (~10 lines)
               </Button>
               {lastSaleData?.release_mode === 'partial' && lastSaleData?.doc_code && (
                 <Button
@@ -816,7 +853,7 @@ export default function TerminalSales({ api, session, isOnline, pendingCount, se
               )}
               <Button variant="ghost" onClick={() => { setShowPrintPrompt(false); setLastSaleData(null); }}
                 className="w-full text-slate-500" data-testid="skip-print-btn">
-                Skip
+                Done (close)
               </Button>
             </div>
           </div>

@@ -892,3 +892,7 @@ frontend/node_modules/.cache/default-development/1.pack_
 # Environment files
 *.env
 *.env.*
+
+# Local Emergent repo clone (analysis only)
+_emergent_tenant_clone/
+

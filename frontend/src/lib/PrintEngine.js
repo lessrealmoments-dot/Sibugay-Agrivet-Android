@@ -54,6 +54,13 @@ function qrImgTagPlain(text, size = 80) {
     </div>`;
 }
 
+/**
+ * H10P native print captures a 384px-wide bitmap. High-DPI WebViews otherwise lay out like a phone
+ * (2x/3x), so text/rows read as ~2× too wide and clip. Lock the layout viewport to 384 CSS px.
+ * (Emergent Option A — web-only; no APK rebuild.)
+ */
+const THERMAL_VIEWPORT_META = '<meta name="viewport" content="width=384, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">';
+
 // ── Thermal Receipt CSS (58mm / ~384px — use full WebView width; printer still has ~1–2mm dead zone) ──
 const thermalCSS = `
   @page { size: 58mm auto; margin: 0; }
@@ -715,7 +722,8 @@ const PrintEngine = {
         body = format === 'thermal' ? orderSlipThermal(data, businessInfo, docCode) : orderSlipFullPage(data, businessInfo, docCode);
     }
     // No window.print() script — the native plugin handles printing
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Receipt</title><style>${css}</style></head><body>${body}</body></html>`;
+    const vp = format === 'thermal' ? THERMAL_VIEWPORT_META : '';
+    return `<!DOCTYPE html><html><head><meta charset="utf-8">${vp}<title>Receipt</title><style>${css}</style></head><body>${body}</body></html>`;
   },
 
   print({ type, data, format = 'thermal', businessInfo = {}, docCode = '' }) {
@@ -770,7 +778,8 @@ const PrintEngine = {
 })();
 </script>`;
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Print</title><style>${css}</style></head><body>${body}${printScript}</body></html>`;
+    const vp = format === 'thermal' ? THERMAL_VIEWPORT_META : '';
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">${vp}<title>Print</title><style>${css}</style></head><body>${body}${printScript}</body></html>`;
     const win = window.open('', '_blank', `width=${winWidth},height=700`);
     if (!win) { alert('Please allow popups to print'); return; }
     win.document.write(html);
